@@ -1,0 +1,11 @@
+# 원자료 캐시는 커밋하지 않는다 — SP500·ICE·Moody's 원값은 재배포 금지(CI에서는 actions/cache로 러너 간 유지)
+data/fred/
+# D2 전까지 monthly_regime.py의 기본 출력 경로 — 원자료 캐시가 들어가므로 커밋 금지
+_news-to-macro/
+
+# 공개 검사어 목록(실명·학교·학회 등) — 로컬 전용. CI에서는 GitHub Secret BLIND_PATTERNS
+.blind_patterns
+
+.env
+__pycache__/
+*.pyc
