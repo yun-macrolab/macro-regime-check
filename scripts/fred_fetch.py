@@ -127,8 +127,8 @@ def pct_change_days(series, days):
 
 
 def step_excluded_yoy(series, step, base_days=364):
-    """주간 증분 합으로 계산한 YoY(%). |증분| ≥ step인 주(재분류 계단)는 제외한다.
-    보고서 00장 7절 #2의 규칙: 한 주에 +$40bn 이상 뛰면 그 주를 빼고 읽는다."""
+    """주간 증분 합으로 계산한 YoY(%). 증분이 +step 이상인 주(재분류로 보이는 계단)는 제외한다.
+    규칙: 한 주에 +$40bn 이상 뛰면 그 주를 빼고 읽는다. 감소는 빼지 않는다 — 실제 급감을 가리지 않게."""
     if not series:
         return None
     d1, v1 = series[-1]
@@ -140,7 +140,7 @@ def step_excluded_yoy(series, step, base_days=364):
         if not (base[0] < d <= d1):
             continue
         diff = v - prev
-        if abs(diff) >= step:
+        if diff >= step:
             excluded.append((d, diff))
         else:
             incl += diff

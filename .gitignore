@@ -1,7 +1,8 @@
-# 원자료 캐시는 커밋하지 않는다 — SP500·ICE·Moody's 원값은 재배포 금지(CI에서는 actions/cache로 러너 간 유지)
-data/fred/
-# D2 전까지 monthly_regime.py의 기본 출력 경로 — 원자료 캐시가 들어가므로 커밋 금지
-_news-to-macro/
+# 작업 폴더 — 재배포가 제한된 시리즈(S&P·ICE·Moody's) 원값이 들어가므로 커밋·배포하지 않는다
+#   .work/fred/  원자료 캐시 (CI에서는 actions/cache로 러너 간 유지)
+#   .work/raw/   원본 계산 결과 — 공개본은 render_public.py가 만든 data/public.json
+# 사이트 폴더(data/)와 분리해 두는 이유: Pages 배포 아티팩트는 .gitignore를 따르지 않는다
+.work/
 
 # 공개 검사어 목록(실명·학교·학회 등) — 로컬 전용. CI에서는 GitHub Secret BLIND_PATTERNS
 .blind_patterns
