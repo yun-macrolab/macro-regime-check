@@ -1,0 +1,152 @@
+# 평일 아침 자동 갱신: 공개 전 검사·테스트 → FRED 수집·판정 → 공개본·상태 기록 → 봇 커밋 → Pages 배포
+#
+# 순서와 이유
+#   check   모든 실행에서 먼저. 공개 전 검사(check_blind)와 단위 테스트가 통과해야 뒤로 간다.
+#   update  예약·수동 실행에서만. 수집·공개본 생성은 실패해도 멈추지 않고(continue-on-error) 상태 파일에 실패를 남긴다
+#           → 페이지는 직전 공개본 + 실패 배너를 보여 준다. 새 산출물까지 다시 검사한 뒤에만 커밋한다.
+#   deploy  data/·site/만 Pages로. 스크립트·원자료(.work/)는 배포하지 않는다.
+#   alert   수집·생성이 실패한 날은 마지막에 실행을 실패로 끝내 GitHub 알림 메일을 받는다.
+#
+# 원자료 캐시(actions/cache)는 쓰지 않는다 — 재배포가 제한된 시리즈(S&P·ICE·Moody's) 원값이 러너 밖에 남지 않게.
+# 캐시가 없으면 FRED가 일부 시리즈만 실패한 날 그 값은 비고(2개까지 허용), 3개 이상이면 그날은 기록하지 않는다.
+# 액션은 커밋 SHA로 고정한다(태그가 옮겨져도 코드가 바뀌지 않게). 올릴 때는 SHA와 주석의 버전을 함께 바꾼다.
+
+name: daily
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 22 * * 1-5"   # UTC 월~금 22:17 = KST 화~토 07:17 (미국 영업일 다음 날 아침). 수십 분 늦을 수 있다
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0   # 공개 전 검사는 과거 커밋 전체를 본다(얕은 클론이면 검사 불가로 멈춘다)
+      # 브랜치·태그는 위 checkout이 받는다. notes만 더 받는다.
+      # PR 참조(refs/pull)는 받지 않는다 — 이 저장소는 PR을 쓰지 않고, 남이 연 PR이 검사를 영구히 막거나
+      # (지울 수 없는 참조) 공개 로그로 검사어를 떠보는 통로가 되지 않게.
+      - name: notes 받기
+        run: git fetch --quiet origin '+refs/notes/*:refs/notes/*'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: 공개 전 검사
+        env:
+          BLIND_PATTERNS: ${{ secrets.BLIND_PATTERNS }}
+        run: python scripts/check_blind.py
+      - name: 단위 테스트
+        run: python -m unittest discover -s scripts
+
+  update:
+    needs: check
+    # main에서만 — 다른 브랜치에서 수동 실행하면 그 브랜치 커밋이 main으로 밀려 올라간다
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write   # 봇이 data/를 커밋한다
+    outputs:
+      ok: ${{ steps.status.outputs.ok }}
+      publish: ${{ steps.commit.outputs.publish }}
+      sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: 수집·판정 (FRED 22개 시리즈)
+        id: fetch
+        continue-on-error: true
+        run: python scripts/regime_check.py
+      - name: 공개본 만들기
+        id: render
+        if: steps.fetch.outcome == 'success'
+        continue-on-error: true
+        run: python scripts/render_public.py
+      - name: 상태 기록
+        id: status
+        env:
+          FETCH: ${{ steps.fetch.outcome }}
+          RENDER: ${{ steps.render.outcome }}
+        run: |
+          mkdir -p data
+          python scripts/write_status.py --fetch "$FETCH" --render "$RENDER"
+          echo "ok=$(python -c 'import json; print(str(json.load(open("data/status.json"))["ok"]).lower())')" >> "$GITHUB_OUTPUT"
+      - name: notes 받기
+        run: git fetch --quiet origin '+refs/notes/*:refs/notes/*'
+      - name: 공개 전 검사(새 산출물 포함)
+        env:
+          BLIND_PATTERNS: ${{ secrets.BLIND_PATTERNS }}
+        run: python scripts/check_blind.py
+      - name: 봇 커밋
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "변경 없음"
+          else
+            git commit --quiet -m "data: $(date -u +%F) 자동 갱신"
+            git pull --quiet --rebase origin main
+            git push --quiet origin HEAD:main
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"   # deploy는 검사를 거친 이 커밋을 배포한다
+
+  deploy:
+    needs: [check, update]
+    if: >-
+      always() && needs.check.result == 'success' &&
+      (github.event_name == 'push' || needs.update.outputs.publish == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # 검사를 거친 커밋 — 예약 실행은 봇이 방금 올린 커밋, push는 그 커밋(실행 중 main에 새로 들어온 것은 아님)
+          ref: ${{ needs.update.outputs.sha || github.sha }}
+      - name: 사이트 조립(site/ + data/만)
+        run: |
+          mkdir -p _site/data
+          cp -r site/. _site/
+          if [ -d data ]; then cp -r data/. _site/data/; fi
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  alert:
+    needs: [update, deploy]
+    if: always() && needs.update.result == 'success' && needs.update.outputs.ok != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 갱신 실패 알림
+        run: |
+          echo "::error::오늘 갱신 실패 — 페이지는 직전 공개본과 실패 배너를 보여 준다. 원인은 update 잡의 수집·판정 단계 로그"
+          exit 1

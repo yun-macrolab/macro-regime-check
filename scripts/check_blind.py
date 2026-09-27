@@ -18,8 +18,10 @@
 UTF-8 텍스트로 읽을 수 없는 것(바이너리·UTF-16·CP949·압축 문서·Git LFS 포인터, UTF-8이 아닌 파일 이름)은
   검사할 수 없으므로 통과시키지 않는다.
 종료코드: 0 통과 / 1 발견 / 2 검사 불가(검사어 없음·읽을 수 없는 것·얕은 클론·grafts·git 오류·예기치 못한 오류) — 2는 통과가 아니다.
-CI: actions/checkout에 fetch-depth: 0, 그리고 검사 전에 원격의 ref 전부를 받는다
-  (git fetch origin '+refs/*:refs/remote-all/*') — refs/pull·notes처럼 기본으로 안 받는 ref도 공개로 남기 때문.
+CI: actions/checkout에 fetch-depth: 0(브랜치·태그 전부) + notes를 따로 받는다.
+  PR 참조(refs/pull)는 받지 않는다 — 이 저장소는 PR을 쓰지 않고, 남이 연 PR이 검사를 영구히 막거나 공개 로그로
+  검사어를 떠보는 통로가 되지 않게. PR을 쓰게 되면 자기 PR만 골라 받도록 다시 설계할 것.
+로컬: .githooks/pre-push가 push 전에 이 검사를 돌린다(git config core.hooksPath .githooks). CI 검사는 이미 공개된 뒤에 돈다.
 """
 import html, os, re, subprocess, sys, unicodedata
 

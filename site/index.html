@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>공개 통계 규칙 점검</title>
+<meta name="description" content="FRED 공개 통계에 미리 정한 규칙을 적용해 평일 아침 자동으로 갱신하는 점검표">
+<style>
+  :root {
+    --bg: #fbfbfa; --fg: #1d1d1f; --muted: #6b6b70; --line: #e3e3e0; --card: #ffffff;
+    --met: #9a5b00; --met-bg: #fff4e0; --unk-bg: #f1f1ef; --bad: #b3261e; --bad-bg: #fdecea; --link: #1f5fbf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151517; --fg: #ececee; --muted: #a0a0a8; --line: #2e2e33; --card: #1d1d21;
+      --met: #ffc46b; --met-bg: #3a2c12; --unk-bg: #26262b; --bad: #ff8a80; --bad-bg: #3b1d1b; --link: #8ab4ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 15px/1.6 system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 32px 0 8px; }
+  a { color: var(--link); }
+  .sub, .muted, small { color: var(--muted); }
+  .banner { border-radius: 8px; padding: 10px 12px; margin: 16px 0; background: var(--bad-bg); color: var(--bad); }
+  .status { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 16px 0; background: var(--card); }
+  .rule { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 10px 0; background: var(--card); }
+  .rule h3 { font-size: 1rem; margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .pill { font-size: .78rem; border-radius: 999px; padding: 1px 8px; border: 1px solid var(--line); white-space: nowrap; }
+  .pill.met { color: var(--met); background: var(--met-bg); border-color: transparent; font-weight: 600; }
+  .pill.unknown { background: var(--unk-bg); border-style: dashed; }
+  .rule p { margin: 6px 0; }
+  ul.obs { margin: 6px 0 0; padding-left: 18px; }
+  ul.obs li { overflow-wrap: anywhere; }
+  details { margin: 8px 0; }
+  .health li { overflow-wrap: anywhere; }
+  footer { margin-top: 40px; font-size: .85rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>공개 통계 규칙 점검</h1>
+  <div class="sub">FRED 공개 통계에 미리 정한 규칙을 적용한 결과 · 평일 아침 자동 갱신 · <a href="https://github.com/yun-macrolab/macro-regime-check">코드</a></div>
+  <noscript><p class="banner">이 페이지는 자바스크립트로 data/public.json을 읽어 그린다. <a href="data/public.json">JSON 직접 보기</a></p></noscript>
+  <div id="banner" class="banner" hidden></div>
+  <div id="status" class="status">불러오는 중…</div>
+  <p id="notice" class="muted"></p>
+
+  <h2 id="summary">규칙</h2>
+  <div id="rules"></div>
+
+  <h2>자료 상태</h2>
+  <details>
+    <summary id="health-summary">시리즈별 마지막 관측일</summary>
+    <ul id="health" class="health"></ul>
+    <ul id="warnings" class="muted"></ul>
+  </details>
+
+  <footer>
+    <div id="attribution"></div>
+    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · 날짜별 기록은 저장소의 data/history/</p>
+  </footer>
+</main>
+<script>
+"use strict";
+// 예약 실행: UTC 월~금 22:17(.github/workflows/daily.yml). cron 지연을 3시간까지 봐준다
+const RUN_UTC = { hour: 22, minute: 17 }, GRACE_MS = 3 * 36e5;
+const STATUS_TEXT = { met: "충족", not_met: "미충족", unknown: "판정 불가" };
+
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) node.setAttribute(k, v);
+  for (const c of children) if (c !== null && c !== undefined) node.append(c);   // 문자열은 텍스트로만 들어간다
+  return node;
+}
+function kst(iso) {
+  if (!iso) return "없음";
+  return new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit" }) + " (KST)";
+}
+function safeUrl(u) {
+  return typeof u === "string" && /^https:\/\/(fred\.stlouisfed\.org|github\.com)\//.test(u) ? u : null;
+}
+function link(text, url) {
+  const u = safeUrl(url);
+  return u ? el("a", { href: u, rel: "noopener" }, text) : document.createTextNode(text);
+}
+async function getJson(path) {
+  const r = await fetch(path, { cache: "no-store" });
+  if (!r.ok) throw new Error(path + " " + r.status);
+  return r.json();
+}
+function showBanner(text) {
+  const b = document.getElementById("banner");
+  b.textContent = text;
+  b.hidden = false;
+}
+
+// 지금(여유 시간 뺀 시각) 이전의 마지막 예약 실행 시각 — 이것보다 오래된 성공이면 예약 실행이 빠진 것이다
+function lastScheduledRun(now) {
+  const t = new Date(now.getTime() - GRACE_MS);
+  const d = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate(), RUN_UTC.hour, RUN_UTC.minute));
+  while (d > t || d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
+  return d;
+}
+
+function renderStatus(st) {
+  const box = document.getElementById("status");
+  box.replaceChildren(
+    el("div", {}, "기준일 ", el("strong", {}, st.data_date || "없음"), " · 마지막 성공 ", kst(st.last_success)),
+    el("div", { class: "muted" }, "최근 실행 ", kst(st.checked_at), " · ", st.message || "",
+      st.run_url ? " · " : null, st.run_url ? link("실행 로그", st.run_url) : null));
+  if (!st.ok) showBanner("최근 실행이 실패했다 — 아래는 직전에 성공한 결과다.");
+  else if (!st.last_success || new Date(st.last_success) < lastScheduledRun(new Date()))
+    showBanner("예정된 자동 갱신이 반영되지 않았다 — 실행이 멈췄거나 실패했을 수 있다. 아래는 마지막으로 성공한 결과다.");
+}
+
+function renderRule(r) {
+  const obs = el("ul", { class: "obs" });
+  for (const o of r.observations || []) {
+    const v = o.value === null || o.value === undefined ? "자료 없음" : `${o.value}${o.unit || ""}`;
+    obs.append(el("li", {}, `${o.label}: `, el("strong", {}, v), ` (${o.asof || "—"}`,
+      o.derived ? ", 계산값" : "", ")"));
+  }
+  const restricted = (r.restricted_series || []).map(s => [link(s.series, s.url), ` (${s.owner})`]);
+  return el("section", { class: "rule" },
+    el("h3", {}, r.title, el("span", { class: `pill ${r.status}` }, STATUS_TEXT[r.status] || r.status)),
+    el("p", {}, r.rule),
+    obs.childElementCount ? obs : null,
+    restricted.length ? el("p", { class: "muted" }, "재배포 제한 자료라 값은 싣지 않는다: ",
+      ...restricted.flatMap((parts, i) => (i ? [", ", ...parts] : parts))) : null);
+}
+
+function renderPublic(p) {
+  document.getElementById("notice").textContent = p.notice || "";
+  const s = p.summary || {};
+  document.getElementById("summary").textContent =
+    `규칙 ${s.total}개 — 충족 ${s.met} · 미충족 ${s.not_met} · 판정 불가 ${s.unknown}`;
+  document.getElementById("rules").replaceChildren(...(p.rules || []).map(renderRule));
+  const health = p.data_health || [];
+  const stale = health.filter(h => h.stale).length;
+  document.getElementById("health-summary").textContent =
+    `시리즈 ${health.length}개 · 오래된 자료 ${stale}개 (펼쳐 보기)`;
+  document.getElementById("health").replaceChildren(...health.map(h => el("li", {},
+    link(h.series, h.url), ` ${h.label} — 마지막 관측 ${h.last || "없음"}`,
+    h.stale ? " · 오래됨" : "", h.display === "status_only" ? " · 값 비공개" : "")));
+  document.getElementById("warnings").replaceChildren(...(p.warnings || []).map(w => el("li", {}, w)));
+  document.getElementById("attribution").replaceChildren(...(p.attribution || []).map(a => el("p", {}, a)));
+}
+
+(async () => {
+  const [st, pub] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json")]);
+  if (st.status === "fulfilled") renderStatus(st.value);
+  else document.getElementById("status").textContent = "상태 파일이 아직 없다(첫 자동 실행 전).";
+  if (pub.status === "fulfilled") renderPublic(pub.value);
+  else showBanner("공개본을 불러오지 못했다 — 첫 자동 실행 전이거나 배포 중이다.");
+})();
+</script>
+</body>
+</html>
