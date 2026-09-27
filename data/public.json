@@ -1,0 +1,603 @@
+{
+  "schema": 1,
+  "date": "2026-09-27",
+  "generated_at": "2026-09-27T07:29:47+00:00",
+  "notice": "공개 통계에 사전에 정한 규칙을 적용한 결과다. 투자 판단이나 권유가 아니다.",
+  "attribution": [
+    "Source: FRED®, Federal Reserve Bank of St. Louis (https://fred.stlouisfed.org/).",
+    "SOFR: Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org.",
+    "전년비·3개월 변화·상관·비율은 이 저장소 코드가 원자료로 계산한 값이다."
+  ],
+  "summary": {
+    "total": 11,
+    "met": 0,
+    "not_met": 11,
+    "unknown": 0
+  },
+  "rules": [
+    {
+      "key": "ci_vs_ngdp",
+      "title": "기업대출 증가율 대 명목 성장률",
+      "rule": "C&I 대출 전년비가 명목GDP 전년비보다 낮으면 충족",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "C&I 대출 전년비",
+          "unit": "%",
+          "series": [
+            "BUSLOANS"
+          ],
+          "derived": false,
+          "value": 9.802,
+          "asof": "2026-08-01"
+        },
+        {
+          "label": "명목GDP 전년비",
+          "unit": "%",
+          "series": [
+            "GDP"
+          ],
+          "derived": false,
+          "value": 6.562,
+          "asof": "2026-04-01"
+        }
+      ],
+      "restricted_series": []
+    },
+    {
+      "key": "ndfi_credit",
+      "title": "은행의 비은행 금융기관 대출",
+      "rule": "전년비(재분류로 보이는 주간 +40십억달러 이상 증가 계단 제외)가 10% 미만이면 충족",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "NDFI 대출 전년비(계단 제외)",
+          "unit": "%",
+          "series": [
+            "LNFACBW027SBOG"
+          ],
+          "derived": false,
+          "value": 19.179,
+          "asof": "2026-09-16"
+        },
+        {
+          "label": "총대출 중 비중",
+          "unit": "%",
+          "series": [
+            "LNFACBW027SBOG",
+            "TOTLL"
+          ],
+          "derived": false,
+          "value": 14.539,
+          "asof": "2026-09-16"
+        }
+      ],
+      "restricted_series": []
+    },
+    {
+      "key": "credit_spread",
+      "title": "신용 스프레드",
+      "rule": "Baa−10년 스프레드가 12개월 저점보다 0.4%p 이상 넓어지거나 HY OAS가 4.61%p를 넘으면 충족",
+      "status": "not_met",
+      "observations": [],
+      "restricted_series": [
+        {
+          "series": "BAA10Y",
+          "owner": "Moody's",
+          "url": "https://fred.stlouisfed.org/series/BAA10Y"
+        },
+        {
+          "series": "BAMLH0A0HYM2",
+          "owner": "ICE Data Indices",
+          "url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2"
+        }
+      ]
+    },
+    {
+      "key": "stock_bond_corr",
+      "title": "주가-금리 60영업일 상관",
+      "rule": "S&P500 일간 수익률과 미 10년 금리 일간 변화의 60영업일 상관이 126영업일 이상 계속 양(+)이면 충족",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "60영업일 상관",
+          "unit": "",
+          "series": [
+            "SP500",
+            "DGS10"
+          ],
+          "derived": true,
+          "value": -0.519,
+          "asof": "2026-09-24"
+        },
+        {
+          "label": "같은 부호 연속",
+          "unit": "영업일",
+          "series": [
+            "SP500",
+            "DGS10"
+          ],
+          "derived": true,
+          "value": 132,
+          "asof": "2026-09-24"
+        }
+      ],
+      "restricted_series": []
+    },
+    {
+      "key": "curve_inversion",
+      "title": "10년−2년 금리차",
+      "rule": "10년−2년 금리차가 0보다 작으면 충족",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "10년−2년",
+          "unit": "%p",
+          "series": [
+            "T10Y2Y"
+          ],
+          "derived": false,
+          "value": 0.36,
+          "asof": "2026-09-25"
+        }
+      ],
+      "restricted_series": []
+    },
+    {
+      "key": "real_rate_bei",
+      "title": "실질금리와 기대인플레이션",
+      "rule": "10년 실질금리가 2% 미만이고 10년 BEI가 3개월 전보다 높으면 충족",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "10년 실질금리",
+          "unit": "%",
+          "series": [
+            "DFII10"
+          ],
+          "derived": false,
+          "value": 2.85,
+          "asof": "2026-09-24"
+        },
+        {
+          "label": "10년 BEI",
+          "unit": "%",
+          "series": [
+            "T10YIE"
+          ],
+          "derived": false,
+          "value": 2.34,
+          "asof": "2026-09-25"
+        },
+        {
+          "label": "BEI 3개월 변화",
+          "unit": "%p",
+          "series": [
+            "T10YIE"
+          ],
+          "derived": false,
+          "value": 0.14,
+          "asof": "2026-09-25"
+        }
+      ],
+      "restricted_series": []
+    },
+    {
+      "key": "core_inflation",
+      "title": "근원 물가",
+      "rule": "근원 PCE 전년비가 3% 이하이면 충족 (근원 CPI는 참고)",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "근원 PCE 전년비",
+          "unit": "%",
+          "series": [
+            "PCEPILFE"
+          ],
+          "derived": false,
+          "value": 3.344,
+          "asof": "2026-07-01"
+        },
+        {
+          "label": "근원 CPI 전년비",
+          "unit": "%",
+          "series": [
+            "CPILFESL"
+          ],
+          "derived": false,
+          "value": 2.446,
+          "asof": "2026-08-01"
+        }
+      ],
+      "restricted_series": []
+    },
+    {
+      "key": "term_premium",
+      "title": "10년 기간 프리미엄",
+      "rule": "10년 기간 프리미엄(Kim-Wright)이 3개월 전보다 0.25%p 이상 낮아지면 충족",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "기간 프리미엄",
+          "unit": "%",
+          "series": [
+            "THREEFYTP10"
+          ],
+          "derived": false,
+          "value": 0.96,
+          "asof": "2026-09-18"
+        },
+        {
+          "label": "3개월 변화",
+          "unit": "%p",
+          "series": [
+            "THREEFYTP10"
+          ],
+          "derived": false,
+          "value": 0.208,
+          "asof": "2026-09-18"
+        }
+      ],
+      "restricted_series": []
+    },
+    {
+      "key": "sofr",
+      "title": "단기 조달금리 SOFR",
+      "rule": "SOFR이 3개월 전보다 0.25%p 이상 높아지면 충족",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "SOFR",
+          "unit": "%",
+          "series": [
+            "SOFR"
+          ],
+          "derived": false,
+          "value": 3.88,
+          "asof": "2026-09-24"
+        },
+        {
+          "label": "3개월 변화",
+          "unit": "%p",
+          "series": [
+            "SOFR"
+          ],
+          "derived": false,
+          "value": 0.24,
+          "asof": "2026-09-24"
+        }
+      ],
+      "restricted_series": []
+    },
+    {
+      "key": "reserves_multiplier",
+      "title": "지준과 통화승수",
+      "rule": "지준/명목GDP가 9% 미만이거나, 3개월 새 0.3%p 이상 늘고 근원 PCE 전년비가 2%를 넘으면 충족",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "지준/명목GDP",
+          "unit": "%",
+          "series": [
+            "WRESBAL",
+            "GDP"
+          ],
+          "derived": false,
+          "value": 9.02,
+          "asof": "2026-09-23"
+        },
+        {
+          "label": "3개월 변화",
+          "unit": "%p",
+          "series": [
+            "WRESBAL",
+            "GDP"
+          ],
+          "derived": false,
+          "value": -0.065,
+          "asof": "2026-09-23"
+        },
+        {
+          "label": "통화승수(M2/본원통화)",
+          "unit": "배",
+          "series": [
+            "M2SL",
+            "BOGMBASE"
+          ],
+          "derived": false,
+          "value": 4.313,
+          "asof": "2026-08-01"
+        }
+      ],
+      "restricted_series": []
+    },
+    {
+      "key": "employment",
+      "title": "미 증권·투자업 고용",
+      "rule": "고용 전년비가 0보다 작으면 충족",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "고용 전년비",
+          "unit": "%",
+          "series": [
+            "CES5552300001"
+          ],
+          "derived": false,
+          "value": 2.666,
+          "asof": "2026-08-01"
+        }
+      ],
+      "restricted_series": []
+    }
+  ],
+  "data_health": [
+    {
+      "series": "M2SL",
+      "label": "M2",
+      "owner": "FRB",
+      "url": "https://fred.stlouisfed.org/series/M2SL",
+      "last": "2026-08-01",
+      "age_days": 57,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB, M2 [M2SL], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "BOGMBASE",
+      "label": "본원통화",
+      "owner": "FRB",
+      "url": "https://fred.stlouisfed.org/series/BOGMBASE",
+      "last": "2026-08-01",
+      "age_days": 57,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB, 본원통화 [BOGMBASE], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "M2V",
+      "label": "M2 유통속도",
+      "owner": "FRB St. Louis",
+      "url": "https://fred.stlouisfed.org/series/M2V",
+      "last": "2026-04-01",
+      "age_days": 179,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB St. Louis, M2 유통속도 [M2V], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "WRESBAL",
+      "label": "지준 잔액",
+      "owner": "FRB",
+      "url": "https://fred.stlouisfed.org/series/WRESBAL",
+      "last": "2026-09-23",
+      "age_days": 4,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB, 지준 잔액 [WRESBAL], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "GDP",
+      "label": "명목GDP",
+      "owner": "BEA",
+      "url": "https://fred.stlouisfed.org/series/GDP",
+      "last": "2026-04-01",
+      "age_days": 179,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "BEA, 명목GDP [GDP], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "LNFACBW027SBOG",
+      "label": "은행의 비은행금융(NDFI) 대출",
+      "owner": "FRB",
+      "url": "https://fred.stlouisfed.org/series/LNFACBW027SBOG",
+      "last": "2026-09-16",
+      "age_days": 11,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB, 은행의 비은행금융(NDFI) 대출 [LNFACBW027SBOG], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "TOTLL",
+      "label": "은행 총대출",
+      "owner": "FRB",
+      "url": "https://fred.stlouisfed.org/series/TOTLL",
+      "last": "2026-09-16",
+      "age_days": 11,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB, 은행 총대출 [TOTLL], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "BUSLOANS",
+      "label": "C&I 대출",
+      "owner": "FRB",
+      "url": "https://fred.stlouisfed.org/series/BUSLOANS",
+      "last": "2026-08-01",
+      "age_days": 57,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB, C&I 대출 [BUSLOANS], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "THREEFYTP10",
+      "label": "10년 기간 프리미엄(Kim-Wright)",
+      "owner": "FRB (Kim-Wright)",
+      "url": "https://fred.stlouisfed.org/series/THREEFYTP10",
+      "last": "2026-09-18",
+      "age_days": 9,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB (Kim-Wright), 10년 기간 프리미엄(Kim-Wright) [THREEFYTP10], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "BAA10Y",
+      "label": "Baa−10년 스프레드",
+      "owner": "Moody's",
+      "url": "https://fred.stlouisfed.org/series/BAA10Y",
+      "last": "2026-09-24",
+      "age_days": 3,
+      "fetched": "net",
+      "stale": false,
+      "display": "status_only",
+      "citation": "Moody's, Baa−10년 스프레드 [BAA10Y], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "BAMLH0A0HYM2",
+      "label": "HY OAS",
+      "owner": "ICE Data Indices",
+      "url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2",
+      "last": "2026-09-24",
+      "age_days": 3,
+      "fetched": "net",
+      "stale": false,
+      "display": "status_only",
+      "citation": "ICE Data Indices, HY OAS [BAMLH0A0HYM2], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "BAMLC0A0CM",
+      "label": "IG OAS",
+      "owner": "ICE Data Indices",
+      "url": "https://fred.stlouisfed.org/series/BAMLC0A0CM",
+      "last": "2026-09-24",
+      "age_days": 3,
+      "fetched": "net",
+      "stale": false,
+      "display": "status_only",
+      "citation": "ICE Data Indices, IG OAS [BAMLC0A0CM], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "SP500",
+      "label": "S&P500",
+      "owner": "S&P Dow Jones Indices",
+      "url": "https://fred.stlouisfed.org/series/SP500",
+      "last": "2026-09-25",
+      "age_days": 2,
+      "fetched": "net",
+      "stale": false,
+      "display": "status_only",
+      "citation": "S&P Dow Jones Indices, S&P500 [SP500], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "DGS10",
+      "label": "미 10년",
+      "owner": "FRB",
+      "url": "https://fred.stlouisfed.org/series/DGS10",
+      "last": "2026-09-24",
+      "age_days": 3,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB, 미 10년 [DGS10], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "T10Y2Y",
+      "label": "10년−2년",
+      "owner": "FRB St. Louis",
+      "url": "https://fred.stlouisfed.org/series/T10Y2Y",
+      "last": "2026-09-25",
+      "age_days": 2,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB St. Louis, 10년−2년 [T10Y2Y], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "DFII10",
+      "label": "10년 실질",
+      "owner": "FRB",
+      "url": "https://fred.stlouisfed.org/series/DFII10",
+      "last": "2026-09-24",
+      "age_days": 3,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB, 10년 실질 [DFII10], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "T10YIE",
+      "label": "10년 BEI",
+      "owner": "FRB St. Louis",
+      "url": "https://fred.stlouisfed.org/series/T10YIE",
+      "last": "2026-09-25",
+      "age_days": 2,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB St. Louis, 10년 BEI [T10YIE], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "PCEPILFE",
+      "label": "근원 PCE 물가",
+      "owner": "BEA",
+      "url": "https://fred.stlouisfed.org/series/PCEPILFE",
+      "last": "2026-07-01",
+      "age_days": 88,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "BEA, 근원 PCE 물가 [PCEPILFE], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "CPILFESL",
+      "label": "근원 CPI",
+      "owner": "BLS",
+      "url": "https://fred.stlouisfed.org/series/CPILFESL",
+      "last": "2026-08-01",
+      "age_days": 57,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "BLS, 근원 CPI [CPILFESL], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "SOFR",
+      "label": "SOFR",
+      "owner": "FRBNY",
+      "url": "https://fred.stlouisfed.org/series/SOFR",
+      "last": "2026-09-24",
+      "age_days": 3,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "SOFR: Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org."
+    },
+    {
+      "series": "DEXKOUS",
+      "label": "원/달러",
+      "owner": "FRB",
+      "url": "https://fred.stlouisfed.org/series/DEXKOUS",
+      "last": "2026-09-18",
+      "age_days": 9,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "FRB, 원/달러 [DEXKOUS], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    },
+    {
+      "series": "CES5552300001",
+      "label": "미 증권·투자업 고용",
+      "owner": "BLS",
+      "url": "https://fred.stlouisfed.org/series/CES5552300001",
+      "last": "2026-08-01",
+      "age_days": 57,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "BLS, 미 증권·투자업 고용 [CES5552300001], retrieved from FRED, Federal Reserve Bank of St. Louis"
+    }
+  ],
+  "warnings": [
+    "근원 CPI 결측월 2025-10 — 그 달이 기준치가 되는 12개월 뒤 YoY는 산출 불가(None)로 둔다. BLS 대체입력 탓에 결측 이후 값도 편의가 있을 수 있음"
+  ]
+}

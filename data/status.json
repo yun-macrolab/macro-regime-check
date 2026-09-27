@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "checked_at": "2026-09-27T07:29:47+00:00",
+  "ok": true,
+  "stage": "ok",
+  "message": "정상 갱신",
+  "data_date": "2026-09-27",
+  "last_success": "2026-09-27T07:29:47+00:00",
+  "run_url": "https://github.com/yun-macrolab/macro-regime-check/actions/runs/36303250079"
+}
