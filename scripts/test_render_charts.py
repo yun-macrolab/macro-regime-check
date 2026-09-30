@@ -29,14 +29,15 @@ RULE_LINES = {
     "ndfi_credit": ["ndfi_yoy"],
     "stock_bond_corr": ["rho60"],
     "curve_inversion": ["t10y2y"],
-    "real_rate_bei": ["dfii10"],
+    "real_rate_bei": ["dfii10", "bei"],
     "core_inflation": ["core_pce_yoy", "core_cpi_yoy"],
     "term_premium": ["tp_chg_3m"],
     "reserves_multiplier": ["reserves_gdp"],
     "employment": ["emp_yoy"],
+    "sofr": ["sofr_chg_3m"],
 }
 OVERVIEW_LINES = {"yield10": ["dgs10", "dfii10", "bei"], "term": ["tp", "t10y2y"]}
-SPEC_KEYS = {"key", "title", "unit", "years", "zero", "threshold", "note", "lines"}
+SPEC_KEYS = {"key", "title", "unit", "years", "zero", "threshold", "note", "source_note", "notices", "lines"}
 LINE_KEYS = {"key", "label", "role", "series", "derived", "points"}
 
 
@@ -72,6 +73,7 @@ def long_history(cache_dir, end=D(2026, 9, 18)):
         "T10Y2Y": daily(end, [0.3 * math.sin(i / 80) for i in range(nd)]),
         "THREEFYTP10": daily(end, [0.5 * math.sin(i / 70) for i in range(nd)]),
         "SP500": daily(end, [4000 + i + 40 * math.sin(i / 9) for i in range(nd)]),
+        "SOFR": daily(end, [4 + 0.5 * math.sin(i / 40) for i in range(nd)]),
         "WRESBAL": weekly(end - datetime.timedelta(days=2), [3000000 + 1000 * i for i in range(nw)]),
         "LNFACBW027SBOG": weekly(end - datetime.timedelta(days=9), [1000 + 2 * i for i in range(nw)]),
         "TOTLL": weekly(end - datetime.timedelta(days=9), [12000 + 10 * i for i in range(nw)]),
@@ -164,7 +166,8 @@ class ChartsTest(unittest.TestCase):
         th = rr.TH
         expect = {"ci_vs_ngdp": None, "ndfi_credit": th["ndfi_two_digit"], "stock_bond_corr": None,
                   "curve_inversion": 0.0, "real_rate_bei": th["real_rate_c"], "core_inflation": th["core_pce_split"],
-                  "term_premium": -th["tp_drop_3m"], "reserves_multiplier": th["reserves_gdp_low"], "employment": 0.0}
+                  "term_premium": -th["tp_drop_3m"], "reserves_multiplier": th["reserves_gdp_low"], "employment": 0.0,
+                  "sofr": th["sofr_rise_3m"]}
         self.assertEqual({k: s["threshold"] for k, s in self.charts["rules"].items()}, expect)
         with mock.patch.dict(rr.TH, {"ndfi_two_digit": 12.5, "tp_drop_3m": 0.4}):
             ch, _ = rc.build(self.work)
@@ -224,7 +227,7 @@ class ChartsTest(unittest.TestCase):
                 else:
                     self.assertTrue(set(l["series"]) <= rc.ALLOWED, l["key"])
         self.assertEqual(derived, {"rho60"})
-        self.assertEqual(rc.ALLOWED, set(rr.SERIES) - set(rp.RESTRICTED) - {"SOFR"})
+        self.assertEqual(rc.ALLOWED, set(rr.SERIES) - set(rp.RESTRICTED))
 
     def test_restricted_band_is_really_in_the_cache(self):
         # 위 검사가 헛돌지 않게 — 원본 결과에는 그 구간 값이 실제로 있다
@@ -235,20 +238,22 @@ class ChartsTest(unittest.TestCase):
         allowed = {"main", "ref", "series", "%", "%p", ""}
         table = rc.chart_table()
         for spec in table["overview"] + list(table["rules"].values()):
-            allowed |= {spec["key"], spec["title"]} | ({spec["note"]} if spec["note"] else set())
+            allowed |= {spec["key"], spec["title"], rc.source_note(spec)} | ({spec["note"]} if spec["note"] else set())
             for l in spec["lines"]:
                 allowed |= {l["key"], l["label"], *l["series"]}
-        allowed |= set(table["rules"])
+        year = int(self.charts["date"][:4])
+        allowed |= set(table["rules"]) | set(rp.sofr_notices(year)) | set(rp.attribution(year))
         keys, _, strs = walk(self.charts)
         date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
         ts_re = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$")
         bad = [s for s in strs if s not in allowed and not date_re.match(s) and not ts_re.match(s)]
         self.assertEqual(bad, [])
-        self.assertTrue(set(keys) <= SPEC_KEYS | LINE_KEYS | {"schema", "date", "generated_at", "overview", "rules"}
+        self.assertTrue(set(keys) <= SPEC_KEYS | LINE_KEYS | {"schema", "date", "generated_at", "attribution", "overview", "rules"}
                         | set(table["rules"]))
 
     def test_contract_shape(self):
-        self.assertEqual(set(self.charts), {"schema", "date", "generated_at", "overview", "rules"})
+        self.assertEqual(set(self.charts), {"schema", "date", "generated_at", "attribution", "overview", "rules"})
+        self.assertEqual(self.charts["attribution"], rp.attribution(int(self.charts["date"][:4])))   # 파일만 받아 가도 출처가 따라가게
         self.assertEqual(self.charts["schema"], 1)
         for spec in self.charts["overview"] + list(self.charts["rules"].values()):
             self.assertEqual(set(spec), SPEC_KEYS, spec["key"])
@@ -331,7 +336,24 @@ class ChartsTest(unittest.TestCase):
     def test_chart_rules_are_signal_keys_the_page_can_attach(self):
         # 페이지는 public.json 규칙 key로 그래프를 찾는다 — 규칙 key가 바뀌면 그래프가 조용히 빠지지 않게
         signals = {s["key"] for s in self.raw["signals"]}
-        self.assertEqual(set(rc.chart_table()["rules"]), signals - {"credit_spread", "sofr"})
+        self.assertEqual(set(rc.chart_table()["rules"]), signals - {"credit_spread"})
+
+    def test_every_chart_names_its_source_via_fred_and_who_computed_it(self):
+        # FRED "Citation required/requested": 출처와 FRED 경유를 보여 줄 때 함께 — 꼬리말만이 아니라 그래프마다(2026-09-30)
+        for spec in self.charts["overview"] + list(self.charts["rules"].values()):
+            note = spec["source_note"]
+            self.assertIn("via FRED", note, spec["key"])
+            for l in spec["lines"]:
+                for sid in l["series"]:
+                    self.assertIn(rp.FRED_SOURCE[sid], note, (spec["key"], sid))
+            computed = spec["key"] not in {"yield10", "term", "curve_inversion", "real_rate_bei"}
+            self.assertEqual("macro-regime-check" in note, computed, spec["key"])   # 계산한 선은 누가 계산했는지
+
+    def test_sofr_chart_carries_the_reference_rate_notice(self):
+        spec = self.charts["rules"]["sofr"]
+        self.assertEqual(spec["notices"], rp.sofr_notices(int(self.charts["date"][:4])))
+        self.assertTrue(all(s["notices"] == [] for k, s in self.charts["rules"].items() if k != "sofr"))
+        self.assertTrue(all(s["notices"] == [] for s in self.charts["overview"]))
 
     # ---- 9. 자료 누락 ----
     def test_missing_series_drops_only_that_chart_or_line(self):
@@ -344,6 +366,9 @@ class ChartsTest(unittest.TestCase):
             self.assertEqual(sorted(skipped), ["reserves_multiplier", "term_premium"])
             self.assertEqual(set(ch["rules"]), set(RULE_LINES) - {"reserves_multiplier", "term_premium"})
             self.assertEqual([l["key"] for l in ch["rules"]["core_inflation"]["lines"]], ["core_pce_yoy"])
+            # 출처 줄은 그려진 선의 출처만 — 빠진 근원 CPI(BLS)는 적지 않는다(리뷰)
+            self.assertNotIn(rp.FRED_SOURCE["CPILFESL"], ch["rules"]["core_inflation"]["source_note"])
+            self.assertIn(rp.FRED_SOURCE["PCEPILFE"], ch["rules"]["core_inflation"]["source_note"])
             term = next(s for s in ch["overview"] if s["key"] == "term")
             self.assertEqual([l["key"] for l in term["lines"]], ["t10y2y"])
             # 주 선이 없으면 참고 선만으로 카드 그래프를 만들지 않는다

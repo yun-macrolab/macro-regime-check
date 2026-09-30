@@ -209,6 +209,11 @@
     return Math.abs(st.times[hi] - t) < Math.abs(st.times[lo] - t) ? hi : lo;
   }
 
+  function noticeBlock(notices) {
+    const list = Array.isArray(notices) ? notices.filter(n => typeof n === "string" && n) : [];
+    return list.length ? html("div", { class: "notices" }, ...list.map(n => html("p", {}, n))) : null;
+  }
+
   function tableView(lines, unit) {
     const box = html("div", { class: "ch-scroll" });
     const det = html("details", { class: "ch-table" }, html("summary", {}, "표로 보기"), box);
@@ -246,7 +251,10 @@
       html("span", {}, keyOf(l), l.role === "ref" ? `${l.label} (참고)` : l.label))) : null;
     const fig = html("figure", { class: "ch" },
       o.caption ? html("figcaption", { class: "ch-title" }, title) : null, legend, plot,
-      spec.note ? html("p", { class: "ch-note muted" }, String(spec.note)) : null, tableView(lines, unit));
+      spec.note ? html("p", { class: "ch-note muted" }, String(spec.note)) : null,
+      spec.source_note ? html("p", { class: "ch-note ch-source muted" }, String(spec.source_note)) : null,
+      // 참조금리 고지(SOFR) — 카드 안 그래프는 카드가 같은 고지를 싣으므로 opts.notices === false로 생략
+      o.notices !== false ? noticeBlock(spec.notices) : null, tableView(lines, unit));
 
     const st = { spec, unit, lines, svg: el, tip, plot, height: o.height || 150, idx: null, last: null, focus: [],
                  fromPointer: false,

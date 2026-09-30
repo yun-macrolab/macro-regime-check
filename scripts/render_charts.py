@@ -5,8 +5,9 @@
 같은 함수(fred_fetch)로 계산하므로, 마지막 점이 공개본 카드의 값과 같다(test_render_charts.py가 강제).
 싣지 않는 것 (test_render_charts.py가 강제):
   - 재배포가 제한된 시리즈(render_public.RESTRICTED)의 원값 — 예외는 원값을 되살릴 수 없는 60영업일 상관(derived)
-  - SOFR — 뉴욕 연은 고지 문구를 확인하기 전까지
   - 고정 표(chart_table) 밖의 문자열
+그래프마다 출처 줄(source_note: FRED가 적은 출처 + FRED 경유, 계산한 선이면 누가 계산했는지)을 싣고,
+SOFR 그래프에는 뉴욕 연은 참조금리 고지(render_public.sofr_notices)를 함께 싣는다(이용약관 원문 확인 2026-09-30).
 기준일은 <work>/raw/latest.json의 date — 그 뒤 관측치는 쓰지 않는다. 한 시리즈가 없으면 그 선만 빠지고,
 규칙 그래프의 주 선이 없으면 그 그래프만 빠진다(나머지는 만든다).
 charts.json은 더 최근 날짜의 그래프 자료를 과거 날짜로 덮지 않는다.
@@ -27,7 +28,8 @@ SCHEMA = 1
 REPO = os.path.dirname(SCRIPTS)
 DEFAULT_WORK = os.path.join(REPO, ".work")
 DEFAULT_OUT = os.path.join(REPO, "data")
-ALLOWED = set(rr.SERIES) - set(rp.RESTRICTED) - {"SOFR"}
+ALLOWED = set(rr.SERIES) - set(rp.RESTRICTED)
+NOTICE_CHARTS = {"sofr"}                      # 참조금리 고지를 함께 싣는 그래프
 LOOKBACK = datetime.timedelta(days=400)       # 전년비·3개월 변화·60영업일 상관이 기간 첫 점에서 보는 과거(1년+여유)
 
 
@@ -105,9 +107,20 @@ def _line(key, label, role, series, points, derived=False):
     return {"key": key, "label": label, "role": role, "series": series, "derived": derived, "points": points}
 
 
-def _chart(key, title, unit, years, lines, zero=False, threshold=None, note=None):
+def _chart(key, title, unit, years, lines, zero=False, threshold=None, note=None, computed=True):
+    """computed=False: 원자료 수준을 그대로 그리는 그래프(출처 줄에 '계산한 값'을 붙이지 않는다)."""
     return {"key": key, "title": title, "unit": unit, "years": years, "zero": zero,
-            "threshold": threshold, "note": note, "lines": lines}
+            "threshold": threshold, "note": note, "computed": computed, "lines": lines}
+
+
+def source_note(spec, keys=None):
+    """그래프 밑 출처 줄 — FRED 시리즈 페이지의 출처와 FRED 경유(FRED: 보여 줄 때 출처·FRED 경유를 함께),
+    계산한 선이면 누가 계산했는지(뉴욕 연은 이용약관 Conditions 4: 파생값을 원 발행처의 것으로 보이게 하지 않는다).
+    keys를 주면 그 선(실제로 그려진 선)의 출처만 — 자료가 없어 빠진 선의 출처는 적지 않는다."""
+    names = list(dict.fromkeys(rp.FRED_SOURCE[sid] for ln in spec["lines"]
+                               if keys is None or ln["key"] in keys for sid in ln["series"]))
+    note = "자료: " + " · ".join(names) + " (via FRED)"
+    return note + (" · 선은 macro-regime-check가 이 자료로 계산한 값" if spec["computed"] else "")
 
 
 def _lvl(key, label, role, sid):
@@ -118,11 +131,11 @@ def chart_table():
     """그래프 정의 — 문구·시리즈·계산. 임계값은 호출 시점의 rr.TH에서 읽는다."""
     th = rr.TH
     overview = [
-        _chart("yield10", "미 10년 금리 분해", "%", 5, zero=True, lines=[
+        _chart("yield10", "미 10년 금리 분해", "%", 5, zero=True, computed=False, lines=[
             _lvl("dgs10", "명목 10년", "series", "DGS10"),
             _lvl("dfii10", "10년 실질", "series", "DFII10"),
             _lvl("bei", "10년 BEI", "series", "T10YIE")]),
-        _chart("term", "기간 프리미엄과 10년−2년", "%p", 5, zero=True, lines=[
+        _chart("term", "기간 프리미엄과 10년−2년", "%p", 5, zero=True, computed=False, lines=[
             _lvl("tp", "기간 프리미엄", "series", "THREEFYTP10"),
             _lvl("t10y2y", "10년−2년", "series", "T10Y2Y")]),
     ]
@@ -138,10 +151,12 @@ def chart_table():
         "stock_bond_corr": _chart("stock_bond_corr", "주가-금리 60영업일 상관", "", 3, zero=True,
                                   note="S&P500 원값은 싣지 않는다 — 이 저장소 코드가 계산한 상관만", lines=[
             _line("rho60", "60영업일 상관", "main", ["SP500", "DGS10"], _rho60_points, derived=True)]),
-        "curve_inversion": _chart("curve_inversion", "10년−2년 금리차", "%p", 3, threshold=0.0,
+        "curve_inversion": _chart("curve_inversion", "10년−2년 금리차", "%p", 3, threshold=0.0, computed=False,
                                   lines=[_lvl("t10y2y", "10년−2년", "main", "T10Y2Y")]),
         "real_rate_bei": _chart("real_rate_bei", "10년 실질금리", "%", 3, zero=True, threshold=th["real_rate_c"],
-                                lines=[_lvl("dfii10", "10년 실질금리", "main", "DFII10")]),
+                                computed=False,
+                                lines=[_lvl("dfii10", "10년 실질금리", "main", "DFII10"),
+                                       _lvl("bei", "10년 BEI", "ref", "T10YIE")]),
         "core_inflation": _chart("core_inflation", "근원 PCE·CPI 전년비", "%", 3, threshold=th["core_pce_split"],
                                  note="근원 CPI는 참고 — 1년 전 같은 달 관측치가 없는 달은 비운다", lines=[
             _line("core_pce_yoy", "근원 PCE 전년비", "main", ["PCEPILFE"], _sampled("PCEPILFE", _yoy("PCEPILFE"))),
@@ -156,6 +171,9 @@ def chart_table():
         "employment": _chart("employment", "미 증권·투자업 고용 전년비", "%", 3, threshold=0.0, lines=[
             _line("emp_yoy", "고용 전년비", "main", ["CES5552300001"],
                   _sampled("CES5552300001", _yoy("CES5552300001")))]),
+        "sofr": _chart("sofr", "SOFR 3개월 변화", "%p", 3, zero=True, threshold=th["sofr_rise_3m"],
+                       note="주마다 마지막 관측일의 91일 전 대비 변화(카드 값과 같은 계산) — 월말·분기말 급등이 섞일 수 있다",
+                       lines=[_line("sofr_chg_3m", "SOFR 3개월 변화", "main", ["SOFR"], _sampled("SOFR", _chg3m("SOFR")))]),
     }
     return {"overview": overview, "rules": rules}
 
@@ -182,7 +200,9 @@ def _render_chart(spec, S, asof):
                           "points": [[d.isoformat(), v] for d, v in pts]})
     if not lines or (spec["lines"][0]["role"] == "main" and lines[0]["key"] != spec["lines"][0]["key"]):
         return None
-    return {**{k: spec[k] for k in ("key", "title", "unit", "years", "zero", "threshold", "note")}, "lines": lines}
+    return {**{k: spec[k] for k in ("key", "title", "unit", "years", "zero", "threshold", "note")},
+            "source_note": source_note(spec, {l["key"] for l in lines}),
+            "notices": rp.sofr_notices(asof.year) if spec["key"] in NOTICE_CHARTS else [], "lines": lines}
 
 
 def _as_of(work):
@@ -214,6 +234,7 @@ def build(work):
                     asof)
     out = {"schema": SCHEMA, "date": asof.isoformat(),
            "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+           "attribution": rp.attribution(asof.year),      # 파일만 받아 가도 출처·고지가 따라가게
            "overview": [], "rules": {}}
     skipped = []
     for spec in table["overview"]:

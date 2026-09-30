@@ -5,8 +5,12 @@
   "notice": "공개 통계에 사전에 정한 규칙을 적용한 결과다. 투자 판단이나 권유가 아니다.",
   "attribution": [
     "Source: FRED®, Federal Reserve Bank of St. Louis (https://fred.stlouisfed.org/).",
-    "SOFR: Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org.",
-    "전년비·3개월 변화·상관·비율은 이 저장소 코드가 원자료로 계산한 값이다."
+    "The SOFR data is subject to the Terms of Use posted at newyorkfed.org. The New York Fed is not responsible for publication of the SOFR data by macro-regime-check (github.com/yun-macrolab), does not sanction or endorse any particular republication, and has no liability for your use.",
+    "The Secured Overnight Financing Rate (SOFR) Data and Broad General Collateral Rate (BGCR) Data are calculated using data provided under a license granted to the New York Fed by DTCC Solutions LLC (“Solutions”), an affiliate of The Depository Trust & Clearing Corporation. Solutions, its affiliates, and third parties from which they obtained data have no liability for the content of this material.",
+    "© 2026 Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org.",
+    "전년비·3개월 변화·상관·비율은 이 저장소 코드가 원자료로 계산한 값이다.",
+    "macro-regime-check (github.com/yun-macrolab) is not affiliated with the New York Fed. The New York Fed does not sanction, endorse, or recommend any products or services offered by macro-regime-check (github.com/yun-macrolab). It is not sponsored by, affiliated with, or endorsed by the Federal Reserve Bank of St. Louis or FRED®.",
+    "코드는 MIT 라이선스지만 자료(FRED·뉴욕 연은 등)는 그 대상이 아니다 — 각 출처의 이용 조건을 따른다. SOFR은 newyorkfed.org 이용약관, 나머지는 FRED 이용약관과 시리즈별 저작권 표시."
   ],
   "summary": {
     "total": 11,
@@ -28,6 +32,7 @@
             "BUSLOANS"
           ],
           "derived": false,
+          "computed": true,
           "value": 9.802,
           "asof": "2026-08-01"
         },
@@ -38,11 +43,13 @@
             "GDP"
           ],
           "derived": false,
+          "computed": true,
           "value": 6.562,
           "asof": "2026-04-01"
         }
       ],
-      "restricted_series": []
+      "restricted_series": [],
+      "notices": []
     },
     {
       "key": "ndfi_credit",
@@ -57,6 +64,7 @@
             "LNFACBW027SBOG"
           ],
           "derived": false,
+          "computed": true,
           "value": 19.179,
           "asof": "2026-09-16"
         },
@@ -68,11 +76,13 @@
             "TOTLL"
           ],
           "derived": false,
+          "computed": true,
           "value": 14.539,
           "asof": "2026-09-16"
         }
       ],
-      "restricted_series": []
+      "restricted_series": [],
+      "notices": []
     },
     {
       "key": "credit_spread",
@@ -91,7 +101,8 @@
           "owner": "ICE Data Indices",
           "url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2"
         }
-      ]
+      ],
+      "notices": []
     },
     {
       "key": "stock_bond_corr",
@@ -107,6 +118,7 @@
             "DGS10"
           ],
           "derived": true,
+          "computed": true,
           "value": -0.519,
           "asof": "2026-09-24"
         },
@@ -118,11 +130,13 @@
             "DGS10"
           ],
           "derived": true,
+          "computed": true,
           "value": 132,
           "asof": "2026-09-24"
         }
       ],
-      "restricted_series": []
+      "restricted_series": [],
+      "notices": []
     },
     {
       "key": "curve_inversion",
@@ -137,11 +151,13 @@
             "T10Y2Y"
           ],
           "derived": false,
+          "computed": false,
           "value": 0.36,
           "asof": "2026-09-25"
         }
       ],
-      "restricted_series": []
+      "restricted_series": [],
+      "notices": []
     },
     {
       "key": "real_rate_bei",
@@ -156,6 +172,7 @@
             "DFII10"
           ],
           "derived": false,
+          "computed": false,
           "value": 2.85,
           "asof": "2026-09-24"
         },
@@ -166,6 +183,7 @@
             "T10YIE"
           ],
           "derived": false,
+          "computed": false,
           "value": 2.34,
           "asof": "2026-09-25"
         },
@@ -176,11 +194,13 @@
             "T10YIE"
           ],
           "derived": false,
+          "computed": true,
           "value": 0.14,
           "asof": "2026-09-25"
         }
       ],
-      "restricted_series": []
+      "restricted_series": [],
+      "notices": []
     },
     {
       "key": "core_inflation",
@@ -195,6 +215,7 @@
             "PCEPILFE"
           ],
           "derived": false,
+          "computed": true,
           "value": 3.344,
           "asof": "2026-07-01"
         },
@@ -205,11 +226,13 @@
             "CPILFESL"
           ],
           "derived": false,
+          "computed": true,
           "value": 2.446,
           "asof": "2026-08-01"
         }
       ],
-      "restricted_series": []
+      "restricted_series": [],
+      "notices": []
     },
     {
       "key": "term_premium",
@@ -224,6 +247,7 @@
             "THREEFYTP10"
           ],
           "derived": false,
+          "computed": false,
           "value": 0.96,
           "asof": "2026-09-18"
         },
@@ -234,11 +258,13 @@
             "THREEFYTP10"
           ],
           "derived": false,
+          "computed": true,
           "value": 0.208,
           "asof": "2026-09-18"
         }
       ],
-      "restricted_series": []
+      "restricted_series": [],
+      "notices": []
     },
     {
       "key": "sofr",
@@ -253,6 +279,7 @@
             "SOFR"
           ],
           "derived": false,
+          "computed": false,
           "value": 3.88,
           "asof": "2026-09-24"
         },
@@ -263,11 +290,20 @@
             "SOFR"
           ],
           "derived": false,
+          "computed": true,
           "value": 0.24,
           "asof": "2026-09-24"
         }
       ],
-      "restricted_series": []
+      "restricted_series": [],
+      "notices": [
+        "SOFR 3개월 변화는 macro-regime-check가 뉴욕 연은 SOFR 일별 자료(FRED 경유)로 계산한 값이다. 뉴욕 연은이 발표한 값이 아니다.",
+        "The SOFR 3-month change is computed by macro-regime-check from SOFR data (via FRED); it is not published by the New York Fed.",
+        "The SOFR data is subject to the Terms of Use posted at newyorkfed.org. The New York Fed is not responsible for publication of the SOFR data by macro-regime-check (github.com/yun-macrolab), does not sanction or endorse any particular republication, and has no liability for your use.",
+        "The Secured Overnight Financing Rate (SOFR) Data and Broad General Collateral Rate (BGCR) Data are calculated using data provided under a license granted to the New York Fed by DTCC Solutions LLC (“Solutions”), an affiliate of The Depository Trust & Clearing Corporation. Solutions, its affiliates, and third parties from which they obtained data have no liability for the content of this material.",
+        "© 2026 Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org.",
+        "macro-regime-check (github.com/yun-macrolab) is not affiliated with the New York Fed. The New York Fed does not sanction, endorse, or recommend any products or services offered by macro-regime-check (github.com/yun-macrolab). It is not sponsored by, affiliated with, or endorsed by the Federal Reserve Bank of St. Louis or FRED®."
+      ]
     },
     {
       "key": "reserves_multiplier",
@@ -283,6 +319,7 @@
             "GDP"
           ],
           "derived": false,
+          "computed": true,
           "value": 9.02,
           "asof": "2026-09-23"
         },
@@ -294,6 +331,7 @@
             "GDP"
           ],
           "derived": false,
+          "computed": true,
           "value": -0.065,
           "asof": "2026-09-23"
         },
@@ -305,11 +343,13 @@
             "BOGMBASE"
           ],
           "derived": false,
+          "computed": true,
           "value": 4.313,
           "asof": "2026-08-01"
         }
       ],
-      "restricted_series": []
+      "restricted_series": [],
+      "notices": []
     },
     {
       "key": "employment",
@@ -324,11 +364,13 @@
             "CES5552300001"
           ],
           "derived": false,
+          "computed": true,
           "value": 2.666,
           "asof": "2026-08-01"
         }
       ],
-      "restricted_series": []
+      "restricted_series": [],
+      "notices": []
     }
   ],
   "data_health": [
@@ -342,7 +384,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB, M2 [M2SL], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Board of Governors of the Federal Reserve System (US), M2 [M2SL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/M2SL, September 27, 2026."
     },
     {
       "series": "BOGMBASE",
@@ -354,7 +396,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB, 본원통화 [BOGMBASE], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Board of Governors of the Federal Reserve System (US), Monetary Base: Total [BOGMBASE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BOGMBASE, September 27, 2026."
     },
     {
       "series": "M2V",
@@ -366,7 +408,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB St. Louis, M2 유통속도 [M2V], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Federal Reserve Bank of St. Louis, Velocity of M2 Money Stock [M2V], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/M2V, September 27, 2026."
     },
     {
       "series": "WRESBAL",
@@ -378,7 +420,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB, 지준 잔액 [WRESBAL], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Board of Governors of the Federal Reserve System (US), Liabilities and Capital: Other Factors Draining Reserve Balances: Reserve Balances with Federal Reserve Banks: Week Average [WRESBAL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/WRESBAL, September 27, 2026."
     },
     {
       "series": "GDP",
@@ -390,7 +432,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "BEA, 명목GDP [GDP], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "U.S. Bureau of Economic Analysis, Gross Domestic Product [GDP], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/GDP, September 27, 2026."
     },
     {
       "series": "LNFACBW027SBOG",
@@ -402,7 +444,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB, 은행의 비은행금융(NDFI) 대출 [LNFACBW027SBOG], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Board of Governors of the Federal Reserve System (US), Other Loans and Leases: All Other Loans and Leases: Loans to Nondepository Financial Institutions, All Commercial Banks [LNFACBW027SBOG], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/LNFACBW027SBOG, September 27, 2026."
     },
     {
       "series": "TOTLL",
@@ -414,7 +456,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB, 은행 총대출 [TOTLL], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Board of Governors of the Federal Reserve System (US), Loans and Leases in Bank Credit, All Commercial Banks [TOTLL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/TOTLL, September 27, 2026."
     },
     {
       "series": "BUSLOANS",
@@ -426,7 +468,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB, C&I 대출 [BUSLOANS], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Board of Governors of the Federal Reserve System (US), Commercial and Industrial Loans, All Commercial Banks [BUSLOANS], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BUSLOANS, September 27, 2026."
     },
     {
       "series": "THREEFYTP10",
@@ -438,7 +480,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB (Kim-Wright), 10년 기간 프리미엄(Kim-Wright) [THREEFYTP10], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Board of Governors of the Federal Reserve System (US), Term Premium on a 10 Year Zero Coupon Bond [THREEFYTP10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/THREEFYTP10, September 27, 2026."
     },
     {
       "series": "BAA10Y",
@@ -450,7 +492,7 @@
       "fetched": "net",
       "stale": false,
       "display": "status_only",
-      "citation": "Moody's, Baa−10년 스프레드 [BAA10Y], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Federal Reserve Bank of St. Louis, Moody's Seasoned Baa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity [BAA10Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAA10Y, September 27, 2026."
     },
     {
       "series": "BAMLH0A0HYM2",
@@ -462,7 +504,7 @@
       "fetched": "net",
       "stale": false,
       "display": "status_only",
-      "citation": "ICE Data Indices, HY OAS [BAMLH0A0HYM2], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Ice Data Indices, LLC, ICE BofA US High Yield Index Option-Adjusted Spread [BAMLH0A0HYM2], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAMLH0A0HYM2, September 27, 2026."
     },
     {
       "series": "BAMLC0A0CM",
@@ -474,7 +516,7 @@
       "fetched": "net",
       "stale": false,
       "display": "status_only",
-      "citation": "ICE Data Indices, IG OAS [BAMLC0A0CM], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Ice Data Indices, LLC, ICE BofA US Corporate Index Option-Adjusted Spread [BAMLC0A0CM], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAMLC0A0CM, September 27, 2026."
     },
     {
       "series": "SP500",
@@ -486,7 +528,7 @@
       "fetched": "net",
       "stale": false,
       "display": "status_only",
-      "citation": "S&P Dow Jones Indices, S&P500 [SP500], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "S&P Dow Jones Indices LLC, S&P 500 [SP500], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/SP500, September 27, 2026."
     },
     {
       "series": "DGS10",
@@ -498,7 +540,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB, 미 10년 [DGS10], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis [DGS10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DGS10, September 27, 2026."
     },
     {
       "series": "T10Y2Y",
@@ -510,7 +552,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB St. Louis, 10년−2년 [T10Y2Y], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Federal Reserve Bank of St. Louis, 10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity [T10Y2Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10Y2Y, September 27, 2026."
     },
     {
       "series": "DFII10",
@@ -522,7 +564,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB, 10년 실질 [DFII10], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed [DFII10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DFII10, September 27, 2026."
     },
     {
       "series": "T10YIE",
@@ -534,7 +576,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB St. Louis, 10년 BEI [T10YIE], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Federal Reserve Bank of St. Louis, 10-Year Breakeven Inflation Rate [T10YIE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10YIE, September 27, 2026."
     },
     {
       "series": "PCEPILFE",
@@ -546,7 +588,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "BEA, 근원 PCE 물가 [PCEPILFE], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "U.S. Bureau of Economic Analysis, Personal Consumption Expenditures Excluding Food and Energy (Chain-Type Price Index) [PCEPILFE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/PCEPILFE, September 27, 2026."
     },
     {
       "series": "CPILFESL",
@@ -558,7 +600,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "BLS, 근원 CPI [CPILFESL], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "U.S. Bureau of Labor Statistics, Consumer Price Index for All Urban Consumers: All Items Less Food and Energy in U.S. City Average [CPILFESL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/CPILFESL, September 27, 2026."
     },
     {
       "series": "SOFR",
@@ -570,7 +612,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "SOFR: Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org."
+      "citation": "Federal Reserve Bank of New York, Secured Overnight Financing Rate [SOFR], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/SOFR, September 27, 2026."
     },
     {
       "series": "DEXKOUS",
@@ -582,7 +624,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "FRB, 원/달러 [DEXKOUS], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "Board of Governors of the Federal Reserve System (US), South Korean Won to U.S. Dollar Spot Exchange Rate [DEXKOUS], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DEXKOUS, September 27, 2026."
     },
     {
       "series": "CES5552300001",
@@ -594,7 +636,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
-      "citation": "BLS, 미 증권·투자업 고용 [CES5552300001], retrieved from FRED, Federal Reserve Bank of St. Louis"
+      "citation": "U.S. Bureau of Labor Statistics, All Employees, Securities, Commodity Contracts, Funds, Trusts, and Other Financial Vehicles, Investments, and Related Activities [CES5552300001], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/CES5552300001, September 27, 2026."
     }
   ],
   "warnings": [

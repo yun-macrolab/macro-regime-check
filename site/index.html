@@ -69,6 +69,8 @@
   .ch-tip-date, .ch-tip-asof { color: var(--muted); }
   .ch-tip strong { font-variant-numeric: tabular-nums; margin-right: 6px; }
   .ch-note { font-size: .8rem; margin: 4px 0 0; }
+  .notices { margin: 8px 0 0; font-size: .75rem; color: var(--muted); }
+  .notices p { margin: 2px 0; overflow-wrap: anywhere; }
   details.ch-table { margin: 4px 0 0; }
   details.ch-table summary { font-size: .8rem; color: var(--muted); cursor: pointer; }
   .ch-scroll { max-height: 240px; overflow: auto; margin-top: 4px; }
@@ -165,10 +167,10 @@ function renderStatus(st) {
 }
 
 // 그래프 하나 — 실패해도 페이지는 계속(그 그래프만 없음)
-function chartFigure(spec, height, caption) {
+function chartFigure(spec, height, caption, notices) {
   if (!spec || !window.MacroCharts) return null;
   try {
-    return window.MacroCharts.lineChart(spec, { height, caption });
+    return window.MacroCharts.lineChart(spec, { height, caption, notices });
   } catch (e) {
     return null;
   }
@@ -179,16 +181,20 @@ function renderRule(r, chart) {
   for (const o of r.observations || []) {
     const v = o.value === null || o.value === undefined ? "자료 없음" : `${o.value}${o.unit || ""}`;
     obs.append(el("li", {}, `${o.label}: `, el("strong", {}, v), ` (${o.asof || "—"}`,
-      o.derived ? ", 계산값" : "", ")"));
+      o.derived || o.computed ? ", 계산값" : "", ")"));   // 이 저장소가 계산한 값 — 원 발행처의 값으로 보이지 않게
   }
   const restricted = (r.restricted_series || []).map(s => [link(s.series, s.url), ` (${s.owner})`]);
+  // 참조금리 고지(SOFR 등) — 뉴욕 연은 이용약관: 자료를 보여 주는 곳에 함께. 카드에 고지가 있으면 카드 안 그래프는 생략하고,
+  // 없으면(공개본이 옛 형식 등) 그래프가 제 고지를 싣는다 — 어느 쪽이든 한 번은 나오게
+  const notices = Array.isArray(r.notices) ? r.notices.filter(n => typeof n === "string" && n) : [];
   return el("section", { class: "rule" },
     el("h3", {}, r.title, el("span", { class: `pill ${r.status}` }, STATUS_TEXT[r.status] || r.status)),
     el("p", {}, r.rule),
     obs.childElementCount ? obs : null,
     restricted.length ? el("p", { class: "muted" }, "재배포 제한 자료라 값은 싣지 않는다: ",
       ...restricted.flatMap((parts, i) => (i ? [", ", ...parts] : parts))) : null,
-    chartFigure(chart, 150, false));
+    chartFigure(chart, 150, false, notices.length ? false : undefined),
+    notices.length ? el("div", { class: "notices" }, ...notices.map(n => el("p", {}, n))) : null);
 }
 
 function renderOverview(charts, publicDate) {

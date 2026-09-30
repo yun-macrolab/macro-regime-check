@@ -52,13 +52,13 @@ def walk(node):
 def allowed_strings():
     table = rp.public_rules()
     s = {rp.NOTICE, "met", "not_met", "unknown", "net", "cache", "missing", "value", "status_only"}
-    s |= set(rp.ATTRIBUTION) | set(table)
+    s |= set(rp.attribution(TODAY.year)) | set(rp.sofr_notices(TODAY.year)) | set(table)
     for spec in table.values():
         s |= {spec["title"], spec["rule"]}
         for o in spec["obs"]:
             s |= {o["label"], o["unit"], *o["series"]}
     for sid, (label, _, _) in rr.SERIES.items():
-        s |= {sid, label, rp.OWNER[sid], rp.FRED_URL.format(sid), rp.citation(sid)}
+        s |= {sid, label, rp.OWNER[sid], rp.FRED_URL.format(sid), rp.citation(sid, TODAY.isoformat())}
     return s
 
 
@@ -185,6 +185,58 @@ class RenderPublicTest(unittest.TestCase):
         rows = {h["series"]: h for h in pub["data_health"]}
         self.assertIn("New York", rows["SOFR"]["citation"])
         self.assertTrue(all(h["citation"] for h in pub["data_health"]))
+
+    def test_sofr_reference_rate_notice_and_citation(self):
+        # 뉴욕 연은 이용약관(2023-06-09 개정) Use Restrictions — Reference Rates: SOFR 자료를 쓰거나 배포하면 정해진
+        # 고지·면책을 함께 싣는다(2026-09-30 원문 확인). 페이지 꼬리말·SOFR 카드·JSON 모두에 실린다
+        pub = self.pubs[0]
+        year = int(pub["date"][:4])
+        # 약관의 틀에 [이름]·[발행처]만 채운 그대로 — 중간 문구가 바뀌어도 잡히게 전체를 비교한다
+        self.assertEqual(rp.SOFR_NOTICE,
+                         "The SOFR data is subject to the Terms of Use posted at newyorkfed.org. The New York Fed is not "
+                         "responsible for publication of the SOFR data by macro-regime-check (github.com/yun-macrolab), "
+                         "does not sanction or endorse any particular republication, and has no liability for your use.")
+        self.assertEqual(rp.SOFR_DTCC,
+                         "The Secured Overnight Financing Rate (SOFR) Data and Broad General Collateral Rate (BGCR) Data "
+                         "are calculated using data provided under a license granted to the New York Fed by DTCC Solutions "
+                         "LLC (\u201cSolutions\u201d), an affiliate of The Depository Trust & Clearing Corporation. Solutions, "
+                         "its affiliates, and third parties from which they obtained data have no liability for the content "
+                         "of this material.")
+        self.assertTrue(rp.NOT_AFFILIATED.startswith(
+            "macro-regime-check (github.com/yun-macrolab) is not affiliated with the New York Fed. The New York Fed does "
+            "not sanction, endorse, or recommend any products or services offered by macro-regime-check"))
+        self.assertEqual(rp.nyfed_attribution(year), f"© {year} Federal Reserve Bank of New York. "
+                         "Content from the New York Fed subject to the Terms of Use at newyorkfed.org.")
+        for line in (rp.SOFR_NOTICE, rp.SOFR_DTCC, rp.nyfed_attribution(year), rp.NOT_AFFILIATED, rp.DATA_LICENSE):
+            self.assertIn(line, pub["attribution"])
+        sofr = next(r for r in pub["rules"] if r["key"] == "sofr")
+        self.assertEqual(sofr["notices"], rp.sofr_notices(year))
+        self.assertIn(rp.SOFR_NOTICE, sofr["notices"])
+        self.assertTrue(any("macro-regime-check" in n and "계산" in n for n in sofr["notices"]))   # 파생값은 누가 계산했는지
+        self.assertIn(rp.SOFR_DERIVED_EN, sofr["notices"])                                   # 영어로 읽는 사람에게도
+        self.assertIn(rp.NOT_AFFILIATED, sofr["notices"])
+        obs = {o["label"]: o for o in sofr["observations"]}
+        self.assertEqual((obs["SOFR"]["computed"], obs["3개월 변화"]["computed"]), (False, True))
+        self.assertTrue(all(r["notices"] == [] for r in pub["rules"] if r["key"] != "sofr"))
+        rows = {h["series"]: h for h in pub["data_health"]}
+        # FRED 시리즈 페이지의 Suggested Citation 그대로(날짜 = 공개본 기준일)
+        self.assertEqual(rows["SOFR"]["citation"], "Federal Reserve Bank of New York, Secured Overnight Financing Rate "
+                         "[SOFR], retrieved from FRED, Federal Reserve Bank of St. Louis; "
+                         "https://fred.stlouisfed.org/series/SOFR, September 22, 2026.")
+        self.assertEqual(rows["DGS10"]["citation"], "Board of Governors of the Federal Reserve System (US), Market Yield "
+                         "on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis [DGS10], "
+                         "retrieved from FRED, Federal Reserve Bank of St. Louis; "
+                         "https://fred.stlouisfed.org/series/DGS10, September 22, 2026.")
+        self.assertEqual(rows["T10Y2Y"]["citation"].split(",")[0], "Federal Reserve Bank of St. Louis")
+        self.assertEqual(set(rp.FRED_SOURCE), set(rr.SERIES))
+        self.assertEqual(set(rp.FRED_TITLE), set(rr.SERIES))
+
+    def test_computed_values_are_marked(self):
+        # 이 저장소가 계산한 값(전년비·3개월 변화·비율·상관)은 원 발행처의 값으로 보이지 않게 '계산값'으로
+        comp = {(r["key"], o["label"]): o["computed"] for r in self.pubs[0]["rules"] for o in r["observations"]}
+        self.assertTrue(comp[("sofr", "3개월 변화")] and comp[("term_premium", "3개월 변화")])
+        self.assertTrue(comp[("ndfi_credit", "NDFI 대출 전년비(계단 제외)")] and comp[("stock_bond_corr", "60영업일 상관")])
+        self.assertFalse(comp[("sofr", "SOFR")] or comp[("curve_inversion", "10년−2년")] or comp[("real_rate_bei", "10년 실질금리")])
 
     def test_quarterly_series_not_stale_before_next_advance_release(self):
         raw = copy.deepcopy(self.raw)
