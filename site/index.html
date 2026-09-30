@@ -9,11 +9,16 @@
   :root {
     --bg: #fbfbfa; --fg: #1d1d1f; --muted: #6b6b70; --line: #e3e3e0; --card: #ffffff;
     --met: #9a5b00; --met-bg: #fff4e0; --unk-bg: #f1f1ef; --bad: #b3261e; --bad-bg: #fdecea; --link: #1f5fbf;
+    /* 그래프 — 분류색 1~3은 dataviz 검증 팔레트(카드 바탕 #ffffff 기준 통과), 참고 선·임계값·격자는 글자·테두리 계열 */
+    --ch-1: #2a78d6; --ch-2: #eb6834; --ch-3: #1baf7a; --ch-ref: #8a8a90; --ch-th: #52514e;
+    --ch-grid: #ececea; --ch-axis: #c3c2b7;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #151517; --fg: #ececee; --muted: #a0a0a8; --line: #2e2e33; --card: #1d1d21;
       --met: #ffc46b; --met-bg: #3a2c12; --unk-bg: #26262b; --bad: #ff8a80; --bad-bg: #3b1d1b; --link: #8ab4ff;
+      --ch-1: #3987e5; --ch-2: #d95926; --ch-3: #199e70; --ch-ref: #7c7c84; --ch-th: #c3c2b7;
+      --ch-grid: #2c2c31; --ch-axis: #45454c;
     }
   }
   * { box-sizing: border-box; }
@@ -37,6 +42,41 @@
   details { margin: 8px 0; }
   .health li { overflow-wrap: anywhere; }
   footer { margin-top: 40px; font-size: .85rem; color: var(--muted); }
+  /* 그래프 (site/charts.js) */
+  .panel { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 10px 0; background: var(--card); }
+  figure.ch { margin: 10px 0 0; }
+  .panel figure.ch { margin: 0; }
+  .ch-title { font-weight: 600; margin: 0 0 2px; }
+  .ch-legend { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: .85rem; color: var(--muted); margin: 2px 0 4px; }
+  .ch-key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; vertical-align: middle; margin-right: 6px; }
+  .ch-plot { position: relative; }
+  .ch-plot svg { display: block; overflow: visible; touch-action: pan-y; }
+  .ch-plot svg:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
+  .ch-grid { stroke: var(--ch-grid); stroke-width: 1; shape-rendering: crispEdges; }
+  .ch-zero { stroke: var(--ch-axis); stroke-width: 1; shape-rendering: crispEdges; }
+  .ch-th { stroke: var(--ch-th); stroke-width: 1; stroke-dasharray: 4 3; }
+  .ch-tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .ch-th-label { fill: var(--ch-th); font-size: 11px; paint-order: stroke; stroke: var(--card); stroke-width: 3px;
+                 stroke-linejoin: round; }
+  .ch-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .ch-dot { stroke: var(--card); stroke-width: 2; }
+  .ch-end { fill: var(--fg); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ch-end.ref { fill: var(--muted); font-weight: 400; }
+  .ch-cross { stroke: var(--ch-axis); stroke-width: 1; }
+  .ch-tip { position: absolute; z-index: 1; pointer-events: none; background: var(--card); border: 1px solid var(--line);
+            border-radius: 6px; padding: 6px 8px; font-size: .8rem; line-height: 1.5; white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .12); }
+  .ch-tip-date, .ch-tip-asof { color: var(--muted); }
+  .ch-tip strong { font-variant-numeric: tabular-nums; margin-right: 6px; }
+  .ch-note { font-size: .8rem; margin: 4px 0 0; }
+  details.ch-table { margin: 4px 0 0; }
+  details.ch-table summary { font-size: .8rem; color: var(--muted); cursor: pointer; }
+  .ch-scroll { max-height: 240px; overflow: auto; margin-top: 4px; }
+  .ch-scroll table { border-collapse: collapse; font-size: .8rem; font-variant-numeric: tabular-nums; }
+  .ch-scroll th, .ch-scroll td { padding: 2px 12px 2px 0; text-align: right; border-bottom: 1px solid var(--line);
+                                 white-space: nowrap; }
+  .ch-scroll th:first-child, .ch-scroll td:first-child { text-align: left; }
+  .ch-scroll thead th { position: sticky; top: 0; background: var(--card); }
 </style>
 </head>
 <body>
@@ -47,6 +87,12 @@
   <div id="banner" class="banner" hidden></div>
   <div id="status" class="status">불러오는 중…</div>
   <p id="notice" class="muted"></p>
+
+  <section id="overview-wrap" hidden>
+    <h2>금리 한눈에 보기</h2>
+    <p id="charts-note" class="muted" hidden></p>
+    <div id="overview"></div>
+  </section>
 
   <h2 id="summary">규칙</h2>
   <div id="rules"></div>
@@ -60,9 +106,10 @@
 
   <footer>
     <div id="attribution"></div>
-    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · 날짜별 기록은 저장소의 data/history/</p>
+    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · 날짜별 기록은 저장소의 data/history/</p>
   </footer>
 </main>
+<script src="charts.js"></script>
 <script>
 "use strict";
 // 예약 실행: UTC 월~금 22:17(.github/workflows/daily.yml). cron 지연을 3시간까지 봐준다
@@ -117,7 +164,17 @@ function renderStatus(st) {
     showBanner("예정된 자동 갱신이 반영되지 않았다 — 실행이 멈췄거나 실패했을 수 있다. 아래는 마지막으로 성공한 결과다.");
 }
 
-function renderRule(r) {
+// 그래프 하나 — 실패해도 페이지는 계속(그 그래프만 없음)
+function chartFigure(spec, height, caption) {
+  if (!spec || !window.MacroCharts) return null;
+  try {
+    return window.MacroCharts.lineChart(spec, { height, caption });
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderRule(r, chart) {
   const obs = el("ul", { class: "obs" });
   for (const o of r.observations || []) {
     const v = o.value === null || o.value === undefined ? "자료 없음" : `${o.value}${o.unit || ""}`;
@@ -130,15 +187,31 @@ function renderRule(r) {
     el("p", {}, r.rule),
     obs.childElementCount ? obs : null,
     restricted.length ? el("p", { class: "muted" }, "재배포 제한 자료라 값은 싣지 않는다: ",
-      ...restricted.flatMap((parts, i) => (i ? [", ", ...parts] : parts))) : null);
+      ...restricted.flatMap((parts, i) => (i ? [", ", ...parts] : parts))) : null,
+    chartFigure(chart, 150, false));
 }
 
-function renderPublic(p) {
+function renderOverview(charts, publicDate) {
+  const figs = (Array.isArray(charts.overview) ? charts.overview : [])
+    .map(spec => chartFigure(spec, 250, true)).filter(Boolean);
+  if (!figs.length) return;
+  document.getElementById("overview").replaceChildren(...figs.map(f => el("div", { class: "panel" }, f)));
+  if (publicDate && charts.date !== publicDate) {
+    const note = document.getElementById("charts-note");
+    note.textContent = `그래프는 ${charts.date} 기준이다(최근 그래프 자료 생성 실패).`;
+    note.hidden = false;
+  }
+  document.getElementById("overview-wrap").hidden = false;
+}
+
+function renderPublic(p, charts) {
   document.getElementById("notice").textContent = p.notice || "";
   const s = p.summary || {};
   document.getElementById("summary").textContent =
     `규칙 ${s.total}개 — 충족 ${s.met} · 미충족 ${s.not_met} · 판정 불가 ${s.unknown}`;
-  document.getElementById("rules").replaceChildren(...(p.rules || []).map(renderRule));
+  const ruleCharts = charts && charts.rules && typeof charts.rules === "object" ? charts.rules : {};
+  document.getElementById("rules").replaceChildren(...(p.rules || []).map(r =>
+    renderRule(r, Object.prototype.hasOwnProperty.call(ruleCharts, r.key) ? ruleCharts[r.key] : null)));
   const health = p.data_health || [];
   const stale = health.filter(h => h.stale).length;
   document.getElementById("health-summary").textContent =
@@ -151,11 +224,15 @@ function renderPublic(p) {
 }
 
 (async () => {
-  const [st, pub] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json")]);
+  const [st, pub, ch] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json"),
+    getJson("data/charts.json")]);
+  // 그래프 자료가 없거나 깨졌으면 그래프 없이 지금 화면 그대로
+  const charts = ch.status === "fulfilled" && ch.value && typeof ch.value === "object" ? ch.value : null;
   if (st.status === "fulfilled") renderStatus(st.value);
   else document.getElementById("status").textContent = "상태 파일이 아직 없다(첫 자동 실행 전).";
-  if (pub.status === "fulfilled") renderPublic(pub.value);
+  if (pub.status === "fulfilled") renderPublic(pub.value, charts);
   else showBanner("공개본을 불러오지 못했다 — 첫 자동 실행 전이거나 배포 중이다.");
+  if (charts) renderOverview(charts, pub.status === "fulfilled" ? pub.value.date : null);
 })();
 </script>
 </body>

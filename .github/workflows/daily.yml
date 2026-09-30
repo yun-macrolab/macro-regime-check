@@ -4,8 +4,10 @@
 #   check   모든 실행에서 먼저. 공개 전 검사(check_blind)와 단위 테스트가 통과해야 뒤로 간다.
 #   update  예약·수동 실행에서만. 수집·공개본 생성은 실패해도 멈추지 않고(continue-on-error) 상태 파일에 실패를 남긴다
 #           → 페이지는 직전 공개본 + 실패 배너를 보여 준다. 새 산출물까지 다시 검사한 뒤에만 커밋한다.
+#           그래프 자료(charts.json)는 공개본 뒤에 만든다. 실패하면 직전 그래프가 남고 페이지가 그 기준일을 알린다
+#           (상태 파일의 정상 여부는 바꾸지 않는다 — 규칙 판정은 멀쩡하므로).
 #   deploy  data/·site/만 Pages로. 스크립트·원자료(.work/)는 배포하지 않는다.
-#   alert   수집·생성이 실패한 날은 마지막에 실행을 실패로 끝내 GitHub 알림 메일을 받는다.
+#   alert   수집·생성·그래프가 실패한 날은 마지막에 실행을 실패로 끝내 GitHub 알림 메일을 받는다.
 #
 # 원자료 캐시(actions/cache)는 쓰지 않는다 — 재배포가 제한된 시리즈(S&P·ICE·Moody's) 원값이 러너 밖에 남지 않게.
 # 캐시가 없으면 FRED가 일부 시리즈만 실패한 날 그 값은 비고(2개까지 허용), 3개 이상이면 그날은 기록하지 않는다.
@@ -60,6 +62,7 @@ jobs:
       contents: write   # 봇이 data/를 커밋한다
     outputs:
       ok: ${{ steps.status.outputs.ok }}
+      charts: ${{ steps.charts.outcome }}
       publish: ${{ steps.commit.outputs.publish }}
       sha: ${{ steps.commit.outputs.sha }}
     steps:
@@ -78,6 +81,11 @@ jobs:
         if: steps.fetch.outcome == 'success'
         continue-on-error: true
         run: python scripts/render_public.py
+      - name: 그래프 자료 만들기
+        id: charts
+        if: steps.render.outcome == 'success'
+        continue-on-error: true
+        run: python scripts/render_charts.py
       - name: 상태 기록
         id: status
         env:
@@ -142,11 +150,21 @@ jobs:
 
   alert:
     needs: [update, deploy]
-    if: always() && needs.update.result == 'success' && needs.update.outputs.ok != 'true'
+    if: >-
+      always() && needs.update.result == 'success' &&
+      (needs.update.outputs.ok != 'true' || needs.update.outputs.charts == 'failure')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: 갱신 실패 알림
+        env:
+          OK: ${{ needs.update.outputs.ok }}
+          CHARTS: ${{ needs.update.outputs.charts }}
         run: |
-          echo "::error::오늘 갱신 실패 — 페이지는 직전 공개본과 실패 배너를 보여 준다. 원인은 update 잡의 수집·판정 단계 로그"
+          if [ "$OK" != "true" ]; then
+            echo "::error::오늘 갱신 실패 — 페이지는 직전 공개본과 실패 배너를 보여 준다. 원인은 update 잡의 수집·판정 단계 로그"
+          fi
+          if [ "$CHARTS" = "failure" ]; then
+            echo "::error::그래프 자료 생성 실패 — 페이지는 직전 그래프와 기준일 안내를 보여 준다. 원인은 update 잡의 그래프 단계 로그"
+          fi
           exit 1
