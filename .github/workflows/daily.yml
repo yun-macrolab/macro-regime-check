@@ -54,7 +54,9 @@ jobs:
           BLIND_PATTERNS: ${{ secrets.BLIND_PATTERNS }}
         run: python scripts/check_blind.py
       - name: 단위 테스트
-        run: python -m unittest discover -s scripts
+        run: |
+          python -m unittest discover -s scripts
+          node --test scripts/test_korea_health.cjs
 
   update:
     needs: check
@@ -68,7 +70,7 @@ jobs:
       ok: ${{ steps.status.outputs.ok }}
       charts: ${{ steps.charts.outcome }}
       ktb: ${{ steps.ktb.outcome }}
-      korea: ${{ steps.korea.outcome }}
+      korea: ${{ steps.korea_finish.outputs.ok == 'true' && 'success' || 'failure' }}
       publish: ${{ steps.commit.outputs.publish }}
       sha: ${{ steps.commit.outputs.sha }}
     steps:
@@ -100,10 +102,20 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/ktb_fetch.py
+      - name: 한국 시장 갱신 시작 기록
+        id: korea_start
+        run: python scripts/korea_status.py --state started
       - name: 한국 시장 학습 자료 받기
         id: korea
         continue-on-error: true
+        timeout-minutes: 4
         run: python scripts/korea_market.py
+      - name: 한국 시장 갱신 종료 기록
+        id: korea_finish
+        if: always() && steps.korea_start.outcome == 'success'
+        env:
+          KOREA_OUTCOME: ${{ steps.korea.outcome }}
+        run: python scripts/korea_status.py --state "$KOREA_OUTCOME"
       - name: 상태 기록
         id: status
         env:

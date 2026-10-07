@@ -79,6 +79,7 @@
 
   <section id="korea-teaser">
     <div class="section-heading"><h2>한국 시장의 연결고리</h2><a href="#korea">한국 시장 전체 보기 →</a></div>
+    <p id="korea-teaser-status" class="market-warning" role="status" hidden></p>
     <div id="korea-teaser-values" class="snapshot market-summary"><p class="muted">한국 시장 자료를 불러오는 중…</p></div>
   </section>
   <section id="korea-market" hidden>
@@ -206,9 +207,12 @@ function link(text, url) {
   return u ? el("a", { href: u, rel: "noopener" }, text) : document.createTextNode(text);
 }
 async function getJson(path) {
-  const r = await fetch(path, { cache: "no-store" });
-  if (!r.ok) throw new Error(path + " " + r.status);
-  return r.json();
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const r = await fetch(path, { cache: "no-store", signal: controller.signal });
+    if (!r.ok) throw new Error(path + " " + r.status);
+    return await r.json();
+  } finally { clearTimeout(timer); }
 }
 function showBanner(text) {
   const b = document.getElementById("banner");
@@ -329,7 +333,7 @@ function applyView() {
   document.querySelectorAll("#category-nav a").forEach(a => {
     if(a.dataset.view === activeView || (a.dataset.view === "korea" && activeView.startsWith("korea-"))) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
-  window.KoreaMarket.setView(activeView);
+  window.KoreaMarket?.setView(activeView);
   const showRules = activeView === "all" || !!group;
   const home = available.monitor && activeView === "all";
   document.getElementById("bridge").hidden = !home;
@@ -537,8 +541,8 @@ function renderPublic(p, charts) {
 
 applyView();
 (async () => {
-  const [st, pub, ch, kt, kr] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json"),
-    getJson("data/charts.json"), getJson("data/ktb.json"), getJson("data/korea.json")]);
+  const [st, pub, ch, kt, kr, ks] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json"),
+    getJson("data/charts.json"), getJson("data/ktb.json"), getJson("data/korea.json"), getJson("data/korea-status.json")]);
   // 그래프 자료가 없거나 깨졌으면 그래프 없이 지금 화면 그대로
   const charts = ch.status === "fulfilled" && ch.value && typeof ch.value === "object" ? ch.value : null;
   if (st.status === "fulfilled") renderStatus(st.value);
@@ -554,10 +558,13 @@ applyView();
   available.loaded = true;
   try {
     if(kr.status !== "fulfilled") throw new Error("Korean market data unavailable");
-    window.KoreaMarket.render(kr.value);
+    window.KoreaMarket.render(kr.value, ks.status === "fulfilled" ? ks.value : null);
   } catch(e) {
     document.getElementById("korea-market-status").textContent = "한국 시장 자료를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.";
     document.getElementById("korea-teaser-values").textContent = "한국 시장 자료를 불러오지 못했습니다.";
+    document.getElementById("korea-source-status").textContent = "한국 자료와 실행 상태를 확인하지 못했습니다. 마지막 성공 시각과 실행 로그를 확인해 주세요.";
+    document.getElementById("link-lamp").dataset.state = "bad";
+    document.getElementById("link-lamp").textContent = "한국 자료 확인 필요";
   }
   applyView();
   document.body.classList.replace("boot", "ready");               // 값이 들어오는 깜박임은 자료가 그려진 뒤 한 번

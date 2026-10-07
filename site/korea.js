@@ -1,9 +1,28 @@
 /* Korean market reference panels. DOM text only; no external runtime dependency. */
 "use strict";
 window.KoreaMarket = (() => {
-  let data = null;
+  let data = null, attempt = null, healthState = null;
   const names = {credit:"회사채 스프레드", money:"CD·CP", rates:"한미 국채", foreign3:"외국인 3년 선물", foreign10:"외국인 10년 선물", calendar:"입찰 일정", auctions:"입찰 결과", offerings:"입찰 예정액"};
   const groups = {rates:"금리·커브", credit:"신용·단기자금", flows:"수급·입찰"};
+  const reasons = {stale:"관측일 지연", regressed:"과거 자료로 되돌아옴", calendar_month:"이번 달 일정 미확인", empty_or_duplicate:"빈 자료·중복 행", timeout:"수신 시간 초과", unavailable:"수신·형식 확인 실패"};
+  function health(value, run, expectedAfter, now=Date.now()) {
+    const checked=Date.parse(value?.checked_at), started=Date.parse(run?.started_at), ended=Date.parse(run?.checked_at);
+    const valid=Number.isFinite(checked) && checked<=now+300000;
+    const late=!valid || checked<expectedAfter;
+    const failures=Object.keys(names).filter(k=>value?.feeds?.[k]?.ok!==true);
+    let issue="";
+    if(!run || run.schema!==1) issue="갱신 실행 상태를 확인할 수 없습니다";
+    else if(run.state==="running") issue=Number.isFinite(started) && now-started<240000 ? "한국 자료 갱신 중" : "한국 자료 갱신이 중단되었거나 지연됐습니다";
+    else if(run.ok!==true || run.state!=="success") issue="최근 한국 자료 갱신에 실패했습니다";
+    else if(!valid || !Number.isFinite(started) || !Number.isFinite(ended) || ended>now+300000 || checked<started || checked>ended) issue="갱신 상태와 자료의 시각이 맞지 않습니다";
+    if(late) issue="예정된 한국 자료 갱신이 반영되지 않았습니다";
+    return {issue, late, failures, warning:!!issue || !!failures.length};
+  }
+  function oldObservation(date, now=Date.now()) {
+    const day=Date.parse(date+"T00:00:00+09:00");
+    const today=Math.floor((now+9*36e5)/864e5), observation=Math.floor((day+9*36e5)/864e5);
+    return !Number.isFinite(day) || observation>today || today-observation>7;
+  }
   function node(tag, cls, ...children) {
     const e = document.createElement(tag); if(cls) e.className = cls;
     for(const c of children) if(c !== null && c !== undefined) e.append(c);
@@ -23,7 +42,29 @@ window.KoreaMarket = (() => {
   }
   function feedNote(key) {
     const f = data?.feeds?.[key];
-    return !f?.ok ? "수신 실패 · 마지막 성공 자료" : "";
+    if(f?.ok!==true) return (reasons[f?.reason] || "수신 실패")+" · 마지막 성공 자료";
+    return healthState?.issue ? healthState.issue+" · 자료일 확인" : "";
+  }
+  function refreshHealth() {
+    if(!data) return;
+    const now=Date.now();
+    const expected=typeof lastScheduledRun==="function" ? lastScheduledRun(new Date(now)).getTime() : now-96*36e5;
+    healthState=health(data,attempt,expected,now);
+    const notes=[healthState.issue,healthState.failures.length ? "확인 필요: "+healthState.failures.map(k=>names[k]).join(", ") : ""].filter(Boolean);
+    const checked=new Date(data.checked_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"});
+    document.getElementById("korea-market-status").textContent="한국 자료 확인: "+checked+" (KST) · "+(notes.join(" · ") || "각 지표의 관측일을 확인하세요");
+    const summary=document.getElementById("korea-teaser-status");
+    summary.textContent=notes.join(" · "); summary.hidden=!notes.length;
+    const lamp=document.getElementById("link-lamp");
+    if(lamp && healthState.warning) { lamp.dataset.state="bad"; lamp.textContent="한국 자료 확인 필요"; }
+    document.querySelectorAll("[data-market-feed]").forEach(e=>{
+      const note=[feedNote(e.dataset.marketFeed),e.dataset.marketDate && oldObservation(e.dataset.marketDate,now) ? "최근 관측이 7일을 넘었거나 자료일 확인이 필요합니다" : ""].filter(Boolean).join(" · ");
+      e.textContent=note; e.hidden=!note;
+    });
+    document.getElementById("korea-source-status").replaceChildren(...Object.keys(names).map(key=>{
+      const f=data.feeds?.[key], stamp=f?.last_success ? new Date(f.last_success).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})+" (KST)" : "없음";
+      return node("li","",names[key]+": "+(feedNote(key) || "수신 성공")+" · 마지막 성공 "+stamp);
+    }));
   }
   function smallChart(c) {
     if(!window.MacroCharts || !Array.isArray(c.points) || !c.points.length) return null;
@@ -36,8 +77,8 @@ window.KoreaMarket = (() => {
     const m=c.metrics;
     const card=node("article","market-card",node("h3","",c.title),node("p","market-question",c.note));
     card.append(node("div","market-value",node("strong","",number(m?.value,c.unit,c.unit==="계약")),node("span","muted",m?.date || "자료일 없음")));
-    const note=[feedNote(c.feed),c.stale ? "최근 관측이 7일 이상 지났습니다" : ""].filter(Boolean).join(" · ");
-    if(note) card.append(node("p","market-warning",note));
+    const warning=node("p","market-warning"); warning.dataset.marketFeed=c.feed; warning.dataset.marketDate=m?.date || "unknown";
+    card.append(warning);
     const stats=node("div","market-deltas");
     for(const n of c.unit==="계약"?[1,5,20]:[1,5,20]) {
       const v=c.unit==="계약"?m?.sums?.[n]:m?.changes?.[n];
@@ -101,12 +142,9 @@ window.KoreaMarket = (() => {
     });
     document.querySelectorAll(".market-group").forEach(s=>{s.hidden=s.dataset.group!==group;});
   }
-  function render(value) {
+  function render(value, status=null) {
     if(!value || value.schema!==1 || !Array.isArray(value.cards)) throw new Error("Invalid Korean market data");
-    data=value;
-    const failures=Object.keys(data.feeds).filter(k=>!data.feeds[k].ok);
-    document.getElementById("korea-market-status").textContent="한국 자료 확인: "+new Date(data.checked_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})+" (KST)"+
-      (failures.length?" · 수신 실패: "+failures.map(k=>names[k]||k).join(", "):" · 각 지표의 관측일을 확인하세요");
+    data=value; attempt=status; refreshHealth();
     const content=document.getElementById("korea-market-content");content.replaceChildren();
     for(const [id,title] of Object.entries(groups)) {
       const section=node("section","market-group");section.dataset.group=id;
@@ -120,13 +158,14 @@ window.KoreaMarket = (() => {
       const c=data.cards.find(c=>c.key===key);if(!c)continue;
       const a=node("a","metric",node("span","",c.title),node("strong","",number(c.metrics?.value,c.unit)),node("small","",c.metrics?.date||"자료일 없음"));
       a.href=c.group==="rates"?"#korea":"#korea-"+c.group;
-      if(feedNote(c.feed)||c.stale)a.append(node("small","market-warning","이전 자료 · 갱신 확인 필요"));
+      const warning=node("small","market-warning"); warning.dataset.marketFeed=c.feed; warning.dataset.marketDate=c.metrics?.date || "unknown"; a.append(warning);
       teaser.append(a);
     }
     document.getElementById("korea-market-notices").replaceChildren(...(data.notices||[]).map(t=>node("p","",t)),
       node("p","",sourceLink("한국은행 스냅샷 이용지침","https://snapshot.bok.or.kr/guideline")));
-    document.getElementById("korea-source-status").replaceChildren(...Object.entries(data.feeds).map(([key,f])=>node("li","",
-      (names[key]||key)+": "+(f.ok?"수신 성공":"수신 실패")+" · 마지막 성공 "+(f.last_success||"없음"))));
+    refreshHealth();
   }
-  return {render,setView};
+  setInterval(refreshHealth,60000);
+  document.addEventListener("visibilitychange",refreshHealth);
+  return {render,setView,health,oldObservation};
 })();

@@ -15,6 +15,9 @@ import io
 import json
 import math
 import re
+import time
+import tempfile
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -54,14 +57,52 @@ META = {
 }
 
 
+class FeedError(ValueError):
+    """Fixed public reason codes; never publish remote exception text."""
+
+
+class PublicFetcher:
+    """One retry for transient failures; budgets leave time to publish failure status."""
+    def __init__(self, budget=150, per_feed=45, clock=time.monotonic, sleep=time.sleep, opener=urllib.request.urlopen):
+        self.clock, self.sleep, self.opener = clock, sleep, opener
+        self.deadline = clock() + budget
+        self.per_feed = per_feed
+        self.feed_deadline = self.deadline
+
+    def start_feed(self):
+        self.feed_deadline = min(self.deadline, self.clock() + self.per_feed)
+
+    def remaining(self):
+        remaining = min(self.deadline, self.feed_deadline) - self.clock()
+        if remaining <= 0: raise FeedError("timeout")
+        return remaining
+
+    def __call__(self, url, data=None):
+        body = urllib.parse.urlencode(data).encode() if data is not None else None
+        for attempt in range(2):
+            try:
+                with self.opener(url, data=body, timeout=min(10, self.remaining())) as response:
+                    chunks, size = [], 0
+                    while True:
+                        self.remaining()
+                        chunk = response.read1(min(65536, LIMIT + 1 - size))
+                        self.remaining()
+                        if not chunk: break
+                        chunks.append(chunk); size += len(chunk)
+                        if size > LIMIT: raise ValueError("oversized response")
+                return b"".join(chunks)
+            except urllib.error.HTTPError as exc:
+                if exc.code not in (408, 429, 500, 502, 503, 504): raise
+                exc.close()
+                if attempt: raise
+            except (urllib.error.URLError, TimeoutError, ConnectionError):
+                if attempt: raise
+            if self.remaining() <= 1: raise FeedError("timeout")
+            self.sleep(1)
+
+
 def request(url, data=None):
-    if data is not None:
-        data = urllib.parse.urlencode(data).encode()
-    with urllib.request.urlopen(url, data=data, timeout=25) as r:
-        raw = r.read(LIMIT + 1)
-    if len(raw) > LIMIT:
-        raise ValueError("oversized response")
-    return raw
+    return PublicFetcher()(url, data)
 
 
 def xlsx_rows(raw):
@@ -223,10 +264,11 @@ def parse_flows(raw, today):
     return sorted([[d, v] for d, v in out.items()])
 
 
-def parse_calendar(raw):
+def parse_calendar(raw, today=None):
     p = page(raw)
     year, month = int(p.inputs["searchYear"]), int(p.inputs["searchMonth"])
     dt.date(year, month, 1)
+    if today and (year, month) != (today.year, today.month): raise FeedError("calendar_month")
     out = []
     for r in p.rows:
         if len(r) != 2 or not re.fullmatch(r"\d{4}\.\d{2}\.\d{2}\.", r[0]): continue
@@ -236,6 +278,8 @@ def parse_calendar(raw):
         terms = re.findall(r"(?<!\d)(2|3|5|10|20|30|50)년물|물가채", r[1])
         for t in terms:
             out.append({"date": d.isoformat(), "tenor": t + "년" if t else "물가채"})
+    if not out or len({(r['date'], r['tenor']) for r in out}) != len(out):
+        raise FeedError("empty_or_duplicate")
     return {"month": f"{year:04d}-{month:02d}", "rows": out, "source_url": KTB + "/mnbyIsuCldr.do"}
 
 
@@ -329,16 +373,31 @@ def card(key, points, source, today):
             "stale": m is None or (today-dt.date.fromisoformat(m["date"])).days > 7}
 
 
-def build(old, now, fetch=request):
+def validate_freshness(name, payload, previous, today):
+    series = payload if name in CHARTS else {name: payload} if name in ("foreign3", "foreign10") else {}
+    old_series = (previous or {}) if name in CHARTS else {name: previous or []}
+    for key, points in series.items():
+        if not points: raise FeedError("empty_or_duplicate")
+        latest = dt.date.fromisoformat(points[-1][0])
+        if (today - latest).days > 7: raise FeedError("stale")
+        old_points = old_series.get(key) or []
+        if old_points and points[-1][0] < old_points[-1][0]: raise FeedError("regressed")
+
+
+def build(old, now, fetch=None):
+    fetch = PublicFetcher() if fetch is None else fetch
     today = now.astimezone(KST).date(); stamp = now.isoformat(timespec="seconds")
     feeds = {}; previous = old.get("feeds", {}) if old.get("schema") == 1 else {}
     def run(name, fn):
+        prev = previous.get(name, {})
         try:
+            if isinstance(fetch, PublicFetcher): fetch.start_feed()
             payload = fn()
+            validate_freshness(name, payload, prev.get("data"), today)
             feeds[name] = {"ok": True, "checked_at": stamp, "last_success": stamp, "data": payload}
         except Exception as e:
-            prev = previous.get(name, {})
-            feeds[name] = {"ok": False, "checked_at": stamp, "last_success": prev.get("last_success"), "data": prev.get("data")}
+            reason = str(e) if isinstance(e, FeedError) else "unavailable"
+            feeds[name] = {"ok": False, "reason": reason, "checked_at": stamp, "last_success": prev.get("last_success"), "data": prev.get("data")}
             print(f"[korea_market] {name}: {type(e).__name__}")
     for name, (chart_id, specs) in CHARTS.items():
         run(name, lambda chart_id=chart_id, specs=specs: parse_bok(fetch(BOK+f"/api/chart/exportChart?chart_id={chart_id}"), specs, today))
@@ -346,7 +405,7 @@ def build(old, now, fetch=request):
         run(key, lambda code=code: parse_flows(fetch(FLOW_URL, {
             "fr_work_dt": (today-dt.timedelta(days=100)).strftime("%Y%m%d"), "to_work_dt": today.strftime("%Y%m%d"),
             "isu_cd": code, "date_sch_type": "dd", "prt_check": "SUN", "prt_type": "VL", "spread_tp": "1"}), today))
-    run("calendar", lambda: parse_calendar(fetch(KTB+"/mnbyIsuCldr.do")))
+    run("calendar", lambda: parse_calendar(fetch(KTB+"/mnbyIsuCldr.do"), today))
     def auctions():
         # Re-read recent notices so corrections are picked up. Max eight public pages.
         return [parse_result(fetch(result_url(ident)), ident, tenor, today) for ident, tenor in result_links(fetch(RESULTS))]
@@ -379,13 +438,31 @@ def build(old, now, fetch=request):
                 "금리차·기간 변화·누적 순매수·분포는 이 사이트의 계산값입니다. 분포는 최근 관측일 기준 365일이며 저평가·고평가 판정이 아닙니다."]}
 
 
+def atomic_json(path, data):
+    path = Path(path)
+    encoded = json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    temp = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, prefix=path.name+".", suffix=".tmp", delete=False) as f:
+            temp = Path(f.name); f.write(encoded)
+        temp.replace(path)
+    finally:
+        if temp is not None and temp.exists(): temp.unlink()
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(); ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1]/"data")); args = ap.parse_args(argv)
     out = Path(args.out); path = out/"korea.json"
-    try: old = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError): old = {}
-    data = build(old, dt.datetime.now(UTC)); out.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp"); tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False), encoding="utf-8"); tmp.replace(path)
+    try:
+        try: old = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError: old = {}
+        if not isinstance(old, dict) or (old and (old.get("schema") != 1 or not isinstance(old.get("feeds"), dict))):
+            raise ValueError("invalid previous snapshot")
+        data = build(old, dt.datetime.now(UTC)); out.mkdir(parents=True, exist_ok=True)
+        atomic_json(path, data)
+    except Exception as exc:
+        print(f"[korea_market] snapshot not replaced: {type(exc).__name__}")
+        return 1
     failed = [k for k, v in data["feeds"].items() if not v["ok"]]
     print(f"[korea_market] {len(data['cards'])} cards; {len(failed)} failed feeds")
     return int(bool(failed))
