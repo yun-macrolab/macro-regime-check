@@ -60,9 +60,13 @@
   // 이웃 간격 비가 2 이하라 maxN이 5면 눈금이 3개 아래로 떨어지지 않는다
   function niceTicks(lo, hi, maxN) {
     const count = st => Math.floor(hi / st + 1e-9) - Math.ceil(lo / st - 1e-9) + 1;
-    let step = null;
-    for (let mag = Math.pow(10, Math.floor(Math.log10(hi - lo)) - 2); step === null; mag *= 10)
+    let step = null, mag = Math.pow(10, Math.floor(Math.log10(hi - lo)) - 2);
+    // 범위가 0·무한이거나 간격을 못 정하면(자료가 오염된 경우) 눈금 없이 그린다 — 탭이 멈추지 않게
+    const none = { ticks: [], decimals: 0 };
+    if (!(hi > lo) || !Number.isFinite(hi - lo) || !(mag > 0) || !Number.isFinite(mag)) return none;
+    for (let i = 0; step === null && i < 40; i++, mag *= 10)
       for (const m of [1, 2, 2.5, 5]) if (count(m * mag) <= maxN) { step = m * mag; break; }
+    if (step === null) return none;
     const decimals = (String(+step.toPrecision(3)).split(".")[1] || "").length;
     const ticks = [];
     for (let k = Math.ceil(lo / step - 1e-9); k * step <= hi + step * 1e-9; k++) ticks.push(k * step);
@@ -109,11 +113,15 @@
       for (let y = d0.getUTCFullYear() + 1; y <= new Date(t1).getUTCFullYear(); y++) xTick(Date.UTC(y, 0, 1), String(y));
     } else {
       const starts = [];
-      for (let k = 1; Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + k, 1) <= t1; k++)
+      for (let k = 1; k <= 14 && Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + k, 1) <= t1; k++)
         starts.push(new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + k, 1)));
       const every = Math.max(1, Math.ceil(starts.length * 40 / Math.max(1, R - L)));
-      starts.forEach((d, i) => xTick(d.getTime(), i % every ? null
+      const jan = starts.findIndex(d => d.getUTCMonth() === 0), phase = jan < 0 ? 0 : jan % every;   // 건너뛰어도 1월(연도)은 남게
+      starts.forEach((d, i) => xTick(d.getTime(), i % every !== phase ? null
         : d.getUTCMonth() === 0 ? String(d.getUTCFullYear()) : `${d.getUTCMonth() + 1}월`));
+      // 기간이 한 달 안이면 달 경계가 없다 — 첫 날짜를 한 번 적는다
+      if (!starts.length) el.append(svg("text", { class: "ch-tick", x: L, y: height - 5, "text-anchor": "start" },
+        `${d0.getUTCMonth() + 1}/${d0.getUTCDate()}`));
     }
     const th = st.spec.threshold;
     if (st.spec.zero && lo < 0 && hi > 0 && th !== 0)

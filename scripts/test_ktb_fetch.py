@@ -141,13 +141,24 @@ class ParseDailyTest(unittest.TestCase):
         lines = [x for x in daily_lines(2026, 10, 7) if "국고채 금리" not in x]
         self.assertEqual(self.one(lines=lines)[0], "bad")
 
-    def test_missing_core_tenor_is_rejected_but_optional_ones_may_be_absent(self):
-        lines = [x for x in daily_lines(2026, 10, 7) if not x.startswith("10년물: 4.35")]
+    def test_every_tenor_must_be_read(self):
+        # 네 만기 중 하나라도 못 읽으면 그 글을 버린다 — 표기만 바뀐 만기가 조용히 빠지지 않게(검토)
+        for gone in ("3년물: 3.9", "5년물: 4.1", "10년물: 4.35", "30년물: 4.6"):
+            lines = [x for x in daily_lines(2026, 10, 7) if not x.startswith(gone)]
+            self.assertEqual(self.one(lines=lines)[0], "bad", gone)
+        renamed = [x.replace("30년물: 4.6%", "국고30년: 4.6%") for x in daily_lines(2026, 10, 7)]
+        self.assertEqual(self.one(lines=renamed)[0], "bad")
+
+    def test_spread_lines_must_be_there_to_check_against(self):
+        # 스프레드 줄 형식이 바뀌면 금리를 맞춰 볼 수 없다 — 열린 쪽으로 통과시키지 않는다(검토)
+        lines = [x.replace("10-3년 스프레드", "10/3년 스프레드") for x in daily_lines(2026, 10, 7, y10=5.35, spreads=(45.0, 25.0))]
         self.assertEqual(self.one(lines=lines)[0], "bad")
-        lines = [x for x in daily_lines(2026, 10, 7) if not x.startswith(("30년물", "30-10년", "5년물: 4.1"))]
-        kind, row = self.one(lines=lines)
-        self.assertEqual(kind, "ok")
-        self.assertEqual((row["y"]["5"], row["y"]["30"]), (None, None))
+        lines = [x for x in daily_lines(2026, 10, 7) if not x.startswith("30-10년")]
+        self.assertEqual(self.one(lines=lines)[0], "bad")
+
+    def test_exact_flag_tells_whether_the_title_matches_the_posting_day(self):
+        self.assertTrue(self.one()[1]["exact"])
+        self.assertFalse(self.one(when=morning(2026, 10, 7), lines=daily_lines(2026, 10, 6))[1]["exact"])
 
     def test_out_of_range_numbers_are_rejected(self):
         self.assertEqual(self.one(y3=40.0)[0], "bad")
@@ -179,6 +190,11 @@ class ParseDailyTest(unittest.TestCase):
         self.assertEqual(kf.parse_daily({**msg, "time": None})[0], "bad")
         self.assertEqual(kf.parse_daily({**msg, "time": "어제"})[0], "bad")
         self.assertEqual(kf.parse_daily({**msg, "time": "2026-10-07T08:00:00"})[0], "bad")   # 시간대 없는 시각
+        self.assertEqual(kf.parse_daily({**msg, "time": "9999-12-31T20:00:00+00:00"})[0], "bad")   # 날짜 범위를 넘는 시각
+
+    def test_absurd_post_ids_are_not_messages(self):
+        huge = post_html("9" * 40, morning(2026, 10, 7), daily_lines(2026, 10, 7))
+        self.assertEqual(kf.messages(page(huge)), [])
 
 
 class CollectTest(unittest.TestCase):
@@ -222,6 +238,14 @@ class CollectTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             kf.collect(1, opener=op, sleep=lambda s: None)
 
+    def test_a_trickling_response_hits_the_overall_budget(self):
+        # 요청 시한(TIMEOUT)은 수신 한 번에만 걸린다 — 조금씩 오는 응답은 전체 시한으로 끊는다(검토)
+        ticks = iter(range(0, 10 * kf.BUDGET, kf.BUDGET // 3))
+        op = FakeOpener(["x" * (3 * 65536)])
+        with self.assertRaises(RuntimeError):
+            kf.fetch(kf.search_url(), op, clock=lambda: next(ticks))
+        self.assertEqual(kf.fetch(kf.search_url(), FakeOpener(["abc"]), clock=lambda: 0), "abc")
+
 
 def row(d, post, y3=3.9, y5=4.1, y10=4.35, y30=4.6, chg=None):
     return {"date": d, "post": post, "y": {"3": y3, "5": y5, "10": y10, "30": y30},
@@ -237,6 +261,19 @@ class BuildTest(unittest.TestCase):
         self.assertEqual((added, changed), (1, 1))
         self.assertEqual(rows[1][:3], [D(2026, 10, 6), 25, 3.95])                     # 같은 날은 나중 글이
         self.assertEqual(rows[0][:3], [D(2026, 10, 5), 10, 3.8])                      # 옛 글 번호는 덮지 않는다
+
+    def test_title_matching_post_beats_a_later_post_with_another_days_title(self):
+        # 같은 날 올라온 글 둘 — 제목 날짜가 그날인 글이 먼저다. 번호만 큰 다른 날짜 제목의 글이 덮지 않는다(검토)
+        today, stray = row(D(2026, 10, 7), 40), {**row(D(2026, 10, 7), 41, y3=3.111), "exact": False}
+        rows, added, changed = kf.merge([[D(2026, 10, 6), 20, 3.8, 4.0, 4.2, 4.5]], [today, stray])
+        self.assertEqual((rows[-1][:3], added, changed), ([D(2026, 10, 7), 40, 3.9], 1, 0))
+        rows, _, _ = kf.merge([[D(2026, 10, 7), 40, 3.9, 4.1, 4.35, 4.6]], [stray])       # 저장분도 덮지 않는다
+        self.assertEqual(rows[-1][1], 40)
+        fixed = {**row(D(2026, 10, 7), 42, y3=3.95), "exact": True}                        # 같은 날짜 제목의 정정 글은 덮는다
+        self.assertEqual(kf.merge([], [today, fixed])[0][-1][:3], [D(2026, 10, 7), 42, 3.95])
+
+    def test_two_posts_for_one_new_day_count_once(self):
+        self.assertEqual(kf.merge([], [row(D(2026, 10, 7), 40), row(D(2026, 10, 7), 41, y3=3.95)])[1:], (1, 0))
 
     def test_merge_is_a_no_op_for_the_same_posts(self):
         old = [[D(2026, 10, 6), 20, 3.9, 4.1, 4.35, 4.6]]
@@ -401,6 +438,66 @@ class MainTest(unittest.TestCase):
         self.assertEqual([r[0] for r in self.saved()["rows"]], ["2026-10-07"])
         self.assertIn("읽지 못한 글 1개", log)
 
+    def test_broken_store_is_never_overwritten(self):
+        # 저장분이 깨졌는데 오늘 읽은 한 쪽만으로 다시 쓰면 이력이 조용히 줄어든다(검토)
+        os.makedirs(self.out)
+        path = os.path.join(self.out, "ktb.json")
+        for broken in ("<<<<<<< HEAD\n{}", '{"rows": {"a": 1}}',
+                       '{"rows": [["2026-10-05", 10, "3.9", 4.1, 4.3, 4.6], ["2026-10-06", 20, 3.9, 4.1, 4.3, 4.6]]}'):
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(broken)
+            code, log, _ = self.run_main([page(daily_post(30, 2026, 10, 7))])
+            self.assertEqual(code, 1, broken)
+            self.assertEqual(open(path, encoding="utf-8").read(), broken)
+            self.assertIn("ktb_fetch", log)
+
+    def test_a_newer_day_with_a_smaller_post_id_is_refused(self):
+        # 채널 이름이 다른 곳으로 넘어가면 글 번호가 처음부터 다시 시작한다(검토)
+        self.run_main([page(daily_post(22711, 2026, 10, 7))])
+        code, _, _ = self.run_main([page(daily_post(5, 2026, 10, 8, y3=1.0, y5=1.2, y10=1.5, y30=1.7))],
+                                   )
+        self.assertEqual(code, 1)
+        self.assertEqual([r[:2] for r in self.saved()["rows"]], [["2026-10-07", 22711]])
+
+    def test_a_store_gone_stale_is_a_failure(self):
+        # 제목 줄이 바뀌면 그 글은 일일동향으로 보이지 않아 '새 글 없음'과 같아진다 — 묵은 저장분으로 알아챈다(검토)
+        pages = [page(daily_post(30, 2026, 10, 7))]
+        self.run_main(list(pages))
+        before = open(os.path.join(self.out, "ktb.json"), "rb").read()
+        retitled = post_html(40, morning(2026, 10, 8), ["KB증권", "2026.10.8 채권시장 일일 동향"] + daily_lines(2026, 10, 8)[2:])
+        for days, want in ((kf.STALE_DAYS, 0), (kf.STALE_DAYS + 2, 1)):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                code = kf.main(["--out", self.out], opener=FakeOpener([page(retitled, *pages)]), sleep=lambda s: None,
+                               now=NOW + datetime.timedelta(days=days))
+            self.assertEqual(code, want, (days, buf.getvalue()))
+            self.assertEqual(open(os.path.join(self.out, "ktb.json"), "rb").read(), before)
+
+    def test_edited_change_in_the_latest_post_is_picked_up(self):
+        self.run_main([page(daily_post(30, 2026, 10, 7, chg=(7, -1.3, -1.7, 0)))])
+        self.assertEqual(self.saved()["latest"]["rows"][0]["change_bp"], 7.0)
+        code, log, _ = self.run_main([page(daily_post(30, 2026, 10, 7, chg=(0.7, -1.3, -1.7, 0)))])
+        self.assertEqual((code, self.saved()["latest"]["rows"][0]["change_bp"]), (0, 0.7))
+
+    def test_latest_change_survives_a_run_that_cannot_reread_the_post(self):
+        self.run_main([page(daily_post(30, 2026, 10, 7))])
+        before = open(os.path.join(self.out, "ktb.json"), "rb").read()
+        code, _, _ = self.run_main([page(daily_post(20, 2026, 10, 6))])               # 그날 글이 쪽에 없다 — 옛 글만 더해진다
+        data = self.saved()
+        self.assertEqual((code, [r[0] for r in data["rows"]]), (0, ["2026-10-06", "2026-10-07"]))
+        self.assertEqual(data["latest"]["rows"][0]["change_bp"], 0.3)                # 지워지지 않는다
+        self.assertNotEqual(open(os.path.join(self.out, "ktb.json"), "rb").read(), before)
+
+    def test_changed_fixed_text_is_rewritten_without_new_posts(self):
+        self.run_main([page(daily_post(30, 2026, 10, 7))])
+        path = os.path.join(self.out, "ktb.json")
+        data = self.saved()
+        data["notices"] = ["옛 문구"]
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+        self.run_main([page(daily_post(30, 2026, 10, 7))])
+        self.assertEqual(self.saved()["notices"], kf.NOTICES)
+
     def test_pages_option_is_passed_through(self):
         op = FakeOpener([page(daily_post(30, 2026, 10, 7)), page(daily_post(20, 2026, 10, 6)), page()])
         with contextlib.redirect_stdout(io.StringIO()):
@@ -426,6 +523,7 @@ class StaticTest(unittest.TestCase):
         step = wf[wf.index("id: ktb"):]
         self.assertIn("continue-on-error: true", step[:200])
         self.assertIn("python scripts/ktb_fetch.py", step[:300])
+        self.assertIn("timeout-minutes: 2", step[:200])                             # 느린 응답이 규칙 점검 배포를 막지 않게
         self.assertIn("ktb: ${{ steps.ktb.outcome }}", wf)
         self.assertIn("needs.update.outputs.ktb == 'failure'", wf)
 

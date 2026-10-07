@@ -93,6 +93,7 @@ jobs:
       - name: 국고채 참고 자료 받기
         id: ktb
         continue-on-error: true
+        timeout-minutes: 2
         run: python scripts/ktb_fetch.py
       - name: 상태 기록
         id: status

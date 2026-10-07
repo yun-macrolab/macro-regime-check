@@ -85,6 +85,7 @@
                                white-space: nowrap; }
   table.ktb th:first-child, table.ktb td:first-child { text-align: left; }
   table.ktb thead th { font-size: .85rem; font-weight: 600; color: var(--muted); }
+  table.ktb tbody th { font-size: 16px; font-weight: 400; }
 </style>
 <link rel="stylesheet" href="dashboard.css">
 </head>
@@ -144,9 +145,9 @@
   <h2>출처와 자료 상태</h2>
   <p class="sub">공식 통계, 참고 자료, 이 사이트의 계산값을 구분합니다.</p>
   <div class="source-guide">
-    <article><h3>미국 공식 통계</h3><p>FRED를 통해 연방준비제도·뉴욕 연은·BEA·BLS 등의 자료를 받습니다. FRED는 자료를 제공하는 창구이며, 원 발행기관은 지표마다 다릅니다.</p></article>
-    <article><h3>한국 금리 참고 자료</h3><p>KB증권 리서치본부 채권크레딧팀 공개 텔레그램의 일일동향에서 옮긴 민평3사 금리입니다. 게시일과 금리 기준일을 구분해 읽습니다.</p></article>
-    <article><h3>이 사이트의 계산값</h3><p>증가율·금리차·상관·비율과 규칙 판정은 원자료를 바탕으로 계산합니다. 원 발행기관의 시장 전망을 뜻하지 않습니다.</p></article>
+    <article><h3>미국 공개 자료 (FRED 경유)</h3><p>FRED를 통해 연방준비제도·뉴욕 연은·BEA·BLS 등의 자료를 받습니다. FRED는 자료를 제공하는 창구이며, 원 발행기관은 지표마다 다릅니다. 민간 지수 4개(S&amp;P·ICE·Moody's 계열)는 재배포가 제한돼 값은 싣지 않고 판정과 자료 상태만 보여 줍니다.</p></article>
+    <article><h3>한국 금리 참고 자료</h3><p>KB증권 리서치본부 채권크레딧팀이 공개 텔레그램 채널에 올리는 일일동향 글에서 옮긴 금리입니다(기준: 민평3사 — 민간 채권평가사 세 곳 평균). 공개 통계가 아니며 규칙 판정에는 쓰지 않습니다. 게시일과 금리 기준일을 구분해 읽습니다.</p></article>
+    <article><h3>이 사이트의 계산값</h3><p>증가율·3개월 변화·상관·비율·국고채 금리차와 규칙 판정은 원자료를 바탕으로 계산합니다. 원 발행기관의 시장 전망을 뜻하지 않습니다.</p></article>
   </div>
   <details open>
     <summary id="health-summary">시리즈별 마지막 관측일</summary>
@@ -163,8 +164,9 @@
 <script src="charts.js"></script>
 <script>
 "use strict";
-// 예약 실행: UTC 월~금 22:17(.github/workflows/daily.yml). cron 지연을 3시간까지 봐준다
-const RUN_UTC = { hour: 22, minute: 17 }, GRACE_MS = 3 * 36e5;
+// 예약 실행: UTC 월~금 22:17(.github/workflows/daily.yml). 실제로는 3~4시간 뒤에 끝난다(2026-09-29~10-07 일곱 번 모두) —
+// 3시간만 봐줬더니 거의 매일 한 시간쯤 거짓 배너가 떴다. 5시간까지 봐준다
+const RUN_UTC = { hour: 22, minute: 17 }, GRACE_MS = 5 * 36e5;
 const STATUS_TEXT = { met: "충족", not_met: "미충족", unknown: "판정 불가" };
 
 function el(tag, attrs, ...children) {
@@ -180,8 +182,7 @@ function kst(iso) {
 }
 function safeUrl(u) {
   if (typeof u !== "string") return null;
-  // FRED·GitHub, 그리고 국고채 참고 절의 원문 글(그 채널의 글 주소만)
-  return /^https:\/\/(fred\.stlouisfed\.org|github\.com)\//.test(u) || /^https:\/\/t\.me\/jk_bond\/\d+$/.test(u) ? u : null;
+  return /^https:\/\/(fred\.stlouisfed\.org|github\.com)\//.test(u) ? u : null;
 }
 function link(text, url) {
   const u = safeUrl(url);
@@ -247,7 +248,7 @@ const LEARN = {
   reserves_multiplier: "지준의 경제규모 대비 비중과 통화승수를 함께 봅니다. 비율 하나만으로 자금 여건을 단정하지 않습니다."
 };
 let activeView = "all", ruleState = "all", publicData = null;
-const available = { overview: false, korea: false, snapshot: false };
+const available = { overview: false, korea: false, snapshot: false, loaded: false };
 
 function renderRule(r, chart, health) {
   const obs = el("dl", { class: "observations" });
@@ -306,7 +307,7 @@ function applyView() {
   document.getElementById("snapshot-wrap").hidden = !(available.snapshot && activeView === "all");
   document.getElementById("overview-wrap").hidden = !(available.overview && ["all","rates"].includes(activeView));
   document.getElementById("ktb-wrap").hidden = !(available.korea && ["all","korea"].includes(activeView));
-  document.getElementById("korea-empty").hidden = activeView !== "korea" || available.korea;
+  document.getElementById("korea-empty").hidden = activeView !== "korea" || available.korea || !available.loaded;
   document.getElementById("rules-wrap").hidden = !showRules;
   document.getElementById("sources-wrap").hidden = activeView !== "sources";
   let shown = 0;
@@ -339,24 +340,29 @@ function renderOverview(charts, publicDate) {
 }
 
 // 참고 절 — 한국 국고채 금리(data/ktb.json ← scripts/ktb_fetch.py). 공개 통계가 아니고 규칙 판정과 무관하다.
-// 자료가 없거나 형식이 어긋나면 절 전체를 숨긴 채 둔다
+// 자료가 없거나, 날짜 형식이 어긋났거나, 고지가 한 줄도 없으면 절 전체를 숨긴 채 둔다(숫자만 고지 없이 나가지 않게)
 function renderKtb(k) {
   const latest = k && typeof k === "object" && k.latest && typeof k.latest === "object" ? k.latest : null;
   const rows = (latest && Array.isArray(latest.rows) ? latest.rows : [])
     .filter(r => r && typeof r.tenor === "string" && Number.isFinite(r.yield));
-  if (!rows.length || typeof latest.date !== "string") return;
+  const notices = (Array.isArray(k.notices) ? k.notices : []).filter(v => typeof v === "string" && v);
+  if (!rows.length || !notices.length || typeof latest.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(latest.date) ||
+      !Number.isFinite(Date.parse(latest.date + "T00:00:00+09:00"))) return;
+  // 원문 글 링크는 그 채널의 글 주소일 때만 건다(자료가 오염돼도 다른 곳으로 보내지 않게)
+  const post = typeof latest.post_url === "string" && /^https:\/\/t\.me\/jk_bond\/\d+$/.test(latest.post_url)
+    ? el("a", { href: latest.post_url, rel: "noopener" }, "원문 글") : "원문 글";
   const bp = v => {
     const s = v.toFixed(1);
     return (Number(s) === 0 ? "0.0" : (v > 0 ? "+" : "") + s) + "bp";
   };
   const days = Math.floor((Date.now() - Date.parse(latest.date + "T00:00:00+09:00")) / 864e5);
   document.getElementById("ktb-head").replaceChildren(
-    `${latest.date} 아침 글 기준 · `, link("원문 글", latest.post_url),
+    `${latest.date} 아침 글 기준 · `, post,
     days > 7 ? " · 최근 글을 받지 못했다 — 아래는 마지막으로 읽은 값이다" : "");
   document.getElementById("ktb-table").replaceChildren(
     el("thead", {}, el("tr", {}, el("th", { scope: "col" }, "만기"), el("th", { scope: "col" }, "금리"),
       el("th", { scope: "col" }, "전일 대비"))),
-    el("tbody", {}, ...rows.map(r => el("tr", {}, el("td", {}, r.tenor), el("td", {}, r.yield.toFixed(3) + "%"),
+    el("tbody", {}, ...rows.map(r => el("tr", {}, el("th", { scope: "row" }, r.tenor), el("td", {}, r.yield.toFixed(3) + "%"),
       el("td", {}, Number.isFinite(r.change_bp) ? bp(r.change_bp) : "—")))));
   const spreads = (Array.isArray(latest.spreads) ? latest.spreads : [])
     .filter(s => s && typeof s.label === "string" && Number.isFinite(s.bp));
@@ -364,8 +370,7 @@ function renderKtb(k) {
     ? spreads.map(s => `${s.label} ${s.bp.toFixed(1)}bp`).join(" · ") + " (이 금리로 계산)" : "";
   const figs = (Array.isArray(k.charts) ? k.charts : []).map(spec => chartFigure(spec, 220, true)).filter(Boolean);
   document.getElementById("ktb-charts").replaceChildren(...figs.map(f => el("div", { class: "panel" }, f)));
-  document.getElementById("ktb-notices").replaceChildren(...(Array.isArray(k.notices) ? k.notices : [])
-    .filter(n => typeof n === "string" && n).map(n => el("p", {}, n)));
+  document.getElementById("ktb-notices").replaceChildren(...notices.map(v => el("p", {}, v)));
   available.korea = true;
 }
 
@@ -386,7 +391,7 @@ function renderPublic(p, charts) {
     const group = GROUPS.find(g => g.id === a.dataset.view);
     if (group) a.querySelector("span").textContent = (p.rules || []).filter(r => group.keys.includes(r.key)).length;
   });
-  renderSnapshot(p, charts);
+  try { renderSnapshot(p, charts); } catch (e) { /* 주요 지표가 깨져도 아래 자료 상태·출처는 그린다 */ }
   const stale = health.filter(h => h.stale).length;
   document.getElementById("health-summary").textContent =
     `시리즈 ${health.length}개 · 오래된 자료 ${stale}개 (펼쳐 보기)`;
@@ -411,6 +416,7 @@ applyView();
   if (kt.status === "fulfilled") {
     try { renderKtb(kt.value); } catch (e) { /* 참고 절이 깨져도 규칙 점검 화면은 그대로 */ }
   }
+  available.loaded = true;
   applyView();
 })();
 </script>
