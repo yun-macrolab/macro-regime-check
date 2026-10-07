@@ -1,0 +1,2 @@
+# Official Treasury offering PDF text extraction
+pypdf==6.10.2

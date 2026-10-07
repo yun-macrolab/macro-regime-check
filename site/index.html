@@ -29,7 +29,7 @@
       <label for="cmd">&gt;</label>
       <input id="cmd" name="cmd" list="cmd-list" spellcheck="false" aria-label="화면 이동 명령"
              placeholder="화면 이름을 치고 Enter — 금리, 물가, 신용, 유동성, 국고채, 출처">
-      <datalist id="cmd-list"><option value="전체"><option value="금리·커브"><option value="물가"><option value="신용·경기"><option value="유동성"><option value="한국 국고채"><option value="출처·갱신"></datalist>
+      <datalist id="cmd-list"><option value="전체"><option value="금리·커브"><option value="물가"><option value="신용·경기"><option value="유동성"><option value="한국 시장"><option value="한국 신용"><option value="수급·입찰"><option value="출처·갱신"></datalist>
       <button type="submit">이동</button>
     </form>
     <div class="clocks"><span>KST <time id="clock-kst">--:--:--</time></span><span class="since">갱신 뒤 <output id="since">--:--:--</output></span><span id="link-lamp" class="link-lamp" data-state="wait">수신 대기</span><button id="motion-toggle" type="button" class="motion-toggle" aria-pressed="false">움직임</button></div>
@@ -40,7 +40,7 @@
     <a href="#inflation" data-view="inflation"><kbd>3</kbd>물가<span>2</span></a>
     <a href="#credit" data-view="credit"><kbd>4</kbd>신용·경기<span>4</span></a>
     <a href="#liquidity" data-view="liquidity"><kbd>5</kbd>유동성<span>2</span></a>
-    <a href="#korea" data-view="korea"><kbd>6</kbd>한국 국고채<span>참고</span></a>
+    <a href="#korea" data-view="korea"><kbd>6</kbd>한국 시장<span>학습</span></a>
     <a href="#sources" data-view="sources"><kbd>7</kbd>출처·갱신<span>자료실</span></a>
   </nav>
   <div id="tape" class="tape" hidden aria-label="주요 수치 띠"><div id="tape-track" class="tape-track"></div></div>
@@ -77,9 +77,24 @@
     <div id="overview"></div>
   </section>
 
-  <p id="korea-empty" class="empty-state" hidden>국고채 참고 자료를 불러오지 못했습니다. 자료가 갱신된 뒤 다시 확인해 주세요.</p>
+  <section id="korea-teaser">
+    <div class="section-heading"><h2>한국 시장의 연결고리</h2><a href="#korea">한국 시장 전체 보기 →</a></div>
+    <div id="korea-teaser-values" class="snapshot market-summary"><p class="muted">한국 시장 자료를 불러오는 중…</p></div>
+  </section>
+  <section id="korea-market" hidden>
+    <nav id="korea-tabs" class="market-tabs" aria-label="한국 시장 분류">
+      <a href="#korea" data-group="rates">금리·커브</a>
+      <a href="#korea-credit" data-group="credit">신용·단기자금</a>
+      <a href="#korea-flows" data-group="flows">수급·입찰</a>
+    </nav>
+    <p id="korea-market-status" class="reading-note" role="status">한국 시장 자료를 불러오는 중…</p>
+    <p class="reading-note">기간 비교는 달력 날짜가 아닌 유효 관측일 기준입니다. 금리는 bp 변화, 선물 수급은 계약수 누적입니다. 분포 백분위는 현재보다 낮은 값의 비중(동률 절반 포함)이며 매매 판단이 아닙니다.</p>
+    <div id="korea-market-content"></div>
+    <div id="korea-market-notices" class="notices"></div>
+  </section>
+  <p id="korea-empty" class="empty-state" hidden>국고채 민평 참고 자료를 불러오지 못했습니다. 자료가 갱신된 뒤 다시 확인해 주세요.</p>
   <section id="ktb-wrap" hidden>
-    <div class="section-heading"><h2>한국 국고채</h2><span class="reference-label">채널 자료 · 규칙 판정 제외</span></div>
+    <div class="section-heading"><h2>국고채 민평 참고</h2><span class="reference-label">채널 자료 · 규칙 판정 제외</span></div>
     <p id="ktb-head" class="muted"></p>
     <div class="panel">
       <table id="ktb-table" class="ktb" aria-label="국고채 만기별 금리"></table>
@@ -104,6 +119,7 @@
     <article><h3>한국 금리 참고 자료</h3><p>KB증권 리서치본부 채권크레딧팀이 공개 텔레그램 채널에 올리는 일일동향 글에서 옮긴 금리입니다(기준: 민평3사 — 민간 채권평가사 세 곳 평균). 공개 통계가 아니며 규칙 판정에는 쓰지 않습니다. 게시일과 금리 기준일을 구분해 읽습니다.</p></article>
     <article><h3>이 사이트의 계산값</h3><p>증가율·3개월 변화·상관·비율·국고채 금리차와 규칙 판정은 원자료를 바탕으로 계산합니다. 원 발행기관의 시장 전망을 뜻하지 않습니다.</p></article>
   </div>
+  <article class="panel"><h3>한국 시장 공식 공개 자료</h3><p>한국은행 스냅샷(금융투자협회·ECOS·미국 재무부), 한국거래소 국채선물 거래통계, 공식 국채시장 입찰 공고를 사용합니다. 최종호가 금리와 민평3사 금리는 평가 기준이 다르므로 이어 붙이지 않습니다.</p><ul id="korea-source-status" class="health"></ul></article>
   <details open>
     <summary id="health-summary">시리즈별 마지막 관측일</summary>
     <ul id="health" class="health"></ul>
@@ -113,10 +129,11 @@
 
   <footer>
     <div id="attribution"></div>
-    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · 날짜별 기록은 저장소의 data/history/</p>
+    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · <a href="data/korea.json">korea.json</a>(한국 시장) · 날짜별 기록은 저장소의 data/history/</p>
   </footer>
 </main>
 <script src="charts.js"></script>
+<script src="korea.js"></script>
 <script>
 "use strict";
 // 예약 실행: UTC 월~금 22:17(.github/workflows/daily.yml). 실제로는 3~4시간 뒤에 끝난다(2026-09-29~10-07 일곱 번 모두) —
@@ -302,16 +319,17 @@ function renderSnapshot(p, charts) {
 }
 
 function applyView() {
-  const known = ["all", ...GROUPS.map(g=>g.id), "korea", "sources"];
+  const known = ["all", ...GROUPS.map(g=>g.id), "korea", "korea-credit", "korea-flows", "sources"];
   activeView = known.includes(location.hash.slice(1)) ? location.hash.slice(1) : "all";
   const group = GROUPS.find(g => g.id === activeView);
-  const titles = {all:"시장의 큰 흐름, 한눈에", korea:"한국 국고채", sources:"출처와 갱신 현황"};
-  const descriptions = {all:"금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.", korea:"만기별 금리와 장단기 금리차를 함께 확인합니다.", sources:"어디에서 왔고, 언제 관측됐는지 확인하세요."};
+  const titles = {all:"시장의 큰 흐름, 한눈에", korea:"한국 시장 · 금리·커브", "korea-credit":"한국 시장 · 신용·단기자금", "korea-flows":"한국 시장 · 수급·입찰", sources:"출처와 갱신 현황"};
+  const descriptions = {all:"금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.", korea:"한국과 미국 금리의 수준·차이·변화를 비교합니다.", "korea-credit":"기업과 은행의 자금조달 여건을 비교합니다.", "korea-flows":"누가 거래했고, 국채 공급을 어떻게 소화했는지 살펴봅니다.", sources:"어디에서 왔고, 언제 관측됐는지 확인하세요."};
   document.getElementById("view-title").textContent = group?.title || titles[activeView];
   document.getElementById("view-description").textContent = group?.description || descriptions[activeView];
   document.querySelectorAll("#category-nav a").forEach(a => {
-    if(a.dataset.view === activeView) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    if(a.dataset.view === activeView || (a.dataset.view === "korea" && activeView.startsWith("korea-"))) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
+  window.KoreaMarket.setView(activeView);
   const showRules = activeView === "all" || !!group;
   const home = available.monitor && activeView === "all";
   document.getElementById("bridge").hidden = !home;
@@ -351,7 +369,8 @@ function go(text) {
   const q = String(text).trim().toLowerCase();
   if (!q) return false;
   const byNumber = /^[1-7]$/.test(q) ? VIEWS[Number(q) - 1] : null;
-  const hit = byNumber || VIEWS.find(([, words]) => words.some(w => q.includes(w) || w.includes(q)));
+  const detail = q === "한국 신용" ? ["korea-credit"] : ["수급", "입찰", "수급·입찰"].includes(q) ? ["korea-flows"] : null;
+  const hit = byNumber || detail || VIEWS.find(([, words]) => words.some(w => q.includes(w) || w.includes(q)));
   if (hit) location.hash = hit[0];
   return !!hit;
 }
@@ -518,8 +537,8 @@ function renderPublic(p, charts) {
 
 applyView();
 (async () => {
-  const [st, pub, ch, kt] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json"),
-    getJson("data/charts.json"), getJson("data/ktb.json")]);
+  const [st, pub, ch, kt, kr] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json"),
+    getJson("data/charts.json"), getJson("data/ktb.json"), getJson("data/korea.json")]);
   // 그래프 자료가 없거나 깨졌으면 그래프 없이 지금 화면 그대로
   const charts = ch.status === "fulfilled" && ch.value && typeof ch.value === "object" ? ch.value : null;
   if (st.status === "fulfilled") renderStatus(st.value);
@@ -533,6 +552,13 @@ applyView();
   try { renderTape(pub.status === "fulfilled" ? pub.value : null, charts, kt.status === "fulfilled" ? kt.value : null); }
   catch (e) { /* 시세 띠가 없어도 화면은 그대로 */ }
   available.loaded = true;
+  try {
+    if(kr.status !== "fulfilled") throw new Error("Korean market data unavailable");
+    window.KoreaMarket.render(kr.value);
+  } catch(e) {
+    document.getElementById("korea-market-status").textContent = "한국 시장 자료를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.";
+    document.getElementById("korea-teaser-values").textContent = "한국 시장 자료를 불러오지 못했습니다.";
+  }
   applyView();
   document.body.classList.replace("boot", "ready");               // 값이 들어오는 깜박임은 자료가 그려진 뒤 한 번
 })();
