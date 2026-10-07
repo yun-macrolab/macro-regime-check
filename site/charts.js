@@ -4,7 +4,7 @@
 // 툴팁은 보조 — 모든 값은 "표로 보기"에도 있다. 키보드: 그래프에 초점 → ←/→ 이동, Home/End, Esc 닫기.
 (function () {
   const NS = "http://www.w3.org/2000/svg";
-  const PAD = { top: 10, right: 58, bottom: 22, left: 40 };   // right: 끝 값 글자 자리, bottom: 연도 눈금
+  const PAD = { top: 10, right: 68, bottom: 22, left: 40 };   // right: 끝 값 글자 자리, bottom: 연도 눈금
   const SERIES = ["var(--ch-1)", "var(--ch-2)", "var(--ch-3)"];  // 분류색은 이 순서로만(돌려 쓰지 않는다)
   const DAY = 864e5;
 
@@ -135,7 +135,7 @@
         d += (pen ? "L" : "M") + X(t).toFixed(1) + " " + Y(v).toFixed(1);
         pen = true;
       }
-      const path = svg("path", { class: "ch-line", d });
+      const path = svg("path", { class: "ch-line", d, pathLength: 1 });   // pathLength: 처음 볼 때 선을 그려 넣는 움직임용
       path.style.stroke = l.color;
       el.append(path);
     }
@@ -148,10 +148,13 @@
       dot.style.fill = e.l.color;
       el.append(dot);
       const y = Y(e.p[1]);
-      if (placed.some(py => Math.abs(py - y) < 13)) continue;
+      if (placed.some(py => Math.abs(py - y) < 17)) continue;
       placed.push(y);
-      el.append(svg("text", { class: "ch-end" + (e.l.role === "ref" ? " ref" : ""), x: R + 8, y: y + 4 },
-        fmt(e.p[1], st.unit)));
+      // 최근 값 — 선 색으로 칠한 상자에 검은 글자(단말기 방식). 참고 선은 테두리만
+      const label = fmt(e.p[1], st.unit), ref = e.l.role === "ref" ? " ref" : "";
+      const box = svg("rect", { class: "ch-end-box" + ref, x: R + 5, y: y - 8, width: label.length * 7 + 8, height: 16 });
+      box.style.fill = e.l.color;
+      el.append(box, svg("text", { class: "ch-end" + ref, x: R + 9, y: y + 4 }, label));
     }
 
     if (Number.isFinite(th)) {                           // 임계값 글자는 선 위에(바탕색 테두리로 선을 가린다)
@@ -299,6 +302,17 @@
       ev.preventDefault();
       show(st, Math.min(n - 1, Math.max(0, next)));
     });
+    // 처음 화면에 들어올 때 한 번 선을 그려 넣는다(움직임을 껐으면 생략 — index.html이 html[data-motion]에 적어 둔다). 끝나면 표식을 떼어 다시 그릴 때 반복하지 않는다
+    if ("IntersectionObserver" in window && document.documentElement.dataset.motion !== "off") {
+      fig.classList.add("ch-fresh");
+      const io = new IntersectionObserver(entries => {
+        if (!entries.some(e => e.isIntersecting)) return;
+        io.disconnect();
+        fig.classList.add("ch-seen");
+        setTimeout(() => fig.classList.remove("ch-fresh", "ch-seen"), 1400);
+      }, { threshold: .25 });
+      io.observe(fig);
+    }
     let lastW = 0;
     const redraw = () => {
       const w = Math.floor(plot.clientWidth);

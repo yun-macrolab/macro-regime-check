@@ -5,111 +5,66 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>매크로 관측실 · 국면 점검</title>
 <meta name="description" content="FRED 공개 통계에 미리 정한 규칙을 적용해 평일 아침 자동으로 갱신하는 점검표">
-<style>
-  :root {
-    --bg: #fbfbfa; --fg: #1d1d1f; --muted: #6b6b70; --line: #e3e3e0; --card: #ffffff;
-    --met: #9a5b00; --met-bg: #fff4e0; --unk-bg: #f1f1ef; --bad: #b3261e; --bad-bg: #fdecea; --link: #1f5fbf;
-    /* 그래프 — 분류색 1~3은 dataviz 검증 팔레트(카드 바탕 #ffffff 기준 통과), 참고 선·임계값·격자는 글자·테두리 계열 */
-    --ch-1: #2a78d6; --ch-2: #eb6834; --ch-3: #1baf7a; --ch-ref: #8a8a90; --ch-th: #52514e;
-    --ch-grid: #ececea; --ch-axis: #c3c2b7;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #151517; --fg: #ececee; --muted: #a0a0a8; --line: #2e2e33; --card: #1d1d21;
-      --met: #ffc46b; --met-bg: #3a2c12; --unk-bg: #26262b; --bad: #ff8a80; --bad-bg: #3b1d1b; --link: #8ab4ff;
-      --ch-1: #3987e5; --ch-2: #d95926; --ch-3: #199e70; --ch-ref: #7c7c84; --ch-th: #c3c2b7;
-      --ch-grid: #2c2c31; --ch-axis: #45454c;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg);
-         font: 15px/1.6 system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
-  h1 { font-size: 1.4rem; margin: 0 0 4px; }
-  h2 { font-size: 1.05rem; margin: 32px 0 8px; }
-  a { color: var(--link); }
-  .sub, .muted, small { color: var(--muted); }
-  .banner { border-radius: 8px; padding: 10px 12px; margin: 16px 0; background: var(--bad-bg); color: var(--bad); }
-  .status { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 16px 0; background: var(--card); }
-  .rule { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 10px 0; background: var(--card); }
-  .rule h3 { font-size: 1rem; margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-  .pill { font-size: .78rem; border-radius: 999px; padding: 1px 8px; border: 1px solid var(--line); white-space: nowrap; }
-  .pill.met { color: var(--met); background: var(--met-bg); border-color: transparent; font-weight: 600; }
-  .pill.unknown { background: var(--unk-bg); border-style: dashed; }
-  .rule p { margin: 6px 0; }
-  ul.obs { margin: 6px 0 0; padding-left: 18px; }
-  ul.obs li { overflow-wrap: anywhere; }
-  details { margin: 8px 0; }
-  .health li { overflow-wrap: anywhere; }
-  footer { margin-top: 40px; font-size: .85rem; color: var(--muted); }
-  /* 그래프 (site/charts.js) */
-  .panel { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 10px 0; background: var(--card); }
-  figure.ch { margin: 10px 0 0; }
-  .panel figure.ch { margin: 0; }
-  .ch-title { font-weight: 600; margin: 0 0 2px; }
-  .ch-legend { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: .85rem; color: var(--muted); margin: 2px 0 4px; }
-  .ch-key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; vertical-align: middle; margin-right: 6px; }
-  .ch-plot { position: relative; }
-  .ch-plot svg { display: block; overflow: visible; touch-action: pan-y; }
-  .ch-plot svg:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
-  .ch-grid { stroke: var(--ch-grid); stroke-width: 1; shape-rendering: crispEdges; }
-  .ch-zero { stroke: var(--ch-axis); stroke-width: 1; shape-rendering: crispEdges; }
-  .ch-th { stroke: var(--ch-th); stroke-width: 1; stroke-dasharray: 4 3; }
-  .ch-tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-  .ch-th-label { fill: var(--ch-th); font-size: 11px; paint-order: stroke; stroke: var(--card); stroke-width: 3px;
-                 stroke-linejoin: round; }
-  .ch-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-  .ch-dot { stroke: var(--card); stroke-width: 2; }
-  .ch-end { fill: var(--fg); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .ch-end.ref { fill: var(--muted); font-weight: 400; }
-  .ch-cross { stroke: var(--ch-axis); stroke-width: 1; }
-  .ch-tip { position: absolute; z-index: 1; pointer-events: none; background: var(--card); border: 1px solid var(--line);
-            border-radius: 6px; padding: 6px 8px; font-size: .8rem; line-height: 1.5; white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, .12); }
-  .ch-tip-date, .ch-tip-asof { color: var(--muted); }
-  .ch-tip strong { font-variant-numeric: tabular-nums; margin-right: 6px; }
-  .ch-note { font-size: .8rem; margin: 4px 0 0; }
-  .notices { margin: 8px 0 0; font-size: .75rem; color: var(--muted); }
-  .notices p { margin: 2px 0; overflow-wrap: anywhere; }
-  details.ch-table { margin: 4px 0 0; }
-  details.ch-table summary { font-size: .8rem; color: var(--muted); cursor: pointer; }
-  .ch-scroll { max-height: 240px; overflow: auto; margin-top: 4px; }
-  .ch-scroll table { border-collapse: collapse; font-size: .8rem; font-variant-numeric: tabular-nums; }
-  .ch-scroll th, .ch-scroll td { padding: 2px 12px 2px 0; text-align: right; border-bottom: 1px solid var(--line);
-                                 white-space: nowrap; }
-  .ch-scroll th:first-child, .ch-scroll td:first-child { text-align: left; }
-  .ch-scroll thead th { position: sticky; top: 0; background: var(--card); }
-  /* 참고 절 — 한국 국고채 금리 */
-  table.ktb { border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  table.ktb th, table.ktb td { padding: 3px 20px 3px 0; text-align: right; border-bottom: 1px solid var(--line);
-                               white-space: nowrap; }
-  table.ktb th:first-child, table.ktb td:first-child { text-align: left; }
-  table.ktb thead th { font-size: .85rem; font-weight: 600; color: var(--muted); }
-  table.ktb tbody th { font-size: 16px; font-weight: 400; }
-</style>
+<meta name="theme-color" content="#000000">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="dashboard.css">
+<script>
+// 움직임 — 직접 고른 값이 있으면 그것, 없으면 기기 설정(움직임 줄이기)을 따른다. 그리기 전에 정해 깜박임을 막는다
+(function () {
+  var saved = null;
+  try { saved = localStorage.getItem("motion"); } catch (e) { /* 저장소를 못 쓰면 기기 설정대로 */ }
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.documentElement.dataset.motion = saved === "on" || saved === "off" ? saved : reduce ? "off" : "on";
+})();
+</script>
 </head>
-<body>
+<body class="boot">
 <a class="skip-link" href="#main">본문으로 바로 가기</a>
-<aside class="sidebar">
-  <a class="brand" href="#all"><span class="brand-symbol" aria-hidden="true">M</span><span>매크로 관측실<small>매일 읽는 시장의 큰 흐름</small></span></a>
-  <nav id="category-nav" aria-label="지표 카테고리">
-    <a href="#all" data-view="all" aria-current="page">전체 보기<span>모아보기</span></a>
-    <a href="#rates" data-view="rates">금리·커브<span>3</span></a>
-    <a href="#inflation" data-view="inflation">물가<span>2</span></a>
-    <a href="#credit" data-view="credit">신용·경기<span>4</span></a>
-    <a href="#liquidity" data-view="liquidity">유동성<span>2</span></a>
-    <a href="#korea" data-view="korea">한국 국고채<span>참고</span></a>
-    <a href="#sources" data-view="sources">출처·갱신<span>자료실</span></a>
+<header class="term-head">
+  <div class="cmdbar">
+    <a class="brand" href="#all">매크로 관측실</a>
+    <form id="cmd-form" class="cmd" role="search" autocomplete="off">
+      <label for="cmd">&gt;</label>
+      <input id="cmd" name="cmd" list="cmd-list" spellcheck="false" aria-label="화면 이동 명령"
+             placeholder="화면 이름을 치고 Enter — 금리, 물가, 신용, 유동성, 국고채, 출처">
+      <datalist id="cmd-list"><option value="전체"><option value="금리·커브"><option value="물가"><option value="신용·경기"><option value="유동성"><option value="한국 국고채"><option value="출처·갱신"></datalist>
+      <button type="submit">이동</button>
+    </form>
+    <div class="clocks"><span>KST <time id="clock-kst">--:--:--</time></span><span class="since">갱신 뒤 <output id="since">--:--:--</output></span><span id="link-lamp" class="link-lamp" data-state="wait">수신 대기</span><button id="motion-toggle" type="button" class="motion-toggle" aria-pressed="false">움직임</button></div>
+  </div>
+  <nav id="category-nav" aria-label="화면 선택">
+    <a href="#all" data-view="all" aria-current="page"><kbd>1</kbd>전체<span>모아보기</span></a>
+    <a href="#rates" data-view="rates"><kbd>2</kbd>금리·커브<span>3</span></a>
+    <a href="#inflation" data-view="inflation"><kbd>3</kbd>물가<span>2</span></a>
+    <a href="#credit" data-view="credit"><kbd>4</kbd>신용·경기<span>4</span></a>
+    <a href="#liquidity" data-view="liquidity"><kbd>5</kbd>유동성<span>2</span></a>
+    <a href="#korea" data-view="korea"><kbd>6</kbd>한국 국고채<span>참고</span></a>
+    <a href="#sources" data-view="sources"><kbd>7</kbd>출처·갱신<span>자료실</span></a>
   </nav>
-  <div class="sidebar-note">숫자를 확인하고,<br>흐름을 이해하는 공간.<a href="https://github.com/yun-macrolab/macro-regime-check">계산 코드 보기</a></div>
-</aside>
+  <div id="tape" class="tape" hidden aria-label="주요 수치 띠"><div id="tape-track" class="tape-track"></div></div>
+</header>
 <main id="main">
-  <header class="page-header"><div><p class="breadcrumb">매크로 국면 점검</p><h1 id="view-title">시장의 큰 흐름, 한눈에</h1><p id="view-description" class="sub">금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.</p></div><span class="update-label">아침 정기 갱신</span></header>
+  <header id="page-header" class="page-header"><div><h1 id="view-title">시장의 큰 흐름, 한눈에</h1><p id="view-description" class="sub">금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.</p></div><span class="update-label">아침 정기 갱신</span></header>
   <noscript><p class="banner">이 페이지는 자바스크립트로 data/public.json을 읽어 그린다. <a href="data/public.json">JSON 직접 보기</a></p></noscript>
   <div id="banner" class="banner" hidden></div>
-  <div id="status" class="status">불러오는 중…</div>
-  <p id="notice" class="muted"></p>
+  <div id="bridge" class="bridge" hidden>
+    <section class="box" aria-labelledby="monitor-title">
+      <div class="box-head"><h2 id="monitor-title">국면 모니터</h2><span id="monitor-meta"></span></div>
+      <table id="monitor" class="monitor"></table>
+    </section>
+    <section class="box" aria-labelledby="bridge-title">
+      <div class="box-head"><h2>수신 상태</h2><span>아침 정기 갱신</span></div>
+      <div class="feed">
+        <h1 id="bridge-title">시장의 큰 흐름, 한눈에</h1>
+        <p class="sub">규칙 이름을 누르면 그 주제 화면으로 갑니다. 숫자 키 1~7로도 바꿉니다.</p>
+        <ul id="tally" class="tally"></ul>
+        <div id="status" class="status">불러오는 중…</div>
+        <p id="notice" class="muted"></p>
+      </div>
+    </section>
+  </div>
 
   <section id="snapshot-wrap" class="snapshot-wrap" hidden aria-labelledby="snapshot-title">
     <div class="section-heading"><h2 id="snapshot-title">주요 지표</h2><span>각 지표의 최근 관측값</span></div>
@@ -175,6 +130,51 @@ function el(tag, attrs, ...children) {
   for (const c of children) if (c !== null && c !== undefined) node.append(c);   // 문자열은 텍스트로만 들어간다
   return node;
 }
+const SVG_NS = "http://www.w3.org/2000/svg";
+const calm = () => document.documentElement.dataset.motion === "off";
+{
+  const btn = document.getElementById("motion-toggle");
+  const paint = () => { btn.setAttribute("aria-pressed", String(!calm())); btn.textContent = calm() ? "움직임 끔" : "움직임 켬"; };
+  btn.addEventListener("click", () => {
+    document.documentElement.dataset.motion = calm() ? "on" : "off";
+    try { localStorage.setItem("motion", document.documentElement.dataset.motion); } catch (e) { /* 저장 못 해도 이번 화면에는 적용 */ }
+    paint();
+  });
+  paint();
+}
+function svgEl(tag, attrs, text) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) node.setAttribute(k, String(v));
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+// 머리의 시계 — 한국 시각과 마지막 성공 갱신 뒤 지난 시간(1초마다)
+let lastSuccess = null;
+function tick() {
+  const now = new Date(), pad = v => String(v).padStart(2, "0");
+  const k = new Date(now.getTime() + 9 * 36e5);                    // 한국 시각 = UTC+9 (서머타임 없음)
+  document.getElementById("clock-kst").textContent =
+    `${pad(k.getUTCHours())}:${pad(k.getUTCMinutes())}:${pad(k.getUTCSeconds())}`;
+  if (!lastSuccess) return;
+  const sec = Math.max(0, Math.floor((now - lastSuccess) / 1000));
+  document.getElementById("since").textContent =
+    `${pad(Math.floor(sec / 3600))}:${pad(Math.floor(sec / 60) % 60)}:${pad(sec % 60)}`;
+}
+tick();
+setInterval(tick, 1000);
+// 큰 숫자 — 켤 때 한 번 0에서 값까지 올라간다(화면이 안 보이거나 움직임을 줄였으면 바로)
+function roll(node, value, unit) {
+  const show = v => { node.textContent = v + (unit || ""); };
+  show(value);
+  if (calm() || document.visibilityState !== "visible") return;
+  const digits = (String(value).split(".")[1] || "").length, t0 = performance.now();
+  (function step(t) {
+    const k = Math.min(1, (t - t0) / 700);
+    show(k < 1 ? (value * (1 - Math.pow(1 - k, 3))).toFixed(digits) : value);
+    if (k < 1) requestAnimationFrame(step);
+  })(t0);
+}
+
 function kst(iso) {
   if (!iso) return "없음";
   return new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit",
@@ -213,9 +213,15 @@ function renderStatus(st) {
     el("div", {}, "기준일 ", el("strong", {}, st.data_date || "없음"), " · 마지막 성공 ", kst(st.last_success)),
     el("div", { class: "muted" }, "최근 실행 ", kst(st.checked_at), " · ", st.message || "",
       st.run_url ? " · " : null, st.run_url ? link("실행 로그", st.run_url) : null));
+  const late = !st.last_success || new Date(st.last_success) < lastScheduledRun(new Date());
   if (!st.ok) showBanner("최근 실행이 실패했다 — 아래는 직전에 성공한 결과다.");
-  else if (!st.last_success || new Date(st.last_success) < lastScheduledRun(new Date()))
+  else if (late)
     showBanner("예정된 자동 갱신이 반영되지 않았다 — 실행이 멈췄거나 실패했을 수 있다. 아래는 마지막으로 성공한 결과다.");
+  lastSuccess = st.last_success ? new Date(st.last_success) : null;
+  tick();
+  const lamp = document.getElementById("link-lamp");
+  lamp.dataset.state = st.ok && !late ? "ok" : "bad";
+  lamp.textContent = !st.ok ? "갱신 실패" : late ? "갱신 지연" : "정상 수신";
 }
 
 // 그래프 하나 — 실패해도 페이지는 계속(그 그래프만 없음)
@@ -248,7 +254,7 @@ const LEARN = {
   reserves_multiplier: "지준의 경제규모 대비 비중과 통화승수를 함께 봅니다. 비율 하나만으로 자금 여건을 단정하지 않습니다."
 };
 let activeView = "all", ruleState = "all", publicData = null;
-const available = { overview: false, korea: false, snapshot: false, loaded: false };
+const available = { overview: false, korea: false, snapshot: false, loaded: false, monitor: false };
 
 function renderRule(r, chart, health) {
   const obs = el("dl", { class: "observations" });
@@ -286,9 +292,12 @@ function renderSnapshot(p, charts) {
     { label: "근원 PCE 전년비", obs:findObs("core_inflation"), view:"inflation" },
     { label: "기간 프리미엄", obs:findObs("term_premium"), view:"rates" }
   ];
-  document.getElementById("snapshot").replaceChildren(...values.map(v => el("a", { href:"#"+v.view, class:"metric" },
-    el("span", {}, v.label), el("strong", {}, Number.isFinite(v.obs?.value) ? v.obs.value + (v.obs.unit || "") : "자료 없음"),
-    el("small", {}, v.obs?.asof || "자료일 없음"))));
+  document.getElementById("snapshot").replaceChildren(...values.map(v => {
+    const num = el("strong", {}, "자료 없음");
+    if (Number.isFinite(v.obs?.value)) roll(num, v.obs.value, v.obs.unit);
+    return el("a", { href:"#"+v.view, class:"metric" }, el("span", {}, v.label), num,
+      el("small", {}, v.obs?.asof || "자료일 없음"));
+  }));
   available.snapshot = true;
 }
 
@@ -304,6 +313,9 @@ function applyView() {
     if(a.dataset.view === activeView) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
   const showRules = activeView === "all" || !!group;
+  const home = available.monitor && activeView === "all";
+  document.getElementById("bridge").hidden = !home;
+  document.getElementById("page-header").hidden = home;
   document.getElementById("snapshot-wrap").hidden = !(available.snapshot && activeView === "all");
   document.getElementById("overview-wrap").hidden = !(available.overview && ["all","rates"].includes(activeView));
   document.getElementById("ktb-wrap").hidden = !(available.korea && ["all","korea"].includes(activeView));
@@ -323,8 +335,109 @@ function applyView() {
   document.getElementById("empty-rules").hidden = !publicData || shown > 0;
   document.getElementById("summary").textContent = group ? "지표와 점검 조건" : "주제별 점검";
 }
-window.addEventListener("hashchange", () => { applyView(); window.scrollTo(0, 0); });
+window.addEventListener("hashchange", () => {
+  applyView();
+  window.scrollTo(0, 0);
+  const main = document.getElementById("main");        // 화면이 바뀐 것을 한 번 보여 준다
+  main.classList.remove("switching");
+  void main.offsetWidth;
+  main.classList.add("switching");
+});
+// 명령줄 — 화면 이름(일부만 쳐도 된다)이나 번호를 치고 Enter. 입력 칸 밖에서는 숫자 키 1~7, "/"는 명령줄로
+const VIEWS = [["all", ["전체", "홈", "all"]], ["rates", ["금리", "커브", "rates"]], ["inflation", ["물가", "인플레", "cpi", "pce"]],
+  ["credit", ["신용", "경기", "대출", "고용", "credit"]], ["liquidity", ["유동성", "지준", "sofr"]],
+  ["korea", ["국고채", "한국", "ktb"]], ["sources", ["출처", "갱신", "자료"]]];
+function go(text) {
+  const q = String(text).trim().toLowerCase();
+  if (!q) return false;
+  const byNumber = /^[1-7]$/.test(q) ? VIEWS[Number(q) - 1] : null;
+  const hit = byNumber || VIEWS.find(([, words]) => words.some(w => q.includes(w) || w.includes(q)));
+  if (hit) location.hash = hit[0];
+  return !!hit;
+}
+document.getElementById("cmd-form").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const input = document.getElementById("cmd");
+  if (go(input.value)) { input.value = ""; input.blur(); } else input.select();
+});
+document.addEventListener("keydown", ev => {
+  if (ev.ctrlKey || ev.metaKey || ev.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(ev.target.tagName)) return;
+  if (ev.key === "/") { ev.preventDefault(); document.getElementById("cmd").focus(); }
+  else if (/^[1-7]$/.test(ev.key)) go(ev.key);
+});
 document.getElementById("rule-filter").addEventListener("change", e => { ruleState = e.target.value; applyView(); });
+
+// 국면 모니터 — 규칙을 한 화면에: 주제 · 규칙 · 최근 값 · 자료일 · 추이 · 판정. 규칙 이름을 누르면 그 주제 화면으로 간다
+function sparkline(points) {
+  const pts = (Array.isArray(points) ? points : []).filter(q => Array.isArray(q) && Number.isFinite(q[1]));
+  if (pts.length < 2) return null;
+  const W = 112, H = 24, step = Math.max(1, Math.floor(pts.length / 60));
+  const pick = pts.filter((_, i) => i % step === 0 || i === pts.length - 1);
+  let lo = Infinity, hi = -Infinity;
+  for (const q of pick) { lo = Math.min(lo, q[1]); hi = Math.max(hi, q[1]); }
+  const span = hi - lo > 0 && Number.isFinite(hi - lo) ? hi - lo : 1;
+  const d = pick.map((q, i) =>
+    `${i ? "L" : "M"}${(i / (pick.length - 1) * W).toFixed(1)} ${(H - 2 - (q[1] - lo) / span * (H - 4)).toFixed(1)}`).join("");
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, "aria-hidden": "true" });
+  svg.append(svgEl("path", { d }));
+  return svg;
+}
+function renderMonitor(p, charts) {
+  const rules = Array.isArray(p.rules) ? p.rules : [];
+  if (!rules.length) return;
+  const ruleCharts = charts && charts.rules && typeof charts.rules === "object" ? charts.rules : {};
+  const known = new Set(GROUPS.flatMap(g => g.keys));
+  const groups = [...GROUPS, { id: "all", title: "그 밖", keys: rules.filter(r => !known.has(r.key)).map(r => r.key) }];
+  const rows = [];
+  for (const g of groups) for (const r of rules.filter(x => g.keys.includes(x.key))) {
+    const o = (r.observations || [])[0], has = o && o.value !== null && o.value !== undefined;
+    const chart = Object.prototype.hasOwnProperty.call(ruleCharts, r.key) ? ruleCharts[r.key] : null;
+    const main = chart && Array.isArray(chart.lines) ? chart.lines[0] : null;
+    const status = STATUS_TEXT[r.status] ? r.status : "unknown";
+    const num = el("td", { class: "num" }, has ? `${o.value}${o.unit || ""}` : "—");
+    num.style.animationDelay = `${rows.length * 45}ms`;              // 값이 위에서부터 차례로 들어온다
+    rows.push(el("tr", { class: status }, el("td", { class: "topic" }, g.title),
+      el("th", { scope: "row" }, el("a", { href: "#" + g.id }, r.title)), num,
+      el("td", { class: "asof" }, (o && o.asof) || ""), el("td", { class: "spark" }, main ? sparkline(main.points) : null),
+      el("td", {}, el("span", { class: "tag " + status }, STATUS_TEXT[status]))));
+  }
+  document.getElementById("monitor").replaceChildren(
+    el("thead", {}, el("tr", {}, el("th", { scope: "col", class: "topic" }, "주제"), el("th", { scope: "col" }, "규칙"),
+      el("th", { scope: "col", class: "num" }, "최근 값"), el("th", { scope: "col", class: "asof" }, "자료일"),
+      el("th", { scope: "col" }, "추이"), el("th", { scope: "col" }, "판정"))),
+    el("tbody", {}, ...rows));
+  document.getElementById("monitor-meta").textContent = `규칙 ${rules.length}개 · 기준일 ${p.date || "없음"}`;
+  const s = p.summary || {};
+  document.getElementById("tally").replaceChildren(...["met", "not_met", "unknown"].map(k =>
+    el("li", { class: k }, el("strong", {}, String(Number.isFinite(s[k]) ? s[k] : rules.filter(r => r.status === k).length)),
+      el("span", {}, STATUS_TEXT[k]))));
+  available.monitor = true;
+}
+
+// 시세 띠 — 주요 수치를 한 줄로 흘린다(올리거나 초점을 두면 멈춘다). 같은 목록을 두 번 이어 끊김 없이 돈다
+function renderTape(p, charts, k) {
+  const items = [];
+  const us10 = charts?.overview?.find(c => c.key === "yield10")?.lines?.find(l => l.key === "dgs10")?.points
+    ?.filter(v => Number.isFinite(v[1])).at(-1);
+  if (us10) items.push(["미국 10년 금리", us10[1] + "%", us10[0]]);
+  for (const r of (p && p.rules) || []) {
+    const o = (r.observations || [])[0];
+    if (o && Number.isFinite(o.value)) items.push([o.label, `${o.value}${o.unit || ""}`, o.asof || ""]);
+  }
+  const latest = k && k.latest && Array.isArray(k.latest.rows) ? k.latest : null;
+  for (const r of latest ? latest.rows : []) {
+    if (r && typeof r.tenor === "string" && Number.isFinite(r.yield))
+      items.push([`국고 ${r.tenor}`, r.yield.toFixed(3) + "%", typeof latest.date === "string" ? latest.date : ""]);
+  }
+  if (!items.length) return;
+  const run = hidden => el("span", hidden ? { class: "tape-run", "aria-hidden": "true" } : { class: "tape-run" },
+    ...items.map(([label, value, asof]) => el("span", { class: "tape-item" }, el("span", {}, label), el("strong", {}, value),
+      asof ? el("small", {}, asof) : null)));
+  const track = document.getElementById("tape-track");
+  track.replaceChildren(run(false), run(true));
+  track.style.animationDuration = `${Math.max(40, items.length * 6)}s`;
+  document.getElementById("tape").hidden = false;
+}
 
 function renderOverview(charts, publicDate) {
   const figs = (Array.isArray(charts.overview) ? charts.overview : [])
@@ -392,6 +505,7 @@ function renderPublic(p, charts) {
     if (group) a.querySelector("span").textContent = (p.rules || []).filter(r => group.keys.includes(r.key)).length;
   });
   try { renderSnapshot(p, charts); } catch (e) { /* 주요 지표가 깨져도 아래 자료 상태·출처는 그린다 */ }
+  try { renderMonitor(p, charts); } catch (e) { /* 모니터가 깨져도 아래 점검표는 그대로 */ }
   const stale = health.filter(h => h.stale).length;
   document.getElementById("health-summary").textContent =
     `시리즈 ${health.length}개 · 오래된 자료 ${stale}개 (펼쳐 보기)`;
@@ -416,8 +530,11 @@ applyView();
   if (kt.status === "fulfilled") {
     try { renderKtb(kt.value); } catch (e) { /* 참고 절이 깨져도 규칙 점검 화면은 그대로 */ }
   }
+  try { renderTape(pub.status === "fulfilled" ? pub.value : null, charts, kt.status === "fulfilled" ? kt.value : null); }
+  catch (e) { /* 시세 띠가 없어도 화면은 그대로 */ }
   available.loaded = true;
   applyView();
+  document.body.classList.replace("boot", "ready");               // 값이 들어오는 깜박임은 자료가 그려진 뒤 한 번
 })();
 </script>
 </body>
