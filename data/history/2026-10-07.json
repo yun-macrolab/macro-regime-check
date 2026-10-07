@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-07",
-  "generated_at": "2026-10-07T01:36:32+00:00",
+  "generated_at": "2026-10-07T17:35:56+00:00",
   "notice": "공개 통계에 사전에 정한 규칙을 적용한 결과다. 투자 판단이나 권유가 아니다.",
   "attribution": [
     "Source: FRED®, Federal Reserve Bank of St. Louis (https://fred.stlouisfed.org/).",
@@ -280,8 +280,8 @@
           ],
           "derived": false,
           "computed": false,
-          "value": 3.89,
-          "asof": "2026-10-05"
+          "value": 3.9,
+          "asof": "2026-10-06"
         },
         {
           "label": "3개월 변화",
@@ -291,8 +291,8 @@
           ],
           "derived": false,
           "computed": true,
-          "value": 0.26,
-          "asof": "2026-10-05"
+          "value": 0.28,
+          "asof": "2026-10-06"
         }
       ],
       "restricted_series": [],
@@ -499,8 +499,8 @@
       "label": "HY OAS",
       "owner": "ICE Data Indices",
       "url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2",
-      "last": "2026-10-05",
-      "age_days": 2,
+      "last": "2026-10-06",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "status_only",
@@ -511,8 +511,8 @@
       "label": "IG OAS",
       "owner": "ICE Data Indices",
       "url": "https://fred.stlouisfed.org/series/BAMLC0A0CM",
-      "last": "2026-10-05",
-      "age_days": 2,
+      "last": "2026-10-06",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "status_only",
@@ -607,8 +607,8 @@
       "label": "SOFR",
       "owner": "FRBNY",
       "url": "https://fred.stlouisfed.org/series/SOFR",
-      "last": "2026-10-05",
-      "age_days": 2,
+      "last": "2026-10-06",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "value",
