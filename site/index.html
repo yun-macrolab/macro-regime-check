@@ -6,6 +6,7 @@
 <title>매크로 관측실 · 국면 점검</title>
 <meta name="description" content="FRED 공개 통계에 미리 정한 규칙을 적용해 평일 아침 자동으로 갱신하는 점검표">
 <meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
@@ -25,30 +26,33 @@
 <header class="term-head">
   <div class="cmdbar">
     <a class="brand" href="#all">매크로 관측실</a>
-    <form id="cmd-form" class="cmd" role="search" autocomplete="off">
+    <form id="cmd-form" class="cmd" autocomplete="off">
       <label for="cmd">&gt;</label>
       <input id="cmd" name="cmd" list="cmd-list" spellcheck="false" aria-label="화면 이동 명령"
              placeholder="화면 이름을 치고 Enter — 금리, 물가, 신용, 유동성, 국고채, 출처">
       <datalist id="cmd-list"><option value="전체"><option value="금리·커브"><option value="물가"><option value="신용·경기"><option value="유동성"><option value="한국 시장"><option value="한국 신용"><option value="수급·입찰"><option value="출처·갱신"></datalist>
       <button type="submit">이동</button>
+      <span id="cmd-msg" class="cmd-msg" role="status"></span>
     </form>
-    <div class="clocks"><span>KST <time id="clock-kst">--:--:--</time></span><span class="since">갱신 뒤 <output id="since">--:--:--</output></span><span id="link-lamp" class="link-lamp" data-state="wait">수신 대기</span><button id="motion-toggle" type="button" class="motion-toggle" aria-pressed="false">움직임</button></div>
+    <div class="clocks"><span>KST <time id="clock-kst">--:--:--</time></span><span class="since">갱신 뒤 <span id="since">--:--:--</span></span><span id="link-lamp" class="link-lamp" data-state="wait">수신 대기</span><button id="motion-toggle" type="button" class="motion-toggle" aria-label="움직임" aria-pressed="false">움직임</button><button id="keys-toggle" type="button" class="motion-toggle" aria-label="숫자 키 단축" aria-pressed="true">단축키</button></div>
   </div>
   <nav id="category-nav" aria-label="화면 선택">
-    <a href="#all" data-view="all" aria-current="page"><kbd>1</kbd>전체<span>모아보기</span></a>
-    <a href="#rates" data-view="rates"><kbd>2</kbd>금리·커브<span>3</span></a>
-    <a href="#inflation" data-view="inflation"><kbd>3</kbd>물가<span>2</span></a>
-    <a href="#credit" data-view="credit"><kbd>4</kbd>신용·경기<span>4</span></a>
-    <a href="#liquidity" data-view="liquidity"><kbd>5</kbd>유동성<span>2</span></a>
-    <a href="#korea" data-view="korea"><kbd>6</kbd>한국 시장<span>학습</span></a>
-    <a href="#sources" data-view="sources"><kbd>7</kbd>출처·갱신<span>자료실</span></a>
+    <a href="#all" data-view="all" aria-current="page" aria-keyshortcuts="1"><kbd aria-hidden="true">1</kbd>전체<span>모아보기</span></a>
+    <a href="#rates" data-view="rates" aria-keyshortcuts="2"><kbd aria-hidden="true">2</kbd>금리·커브<span>3</span></a>
+    <a href="#inflation" data-view="inflation" aria-keyshortcuts="3"><kbd aria-hidden="true">3</kbd>물가<span>2</span></a>
+    <a href="#credit" data-view="credit" aria-keyshortcuts="4"><kbd aria-hidden="true">4</kbd>신용·경기<span>4</span></a>
+    <a href="#liquidity" data-view="liquidity" aria-keyshortcuts="5"><kbd aria-hidden="true">5</kbd>유동성<span>2</span></a>
+    <a href="#korea" data-view="korea" aria-keyshortcuts="6"><kbd aria-hidden="true">6</kbd>한국 시장<span>학습</span></a>
+    <a href="#sources" data-view="sources" aria-keyshortcuts="7"><kbd aria-hidden="true">7</kbd>출처·갱신<span>자료실</span></a>
   </nav>
-  <div id="tape" class="tape" hidden aria-label="주요 수치 띠"><div id="tape-track" class="tape-track"></div></div>
+  <div id="tape" class="tape" hidden role="group" tabindex="0" aria-label="주요 수치 띠 — 초점을 두거나 마우스를 올리면 멈춘다"><div id="tape-track" class="tape-track"></div></div>
 </header>
 <main id="main">
   <header id="page-header" class="page-header"><div><h1 id="view-title">시장의 큰 흐름, 한눈에</h1><p id="view-description" class="sub">금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.</p></div><span class="update-label">아침 정기 갱신</span></header>
   <noscript><p class="banner">이 페이지는 자바스크립트로 data/public.json을 읽어 그린다. <a href="data/public.json">JSON 직접 보기</a></p></noscript>
   <div id="banner" class="banner" hidden></div>
+  <div id="status" class="status">불러오는 중…</div>
+  <p id="notice" class="muted"></p>
   <div id="bridge" class="bridge" hidden>
     <section class="box" aria-labelledby="monitor-title">
       <div class="box-head"><h2 id="monitor-title">국면 모니터</h2><span id="monitor-meta"></span></div>
@@ -60,8 +64,6 @@
         <h1 id="bridge-title">시장의 큰 흐름, 한눈에</h1>
         <p class="sub">규칙 이름을 누르면 그 주제 화면으로 갑니다. 숫자 키 1~7로도 바꿉니다.</p>
         <ul id="tally" class="tally"></ul>
-        <div id="status" class="status">불러오는 중…</div>
-        <p id="notice" class="muted"></p>
       </div>
     </section>
   </div>
@@ -130,6 +132,7 @@
 
   <footer>
     <div id="attribution"></div>
+    <p>계산 코드: <a href="https://github.com/yun-macrolab/macro-regime-check">github.com/yun-macrolab/macro-regime-check</a></p>
     <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · <a href="data/korea.json">korea.json</a>(한국 시장) · 날짜별 기록은 저장소의 data/history/</p>
   </footer>
 </main>
@@ -157,6 +160,7 @@ const calm = () => document.documentElement.dataset.motion === "off";
     document.documentElement.dataset.motion = calm() ? "on" : "off";
     try { localStorage.setItem("motion", document.documentElement.dataset.motion); } catch (e) { /* 저장 못 해도 이번 화면에는 적용 */ }
     paint();
+    tick();                                           // 시계의 초 표시를 바로 맞춘다
   });
   paint();
 }
@@ -167,18 +171,25 @@ function svgEl(tag, attrs, text) {
   return node;
 }
 // 머리의 시계 — 한국 시각과 마지막 성공 갱신 뒤 지난 시간(1초마다)
-let lastSuccess = null;
+let lastSuccess = null, lastStatus = null, publicOk = true;
+// 수신 표시 — 처음 한 번이 아니라 시계가 돌 때마다 다시 판정한다(탭을 열어 둔 채 다음 갱신 시각이 지나면 '갱신 지연'으로)
+function paintLamp(now) {
+  const lamp = document.getElementById("link-lamp");
+  if (!lastStatus || lamp.dataset.hold) return;                    // 상태를 못 받았거나 다른 절이 표시를 잡고 있다
+  const late = !lastSuccess || lastSuccess < lastScheduledRun(now);
+  lamp.dataset.state = lastStatus.ok && publicOk && !late ? "ok" : "bad";
+  lamp.textContent = !lastStatus.ok ? "갱신 실패" : !publicOk ? "자료 없음" : late ? "갱신 지연" : "정상 수신";
+}
 function tick() {
   const now = new Date(), pad = v => String(v).padStart(2, "0");
   const k = new Date(now.getTime() + 9 * 36e5);                    // 한국 시각 = UTC+9 (서머타임 없음)
-  document.getElementById("clock-kst").textContent =
-    `${pad(k.getUTCHours())}:${pad(k.getUTCMinutes())}:${pad(k.getUTCSeconds())}`;
+  const hms = (h, m, sec) => `${pad(h)}:${pad(m)}` + (calm() ? "" : `:${pad(sec)}`);   // 움직임을 끄면 분 단위로만 바뀐다
+  document.getElementById("clock-kst").textContent = hms(k.getUTCHours(), k.getUTCMinutes(), k.getUTCSeconds());
+  paintLamp(now);
   if (!lastSuccess) return;
   const sec = Math.max(0, Math.floor((now - lastSuccess) / 1000));
-  document.getElementById("since").textContent =
-    `${pad(Math.floor(sec / 3600))}:${pad(Math.floor(sec / 60) % 60)}:${pad(sec % 60)}`;
+  document.getElementById("since").textContent = hms(Math.floor(sec / 3600), Math.floor(sec / 60) % 60, sec % 60);
 }
-tick();
 setInterval(tick, 1000);
 // 큰 숫자 — 켤 때 한 번 0에서 값까지 올라간다(화면이 안 보이거나 움직임을 줄였으면 바로)
 function roll(node, value, unit) {
@@ -234,15 +245,14 @@ function renderStatus(st) {
     el("div", {}, "기준일 ", el("strong", {}, st.data_date || "없음"), " · 마지막 성공 ", kst(st.last_success)),
     el("div", { class: "muted" }, "최근 실행 ", kst(st.checked_at), " · ", st.message || "",
       st.run_url ? " · " : null, st.run_url ? link("실행 로그", st.run_url) : null));
-  const late = !st.last_success || new Date(st.last_success) < lastScheduledRun(new Date());
+  const late = !st.last_success || !(new Date(st.last_success) >= lastScheduledRun(new Date()));
   if (!st.ok) showBanner("최근 실행이 실패했다 — 아래는 직전에 성공한 결과다.");
   else if (late)
     showBanner("예정된 자동 갱신이 반영되지 않았다 — 실행이 멈췄거나 실패했을 수 있다. 아래는 마지막으로 성공한 결과다.");
-  lastSuccess = st.last_success ? new Date(st.last_success) : null;
+  const when = new Date(st.last_success);                          // 날짜가 깨졌으면 성공 기록이 없는 것으로 본다
+  lastSuccess = st.last_success && Number.isFinite(when.getTime()) ? when : null;
+  lastStatus = st;
   tick();
-  const lamp = document.getElementById("link-lamp");
-  lamp.dataset.state = st.ok && !late ? "ok" : "bad";
-  lamp.textContent = !st.ok ? "갱신 실패" : late ? "갱신 지연" : "정상 수신";
 }
 
 // 그래프 하나 — 실패해도 페이지는 계속(그 그래프만 없음)
@@ -289,8 +299,9 @@ function renderRule(r, chart, health) {
   const restricted = (r.restricted_series || []).map(s => [link(s.series, s.url), ` (${s.owner})`]);
   const notices = Array.isArray(r.notices) ? r.notices.filter(n => typeof n === "string" && n) : [];
   const group = GROUPS.find(g => g.keys.includes(r.key));
-  return el("article", { class: "rule", "data-category": group ? group.id : "other", "data-status": r.status },
-    el("h3", {}, r.title, el("span", { class: `pill ${r.status}` }, STATUS_TEXT[r.status] || r.status)),
+  const status = Object.prototype.hasOwnProperty.call(STATUS_TEXT, r.status) ? r.status : "unknown";
+  return el("article", { class: "rule", "data-category": group ? group.id : "other", "data-status": status },
+    el("h3", {}, r.title, el("span", { class: `pill ${status}` }, STATUS_TEXT[status])),
     LEARN[r.key] ? el("p", { class: "rule-context" }, LEARN[r.key]) : null,
     obs.childElementCount ? obs : null,
     restricted.length ? el("p", { class: "muted" }, "원자료 값 비공개: ",
@@ -334,6 +345,8 @@ function applyView() {
     if(a.dataset.view === activeView || (a.dataset.view === "korea" && activeView.startsWith("korea-"))) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
   window.KoreaMarket?.setView(activeView);
+  const cur = document.querySelector("#category-nav a[aria-current]");
+  if (cur && cur.scrollIntoView) cur.scrollIntoView({ inline: "nearest", block: "nearest" });
   const showRules = activeView === "all" || !!group;
   const home = available.monitor && activeView === "all";
   document.getElementById("bridge").hidden = !home;
@@ -357,13 +370,23 @@ function applyView() {
   document.getElementById("empty-rules").hidden = !publicData || shown > 0;
   document.getElementById("summary").textContent = group ? "지표와 점검 조건" : "주제별 점검";
 }
+let switchTimer = 0;
 window.addEventListener("hashchange", () => {
   applyView();
   window.scrollTo(0, 0);
-  const main = document.getElementById("main");        // 화면이 바뀐 것을 한 번 보여 준다
+  const main = document.getElementById("main");        // 화면이 바뀐 것을 한 번 보여 주고 표식을 뗀다
   main.classList.remove("switching");
   void main.offsetWidth;
   main.classList.add("switching");
+  clearTimeout(switchTimer);
+  switchTimer = setTimeout(() => main.classList.remove("switching"), 320);
+});
+// 본문으로 바로 가기 — 주소(#main)를 바꾸면 보던 화면이 전체로 돌아가므로 초점만 옮긴다
+document.querySelector(".skip-link").addEventListener("click", ev => {
+  ev.preventDefault();
+  const main = document.getElementById("main");
+  main.setAttribute("tabindex", "-1");
+  main.focus();
 });
 // 명령줄 — 화면 이름(일부만 쳐도 된다)이나 번호를 치고 Enter. 입력 칸 밖에서는 숫자 키 1~7, "/"는 명령줄로
 const VIEWS = [["all", ["전체", "홈", "all"]], ["rates", ["금리", "커브", "rates"]], ["inflation", ["물가", "인플레", "cpi", "pce"]],
@@ -374,17 +397,36 @@ function go(text) {
   if (!q) return false;
   const byNumber = /^[1-7]$/.test(q) ? VIEWS[Number(q) - 1] : null;
   const detail = q === "한국 신용" ? ["korea-credit"] : ["수급", "입찰", "수급·입찰"].includes(q) ? ["korea-flows"] : null;
-  const hit = byNumber || detail || VIEWS.find(([, words]) => words.some(w => q.includes(w) || w.includes(q)));
+  // 똑같은 낱말 → 입력으로 시작하는 낱말 → 입력에 든 낱말 순으로 찾고, 여러 화면에 걸리면 뒤쪽(더 좁은) 화면이 먼저다
+  // ("국고채 금리"는 금리·커브가 아니라 한국 시장으로)
+  const pick = test => VIEWS.slice().reverse().find(([id, words]) => [id, ...words].some(test));
+  const hit = byNumber || detail || pick(w => w === q) || pick(w => w.startsWith(q)) || pick(w => q.includes(w));
   if (hit) location.hash = hit[0];
   return !!hit;
 }
 document.getElementById("cmd-form").addEventListener("submit", ev => {
   ev.preventDefault();
   const input = document.getElementById("cmd");
-  if (go(input.value)) { input.value = ""; input.blur(); } else input.select();
+  const msg = document.getElementById("cmd-msg");
+  if (go(input.value)) { input.value = ""; input.blur(); msg.textContent = ""; }
+  else { input.select(); msg.textContent = input.value.trim() ? "없는 화면 — 금리, 물가, 신용, 유동성, 한국, 출처" : ""; }
 });
+// 숫자 키 단축은 머리의 '단축키' 버튼으로 끌 수 있다(고른 값은 브라우저에 기억)
+let keysOn = true;
+{
+  try { keysOn = localStorage.getItem("keys") !== "off"; } catch (e) { /* 저장소를 못 쓰면 켠 채로 */ }
+  const btn = document.getElementById("keys-toggle");
+  const paint = () => { btn.setAttribute("aria-pressed", String(keysOn)); btn.textContent = keysOn ? "단축키 켬" : "단축키 끔"; };
+  btn.addEventListener("click", () => {
+    keysOn = !keysOn;
+    try { localStorage.setItem("keys", keysOn ? "on" : "off"); } catch (e) { /* 저장 못 해도 이번 화면에는 적용 */ }
+    paint();
+  });
+  paint();
+}
 document.addEventListener("keydown", ev => {
-  if (ev.ctrlKey || ev.metaKey || ev.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(ev.target.tagName)) return;
+  if (!keysOn || ev.repeat || ev.isComposing || ev.ctrlKey || ev.metaKey || ev.altKey ||
+      /^(INPUT|SELECT|TEXTAREA)$/.test(ev.target.tagName)) return;
   if (ev.key === "/") { ev.preventDefault(); document.getElementById("cmd").focus(); }
   else if (/^[1-7]$/.test(ev.key)) go(ev.key);
 });
@@ -413,15 +455,26 @@ function renderMonitor(p, charts) {
   const groups = [...GROUPS, { id: "all", title: "그 밖", keys: rules.filter(r => !known.has(r.key)).map(r => r.key) }];
   const rows = [];
   for (const g of groups) for (const r of rules.filter(x => g.keys.includes(x.key))) {
-    const o = (r.observations || [])[0], has = o && o.value !== null && o.value !== undefined;
+    const obs = Array.isArray(r.observations) ? r.observations : [];
     const chart = Object.prototype.hasOwnProperty.call(ruleCharts, r.key) ? ruleCharts[r.key] : null;
     const main = chart && Array.isArray(chart.lines) ? chart.lines[0] : null;
-    const status = STATUS_TEXT[r.status] ? r.status : "unknown";
-    const num = el("td", { class: "num" }, has ? `${o.value}${o.unit || ""}` : "—");
-    num.style.animationDelay = `${rows.length * 45}ms`;              // 값이 위에서부터 차례로 들어온다
+    const end = main && Array.isArray(main.points) ? main.points.filter(q => Array.isArray(q) && Number.isFinite(q[1])).at(-1) : null;
+    // 값과 추이는 같은 양이어야 한다 — 추이선의 마지막 값과 같은 관측치를 고르고(예: 3개월 변화), 없으면 첫 관측치만 싣고 추이는 비운다
+    const same = end ? obs.find(x => x && Number.isFinite(x.value) && Math.abs(x.value - end[1]) < 5e-4) : null;
+    const o = same || obs[0], has = o && Number.isFinite(o.value);
+    const closed = !has && Array.isArray(r.restricted_series) && r.restricted_series.length > 0;
+    const status = Object.prototype.hasOwnProperty.call(STATUS_TEXT, r.status) ? r.status : "unknown";
+    const num = el("td", { class: has ? "num" : "num none" }, has ? `${o.value}${o.unit || ""}` : closed ? "비공개" : "—");
+    num.style.animationDelay = `${Math.min(rows.length, 12) * 45}ms`;   // 값이 위에서부터 차례로 들어온다
+    const name = el("a", { href: "#" + g.id }, r.title);
+    name.addEventListener("click", () => {                          // 규칙 상태를 골라 둔 채 넘어가면 그 규칙이 안 보일 수 있다
+      ruleState = "all";
+      document.getElementById("rule-filter").value = "all";
+    });
     rows.push(el("tr", { class: status }, el("td", { class: "topic" }, g.title),
-      el("th", { scope: "row" }, el("a", { href: "#" + g.id }, r.title)), num,
-      el("td", { class: "asof" }, (o && o.asof) || ""), el("td", { class: "spark" }, main ? sparkline(main.points) : null),
+      el("th", { scope: "row" }, name,                             // 관측치 이름은 제목만으로 알 수 없을 때만(예: 3개월 변화)
+        has && typeof o.label === "string" && !String(r.title).includes(o.label) ? el("small", {}, o.label) : null), num,
+      el("td", { class: "asof" }, (o && o.asof) || ""), el("td", { class: "spark" }, same ? sparkline(main.points) : null),
       el("td", {}, el("span", { class: "tag " + status }, STATUS_TEXT[status]))));
   }
   document.getElementById("monitor").replaceChildren(
@@ -438,19 +491,27 @@ function renderMonitor(p, charts) {
 }
 
 // 시세 띠 — 주요 수치를 한 줄로 흘린다(올리거나 초점을 두면 멈춘다). 같은 목록을 두 번 이어 끊김 없이 돈다
-function renderTape(p, charts, k) {
+// 국고채 참고 자료(채널 글)는 띠에 싣지 않는다 — 그 숫자는 고지가 함께 보이는 국고채 절에서만 나간다
+// 띠의 이름 — 규칙의 첫 관측치가 여기 적힌 이름일 때만 쓴다. 자료 쪽 순서·이름이 바뀌면 "규칙 제목 관측치 이름"으로 나간다
+const TAPE_NAME = { stock_bond_corr: ["60영업일 상관", "주가-금리 60일 상관"], curve_inversion: ["10년−2년", "미 10년−2년"],
+  term_premium: ["기간 프리미엄", "미 10년 기간 프리미엄"], real_rate_bei: ["10년 실질금리", "미 10년 실질금리"],
+  core_inflation: ["근원 PCE 전년비", "미 근원 PCE 전년비"], ci_vs_ngdp: ["C&I 대출 전년비", "미 C&I 대출 전년비"],
+  ndfi_credit: ["NDFI 대출 전년비(계단 제외)", "미 비은행 금융기관 대출 전년비"], employment: ["고용 전년비", "미 증권·투자업 고용 전년비"],
+  sofr: ["SOFR", "SOFR"], reserves_multiplier: ["지준/명목GDP", "미 지준/명목GDP"] };
+function renderTape(p, charts) {
   const items = [];
-  const us10 = charts?.overview?.find(c => c.key === "yield10")?.lines?.find(l => l.key === "dgs10")?.points
-    ?.filter(v => Number.isFinite(v[1])).at(-1);
-  if (us10) items.push(["미국 10년 금리", us10[1] + "%", us10[0]]);
-  for (const r of (p && p.rules) || []) {
-    const o = (r.observations || [])[0];
-    if (o && Number.isFinite(o.value)) items.push([o.label, `${o.value}${o.unit || ""}`, o.asof || ""]);
-  }
-  const latest = k && k.latest && Array.isArray(k.latest.rows) ? k.latest : null;
-  for (const r of latest ? latest.rows : []) {
-    if (r && typeof r.tenor === "string" && Number.isFinite(r.yield))
-      items.push([`국고 ${r.tenor}`, r.yield.toFixed(3) + "%", typeof latest.date === "string" ? latest.date : ""]);
+  try {                                             // 그래프 자료의 점 하나가 깨져도 나머지 항목은 싣는다
+    const lines = (Array.isArray(charts?.overview) ? charts.overview : []).find(c => c && c.key === "yield10")?.lines;
+    const us10 = (Array.isArray(lines) ? lines : []).find(l => l && l.key === "dgs10")?.points
+      ?.filter(v => Array.isArray(v) && Number.isFinite(v[1])).at(-1);
+    if (us10) items.push(["미 10년 금리", us10[1] + "%", String(us10[0])]);
+  } catch (e) { /* 이 항목만 뺀다 */ }
+  for (const r of (p && Array.isArray(p.rules) ? p.rules : [])) {
+    const o = r && Array.isArray(r.observations) ? r.observations[0] : null;
+    if (!o || !Number.isFinite(o.value)) continue;
+    const known = Object.prototype.hasOwnProperty.call(TAPE_NAME, r.key) ? TAPE_NAME[r.key] : null;
+    items.push([known && known[0] === o.label ? known[1] : `${r.title || ""} ${o.label || ""}`.trim(),
+      `${o.value}${o.unit || ""}`, typeof o.asof === "string" ? o.asof : ""]);
   }
   if (!items.length) return;
   const run = hidden => el("span", hidden ? { class: "tape-run", "aria-hidden": "true" } : { class: "tape-run" },
@@ -539,21 +600,34 @@ function renderPublic(p, charts) {
   document.getElementById("attribution").replaceChildren(...(p.attribution || []).map(a => el("p", {}, a)));
 }
 
+tick();
 applyView();
 (async () => {
   const [st, pub, ch, kt, kr, ks] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json"),
     getJson("data/charts.json"), getJson("data/ktb.json"), getJson("data/korea.json"), getJson("data/korea-status.json")]);
   // 그래프 자료가 없거나 깨졌으면 그래프 없이 지금 화면 그대로
   const charts = ch.status === "fulfilled" && ch.value && typeof ch.value === "object" ? ch.value : null;
-  if (st.status === "fulfilled") renderStatus(st.value);
-  else document.getElementById("status").textContent = "상태 파일이 아직 없다(첫 자동 실행 전).";
-  if (pub.status === "fulfilled") renderPublic(pub.value, charts);
-  else showBanner("공개본을 불러오지 못했다 — 첫 자동 실행 전이거나 배포 중이다.");
+  const isObj = x => x.status === "fulfilled" && x.value && typeof x.value === "object";
+  const lamp = document.getElementById("link-lamp");
+  let drawn = false;
+  try { if (isObj(st)) { renderStatus(st.value); drawn = true; } } catch (e) { drawn = false; }
+  if (!drawn) {
+    document.getElementById("status").textContent = "상태 파일을 읽지 못했다(첫 자동 실행 전이거나 배포 중).";
+    lamp.dataset.state = "bad";
+    lamp.textContent = "상태 없음";
+  }
+  drawn = false;
+  try { if (isObj(pub)) { renderPublic(pub.value, charts); drawn = true; } } catch (e) { drawn = false; }
+  if (!drawn) {
+    showBanner("공개본을 불러오지 못했다 — 첫 자동 실행 전이거나 배포 중이다.");
+    publicOk = false;
+    tick();
+  }
   if (charts) renderOverview(charts, pub.status === "fulfilled" ? pub.value.date : null);
   if (kt.status === "fulfilled") {
     try { renderKtb(kt.value); } catch (e) { /* 참고 절이 깨져도 규칙 점검 화면은 그대로 */ }
   }
-  try { renderTape(pub.status === "fulfilled" ? pub.value : null, charts, kt.status === "fulfilled" ? kt.value : null); }
+  try { renderTape(pub.status === "fulfilled" ? pub.value : null, charts); }
   catch (e) { /* 시세 띠가 없어도 화면은 그대로 */ }
   available.loaded = true;
   try {
@@ -565,9 +639,11 @@ applyView();
     document.getElementById("korea-source-status").textContent = "한국 자료와 실행 상태를 확인하지 못했습니다. 마지막 성공 시각과 실행 로그를 확인해 주세요.";
     document.getElementById("link-lamp").dataset.state = "bad";
     document.getElementById("link-lamp").textContent = "한국 자료 확인 필요";
+    document.getElementById("link-lamp").dataset.hold = "1";        // 시계가 이 표시를 다시 덮지 않게
   }
   applyView();
   document.body.classList.replace("boot", "ready");               // 값이 들어오는 깜박임은 자료가 그려진 뒤 한 번
+  setTimeout(() => document.body.classList.remove("ready"), 1800); // 표식을 떼어 첫 화면에 돌아올 때 다시 깜박이지 않게
 })();
 </script>
 </body>

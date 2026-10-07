@@ -1,6 +1,6 @@
 "use strict";
 // 사이트 그래프 — data/charts.json의 그래프 하나(ChartSpec, 형태는 scripts/render_charts.py 머리말)를 <figure>로 그린다.
-// 외부 라이브러리 없음. 글자는 textContent로만 넣는다(자료를 HTML로 해석하지 않게). 색은 index.html의 CSS 변수(--ch-*).
+// 외부 라이브러리 없음. 글자는 textContent로만 넣는다(자료를 HTML로 해석하지 않게). 색은 site/dashboard.css의 CSS 변수(--ch-*).
 // 툴팁은 보조 — 모든 값은 "표로 보기"에도 있다. 키보드: 그래프에 초점 → ←/→ 이동, Home/End, Esc 닫기.
 (function () {
   const NS = "http://www.w3.org/2000/svg";
@@ -34,7 +34,8 @@
   function parse(spec) {
     const lines = (Array.isArray(spec.lines) ? spec.lines : []).map((l, i) => {
       const pts = (Array.isArray(l.points) ? l.points : [])
-        .filter(p => Array.isArray(p) && typeof p[0] === "string" && (p[1] === null || Number.isFinite(p[1])))
+        .filter(p => Array.isArray(p) && typeof p[0] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p[0]) &&
+          (p[1] === null || Number.isFinite(p[1])))
         .map(p => [Date.parse(p[0] + "T00:00:00Z"), p[1]])
         .filter(p => Number.isFinite(p[0]));
       return { key: String(l.key), label: String(l.label), role: l.role, color: colorOf(l, i), pts };
