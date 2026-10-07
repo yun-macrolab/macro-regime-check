@@ -8,7 +8,7 @@
   --black: #000; --panel: #0a0a0a; --bar: #171717; --rule: #2c2c2c;
   --amber: #ff9e1b; --ink: #e9e6df; --dim: #8f8f8f;
   --blue: #5ab1ff; --key: #f6d200; --go: #36d07f; --alert: #ff5449;
-  /* site/charts.js가 읽는 변수 — 검정 위 대비 3:1 이상, 선 셋은 밝기와 색상이 모두 다르다 */
+  /* 한국 시장 절(korea.js가 그리는 표·탭)이 쓰는 이름. 아랫줄 --ch-*는 그래프 색 — 검정 위 대비 3:1 이상, 선 셋은 밝기와 색상이 모두 다르다 */
   --bg: var(--black); --fg: var(--ink); --muted: var(--dim); --line: var(--rule); --card: var(--black); --link: var(--blue);
   --ch-1: #f4f4f4; --ch-2: #ff9e1b; --ch-3: #3ec6ff; --ch-ref: #808080; --ch-th: var(--key); --ch-grid: #2e2e2e; --ch-axis: #6a6a6a;
   --f-text: "IBM Plex Sans KR", "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
@@ -29,6 +29,8 @@ h1, h2, h3 { margin: 0; font-family: var(--f-text); font-weight: 600; }
 .sub, .muted, small { color: var(--dim); }
 .skip-link { position: fixed; top: -100px; left: 12px; z-index: 30; padding: 8px 12px; background: var(--key); color: #000; }
 .skip-link:focus { top: 8px; }
+/* 화면에는 안 보이고 화면 읽기에만 읽히는 글자 */
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ── 머리: 명령줄 · 기능 키 · 시세 띠 ── */
 .term-head { position: sticky; top: 0; z-index: 8; background: var(--black); border-bottom: 1px solid var(--rule); }
@@ -101,7 +103,7 @@ main > section, main > .page-header, main > .bridge { margin-bottom: 22px; }
 .bridge { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
 .box { border: 1px solid var(--rule); background: var(--panel); min-width: 0; overflow-x: auto; }
 .box-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 10px; background: var(--bar); }
-.box-head h1, .box-head h2 { font-size: 14px; color: var(--amber); }
+.box-head h2 { font-size: 14px; color: var(--amber); }
 .box-head span { font: 500 11.5px var(--f-mono); color: var(--dim); white-space: nowrap; }
 .monitor { width: 100%; border-collapse: collapse; font-size: 13px; }
 .monitor th, .monitor td { padding: 5px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid #1c1c1c; }
@@ -114,6 +116,7 @@ main > section, main > .page-header, main > .bridge { margin-bottom: 22px; }
 .monitor .topic { color: var(--dim); font-size: 12px; }
 .monitor .num { text-align: right; color: var(--amber); font: 500 13.5px var(--f-mono); font-variant-numeric: tabular-nums; }
 .monitor .asof { color: #8a8a8a; font: 400 11.5px var(--f-mono); }
+.monitor .num small.when { display: none; font: 400 10.5px var(--f-mono); color: #8a8a8a; }
 .monitor .num.none { color: var(--dim); font: 400 12.5px var(--f-text); }
 .monitor tbody th small { display: block; font-size: 11px; font-weight: 400; color: var(--dim); }
 .monitor thead .num, .monitor thead .asof { font: 500 11.5px var(--f-text); color: var(--dim); }
@@ -259,6 +262,7 @@ main.switching > section:not([hidden]), main.switching > .bridge:not([hidden]) {
   #category-nav { padding: 0 12px 8px; }
   main { padding: 12px 12px 40px; }
   .monitor .topic, .monitor .asof, .monitor thead .topic, .monitor thead .asof { display: none; }
+  .monitor .num small.when { display: block; }
   .monitor th, .monitor td { padding: 5px 7px; }
   .monitor .spark { width: 72px; }
   .spark svg { width: 64px; }
@@ -283,7 +287,16 @@ html[data-motion="off"] figure.ch.ch-fresh .ch-line { stroke-dasharray: none; st
 .market-value>strong,.market-deltas strong,.market-table td{font-family:var(--f-mono)}
 .market-value>strong,.market-card h3{color:var(--amber)}
 /* 인쇄 — 아직 화면에 들어온 적 없는 그래프도 선이 보이게, 흐르는 띠는 뺀다 */
+/* 화면 키의 초점 테두리가 가로 스크롤 상자에 잘리지 않게 안쪽으로 */
+#category-nav a:focus-visible { outline-offset: -3px; }
+/* 강제 색(Windows 고대비) — 배경색·그림자로만 하던 구분을 테두리로. 실제 고대비 화면에서는 아직 확인하지 못했다 */
+@media (forced-colors: active) {
+  #category-nav a[aria-current] { outline: 2px solid Highlight; outline-offset: -3px; }
+  .cmd input:focus-visible { outline: 2px solid Highlight; }
+  .ch-key { forced-color-adjust: none; }
+}
 @media print {
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }   /* 검은 바탕째 찍어 흰 선·노란 글자가 보이게 */
   figure.ch.ch-fresh .ch-line { stroke-dasharray: none; stroke-dashoffset: 0; animation: none; }
   .term-head { position: static; }
   .tape { display: none; }

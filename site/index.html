@@ -27,7 +27,7 @@
   <div class="cmdbar">
     <a class="brand" href="#all">매크로 관측실</a>
     <form id="cmd-form" class="cmd" autocomplete="off">
-      <label for="cmd">&gt;</label>
+      <label for="cmd" aria-hidden="true">&gt;</label>
       <input id="cmd" name="cmd" list="cmd-list" spellcheck="false" aria-label="화면 이동 명령"
              placeholder="화면 이름을 치고 Enter — 금리, 물가, 신용, 유동성, 국고채, 출처">
       <datalist id="cmd-list"><option value="전체"><option value="금리·커브"><option value="물가"><option value="신용·경기"><option value="유동성"><option value="한국 시장"><option value="한국 신용"><option value="수급·입찰"><option value="출처·갱신"></datalist>
@@ -58,8 +58,8 @@
       <div class="box-head"><h2 id="monitor-title">국면 모니터</h2><span id="monitor-meta"></span></div>
       <table id="monitor" class="monitor"></table>
     </section>
-    <section class="box" aria-labelledby="bridge-title">
-      <div class="box-head"><h2>수신 상태</h2><span>아침 정기 갱신</span></div>
+    <section class="box" aria-labelledby="feed-title">
+      <div class="box-head"><h2 id="feed-title">수신 상태</h2><span>아침 정기 갱신</span></div>
       <div class="feed">
         <h1 id="bridge-title">시장의 큰 흐름, 한눈에</h1>
         <p class="sub">규칙 이름을 누르면 그 주제 화면으로 갑니다. 숫자 키 1~7로도 바꿉니다.</p>
@@ -408,7 +408,16 @@ document.getElementById("cmd-form").addEventListener("submit", ev => {
   ev.preventDefault();
   const input = document.getElementById("cmd");
   const msg = document.getElementById("cmd-msg");
-  if (go(input.value)) { input.value = ""; input.blur(); msg.textContent = ""; }
+  if (go(input.value)) {
+    input.value = "";
+    msg.textContent = "";
+    setTimeout(() => {                                  // 화면이 바뀐 뒤 그 화면의 제목으로 초점을 옮긴다(화면 읽기가 제목을 읽는다)
+      const title = [document.getElementById("bridge-title"), document.getElementById("view-title")].find(h => h && h.offsetParent);
+      if (!title) { input.blur(); return; }
+      title.setAttribute("tabindex", "-1");
+      title.focus({ preventScroll: true });
+    }, 60);
+  }
   else { input.select(); msg.textContent = input.value.trim() ? "없는 화면 — 금리, 물가, 신용, 유동성, 한국, 출처" : ""; }
 });
 // 숫자 키 단축은 머리의 '단축키' 버튼으로 끌 수 있다(고른 값은 브라우저에 기억)
@@ -445,7 +454,8 @@ function sparkline(points) {
     `${i ? "L" : "M"}${(i / (pick.length - 1) * W).toFixed(1)} ${(H - 2 - (q[1] - lo) / span * (H - 4)).toFixed(1)}`).join("");
   const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, "aria-hidden": "true" });
   svg.append(svgEl("path", { d }));
-  return svg;
+  const wrap = el("span", {}, svg, el("span", { class: "sr" }, `${pts[0][0]} ${pts[0][1]}에서 ${pts.at(-1)[0]} ${pts.at(-1)[1]}까지`));
+  return wrap;
 }
 function renderMonitor(p, charts) {
   const rules = Array.isArray(p.rules) ? p.rules : [];
@@ -466,6 +476,7 @@ function renderMonitor(p, charts) {
     const status = Object.prototype.hasOwnProperty.call(STATUS_TEXT, r.status) ? r.status : "unknown";
     const num = el("td", { class: has ? "num" : "num none" }, has ? `${o.value}${o.unit || ""}` : closed ? "비공개" : "—");
     num.style.animationDelay = `${Math.min(rows.length, 12) * 45}ms`;   // 값이 위에서부터 차례로 들어온다
+    if (has && typeof o.asof === "string") num.append(el("small", { class: "when" }, o.asof));   // 좁은 화면 전용(자료일 열 대신)
     const name = el("a", { href: "#" + g.id }, r.title);
     name.addEventListener("click", () => {                          // 규칙 상태를 골라 둔 채 넘어가면 그 규칙이 안 보일 수 있다
       ruleState = "all";
@@ -586,7 +597,8 @@ function renderPublic(p, charts) {
   }));
   document.querySelectorAll("#category-nav a").forEach(a => {
     const group = GROUPS.find(g => g.id === a.dataset.view);
-    if (group) a.querySelector("span").textContent = (p.rules || []).filter(r => group.keys.includes(r.key)).length;
+    if (group) a.querySelector("span").replaceChildren(el("span", { class: "sr" }, ", 규칙 "),
+      String((p.rules || []).filter(r => group.keys.includes(r.key)).length), el("span", { class: "sr" }, "개"));
   });
   try { renderSnapshot(p, charts); } catch (e) { /* 주요 지표가 깨져도 아래 자료 상태·출처는 그린다 */ }
   try { renderMonitor(p, charts); } catch (e) { /* 모니터가 깨져도 아래 점검표는 그대로 */ }
