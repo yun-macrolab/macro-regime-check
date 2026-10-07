@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>공개 통계 규칙 점검</title>
+<title>매크로 관측실 · 국면 점검</title>
 <meta name="description" content="FRED 공개 통계에 미리 정한 규칙을 적용해 평일 아침 자동으로 갱신하는 점검표">
 <style>
   :root {
@@ -79,36 +79,85 @@
                                  white-space: nowrap; }
   .ch-scroll th:first-child, .ch-scroll td:first-child { text-align: left; }
   .ch-scroll thead th { position: sticky; top: 0; background: var(--card); }
+  /* 참고 절 — 한국 국고채 금리 */
+  table.ktb { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  table.ktb th, table.ktb td { padding: 3px 20px 3px 0; text-align: right; border-bottom: 1px solid var(--line);
+                               white-space: nowrap; }
+  table.ktb th:first-child, table.ktb td:first-child { text-align: left; }
+  table.ktb thead th { font-size: .85rem; font-weight: 600; color: var(--muted); }
 </style>
+<link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
-<main>
-  <h1>공개 통계 규칙 점검</h1>
-  <div class="sub">FRED 공개 통계에 미리 정한 규칙을 적용한 결과 · 평일 아침 자동 갱신 · <a href="https://github.com/yun-macrolab/macro-regime-check">코드</a></div>
+<a class="skip-link" href="#main">본문으로 바로 가기</a>
+<aside class="sidebar">
+  <a class="brand" href="#all"><span class="brand-symbol" aria-hidden="true">M</span><span>매크로 관측실<small>매일 읽는 시장의 큰 흐름</small></span></a>
+  <nav id="category-nav" aria-label="지표 카테고리">
+    <a href="#all" data-view="all" aria-current="page">전체 보기<span>모아보기</span></a>
+    <a href="#rates" data-view="rates">금리·커브<span>3</span></a>
+    <a href="#inflation" data-view="inflation">물가<span>2</span></a>
+    <a href="#credit" data-view="credit">신용·경기<span>4</span></a>
+    <a href="#liquidity" data-view="liquidity">유동성<span>2</span></a>
+    <a href="#korea" data-view="korea">한국 국고채<span>참고</span></a>
+    <a href="#sources" data-view="sources">출처·갱신<span>자료실</span></a>
+  </nav>
+  <div class="sidebar-note">숫자를 확인하고,<br>흐름을 이해하는 공간.<a href="https://github.com/yun-macrolab/macro-regime-check">계산 코드 보기</a></div>
+</aside>
+<main id="main">
+  <header class="page-header"><div><p class="breadcrumb">매크로 국면 점검</p><h1 id="view-title">시장의 큰 흐름, 한눈에</h1><p id="view-description" class="sub">금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.</p></div><span class="update-label">아침 정기 갱신</span></header>
   <noscript><p class="banner">이 페이지는 자바스크립트로 data/public.json을 읽어 그린다. <a href="data/public.json">JSON 직접 보기</a></p></noscript>
   <div id="banner" class="banner" hidden></div>
   <div id="status" class="status">불러오는 중…</div>
   <p id="notice" class="muted"></p>
 
+  <section id="snapshot-wrap" class="snapshot-wrap" hidden aria-labelledby="snapshot-title">
+    <div class="section-heading"><h2 id="snapshot-title">주요 지표</h2><span>각 지표의 최근 관측값</span></div>
+    <div id="snapshot" class="snapshot"></div>
+    <p class="reading-note">자료일이 서로 다를 수 있습니다. 아래 수치는 실시간 시세가 아니며, 규칙 충족은 매수·매도 방향을 뜻하지 않습니다.</p>
+  </section>
   <section id="overview-wrap" hidden>
-    <h2>금리 한눈에 보기</h2>
+    <div class="section-heading"><h2>금리의 구조</h2><span>차트에 마우스를 올리거나 초점을 두고 방향키로 탐색</span></div>
     <p id="charts-note" class="muted" hidden></p>
     <div id="overview"></div>
   </section>
 
-  <h2 id="summary">규칙</h2>
-  <div id="rules"></div>
+  <p id="korea-empty" class="empty-state" hidden>국고채 참고 자료를 불러오지 못했습니다. 자료가 갱신된 뒤 다시 확인해 주세요.</p>
+  <section id="ktb-wrap" hidden>
+    <div class="section-heading"><h2>한국 국고채</h2><span class="reference-label">채널 자료 · 규칙 판정 제외</span></div>
+    <p id="ktb-head" class="muted"></p>
+    <div class="panel">
+      <table id="ktb-table" class="ktb" aria-label="국고채 만기별 금리"></table>
+      <p id="ktb-spreads" class="ch-note muted"></p>
+    </div>
+    <div id="ktb-charts"></div>
+    <div id="ktb-notices" class="notices"></div>
+  </section>
 
-  <h2>자료 상태</h2>
-  <details>
+  <section id="rules-wrap" aria-labelledby="summary">
+    <div class="section-heading"><h2 id="summary">주제별 점검</h2><p id="rule-count" class="muted" aria-live="polite"></p></div>
+    <div class="rule-toolbar"><label for="rule-filter">규칙 상태</label><select id="rule-filter"><option value="all">전체 상태</option><option value="met">충족</option><option value="not_met">미충족</option><option value="unknown">판정 불가</option></select><span>조건과 해석은 각 지표에서 확인하세요.</span></div>
+    <div id="rules"></div>
+    <p id="empty-rules" class="empty-state" hidden>이 카테고리에 선택한 상태의 규칙이 없습니다. ‘전체 상태’를 선택해 보세요.</p>
+  </section>
+
+  <section id="sources-wrap" hidden>
+  <h2>출처와 자료 상태</h2>
+  <p class="sub">공식 통계, 참고 자료, 이 사이트의 계산값을 구분합니다.</p>
+  <div class="source-guide">
+    <article><h3>미국 공식 통계</h3><p>FRED를 통해 연방준비제도·뉴욕 연은·BEA·BLS 등의 자료를 받습니다. FRED는 자료를 제공하는 창구이며, 원 발행기관은 지표마다 다릅니다.</p></article>
+    <article><h3>한국 금리 참고 자료</h3><p>KB증권 리서치본부 채권크레딧팀 공개 텔레그램의 일일동향에서 옮긴 민평3사 금리입니다. 게시일과 금리 기준일을 구분해 읽습니다.</p></article>
+    <article><h3>이 사이트의 계산값</h3><p>증가율·금리차·상관·비율과 규칙 판정은 원자료를 바탕으로 계산합니다. 원 발행기관의 시장 전망을 뜻하지 않습니다.</p></article>
+  </div>
+  <details open>
     <summary id="health-summary">시리즈별 마지막 관측일</summary>
     <ul id="health" class="health"></ul>
     <ul id="warnings" class="muted"></ul>
   </details>
+  </section>
 
   <footer>
     <div id="attribution"></div>
-    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · 날짜별 기록은 저장소의 data/history/</p>
+    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · 날짜별 기록은 저장소의 data/history/</p>
   </footer>
 </main>
 <script src="charts.js"></script>
@@ -130,7 +179,9 @@ function kst(iso) {
     hour: "2-digit", minute: "2-digit" }) + " (KST)";
 }
 function safeUrl(u) {
-  return typeof u === "string" && /^https:\/\/(fred\.stlouisfed\.org|github\.com)\//.test(u) ? u : null;
+  if (typeof u !== "string") return null;
+  // FRED·GitHub, 그리고 국고채 참고 절의 원문 글(그 채널의 글 주소만)
+  return /^https:\/\/(fred\.stlouisfed\.org|github\.com)\//.test(u) || /^https:\/\/t\.me\/jk_bond\/\d+$/.test(u) ? u : null;
 }
 function link(text, url) {
   const u = safeUrl(url);
@@ -176,26 +227,103 @@ function chartFigure(spec, height, caption, notices) {
   }
 }
 
-function renderRule(r, chart) {
-  const obs = el("ul", { class: "obs" });
+const GROUPS = [
+  { id: "rates", title: "금리·커브", description: "금리의 수준과 기울기, 주식과의 관계를 함께 봅니다.", keys: ["curve_inversion", "term_premium", "stock_bond_corr"] },
+  { id: "inflation", title: "물가", description: "실제 물가 추세와 시장에 반영된 기대를 비교합니다.", keys: ["core_inflation", "real_rate_bei"] },
+  { id: "credit", title: "신용·경기", description: "대출과 신용 여건, 금융업 고용의 변화를 관찰합니다.", keys: ["ci_vs_ngdp", "ndfi_credit", "credit_spread", "employment"] },
+  { id: "liquidity", title: "유동성", description: "단기 자금조달 비용과 은행 시스템의 자금을 점검합니다.", keys: ["sofr", "reserves_multiplier"] }
+];
+const LEARN = {
+  curve_inversion: "장기 금리와 단기 금리의 차이입니다. 수준과 기울기 변화를 함께 살펴보세요.",
+  term_premium: "장기 채권을 보유하는 불확실성의 보상을 모형으로 추정한 값입니다.",
+  stock_bond_corr: "주가 수익률과 금리 변화가 함께 움직이는 정도입니다. 채권 가격과의 상관은 아닙니다.",
+  core_inflation: "식품·에너지를 제외한 물가의 추세입니다. PCE와 CPI의 구성과 가중치는 다릅니다.",
+  real_rate_bei: "명목금리를 실질금리와 손익분기 인플레이션율(BEI)로 나눠 봅니다. BEI에는 위험·유동성 프리미엄도 섞입니다.",
+  ci_vs_ngdp: "기업대출 증가와 명목 경제규모의 성장을 비교합니다. 서로 다른 발표 주기와 자료일에 유의하세요.",
+  ndfi_credit: "은행에서 비은행 금융기관으로 이어지는 대출 흐름입니다. 재분류로 보이는 급증분은 계산에서 제외합니다.",
+  credit_spread: "국채 대비 신용위험 보상의 크기를 점검합니다. 원자료 값은 출처에서 확인하세요.",
+  employment: "미국 증권·투자업의 고용 추세입니다. 경제 전체의 고용 지표와 구분해 읽습니다.",
+  sofr: "미국 국채 담보 익일물 조달금리입니다. 월말·분기말의 일시적 움직임도 확인하세요.",
+  reserves_multiplier: "지준의 경제규모 대비 비중과 통화승수를 함께 봅니다. 비율 하나만으로 자금 여건을 단정하지 않습니다."
+};
+let activeView = "all", ruleState = "all", publicData = null;
+const available = { overview: false, korea: false, snapshot: false };
+
+function renderRule(r, chart, health) {
+  const obs = el("dl", { class: "observations" });
   for (const o of r.observations || []) {
     const v = o.value === null || o.value === undefined ? "자료 없음" : `${o.value}${o.unit || ""}`;
-    obs.append(el("li", {}, `${o.label}: `, el("strong", {}, v), ` (${o.asof || "—"}`,
-      o.derived || o.computed ? ", 계산값" : "", ")"));   // 이 저장소가 계산한 값 — 원 발행처의 값으로 보이지 않게
+    obs.append(el("div", {}, el("dt", {}, o.label), el("dd", {}, el("strong", {}, v),
+      el("small", {}, o.asof || "자료일 없음", o.derived || o.computed ? " · 계산값" : ""))));
   }
+  const ids = new Set((r.observations || []).flatMap(o => o.series || []));
+  const sourceLinks = (health || []).filter(h => ids.has(h.series));
   const restricted = (r.restricted_series || []).map(s => [link(s.series, s.url), ` (${s.owner})`]);
-  // 참조금리 고지(SOFR 등) — 뉴욕 연은 이용약관: 자료를 보여 주는 곳에 함께. 카드에 고지가 있으면 카드 안 그래프는 생략하고,
-  // 없으면(공개본이 옛 형식 등) 그래프가 제 고지를 싣는다 — 어느 쪽이든 한 번은 나오게
   const notices = Array.isArray(r.notices) ? r.notices.filter(n => typeof n === "string" && n) : [];
-  return el("section", { class: "rule" },
+  const group = GROUPS.find(g => g.keys.includes(r.key));
+  return el("article", { class: "rule", "data-category": group ? group.id : "other", "data-status": r.status },
     el("h3", {}, r.title, el("span", { class: `pill ${r.status}` }, STATUS_TEXT[r.status] || r.status)),
-    el("p", {}, r.rule),
+    LEARN[r.key] ? el("p", { class: "rule-context" }, LEARN[r.key]) : null,
     obs.childElementCount ? obs : null,
-    restricted.length ? el("p", { class: "muted" }, "재배포 제한 자료라 값은 싣지 않는다: ",
+    restricted.length ? el("p", { class: "muted" }, "원자료 값 비공개: ",
       ...restricted.flatMap((parts, i) => (i ? [", ", ...parts] : parts))) : null,
-    chartFigure(chart, 150, false, notices.length ? false : undefined),
+    chartFigure(chart, 170, false, notices.length ? false : undefined),
+    el("details", { class: "rule-detail" }, el("summary", {}, "판정 조건과 출처"),
+      el("p", {}, r.rule),
+      el("p", { class: "muted" }, "충족 여부는 이 조건에 대한 점검 결과입니다. 임계값의 예측력은 검증되지 않았습니다."),
+      ...sourceLinks.map(h => el("p", { class: "source-link" }, link(h.label + " [" + h.series + "]", h.url), " · ", h.owner || "", " / FRED"))),
     notices.length ? el("div", { class: "notices" }, ...notices.map(n => el("p", {}, n))) : null);
 }
+
+function renderSnapshot(p, charts) {
+  const findObs = (key, index = 0) => ((p.rules || []).find(r => r.key === key)?.observations || [])[index];
+  const nominal = charts?.overview?.find(c => c.key === "yield10")?.lines?.find(l => l.key === "dgs10");
+  const last = nominal?.points?.filter(v => Number.isFinite(v[1])).at(-1);
+  const values = [
+    { label: "미국 10년 금리", obs: last ? {value:last[1], unit:"%", asof:last[0]} : null, view:"rates" },
+    { label: "10년−2년 금리차", obs:findObs("curve_inversion"), view:"rates" },
+    { label: "근원 PCE 전년비", obs:findObs("core_inflation"), view:"inflation" },
+    { label: "기간 프리미엄", obs:findObs("term_premium"), view:"rates" }
+  ];
+  document.getElementById("snapshot").replaceChildren(...values.map(v => el("a", { href:"#"+v.view, class:"metric" },
+    el("span", {}, v.label), el("strong", {}, Number.isFinite(v.obs?.value) ? v.obs.value + (v.obs.unit || "") : "자료 없음"),
+    el("small", {}, v.obs?.asof || "자료일 없음"))));
+  available.snapshot = true;
+}
+
+function applyView() {
+  const known = ["all", ...GROUPS.map(g=>g.id), "korea", "sources"];
+  activeView = known.includes(location.hash.slice(1)) ? location.hash.slice(1) : "all";
+  const group = GROUPS.find(g => g.id === activeView);
+  const titles = {all:"시장의 큰 흐름, 한눈에", korea:"한국 국고채", sources:"출처와 갱신 현황"};
+  const descriptions = {all:"금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.", korea:"만기별 금리와 장단기 금리차를 함께 확인합니다.", sources:"어디에서 왔고, 언제 관측됐는지 확인하세요."};
+  document.getElementById("view-title").textContent = group?.title || titles[activeView];
+  document.getElementById("view-description").textContent = group?.description || descriptions[activeView];
+  document.querySelectorAll("#category-nav a").forEach(a => {
+    if(a.dataset.view === activeView) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
+  const showRules = activeView === "all" || !!group;
+  document.getElementById("snapshot-wrap").hidden = !(available.snapshot && activeView === "all");
+  document.getElementById("overview-wrap").hidden = !(available.overview && ["all","rates"].includes(activeView));
+  document.getElementById("ktb-wrap").hidden = !(available.korea && ["all","korea"].includes(activeView));
+  document.getElementById("korea-empty").hidden = activeView !== "korea" || available.korea;
+  document.getElementById("rules-wrap").hidden = !showRules;
+  document.getElementById("sources-wrap").hidden = activeView !== "sources";
+  let shown = 0;
+  document.querySelectorAll(".rule").forEach(card => {
+    card.hidden = !((activeView === "all" || card.dataset.category === activeView) &&
+      (ruleState === "all" || card.dataset.status === ruleState));
+    if(!card.hidden) shown++;
+  });
+  document.querySelectorAll(".rule-group").forEach(section => {
+    section.hidden = !Array.from(section.querySelectorAll(".rule")).some(card => !card.hidden);
+  });
+  document.getElementById("rule-count").textContent = publicData ? `${shown}개 규칙 표시 / 전체 ${publicData.rules.length}개` : "";
+  document.getElementById("empty-rules").hidden = !publicData || shown > 0;
+  document.getElementById("summary").textContent = group ? "지표와 점검 조건" : "주제별 점검";
+}
+window.addEventListener("hashchange", () => { applyView(); window.scrollTo(0, 0); });
+document.getElementById("rule-filter").addEventListener("change", e => { ruleState = e.target.value; applyView(); });
 
 function renderOverview(charts, publicDate) {
   const figs = (Array.isArray(charts.overview) ? charts.overview : [])
@@ -207,18 +335,58 @@ function renderOverview(charts, publicDate) {
     note.textContent = `그래프는 ${charts.date} 기준이다(최근 그래프 자료 생성 실패).`;
     note.hidden = false;
   }
-  document.getElementById("overview-wrap").hidden = false;
+  available.overview = true;
+}
+
+// 참고 절 — 한국 국고채 금리(data/ktb.json ← scripts/ktb_fetch.py). 공개 통계가 아니고 규칙 판정과 무관하다.
+// 자료가 없거나 형식이 어긋나면 절 전체를 숨긴 채 둔다
+function renderKtb(k) {
+  const latest = k && typeof k === "object" && k.latest && typeof k.latest === "object" ? k.latest : null;
+  const rows = (latest && Array.isArray(latest.rows) ? latest.rows : [])
+    .filter(r => r && typeof r.tenor === "string" && Number.isFinite(r.yield));
+  if (!rows.length || typeof latest.date !== "string") return;
+  const bp = v => {
+    const s = v.toFixed(1);
+    return (Number(s) === 0 ? "0.0" : (v > 0 ? "+" : "") + s) + "bp";
+  };
+  const days = Math.floor((Date.now() - Date.parse(latest.date + "T00:00:00+09:00")) / 864e5);
+  document.getElementById("ktb-head").replaceChildren(
+    `${latest.date} 아침 글 기준 · `, link("원문 글", latest.post_url),
+    days > 7 ? " · 최근 글을 받지 못했다 — 아래는 마지막으로 읽은 값이다" : "");
+  document.getElementById("ktb-table").replaceChildren(
+    el("thead", {}, el("tr", {}, el("th", { scope: "col" }, "만기"), el("th", { scope: "col" }, "금리"),
+      el("th", { scope: "col" }, "전일 대비"))),
+    el("tbody", {}, ...rows.map(r => el("tr", {}, el("td", {}, r.tenor), el("td", {}, r.yield.toFixed(3) + "%"),
+      el("td", {}, Number.isFinite(r.change_bp) ? bp(r.change_bp) : "—")))));
+  const spreads = (Array.isArray(latest.spreads) ? latest.spreads : [])
+    .filter(s => s && typeof s.label === "string" && Number.isFinite(s.bp));
+  document.getElementById("ktb-spreads").textContent = spreads.length
+    ? spreads.map(s => `${s.label} ${s.bp.toFixed(1)}bp`).join(" · ") + " (이 금리로 계산)" : "";
+  const figs = (Array.isArray(k.charts) ? k.charts : []).map(spec => chartFigure(spec, 220, true)).filter(Boolean);
+  document.getElementById("ktb-charts").replaceChildren(...figs.map(f => el("div", { class: "panel" }, f)));
+  document.getElementById("ktb-notices").replaceChildren(...(Array.isArray(k.notices) ? k.notices : [])
+    .filter(n => typeof n === "string" && n).map(n => el("p", {}, n)));
+  available.korea = true;
 }
 
 function renderPublic(p, charts) {
   document.getElementById("notice").textContent = p.notice || "";
-  const s = p.summary || {};
-  document.getElementById("summary").textContent =
-    `규칙 ${s.total}개 — 충족 ${s.met} · 미충족 ${s.not_met} · 판정 불가 ${s.unknown}`;
+  publicData = p;
   const ruleCharts = charts && charts.rules && typeof charts.rules === "object" ? charts.rules : {};
-  document.getElementById("rules").replaceChildren(...(p.rules || []).map(r =>
-    renderRule(r, Object.prototype.hasOwnProperty.call(ruleCharts, r.key) ? ruleCharts[r.key] : null)));
   const health = p.data_health || [];
+  const allKeys = new Set(GROUPS.flatMap(g=>g.keys));
+  const groups = [...GROUPS, {id:"other", title:"그 밖의 지표", description:"새로 추가된 점검 항목입니다.", keys:(p.rules || []).filter(r=>!allKeys.has(r.key)).map(r=>r.key)}];
+  document.getElementById("rules").replaceChildren(...groups.map(g => {
+    const rules = (p.rules || []).filter(r => g.keys.includes(r.key));
+    return el("section", {class:"rule-group"},
+      el("div", {class:"group-heading"}, el("h3", {}, g.title), el("p", {}, g.description)),
+      el("div", {class:"rule-grid"}, ...rules.map(r => renderRule(r, ruleCharts[r.key], health))));
+  }));
+  document.querySelectorAll("#category-nav a").forEach(a => {
+    const group = GROUPS.find(g => g.id === a.dataset.view);
+    if (group) a.querySelector("span").textContent = (p.rules || []).filter(r => group.keys.includes(r.key)).length;
+  });
+  renderSnapshot(p, charts);
   const stale = health.filter(h => h.stale).length;
   document.getElementById("health-summary").textContent =
     `시리즈 ${health.length}개 · 오래된 자료 ${stale}개 (펼쳐 보기)`;
@@ -229,9 +397,10 @@ function renderPublic(p, charts) {
   document.getElementById("attribution").replaceChildren(...(p.attribution || []).map(a => el("p", {}, a)));
 }
 
+applyView();
 (async () => {
-  const [st, pub, ch] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json"),
-    getJson("data/charts.json")]);
+  const [st, pub, ch, kt] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json"),
+    getJson("data/charts.json"), getJson("data/ktb.json")]);
   // 그래프 자료가 없거나 깨졌으면 그래프 없이 지금 화면 그대로
   const charts = ch.status === "fulfilled" && ch.value && typeof ch.value === "object" ? ch.value : null;
   if (st.status === "fulfilled") renderStatus(st.value);
@@ -239,6 +408,10 @@ function renderPublic(p, charts) {
   if (pub.status === "fulfilled") renderPublic(pub.value, charts);
   else showBanner("공개본을 불러오지 못했다 — 첫 자동 실행 전이거나 배포 중이다.");
   if (charts) renderOverview(charts, pub.status === "fulfilled" ? pub.value.date : null);
+  if (kt.status === "fulfilled") {
+    try { renderKtb(kt.value); } catch (e) { /* 참고 절이 깨져도 규칙 점검 화면은 그대로 */ }
+  }
+  applyView();
 })();
 </script>
 </body>

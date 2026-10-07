@@ -98,11 +98,22 @@
       el.append(svg("line", { class: "ch-grid", x1: L, x2: R, y1: Y(v), y2: Y(v) }));
       el.append(svg("text", { class: "ch-tick", x: L - 6, y: Y(v) + 4, "text-anchor": "end" }, v.toFixed(decimals)));
     }
-    const y0 = new Date(t0).getUTCFullYear(), y1 = new Date(t1).getUTCFullYear();
-    for (let y = y0 + 1; y <= y1; y++) {
-      const x = X(Date.UTC(y, 0, 1));
+    // 가로 눈금: 해가 바뀌는 곳. 기간이 짧으면(약 1년 이하) 달이 바뀌는 곳 — 1월은 연도로 적고, 글자가 겹치면 건너뛴다
+    const xTick = (t, label) => {
+      const x = X(t);
       el.append(svg("line", { class: "ch-grid", x1: x, x2: x, y1: B, y2: B + 4 }));
-      el.append(svg("text", { class: "ch-tick", x, y: height - 5, "text-anchor": "middle" }, String(y)));
+      if (label) el.append(svg("text", { class: "ch-tick", x, y: height - 5, "text-anchor": "middle" }, label));
+    };
+    const d0 = new Date(t0);
+    if (t1 - t0 > 400 * DAY) {
+      for (let y = d0.getUTCFullYear() + 1; y <= new Date(t1).getUTCFullYear(); y++) xTick(Date.UTC(y, 0, 1), String(y));
+    } else {
+      const starts = [];
+      for (let k = 1; Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + k, 1) <= t1; k++)
+        starts.push(new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + k, 1)));
+      const every = Math.max(1, Math.ceil(starts.length * 40 / Math.max(1, R - L)));
+      starts.forEach((d, i) => xTick(d.getTime(), i % every ? null
+        : d.getUTCMonth() === 0 ? String(d.getUTCFullYear()) : `${d.getUTCMonth() + 1}월`));
     }
     const th = st.spec.threshold;
     if (st.spec.zero && lo < 0 && hi > 0 && th !== 0)
