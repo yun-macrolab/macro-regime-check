@@ -1,0 +1,18 @@
+{
+ "schema": 1,
+ "updated": "2026-10-08",
+ "events": [
+  {"date": "2026-10-22", "term": "금통위", "tier": "A"},
+  {"date": "2026-10-27", "time": "08:00", "term": "한국 GDP", "tier": "A"},
+  {"date": "2026-10-29", "time": "03:00", "term": "FOMC", "tier": "A"},
+  {"date": "2026-10-29", "time": "21:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2026-11-03", "time": "08:00", "term": "한국 CPI", "tier": "A"},
+  {"date": "2026-11-25", "time": "22:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2026-11-26", "term": "금통위", "tier": "A"},
+  {"date": "2026-12-02", "time": "08:00", "term": "한국 CPI", "tier": "A"},
+  {"date": "2026-12-09", "time": "08:00", "term": "한국 GDP", "tier": "A"},
+  {"date": "2026-12-10", "time": "04:00", "term": "FOMC", "tier": "A"},
+  {"date": "2026-12-23", "time": "22:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2026-12-31", "time": "08:00", "term": "한국 CPI", "tier": "A"}
+ ]
+}

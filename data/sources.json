@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "updated": "2026-10-08",
+ "groups": [
+  {"id": "bond", "label": "채권"},
+  {"id": "analyst", "label": "애널"},
+  {"id": "personal", "label": "개인"}
+ ],
+ "roles": [
+  {"id": "source", "label": "원천"},
+  {"id": "wire", "label": "속보형"},
+  {"id": "topic", "label": "주제 한정"},
+  {"id": "context", "label": "참고"},
+  {"id": "off", "label": "제외"}
+ ],
+ "channels": [
+  {"handle": "deandatbond", "label": "하나증권 해외채권", "group": "bond", "role": "source", "title_sha": "1a3b9196792571c7"},
+  {"handle": "yieldnspread", "label": "YIELD & SPREAD", "group": "bond", "role": "source", "title_sha": "e57fdd366550ca86"},
+  {"handle": "harveyspecterMike", "label": "Harvey's Macro Story", "group": "bond", "role": "source", "title_sha": "e79708525b4fffc7"},
+  {"handle": "miraebond", "label": "미래에셋증권 채권/경제", "group": "bond", "role": "source", "title_sha": "07f08b2bcde11d11"},
+  {"handle": "jk_bond", "label": "KB증권 채권크레딧팀", "group": "bond", "role": "source", "title_sha": "56bd5696bd9c4b76"},
+  {"handle": "eqmirae", "label": "미래에셋증권 전략/퀀트", "group": "analyst", "role": "source", "title_sha": "22370ed33db88e96"},
+  {"handle": "lim_econ", "label": "한화투자증권 경제", "group": "analyst", "role": "source", "title_sha": "c901af2d4f10ef07"},
+  {"handle": "hana_us_stock", "label": "하나증권 미국주식", "group": "analyst", "role": "source", "title_sha": "e2ac90529aa0373f"},
+  {"handle": "upper_limit_price", "label": "쩜상리서치", "group": "analyst", "role": "source", "title_sha": "4309c8721695286c"},
+  {"handle": "toptownquant", "label": "DAOL퀀트 탑다운 전략", "group": "analyst", "role": "source", "title_sha": "ffcf6746c903fa9a"},
+  {"handle": "samsung_macro", "label": "삼성리서치 매크로", "group": "analyst", "role": "source", "title_sha": "d0796d02644a8408"},
+  {"handle": "shStrategy", "label": "신한 리서치본부 주식전략/시황/퀀트", "group": "analyst", "role": "context", "title_sha": "a9951e2f42aabe52"},
+  {"handle": "Samsung_Global_AI_SW", "label": "삼성 글로벌 AI/SW", "group": "analyst", "role": "topic", "title_sha": "9d037e32dcac114a"},
+  {"handle": "Onionfarmer", "label": "양파농장", "group": "personal", "role": "source", "title_sha": "f9d7c10cf1dd07d9"},
+  {"handle": "haelangdal123", "label": "해랑달의 Moneymoves", "group": "personal", "role": "source", "title_sha": "a93e3e6d654b9c17"},
+  {"handle": "shmstory", "label": "시황맨의 주식이야기", "group": "personal", "role": "source", "title_sha": "f61a9748471390ec"},
+  {"handle": "ihresearch", "label": "IH Research", "group": "personal", "role": "source", "title_sha": "9e3f646239c2451a"},
+  {"handle": "paranhanl20", "label": "파하의 아카이빙 노트", "group": "personal", "role": "source", "title_sha": "245f845506595a54"},
+  {"handle": "greentea2016", "label": "그린", "group": "personal", "role": "source", "title_sha": "8b9236867da1c7c5"},
+  {"handle": "desperatestudycafe", "label": "간절한 투자스터디카페", "group": "personal", "role": "source", "title_sha": "8d88ce31d7efe51b"},
+  {"handle": "aetherjapanresearch", "label": "에테르의 일본&미국 리서치", "group": "personal", "role": "source", "title_sha": "cb67170a452a68c9"},
+  {"handle": "habit4117", "label": "습관이 부자를 만든다", "group": "personal", "role": "wire", "title_sha": "36e11e0400bb14fb"},
+  {"handle": "insidertracking", "label": "미국 주식 인사이더", "group": "personal", "role": "wire", "title_sha": "e9cd31b119b79f45"},
+  {"handle": "ai_masters_community", "label": "AI MASTERS", "group": "personal", "role": "topic", "title_sha": "b7a83851820bfab5"},
+  {"handle": "mistergray_11", "label": "mistergray_11", "group": "personal", "role": "off", "title_sha": null}
+ ],
+ "youtube": []
+}
