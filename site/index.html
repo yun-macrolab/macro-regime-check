@@ -139,7 +139,7 @@
   <footer>
     <div id="attribution"></div>
     <p>계산 코드: <a href="https://github.com/yun-macrolab/macro-regime-check">github.com/yun-macrolab/macro-regime-check</a></p>
-    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · <a href="data/korea.json">korea.json</a>(한국 시장) · <a href="data/digest.json">digest.json</a>(저녁판) · <a href="data/sources.json">sources.json</a>(저녁판 출처) · <a href="data/notes.json">notes.json</a>(읽기 노트) · 날짜별 기록은 저장소의 data/history/</p>
+    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · <a href="data/korea.json">korea.json</a>(한국 시장) · <a href="data/digest.json">digest.json</a>(저녁판) · <a href="data/sources.json">sources.json</a>(저녁판 출처) · <a href="data/digest_picks.json">digest_picks.json</a>(저녁판 AI 요약) · <a href="data/notes.json">notes.json</a>(읽기 노트) · 날짜별 기록은 저장소의 data/history/</p>
   </footer>
 </main>
 <script src="charts.js"></script>
@@ -350,7 +350,7 @@ function applyView() {
   document.getElementById("main").dataset.view = activeView;   // 저녁판·읽기 노트에서는 아침 갱신 상태 줄을 감춘다(dashboard.css)
   const group = GROUPS.find(g => g.id === activeView);
   const titles = {all:"시장의 큰 흐름, 한눈에", korea:"한국 시장 · 금리·커브", "korea-credit":"한국 시장 · 신용·단기자금", "korea-flows":"한국 시장 · 수급·입찰", sources:"출처와 갱신 현황", evening:"저녁판 · 오늘 여러 곳이 함께 다룬 것", notes:"읽기 노트"};
-  const descriptions = {all:"금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.", korea:"한국과 미국 금리의 수준·차이·변화를 비교합니다.", "korea-credit":"기업과 은행의 자금조달 여건을 비교합니다.", "korea-flows":"누가 거래했고, 국채 공급을 어떻게 소화했는지 살펴봅니다.", sources:"어디에서 왔고, 언제 관측됐는지 확인하세요.", evening:"텔레그램 공개 채널들이 오늘 함께 다룬 주제를 규칙으로 골라 원문 링크로 잇습니다. 채널 글의 문장은 싣지 않습니다.", notes:"읽은 글을 내 말로 옮기고, 내 틀과 잇고, 질문을 남깁니다. 원문은 링크로만 잇습니다."};
+  const descriptions = {all:"금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.", korea:"한국과 미국 금리의 수준·차이·변화를 비교합니다.", "korea-credit":"기업과 은행의 자금조달 여건을 비교합니다.", "korea-flows":"누가 거래했고, 국채 공급을 어떻게 소화했는지 살펴봅니다.", sources:"어디에서 왔고, 언제 관측됐는지 확인하세요.", evening:"텔레그램 공개 채널들이 오늘 함께 다룬 주제를 규칙으로 골라 원문 링크로 잇습니다. 채널 글의 문장은 싣지 않습니다. 'AI 요약' 표시가 붙은 문장은 AI가 쓴 것입니다.", notes:"읽은 글을 내 말로 옮기고, 내 틀과 잇고, 질문을 남깁니다. 원문은 링크로만 잇습니다."};
   document.getElementById("view-title").textContent = group?.title || titles[activeView];
   document.getElementById("view-description").textContent = group?.description || descriptions[activeView];
   document.querySelectorAll("#category-nav a").forEach(a => {
