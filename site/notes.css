@@ -1,1 +1,159 @@
-/* 읽기 노트 화면 — 색·글꼴은 dashboard.css의 변수(--amber, --ink, --dim, --rule, --panel, --key, --f-text, --f-mono …)를 쓴다 */
+/* 읽기 노트 화면 — 색·글꼴은 dashboard.css의 변수(--amber, --ink, --dim, --rule, --panel, --key, --f-text, --f-mono …)만 쓴다.
+   글줄은 한글 40자 안팎(--note-line, 15.5px 글자 41자), 그림·표는 조금 더 넓게(--note-wide). 넓은 화면에서는 차례·원문 버튼이
+   오른쪽 띠로 간다. 좁은 화면에서는 도식의 칸을 세로로 쌓고(720px 아래) 표를 줄마다 카드로 쌓아(600px 아래) 가로로 넘치지 않게 한다.
+   움직임은 없다(차례를 눌렀을 때의 부드러운 이동은 notes.js가 calm()을 보고 끈다). 그래프는 dashboard.css의 .ch-* 를 그대로 쓴다.
+   정적 그래프(받아 둔 연 단위 값)는 사이트 그래프와 달리 선을 그려 넣는 움직임·툴팁·방향키 탐색이 없다 — 의도한 차이다(값은 '표로 보기'에).
+   글자 색은 --dim(흐린 글자)보다 어둡게 쓰지 않는다. 축·격자 색(--ch-axis)은 선에만 쓴다(test_notes_site.py가 강제). */
+#notes-wrap { --note-line: 640px; --note-wide: 840px; }
+#notes-wrap [tabindex="-1"]:focus { outline: none; }                /* 화면이 바뀔 때 초점만 옮겨 두는 제목 */
+
+/* ── 목록 ── */
+.note-list { display: grid; gap: 12px; max-width: var(--note-wide); margin: 0; padding: 0; list-style: none; }
+.note-card { padding: 0 14px 12px; border: 1px solid var(--rule); background: var(--panel); }
+.note-kicker { margin: 0 0 8px; font: 500 12px var(--f-text); color: var(--dim); }
+.note-card .note-kicker { margin: 0 -14px 10px; padding: 4px 10px; background: var(--bar); }
+.note-card h3 { font-size: 18px; line-height: 1.4; }
+.note-card h3 a { color: var(--amber); text-decoration: none; }
+.note-card h3 a:hover, .note-card h3 a:focus-visible { color: var(--key); text-decoration: underline; }
+.note-summary { margin: 8px 0 10px; font-size: 14px; line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere; }
+.note-summary strong, .note-gist strong { font-weight: 600; color: var(--ch-1); }
+.note-meta { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0; font: 400 11.5px var(--f-mono); color: var(--dim); }
+.note-missing { max-width: var(--note-wide); margin: 0 0 12px; padding: 8px 12px; border: 1px dashed var(--key); color: var(--key); font-size: 13px; }
+.note-fixed { max-width: var(--note-wide); margin: 26px 0 0; padding: 10px 12px; border: 1px dashed var(--rule); font-size: 12.5px; line-height: 1.7; color: var(--dim); }
+
+/* ── 글: 머리 ── */
+.note { font-size: 15.5px; line-height: 1.8; word-break: keep-all; overflow-wrap: anywhere; }
+.note-back { margin: 0 0 10px; font-size: 13px; }
+.note-head { margin: 0 0 18px; }
+.note-head h2 { max-width: var(--note-wide); font-size: 27px; line-height: 1.32; color: var(--ink); }
+.note-facts { display: flex; flex-wrap: wrap; gap: 1px; max-width: var(--note-wide); margin: 14px 0 0; background: var(--rule); border: 1px solid var(--rule); }
+.note-facts div { flex: 1 1 120px; min-width: 0; padding: 6px 10px 7px; background: var(--black); }
+.note-facts div:first-child { flex: 3 1 300px; }
+.note-facts dt { font-size: 11.5px; line-height: 1.5; color: var(--dim); }
+.note-facts dd { margin: 0; font-size: 13.5px; line-height: 1.55; }
+.note-facts small { display: block; font-size: 11.5px; }
+.note-out::after, .note-btn::after { content: " ↗"; font: 500 .85em var(--f-mono); }
+
+/* ── 글: 본문과 오른쪽 띠 ── */
+.note-layout { display: grid; grid-template-columns: minmax(0, var(--note-wide)) 232px; gap: 28px; align-items: start; }
+.note-rail { grid-column: 2; grid-row: 1; position: sticky; top: calc(var(--head-h) + 48px); font-size: 13px; line-height: 1.5; }
+.note-body { grid-column: 1; grid-row: 1; min-width: 0; }
+.note-toc { border: 1px solid var(--rule); background: var(--panel); }
+.note-toc h3 { padding: 4px 10px; background: var(--bar); font-size: 12.5px; color: var(--amber); }
+.note-toc ol { margin: 0; padding: 5px 0; list-style: none; counter-reset: toc; }
+.note-toc li { counter-increment: toc; }
+.note-toc button { display: block; width: 100%; padding: 4px 10px; border: 0; cursor: pointer; background: transparent; color: var(--ink);
+  font: 400 13px/1.5 var(--f-text); text-align: left; word-break: keep-all; }
+.note-toc button::before { content: counter(toc) " "; color: var(--amber); font-family: var(--f-mono); }
+.note-toc button:hover, .note-toc button:focus-visible { background: var(--bar); color: var(--key); }
+.note-btn { display: block; margin: 10px 0 0; padding: 7px 10px; background: var(--key); color: var(--black); border-bottom: 2px solid var(--amber);
+  font: 600 13px var(--f-text); text-align: center; text-decoration: none; }
+.note-btn:active { transform: translateY(1px); border-bottom-color: var(--key); }
+
+.note-body > * { max-width: var(--note-line); }
+.note-body > .note-fig, .note-body > .note-table { max-width: none; }
+.note-body p { margin: 0 0 14px; }
+.note-body h3 { margin: 32px 0 14px; padding: 4px 10px; background: var(--bar); border-left: 3px solid var(--amber); font-size: 16px; line-height: 1.5; color: var(--amber); }
+.note-body h4 { margin: 22px 0 8px; font-size: 15px; color: var(--key); }
+/* 굵은 글은 글 조각 바로 아래에만 — 본문에 끼운 사이트 그래프의 툴팁 숫자(.ch-tip strong)까지 바꾸지 않게 */
+.note-body :is(p, li, td, th) > strong { font-weight: 600; color: var(--ch-1); }
+.note-body > ul, .note-body > ol { margin: 0 0 16px; padding-left: 1.5em; }
+.note-body > ul > li, .note-body > ol > li { margin: 0 0 8px; }
+.note-body > ul > li::marker { color: var(--amber); }
+.note-body > ol > li::marker { color: var(--amber); font-family: var(--f-mono); font-weight: 600; }
+.note-body .note-gist { margin: 0 0 24px; padding: 0 16px 14px; border: 1px solid var(--amber); background: var(--panel); }
+.note-body .note-gist h3 { display: inline-block; margin: 0 0 10px -16px; padding: 2px 10px; background: var(--amber); border: 0; font-size: 12.5px; color: var(--black); }
+.note-body .note-gist p { margin: 0; font-size: 16.5px; line-height: 1.75; }
+
+/* ── 표 ── */
+.note-table { margin: 4px 0 18px; border: 1px solid var(--rule); background: var(--panel); }
+.note-table table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.6; }
+.note-table th, .note-table td { padding: 8px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); }
+.note-table tbody tr:last-child th, .note-table tbody tr:last-child td { border-bottom: 0; }
+.note-table thead :is(th, td) { background: var(--bar); font-size: 12px; font-weight: 500; color: var(--dim); }   /* td는 빈 모서리 칸 */
+.note-table tbody th { font-weight: 600; color: var(--amber); white-space: nowrap; }
+.note-table td.none { color: var(--dim); }
+
+/* ── 질문 ── */
+.note-body > .note-questions { display: grid; gap: 8px; margin: 0 0 18px; padding: 0; list-style: none; }
+.note-body > .note-questions > li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; margin: 0; padding: 10px 14px; border: 1px solid var(--rule); background: var(--panel); }
+.note-body .note-questions p { margin: 0; }
+.note-q { margin-top: 3px; padding: 0 6px; background: var(--key); color: var(--black); font: 600 12px/1.7 var(--f-mono); }
+
+/* ── 그림 ── */
+.note-fig { margin: 20px 0 24px; }
+.note-fig .panel { margin: 0; }
+.note-body .note-cap { margin: 7px 0 0; font-size: 13px; line-height: 1.65; color: var(--dim); }
+.note-cap-no { padding: 0 6px; background: var(--bar); color: var(--amber); font: 600 11.5px/1.7 var(--f-mono); }
+.note-fig .ch-legend { line-height: 1.6; }                          /* 글의 줄 간격(1.8)을 물려받지 않게 — 첫 화면의 그래프와 같게 */
+.note-fig .ch-note { margin: 4px 0 0; line-height: 1.6; }
+.note-fig .notices p { margin: 2px 0; }
+.note-fig details.ch-table .notices { margin-top: 4px; line-height: 1.6; }
+.note-body .note-end { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin: 30px 0 0; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 13px; }
+.note-end .note-btn { margin: 0; padding: 7px 16px; }
+
+/* 도식 — 칸마다 0선, 위·아래로 미는 힘(화살표), 합이 놓이는 자리(마름모) */
+.nd { margin: 0; }
+.nd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1px; margin: 8px 0 0; background: var(--rule); border: 1px solid var(--rule); }
+.nd-cell { min-width: 0; padding: 8px 10px 10px; background: var(--black); }
+.nd-cell.nd-key { box-shadow: inset 0 0 0 1px var(--key); }
+.nd-name { margin: 0 0 2px; font: 600 13.5px/1.5 var(--f-text); color: var(--amber); }
+.note-body .nd-name { margin: 0 0 2px; }
+.nd-svg { display: block; width: 100%; max-width: 230px; height: auto; margin: 0 auto; overflow: visible; }
+.nd-zero { stroke: var(--ch-axis); stroke-width: 1; stroke-dasharray: 5 4; }
+.nd-sign { fill: var(--dim); font: 500 12px var(--f-mono); }
+.nd-arrow line { stroke: currentColor; stroke-width: 3; }
+.nd-arrow path { fill: currentColor; }
+.nd-gem { fill: var(--ch-1); stroke: var(--black); stroke-width: 1.5; }
+.nd-key .nd-gem { fill: var(--key); }
+.nd-shift { stroke: var(--ch-1); stroke-width: 1; stroke-dasharray: 2 3; }
+.nd-tag { fill: var(--ink); font: 500 11px var(--f-text); }
+.nd-notes { margin: 6px 0 0; padding: 0; list-style: none; font-size: 12.5px; line-height: 1.55; color: var(--ink); }
+.nd-notes li { display: grid; grid-template-columns: 14px minmax(0, 1fr); align-items: baseline; margin: 0 0 3px; }
+.nd-gem-key { display: inline-block; width: 8px; height: 8px; margin-right: 6px; background: var(--ch-1); transform: rotate(45deg); }
+.nd-key .nd-gem-key { background: var(--key); }
+.nd-zero-key { display: inline-block; width: 14px; margin-right: 6px; border-top: 1px dashed var(--ch-axis); vertical-align: middle; }
+.nd .ch-legend { gap: 2px 16px; line-height: 1.6; }
+
+/* ── 좁은 화면 ── */
+@media (max-width: 1080px) {
+  .note-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .note-rail, .note-body { grid-column: 1; grid-row: auto; }
+  .note-rail { position: static; max-width: var(--note-wide); }
+  .note-toc ol { display: flex; flex-wrap: wrap; gap: 0 4px; padding: 4px 4px; }
+  .note-toc button { width: auto; padding: 4px 8px; }
+  .note-rail .note-btn { display: none; }                          /* 글 끝의 같은 버튼으로 충분하다 */
+}
+@media (max-width: 720px) {
+  /* 도식: 칸을 세로로 쌓고, 칸 안에서는 그림 왼쪽 · 설명 오른쪽. 그림이 작아지는 만큼 그림 속 글자를 키운다 */
+  .nd-grid { grid-template-columns: minmax(0, 1fr); }
+  .nd-cell { display: grid; grid-template-columns: 150px minmax(0, 1fr); column-gap: 10px; align-items: center; }
+  .nd-name { grid-column: 1 / -1; }
+  .nd-notes { margin: 0; }
+  .nd-sign { font-size: 16px; }
+  .nd-tag { font-size: 14.5px; }
+}
+@media (max-width: 600px) {
+  .note { font-size: 15px; }
+  .note-head h2 { font-size: 22px; }
+  .note-card h3 { font-size: 16.5px; }
+  .note-body .note-gist p { font-size: 15.5px; }
+  /* 표 → 줄마다 카드. 머리 줄은 화면에서만 숨기고(화면 읽기에는 남는다) 칸마다 머리 글자를 붙인다 */
+  .note-table table, .note-table tbody, .note-table tr, .note-table tbody th, .note-table td { display: block; }
+  .note-table thead { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); }
+  .note-table tr { padding: 9px 12px 10px; border-bottom: 1px solid var(--rule); }
+  .note-table tbody tr:last-child { border-bottom: 0; }
+  .note-table tbody th, .note-table td { padding: 0; border: 0; white-space: normal; }
+  .note-table tbody th { margin: 0 0 4px; font-size: 14.5px; }
+  .note-table td { margin: 0 0 5px; }
+  .note-table td::before { content: attr(data-label); display: block; font-size: 11.5px; line-height: 1.5; color: var(--dim); }
+  /* 빈 칸은 카드에서 화면으로만 숨긴다 — 아예 빼면 그 줄의 칸 수가 줄어, 뒤 칸이 앞 열의 머리에 이어져 읽힌다 */
+  .note-table td.none { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); }
+  .note-body > .note-questions > li { padding: 9px 11px; gap: 9px; }
+}
+@media print {
+  .note-rail, .note-back, .note-end { display: none; }
+  .note-layout { display: block; }
+  .note-facts .note-out::after { content: " (" attr(href) ")"; }    /* 종이에는 링크가 없다 — 원문 주소를 글자로 찍는다 */
+  .note-fig .ch-plot svg { max-width: 100%; height: auto; }          /* 화면 폭으로 그린 그래프를 종이 폭에 맞춰 줄인다 */
+}

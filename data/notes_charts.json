@@ -1,0 +1,309 @@
+{
+ "schema": 1,
+ "charts": {
+  "cpi_jp_us": {
+   "key": "cpi_jp_us",
+   "title": "일본·미국 소비자물가 상승률",
+   "unit": "%",
+   "zero": true,
+   "note": "연평균을 전년과 견준 값 — 한 해에 점 하나",
+   "source_note": "자료: World Bank · U.S. Bureau of Labor Statistics (via FRED) · 미국 선은 macro-regime-check가 월별 지수로 계산한 값 · 2026-10-08에 받은 값",
+   "retrieved": "2026-10-08",
+   "notices": [
+    "일본은 세계은행(World Bank)이 낸 연간 상승률을 받은 그대로, 미국은 미 노동통계국(BLS)의 월별 지수(계절조정)를 macro-regime-check가 연평균으로 바꿔 전년과 견준 값이다. 미국 선은 발표 기관이 낸 값이 아니다.",
+    "미국 2025년은 값이 있는 11개 달로 계산했다(그 해나 전 해에 값이 없는 달은 뺐다).",
+    "같은 방식으로 계산한 미국 1995~2024년 값은 세계은행의 미국 계열(FPCPITOTLZGUSA)과 최대 0.04%p 차이다.",
+    "받아 둔 값이라 매일 갱신되지 않는다 — 받은 날 뒤의 개정은 반영하지 않았다.",
+    "FRED의 저작권 표시(2026-10-08 확인): FPCPITOTLZGJPN — Public Domain: Citation Requested · CPIAUCSL — Public Domain: Citation Requested.",
+    "World Bank, Inflation, consumer prices for Japan [FPCPITOTLZGJPN], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/FPCPITOTLZGJPN, October 8, 2026.",
+    "U.S. Bureau of Labor Statistics, Consumer Price Index for All Urban Consumers: All Items in U.S. City Average [CPIAUCSL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/CPIAUCSL, October 8, 2026."
+   ],
+   "series": [
+    {
+     "id": "FPCPITOTLZGJPN",
+     "source": "World Bank",
+     "mark": "Public Domain: Citation Requested",
+     "url": "https://fred.stlouisfed.org/series/FPCPITOTLZGJPN",
+     "citation": "World Bank, Inflation, consumer prices for Japan [FPCPITOTLZGJPN], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/FPCPITOTLZGJPN, October 8, 2026."
+    },
+    {
+     "id": "CPIAUCSL",
+     "source": "U.S. Bureau of Labor Statistics",
+     "mark": "Public Domain: Citation Requested",
+     "url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+     "citation": "U.S. Bureau of Labor Statistics, Consumer Price Index for All Urban Consumers: All Items in U.S. City Average [CPIAUCSL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/CPIAUCSL, October 8, 2026."
+    }
+   ],
+   "lines": [
+    {
+     "key": "jp",
+     "label": "일본",
+     "series": [
+      "FPCPITOTLZGJPN"
+     ],
+     "computed": false,
+     "points": [
+      [
+       1995,
+       -0.13
+      ],
+      [
+       1996,
+       0.14
+      ],
+      [
+       1997,
+       1.75
+      ],
+      [
+       1998,
+       0.66
+      ],
+      [
+       1999,
+       -0.34
+      ],
+      [
+       2000,
+       -0.68
+      ],
+      [
+       2001,
+       -0.74
+      ],
+      [
+       2002,
+       -0.92
+      ],
+      [
+       2003,
+       -0.26
+      ],
+      [
+       2004,
+       -0.01
+      ],
+      [
+       2005,
+       -0.28
+      ],
+      [
+       2006,
+       0.25
+      ],
+      [
+       2007,
+       0.06
+      ],
+      [
+       2008,
+       1.38
+      ],
+      [
+       2009,
+       -1.35
+      ],
+      [
+       2010,
+       -0.73
+      ],
+      [
+       2011,
+       -0.27
+      ],
+      [
+       2012,
+       -0.04
+      ],
+      [
+       2013,
+       0.34
+      ],
+      [
+       2014,
+       2.76
+      ],
+      [
+       2015,
+       0.8
+      ],
+      [
+       2016,
+       -0.13
+      ],
+      [
+       2017,
+       0.48
+      ],
+      [
+       2018,
+       0.99
+      ],
+      [
+       2019,
+       0.47
+      ],
+      [
+       2020,
+       -0.02
+      ],
+      [
+       2021,
+       -0.23
+      ],
+      [
+       2022,
+       2.5
+      ],
+      [
+       2023,
+       3.27
+      ],
+      [
+       2024,
+       2.74
+      ],
+      [
+       2025,
+       3.17
+      ]
+     ]
+    },
+    {
+     "key": "us",
+     "label": "미국(계산값)",
+     "series": [
+      "CPIAUCSL"
+     ],
+     "computed": true,
+     "points": [
+      [
+       1995,
+       2.81
+      ],
+      [
+       1996,
+       2.94
+      ],
+      [
+       1997,
+       2.34
+      ],
+      [
+       1998,
+       1.55
+      ],
+      [
+       1999,
+       2.19
+      ],
+      [
+       2000,
+       3.37
+      ],
+      [
+       2001,
+       2.82
+      ],
+      [
+       2002,
+       1.6
+      ],
+      [
+       2003,
+       2.3
+      ],
+      [
+       2004,
+       2.67
+      ],
+      [
+       2005,
+       3.37
+      ],
+      [
+       2006,
+       3.22
+      ],
+      [
+       2007,
+       2.87
+      ],
+      [
+       2008,
+       3.81
+      ],
+      [
+       2009,
+       -0.32
+      ],
+      [
+       2010,
+       1.64
+      ],
+      [
+       2011,
+       3.14
+      ],
+      [
+       2012,
+       2.07
+      ],
+      [
+       2013,
+       1.47
+      ],
+      [
+       2014,
+       1.62
+      ],
+      [
+       2015,
+       0.12
+      ],
+      [
+       2016,
+       1.27
+      ],
+      [
+       2017,
+       2.13
+      ],
+      [
+       2018,
+       2.44
+      ],
+      [
+       2019,
+       1.81
+      ],
+      [
+       2020,
+       1.25
+      ],
+      [
+       2021,
+       4.68
+      ],
+      [
+       2022,
+       7.99
+      ],
+      [
+       2023,
+       4.13
+      ],
+      [
+       2024,
+       2.95
+      ],
+      [
+       2025,
+       2.69
+      ]
+     ]
+    }
+   ]
+  }
+ }
+}
