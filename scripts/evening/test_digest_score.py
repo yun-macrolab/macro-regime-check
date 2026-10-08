@@ -440,7 +440,7 @@ class TomorrowTest(unittest.TestCase):
 
 
 class FixtureTest(unittest.TestCase):
-    """지어낸 글 40개를 묶기 → 점수까지 — 꼭 볼 것 3건, 원문 없음."""
+    """지어낸 글 41개를 묶기 → 점수까지 — 꼭 볼 것 3건, 원문 없음."""
 
     @classmethod
     def setUpClass(cls):
@@ -468,7 +468,7 @@ class FixtureTest(unittest.TestCase):
         self.assertEqual((card_["score"]["total"], card_["why"]), (5.0, ["채권 채널 1곳", "채권 + 다른 그룹"]))
 
     def test_the_rest(self):
-        self.assertEqual(collections.Counter(c["pick"] for c in self.out["clusters"]), {"must": 3, "rest": 4, "none": 10})
+        self.assertEqual(collections.Counter(c["pick"] for c in self.out["clusters"]), {"must": 3, "rest": 4, "none": 11})
         capex, rumor = self.by("fxanal4", 905), self.by("fxpers5", 610)
         self.assertEqual((capex["coverage"], capex["score"]["C"], capex["pick"]),
                          ({"bond": 0, "analyst": 2, "personal": 2, "wire": 0}, 2.25, "rest"))
@@ -512,7 +512,7 @@ class CliTest(unittest.TestCase):
             argv = self.setup(tmp)
             code, out, err = self.call(argv)
             self.assertEqual((code, err), (0, ""))
-            self.assertEqual(out, "[digest_score] clusters=17 candidates=3 must=3 rest=4 events=2 rates=3\n")
+            self.assertEqual(out, "[digest_score] clusters=18 candidates=3 must=3 rest=4 events=2 rates=3\n")
             got = S.validate_scored_doc(S.read_json(os.path.join(tmp, "work", "scored.json")))
             self.assertEqual(got, SC.score_doc(S.read_json(os.path.join(tmp, "work", "clusters.json")), F.calendar(), F.korea(), F.state()))
             with open(os.path.join(tmp, "work", "scored.json"), encoding="utf-8") as f:
@@ -524,7 +524,7 @@ class CliTest(unittest.TestCase):
             for name in ("calendar.json", "korea.json", "digest_state.json"):
                 os.remove(os.path.join(tmp, name))
             code, out, err = self.call(argv)
-            self.assertEqual((code, err, out), (0, "", "[digest_score] clusters=17 candidates=3 must=3 rest=4 events=0 rates=0\n"))
+            self.assertEqual((code, err, out), (0, "", "[digest_score] clusters=18 candidates=3 must=3 rest=4 events=0 rates=0\n"))
             got = S.read_json(os.path.join(tmp, "work", "scored.json"))
             self.assertEqual((got["head"]["kr10"], got["head"]["basis"], got["tomorrow"]), (None, None, []))
             with open(os.path.join(tmp, "korea.json"), "w", encoding="utf-8") as f:
@@ -553,7 +553,7 @@ class CliTest(unittest.TestCase):
             done = subprocess.run([sys.executable, "-X", "utf8", os.path.join(HERE, "digest_score.py"), *argv],
                                   capture_output=True, text=True, encoding="utf-8", cwd=S.REPO, timeout=120)
             self.assertEqual((done.returncode, done.stderr), (0, ""))
-            self.assertEqual(done.stdout, "[digest_score] clusters=17 candidates=3 must=3 rest=4 events=2 rates=3\n")
+            self.assertEqual(done.stdout, "[digest_score] clusters=18 candidates=3 must=3 rest=4 events=2 rates=3\n")
 
 
 if __name__ == "__main__":

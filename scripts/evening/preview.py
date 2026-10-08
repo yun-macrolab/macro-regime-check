@@ -93,7 +93,8 @@ def edition_day(now):
 def _fewer(d, n):
     notes = [R.phrase("note_fewer", n=n)] if n else [R.phrase("note_none")]
     funnel = {**d["funnel"], "must": n, "candidates": min(d["funnel"]["candidates"], n)}
-    return {**d, "must": d["must"][:n], "funnel": funnel, "notes": notes}
+    out = {**d, "must": d["must"][:n], "funnel": funnel, "notes": notes}
+    return {**out, "gloss": R.glosses(S.shown_terms(out))}            # 풀이는 이 판에 나온 낱말의 것만 실린다
 
 
 def _unread(status, fail):

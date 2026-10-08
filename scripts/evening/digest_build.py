@@ -22,7 +22,13 @@
   머리 한 줄  금리 칸은 scored.json의 것을 받아 자료일을 수집 창과 다시 맞춘다(digest_check.head_line) — 국고 10년의 자료일이
               창 밖이면 방향을 비우고 '전일 종가'. korea.json은 점수 단계가 읽고, 여기서는 읽지 않는다.
   내일 볼 것  scored.json의 일정 가운데 창이 끝난 뒤부터 tomorrow_days일 안의 것만(오늘 밤 일정 포함), 날짜·시각순.
-  크기       나머지 표는 30줄까지, 판 하나는 20KB(digest_check.EDITION_BYTES)까지 — 넘으면 점수가 낮은 줄부터 줄이고 줄인 수를 적는다.
+  크기       나머지 표는 30줄까지, 판 하나는 36KB(digest_check.EDITION_BYTES)까지 — 넘으면 읽을거리가 덜 줄어드는 순서로 덜어 낸다(SLIM):
+              나머지·단독 줄에만 나온 낱말의 풀이 → 단독 줄(채널당 3 → 1 → 0줄) → 나머지 표(점수가 낮은 줄부터, 줄인 수를 적는다) →
+              남은 풀이. 풀이·단독 줄을 덜어 낸 판에는 알림 줄(note_slim)이 붙는다.
+  더 자세히   (2026-10-08 저녁 — 계약은 digest_schema.py 머리말) 항목마다 함께 나온 낱말과 곳 수(words) · 첫 글~마지막 글과 글 수(span) ·
+              링크마다 그 글에만 더 있는 낱말(more) · 그 글의 사전 낱말 수(n_terms) · 길이 구간(size) · 그림(pic), 직전 판에 같은
+              A·B급 대표 낱말이 있었으면 그때의 채널 수(prev). 판 끝에 이 판에 나온 낱말의 풀이(gloss).
+              낱말 목록은 글에 나온 순서가 아니라 곳 수 → 등급 → (넓은 낱말은 뒤) → 가나다 순으로만 나간다.
   0건 연속   꼭 볼 것이 0건인 정상 판이 3판 이어지면 실행을 실패로 끝낸다(종료코드 2 — 빈 판이 조용히 이어지지 않게).
               채권 채널의 새 글이 하나도 없던 날은 세지 않는다.
   채널 바뀜   제목 해시가 다르거나 글 번호가 거꾸로 간 채널(수집이 뺀 채널)이 있으면 판은 내되 종료코드 2.
@@ -51,6 +57,9 @@ EMPTY_OVERRIDES = {"schema": S.SCHEMA, "withdraw": False, "hide_ids": [], "hide_
 OTHER_CELL = {"factor": "기타", "region": "글로벌"}      # 사전 낱말이 하나도 없는 묶음(채권 채널이 혼자 쓴 글 등)이 가는 칸
 CHANGED = ("title", "rewind")                           # 채널이 다른 곳으로 넘어갔을 수 있다는 수집 코드
 ORDER = ("digest.json", "digest_index.json", "digest_state.json", "digest_status.json")    # 쓰는 순서 — 상태가 마지막
+AB = ("A", "B")
+# 판이 크기 상한을 넘을 때 덜어 내는 순서 — (나머지·단독 줄에만 나온 낱말의 풀이도 싣는가, 채널당 단독 줄 수). 그 뒤에 나머지 표를 줄인다
+SLIM = ((True, None), (False, None), (False, 3), (False, 1), (False, 0))
 
 
 # ---------- 항목 ----------
@@ -69,25 +78,56 @@ def _shown_terms(c, limit):
     return names[:limit]
 
 
-def _item(c, date, members, must):
-    """묶음 → 공개 항목. id는 보이는 글의 씨앗 글로, 링크는 링크 순서 규칙(S.pick_links)으로. 보이는 원천 글이 없으면 None."""
+def _words(members, limit, terms):
+    """함께 나온 낱말 → ([{term, n_ch}], 두 곳 이상이 쓴 낱말 전부). 원천 채널이 '직접 쓴' 글 전체에서 걸린 사전 낱말과 그것을 쓴
+    채널 수 — 전달 글은 세지 않는다(한 글을 두 곳이 옮긴 것은 두 곳이 쓴 것이 아니다. 직접 쓴 글이 없으면 칸이 없다).
+    여러 채널이면 두 곳 이상이 쓴 낱말만. 항목의 낱말(terms — 제목에 이미 있다)과 좁은 낱말 곁의 넓은 낱말(R.narrow: '연준 의사록'이
+    있으면 '연준')은 싣지 않는다 — 같은 말을 두 번 하지 않게. 순서는 곳 수 ↓ → 등급 → 가나다(글에 나온 순서가 아니다)."""
+    src, seen = [m for m in members if m["role"] == "source" and not m["fwd"]], {}
+    for m in src:
+        for t in m["terms"]:
+            seen.setdefault(t, set()).add(m["ch"])
+    counts = {t: len(chs) for t, chs in seen.items()}
+    shared = {t for t, n in counts.items() if n >= TH["k_result_min_ch"]}
+    pool = shared if len({m["ch"] for m in src}) > 1 else set(counts)
+    keep = R.narrow([t for t in pool if t not in terms], among=[*pool, *terms])
+    return [{"term": t, "n_ch": n} for t, n in R.by_count({t: counts[t] for t in keep})[:limit]], shared
+
+
+def _more(m, shown, limit):
+    """글 하나에 붙는 것 — 이 글에만 더 있는 낱말(등급 → 가나다, 좁은 낱말 곁의 넓은 낱말은 뺀다. 없으면 칸도 없다) · 길이 구간 ·
+    그림이 붙었으면 pic · 그 글에서 걸린 사전 낱말 수(어느 글이 넓게 다뤘는지 — 읽는 사람이 누를 링크를 고를 수 있게)."""
+    extra = R.by_grade(R.narrow([t for t in m["terms"] if t not in shown], among=[*m["terms"], *shown]))[:limit]
+    return {**({"more": extra} if extra else {}), **({"size": m["size"]} if "size" in m else {}), **({"pic": True} if m.get("pic") else {}),
+            "n_terms": len(m["terms"])}
+
+
+def _item(c, date, members, must, topics):
+    """묶음 → 공개 항목. id는 보이는 글의 씨앗 글로, 링크는 링크 순서 규칙(S.pick_links)으로. 보이는 원천 글이 없으면 None.
+    topics = 직전 판의 {낱말 id: prev 칸} — 같은 대표 낱말이 있었으면 그때의 채널 수를 붙인다. 대표 낱말이 A·B급일 때만이다:
+    '금리' 같은 흔한 C급 낱말은 날마다 서로 다른 묶음의 대표가 되므로 견줄 것이 못 된다."""
     if not any(m["role"] == "source" for m in members):
         return None
-    seed = S.seed_of(members)
-    base = {"id": S.item_id(date, seed["ch"], seed["id"]), "key": c["key"], "cell": dict(c["cell"] or OTHER_CELL)}
+    seed, kind = S.seed_of(members), "" if must else "rest_"
+    terms = _shown_terms(c, TH[kind + "terms_max"])
+    words, shared = _words(members, TH[kind + "words_max"], terms)
+    shown, by = set(terms) | shared | {w["term"] for w in words}, {S.post_url(m["ch"], m["id"]): m for m in members}
+    links = [{**ln, **_more(by[ln["url"]], shown, TH[kind + "more_max"])} for ln in S.pick_links(members, TH[kind + "links_max"])]
+    ats, old = sorted(m["at"] for m in members), topics.get(S.topic_key(terms[0])) if terms and R.grade_of(terms[0]) in AB else None
+    base = {"id": S.item_id(date, seed["ch"], seed["id"]), "key": c["key"], "cell": dict(c["cell"] or OTHER_CELL), "terms": terms,
+            "nums": [dict(n) for n in c["nums"][:TH[kind + "nums_max"]]], "coverage": dict(c["coverage"]), "links": links,
+            **({"words": words} if words else {}), "span": {"from": ats[0], "to": ats[-1], "posts": len(members)},
+            **({"prev": dict(old)} if old else {})}
     if must:
-        return {**base, "terms": _shown_terms(c, TH["terms_max"]), "nums": [dict(n) for n in c["nums"][:TH["nums_max"]]],
-                "score": dict(c["score"]), "why": list(c["why"][:TH["why_max"]]), "coverage": dict(c["coverage"]),
-                "links": S.pick_links(members)}
-    return {**base, "terms": _shown_terms(c, TH["rest_terms_max"]), "nums": [dict(n) for n in c["nums"][:TH["rest_nums_max"]]],
-            "s": c["score"]["total"], "coverage": dict(c["coverage"]), "links": S.pick_links(members, TH["rest_links_max"])}
+        return {**base, "score": dict(c["score"]), "why": list(c["why"][:TH["why_max"]])}
+    return {**base, "s": c["score"]["total"]}
 
 
-def _items(clusters, date, roles, hidden, hide_ids, must):
+def _items(clusters, date, roles, hidden, hide_ids, must, topics):
     """묶음들 → [(항목, 묶음)]. 숨긴 항목은 빼고, 그 자리를 다른 묶음으로 채우지 않는다."""
     out = []
     for c in clusters:
-        x = _item(c, date, _visible(c, roles, hidden), must)
+        x = _item(c, date, _visible(c, roles, hidden), must, topics)
         if x and x["id"] not in hide_ids:
             out.append((x, c))
     return out
@@ -104,21 +144,27 @@ def _pick(clusters, short):
 # ---------- 속보형 · 개인 단독 · 참고 · 내일 볼 것 ----------
 
 def _row(m):
-    """혼자 쓴 글 하나 → 줄(낱말 · 결과 낱말 · 숫자 · 시각 · 주소). 묶기 단계가 지은 짝(row — 첫머리의 첫 숫자와 그 앞의 가까운 A·B급
-    낱말)이 있을 때만 줄이 된다. 한 곳만 쓴 숫자라서 시세 수준·긴 숫자는 묶기 단계가 이미 걸렀다(R.solo_num_ok)."""
+    """혼자 쓴 글 하나 → 줄(낱말 · 결과 낱말 · 숫자 · 시각 · 주소 + 이 글에 더 있는 낱말 · 길이 구간 · 그림). 묶기 단계가 지은 짝(row)이
+    있을 때만 줄이 된다. 한 곳만 쓴 숫자라서 시세 수준·긴 숫자는 묶기 단계가 이미 걸렀다(R.solo_num_ok). 숫자가 없는 줄에는 결과
+    낱말을 싣지 않는다 — 곁의 숫자 없이 '상회' 같은 말만 남으면 읽는 사람이 뜻을 지어내게 된다.
+    숫자 있는 줄의 낱말은 숫자의 짝 그대로다. 숫자 없는 줄의 낱말은 그 글의 낱말 가운데 등급이 가장 높은 것(R.by_grade의 맨 앞) —
+    첫 두 줄의 낱말이 흔한 C급('금리')이어도 더 높은 등급('연준 의사록')이 덧낱말 뒤에 묻히지 않게. 글의 주제라는 뜻은 아니다."""
     pair = m.get("row")
     if not pair:
         return None
-    return {"ch": m["ch"], "term": pair["term"], "result": m["results"][0] if m["results"] else None, "v": pair["v"],
-            "at": m["at"], "url": S.post_url(m["ch"], m["id"])}
+    term = pair["term"] if pair["v"] else R.by_grade(R.narrow(m["terms"]))[0]
+    result = m["results"][0] if pair["v"] and m["results"] else None
+    return {"ch": m["ch"], "term": term, "result": result, "v": pair["v"], "at": m["at"], "url": S.post_url(m["ch"], m["id"]),
+            **_more(m, {term}, TH["row_more_max"])}
 
 
-def _side(scored, collect, roles, hidden, want):
+def _side(scored, collect, roles, hidden, want, cap=None):
     """속보형(wire)·개인 단독(solo) 절 — 읽힌 채널마다 읽은 글(read) · 다른 채널과 묶인 글(joined) · 줄이 될 수 있었던 글(hit).
-    줄은 채널당 rows_per_channel개까지, 이른 글부터."""
+    줄은 채널당 cap개(기본 rows_per_channel)까지: A급 → B급 → C급 낱말, 숫자 있는 줄, 이른 글 순으로 고르고 시각순으로 싣는다."""
+    cap = TH["rows_per_channel"] if cap is None else cap
     chans = {c["ch"]: {"ch": c["ch"], "read": c["in_window"], "joined": 0, "hit": 0} for c in collect["channels"]
              if c["ok"] and roles.get(c["ch"]) in want and c["ch"] not in hidden}
-    rows = []
+    found = {}
     for c in scored["clusters"]:
         alone = len({m["ch"] for m in c["members"]}) == 1
         for m in _visible(c, roles, hidden):
@@ -126,13 +172,11 @@ def _side(scored, collect, roles, hidden, want):
             if m["ch"] in chans:
                 chans[m["ch"]]["joined"] += not alone
                 chans[m["ch"]]["hit"] += row is not None
-                rows += [row] if row else []
-    rows.sort(key=lambda r: (r["at"], r["ch"], r["url"]))
-    seen, out = {}, []
-    for r in rows:
-        seen[r["ch"]] = seen.get(r["ch"], 0) + 1
-        out += [r] if seen[r["ch"]] <= TH["rows_per_channel"] else []
-    return {"channels": sorted(chans.values(), key=lambda r: r["ch"]), "rows": out}
+                if row:
+                    rank = (R.GRADES.index(R.grade_of(row["term"])), row["v"] is None, m["at"], m["id"])
+                    found.setdefault(m["ch"], []).append((rank, row))
+    rows = [row for got in found.values() for _, row in sorted(got, key=lambda x: x[0])[:cap]]
+    return {"channels": sorted(chans.values(), key=lambda r: r["ch"]), "rows": sorted(rows, key=lambda r: (r["at"], r["ch"], r["url"]))}
 
 
 def _context(scored, roles, hidden):
@@ -153,15 +197,17 @@ def _tomorrow(rows, window):
 
 # ---------- 판 ----------
 
-def _parts(scored, collect, sources, overrides):
-    """판에 실을 재료 → (재료, {항목 id: 묶음})."""
+def _parts(scored, collect, sources, overrides, base, rows=None):
+    """판에 실을 재료 → (재료, {항목 id: 묶음}). base = 직전 판의 기록(어제와 견줄 대표 낱말 id와 채널 수가 있으면 prev로 붙인다).
+    rows = 채널당 단독 줄 수(크기 상한에 걸려 덜어 낼 때만 준다)."""
     roles, hidden, date = C.roles_of(sources), set(overrides["hide_channels"]), scored["edition"]
+    topics = {t["key"]: {"date": base["date"], **{g: t[g] for g in R.GROUPS}} for t in (base or {}).get("topics", [])}
     must_c, rest_c = _pick(scored["clusters"], collect["verdict"] == "short")
-    must = _items(must_c, date, roles, hidden, overrides["hide_ids"], True)
-    rest = _items(rest_c, date, roles, hidden, overrides["hide_ids"], False)
+    must = _items(must_c, date, roles, hidden, overrides["hide_ids"], True, topics)
+    rest = _items(rest_c, date, roles, hidden, overrides["hide_ids"], False, topics)
     parts = {"must": [x for x, _ in must], "rest": [x for x, _ in rest],
-             "wire": _side(scored, collect, roles, hidden, C.SIDES["wire"]),
-             "solo": _side(scored, collect, roles, hidden, C.SIDES["solo"]),
+             "wire": _side(scored, collect, roles, hidden, C.SIDES["wire"], rows),
+             "solo": _side(scored, collect, roles, hidden, C.SIDES["solo"], rows),
              "context": _context(scored, roles, hidden), "head": C.head_line(scored["head"], scored["window"]),
              "tomorrow": _tomorrow(scored["tomorrow"], scored["window"])}
     return parts, {x["id"]: c for x, c in must + rest}
@@ -177,7 +223,7 @@ def _guard(parts, sources):
     return {**parts, "must": must, "rest": rest, "wire": wire, "solo": solo, "context": context}, len(a + b + c + d + e)
 
 
-def _notes(status, parts, collect, truncated, missing):
+def _notes(status, parts, collect, truncated, missing, slim=False):
     """판 머리의 알림 줄 — 고정 문구만."""
     n, kr10 = len(parts["must"]), parts["head"]["kr10"]
     out = [R.phrase("note_short")] if status == "short" else [R.phrase("note_none")] if n == 0 else \
@@ -186,11 +232,19 @@ def _notes(status, parts, collect, truncated, missing):
     out += [R.phrase("note_capped")] if collect["capped"] else []
     out += [R.phrase("note_rerun")] if collect["window_kind"] == "rerun" else []
     out += [R.phrase("note_truncated", n=truncated)] if truncated else []
+    out += [R.phrase("note_slim")] if slim else []
     return out + ([R.phrase("note_channels", n=missing)] if missing else [])
 
 
-def _doc(scored, collect, parts, cut):
-    """재료 → 판. 나머지 표는 점수순 재료의 뒤에서 cut줄을 줄이고 8칸 순서로 묶는다."""
+def _gloss(d, wide):
+    """이 판에 나온 낱말의 풀이 — 한 번씩, 사전에 실린 순서로. wide가 아니면 꼭 볼 것 · 머리 줄 · 일정에 나온 낱말의 것만
+    (크기 상한에 걸렸을 때 먼저 덜어 내는 것이 나머지·단독 줄에만 나온 낱말의 풀이다 — 날마다 같은 글이라 가장 덜 아깝다)."""
+    none = {"channels": [], "rows": []}
+    return R.glosses(S.shown_terms(d if wide else {**d, "rest": [], "wire": none, "solo": none}))
+
+
+def _doc(scored, collect, parts, cut, slim=False, wide=True):
+    """재료 → 판. 나머지 표는 점수순 재료의 뒤에서 cut줄을 줄이고 8칸 순서로 묶는다. slim = 풀이·단독 줄을 덜어 낸 판(알림 줄)."""
     health, cs = S.coverage_verdict(collect["channels"]), scored["clusters"]
     status = "short" if health["verdict"] == "short" else "ok"
     kept = parts["rest"][:len(parts["rest"]) - cut]
@@ -198,26 +252,47 @@ def _doc(scored, collect, parts, cut):
     funnel = {"posts": scored["stats"]["posts"], "clusters": sum(any(m["role"] == "source" for m in c["members"]) for c in cs),
               "candidates": sum(c["gate"]["pass"] for c in cs), "must": len(parts["must"]), "truncated": cut}
     missing = health["channels_total"] - health["channels_ok"]
-    return {"schema": S.SCHEMA, "date": scored["edition"], "mode": "rules", "status": status, "window": dict(scored["window"]),
-            "collected_at": scored["collected_at"], "funnel": funnel,
-            "sources": {"channels_ok": health["channels_ok"], "channels_total": health["channels_total"]},
-            "head": parts["head"], "notes": _notes(status, parts, collect, cut, missing), "must": parts["must"],
-            "rest": [g for g in groups if g["items"]], "wire": parts["wire"], "solo": parts["solo"], "context": parts["context"],
-            "tomorrow": parts["tomorrow"], "youtube": {"enabled": False, "rows": []}}
+    d = {"schema": S.SCHEMA, "date": scored["edition"], "mode": "rules", "status": status, "window": dict(scored["window"]),
+         "collected_at": scored["collected_at"], "funnel": funnel,
+         "sources": {"channels_ok": health["channels_ok"], "channels_total": health["channels_total"]},
+         "head": parts["head"], "notes": _notes(status, parts, collect, cut, missing, slim), "must": parts["must"],
+         "rest": [g for g in groups if g["items"]], "wire": parts["wire"], "solo": parts["solo"], "context": parts["context"],
+         "tomorrow": parts["tomorrow"], "youtube": {"enabled": False, "rows": []}}
+    return {**d, "gloss": _gloss(d, wide)}
 
 
-def edition(scored, collect, sources, overrides):
-    """공개 판 하나 → (판, {항목 id: 묶음}, 검사에서 뺀 것의 수). 크기 상한에 맞을 때까지 나머지 표를 점수가 낮은 줄부터 줄인다."""
-    parts, trace = _parts(scored, collect, sources, overrides)
-    parts, dropped = _guard(parts, sources)
-    cut = max(0, len(parts["rest"]) - TH["rest_max"])
-    while True:
-        d = _doc(scored, collect, parts, cut)
-        if len(S.dump(d).encode("utf-8")) <= C.EDITION_BYTES:
+def _topics(d):
+    """이 판 항목들의 A·B급 대표 낱말마다 낱말 id(해시)와 그때 센 채널 수 — 같은 낱말의 항목이 여럿이면 가장 많은 곳이 다룬 것.
+    다음 판의 prev가 읽는다. 낱말 글자는 상태 기록에 두지 않는다(사전을 고쳐도 지난 상태가 검사에서 떨어지지 않게)."""
+    best = {}
+    for x in d["must"] + [x for g in d["rest"] for x in g["items"]]:
+        cov = {g: x["coverage"][g] for g in R.GROUPS}
+        lead = x["terms"][0] if x["terms"] and R.grade_of(x["terms"][0]) in AB else None
+        if lead and sum(cov.values()) > sum(best.get(lead, {"none": -1}).values()):
+            best[lead] = cov
+    return sorted(({"key": S.topic_key(t), **cov} for t, cov in best.items()), key=lambda t: t["key"])[:TH["topics_max"]]
+
+
+def edition(scored, collect, sources, overrides, base=None):
+    """공개 판 하나 → (판, {항목 id: 묶음}, 검사에서 뺀 것의 수). 크기 상한을 넘으면 읽을거리가 덜 줄어드는 순서로 덜어 낸다:
+    나머지·단독 줄에만 나온 낱말의 풀이 → 단독 줄(채널당 3 → 1 → 0줄) → 나머지 표(점수가 낮은 줄부터) → 남은 풀이.
+    채권 채널의 글(나머지 표)이 날마다 같은 풀이나 개인 채널의 단독 줄에 밀려 빠지지 않게 한다."""
+    fits = lambda d: len(S.dump(d).encode("utf-8")) <= C.EDITION_BYTES
+    for level, (wide, rows) in enumerate(SLIM):
+        parts, trace = _parts(scored, collect, sources, overrides, base, rows)
+        parts, dropped = _guard(parts, sources)
+        cut = max(0, len(parts["rest"]) - TH["rest_max"])
+        d = _doc(scored, collect, parts, cut, level > 0, wide)
+        if fits(d):
             return d, trace, dropped
-        if cut >= len(parts["rest"]):
-            raise ValueError("나머지 표를 다 줄여도 판이 크기 상한을 넘음")
-        cut += 1
+    for cut in range(cut + 1, len(parts["rest"]) + 1):
+        d = _doc(scored, collect, parts, cut, True, False)
+        if fits(d):
+            return d, trace, dropped
+    d = {**d, "gloss": []}
+    if not fits(d):
+        raise ValueError("풀이 · 단독 줄 · 나머지 표를 다 줄여도 판이 크기 상한을 넘음")
+    return d, trace, dropped
 
 
 def _withdrawn(scored):
@@ -239,7 +314,7 @@ def _snap(d, trace, collect, base):
     must = [{"id": x["id"], "keys": list(trace[x["id"]]["keys"]), "c": trace[x["id"]]["score"]["C"]} for x in d["must"]]
     before = (base.get("read_to") or base["window"]["to"]) if base else d["window"]["from"]
     return {"date": d["date"], "window": dict(d["window"]), "collected_at": d["collected_at"], "empty_streak": streak,
-            "must": must, "channels": chans, "read_to": before if d["status"] == "short" else d["window"]["to"]}
+            "must": must, "channels": chans, "read_to": before if d["status"] == "short" else d["window"]["to"], "topics": _topics(d)}
 
 
 def _trim(snap, handles):
@@ -284,8 +359,9 @@ def assemble(scored, collect, state, index, overrides, sources):
     if collect["verdict"] == "broken":
         status = _status(at, "broken", date, False, collect, index, _streak_now(state))
         return 3, {"digest_status.json": status}, {"dropped": 0, "changed": changed, "stale": stale}
-    d, trace, dropped = (_withdrawn(scored), {}, 0) if overrides["withdraw"] else edition(scored, collect, sources, overrides)
-    snap = _snap(d, trace, collect, S.state_base(state, date))
+    base = S.state_base(state, date)
+    d, trace, dropped = (_withdrawn(scored), {}, 0) if overrides["withdraw"] else edition(scored, collect, sources, overrides, base)
+    snap = _snap(d, trace, collect, base)
     moved, new_index = S.next_state(state, snap), _index(index, C.index_row(d), at)
     new_state = {**moved, "base": _trim(moved["base"], S.handles_of(sources))}
     flagged = d["status"] == "ok" and snap["empty_streak"] >= TH["empty_streak_fail"]
@@ -300,7 +376,7 @@ def blank(now, state, handles):
     """내리기 전용 → {파일 이름: 자료}. 빈 판, 이 판만 든 목차, 꼭 볼 것의 id를 지운 상태 기록(창과 채널별 글 번호는 남긴다)."""
     d = S.blank_digest(now)
     date, at = d["date"], d["collected_at"]
-    clean = {k: (None if state[k] is None else {**_trim(state[k], handles), "must": []}) for k in ("edition", "base")}
+    clean = {k: (None if state[k] is None else {**_trim(state[k], handles), "must": [], "topics": []}) for k in ("edition", "base")}
     index = {"schema": S.SCHEMA, "updated_at": at, "latest": date, "editions": [C.index_row(d)]}
     return {"digest.json": d, f"digest/{date}.json": d, "digest_index.json": index, "digest_state.json": {"schema": S.SCHEMA, **clean},
             "digest_status.json": _status(at, "withdrawn", date, True, None, index, _streak_now(state))}

@@ -13,7 +13,8 @@
 
 글 읽기(parse_page): 본문은 글자만 — 태그를 벗기고 줄마다 공백을 정리한다. 주소 자체로 쓴 링크의 글자는 본문에서 빼고 links에 둔다
 (주소뿐인 글은 본문이 빈다). 전달 원글은 공개 글 주소가 있을 때만 채널·번호를 남기고 이름은 남기지 않는다. 링크 카드는 제목이 있을
-때만(묶기 열쇠용 — 공개본에는 안 나간다), media는 본문 없이 사진·영상·파일만 있는 글이다. 알림 글(고정 알림 등)은 세지 않는다.
+때만(묶기 열쇠용 — 공개본에는 안 나간다), media는 본문 없이 사진·영상·파일만 있는 글이다. pic은 본문이 있든 없든 그런 것이 붙은
+글이다(공개본에는 '붙었다'는 표시만 나간다). 알림 글(고정 알림 등)은 세지 않는다.
 
 수신: urllib 기본 머리말(User-Agent를 붙이지 않는다), 요청 사이 3초, 요청당 20초·한 쪽 45초·3MB, 전체 30요청·6분
 (수집 창이 48시간을 넘는 월요일·연휴 뒤에는 40요청·8분). 순서는 채권 → 애널 → 개인 → 속보형이고, 아직 첫 쪽을 받지 못한 채널 몫의
@@ -198,12 +199,13 @@ def _when(value):
 
 
 def _post(c, handle, via):
-    """파서가 모은 조각 → 계약의 post. 카드는 제목이 있을 때만(묶기 열쇠용), media는 본문 없이 사진·영상·파일만 있는 글."""
+    """파서가 모은 조각 → 계약의 post. 카드는 제목이 있을 때만(묶기 열쇠용), media는 본문 없이 사진·영상·파일만 있는 글,
+    pic은 본문이 있든 없든 사진·영상·파일이 붙은 글(공개본에는 '붙었다'는 것만 나간다)."""
     text, title = _lines(c["text"])[:S.MAX_TEXT], " ".join((c["title"] or "").split())[:MAX_TITLE]
     url = c["url"] if _HTTP_RE.match(c["url"] or "") and len(c["url"]) <= S.MAX_URL else ""
     card = {"title": title, "site": " ".join((c["site"] or "").split())[:MAX_SITE], "url": url} if title else None
     return {"ch": handle, "id": c["id"], "at": _when(c["time"]), "text": text, "links": c["links"][:MAX_LINKS], "fwd": c["fwd"],
-            "card": card, "reply": c["reply"], "media": c["has_media"] and not text, "via": via}
+            "card": card, "reply": c["reply"], "media": c["has_media"] and not text, "via": via, "pic": c["has_media"]}
 
 
 def parse_page(page, handle, via="page"):

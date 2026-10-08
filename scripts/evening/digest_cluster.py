@@ -32,6 +32,12 @@
            (R.is_quote, 또는 바로 앞 낱말이 금리 수준 낱말인 %·bp)는 숫자 열쇠와 숫자 칸에서 뺀다.
   줄의 짝  글의 row — 혼자 쓴 글이 속보형·개인 단독 줄이 될 때 싣는 (낱말, 숫자). 첫머리의 첫 숫자 하나만 보고(시세 수준이거나
            R.solo_num_ok가 아니면 다음 숫자로 넘어가지 않는다 — 숫자를 골라 싣는 길을 주지 않게) 그 앞의 가까운 A·B급 낱말과 짝짓는다.
+           짝이 없으면 숫자 없는 줄(v null): 첫 두 줄(row_head_chars자까지)의 낱말(head) 가운데 먼저 나온 A·B급 낱말, A·B급이 없으면
+           그 글의 낱말이 둘 이상일 때 첫 두 줄의 첫 낱말(C급 낱말 하나뿐인 글은 줄이 되지 않는다). 2026-10-08 첫 판에서 줄이
+           0개여서 넓혔다 — 그날 저장분의 개인·속보형 단독 글 49개 가운데 첫머리에 A·B급 낱말이 있는 글이 4개뿐이었고 그마저 곁에
+           숫자가 없었다. 사전 낱말이 하나도 없는 글(개인 채널의 종목·산업 글)은 여전히 줄이 되지 않는다 — 건수로만 남는다.
+  더 자세히  글마다 길이 구간(size — 글자 수는 남기지 않는다) · 그림이 붙었는가(pic) · 첫 두 줄의 낱말(head)을 남긴다.
+           글의 낱말(terms)은 member_terms_max개까지 — 조립 단계가 '함께 나온 낱말'과 '이 글에만 더 있는 낱말'을 여기서 센다.
   열쇠     묶음의 keys = 두 글 이상이 함께 가진 f·u·t·k + 씨앗 글과 맞은 n + (지문으로 닮은 쌍이 있거나 다른 열쇠가 없으면) g 하나.
   일정 열쇠  events를 줄 때만(기본은 꺼 둔다 — 계약의 CLI와 열쇠 종류에 없다): 채권·애널 원천 글의 첫머리에 그 일정의 낱말이 있고
            일정 뒤 num_key_hours 안(시각이 없는 일정은 그날)에 올린 글끼리. 열쇠 종류는 k이고 재료 앞에 "e|"를 붙인다.
@@ -56,6 +62,7 @@ AUCTION_A = ("10년", "30년")            # 국고채 입찰 일정의 등급: 1
 AUCTION_TERM = "국고채 입찰"
 SHARED_MIN = TH["k_result_min_ch"]      # '두 곳 이상이 똑같이 쓴'의 둘 — 숫자 칸과 그 결과 낱말에 쓴다
 MAX_WORDS, MAX_KEYS = 12, 60            # 글·묶음에 싣는 낱말·숫자 수, 묶음의 열쇠 수 — 계약(digest_schema)의 형태 상한과 같다
+MAX_TERMS = TH["member_terms_max"]      # 글 하나의 낱말 수(글 전체에서 걸린 것, 자리순)
 
 _TG_HOSTS = ("t.me", "telegram.me")
 _TG_POST = re.compile(r"^/(?:s/)?([A-Za-z][A-Za-z0-9_]{3,31})/(\d{1,10})$")
@@ -144,31 +151,52 @@ def lead_end(text):
     return min(len(" ".join(lines[:2])), TH["lead_chars"]) if len(lines) > 2 else TH["lead_chars"]
 
 
+def head_end(text):
+    """단독 줄이 보는 첫머리가 끝나는 자리(R.norm_text 좌표) — 첫 두 줄(빈 줄은 세지 않는다), row_head_chars자까지.
+    lead_end보다 앞서지 않는다(첫머리 낱말은 늘 이 안에 있다)."""
+    lines = [x for x in map(R.norm_text, (text or "").splitlines()) if x]
+    return max(min(len(" ".join(lines[:2])), TH["row_head_chars"]), min(lead_end(text), len(R.norm_text(text))))
+
+
 def scan(text):
-    """글을 한 번 훑는다 → 낱말·결과 낱말·숫자(자리와 함께), 낱말의 자리 전부(hits), 첫머리의 끝. 같은 글을 여러 번 훑지 않게
-    mention · num_pairs에 넘긴다."""
+    """글을 한 번 훑는다 → 낱말·결과 낱말·숫자(자리와 함께), 낱말의 자리 전부(hits), 첫머리의 끝(end), 첫 두 줄의 끝(head).
+    같은 글을 여러 번 훑지 않게 mention · num_pairs에 넘긴다."""
     return {"terms": R.match_terms(text), "results": R.match_results(text), "nums": R.find_nums(text), "hits": R.term_hits(text),
-            "end": lead_end(text)}
+            "end": lead_end(text), "head": head_end(text)}
 
 
 def mention(post, group, role, found=None, pairs=None):
     """글 하나에서 닫힌 값만 남긴다 — 낱말·숫자와 그 가운데 첫머리에 있는 것, 첫머리의 결과 낱말, 줄의 짝. 원문은 여기서 끝난다."""
     found = found or scan(post["text"])
-    terms, nums, end = found["terms"][:MAX_WORDS], found["nums"][:MAX_WORDS], found["end"]
+    terms, nums, end = found["terms"][:MAX_TERMS], found["nums"][:MAX_WORDS], found["end"]
+    lead = [t["term"] for t in terms if t["pos"] < end][:MAX_WORDS]
     m = {"ch": post["ch"], "id": post["id"], "at": post["at"], "group": group, "role": role, "fwd": post["fwd"] is not None,
-         "terms": [t["term"] for t in terms], "lead": [t["term"] for t in terms if t["pos"] < end],
+         "terms": [t["term"] for t in terms], "lead": lead,
          "results": [r["result"] for r in found["results"] if r["pos"] < end],
-         "nums": [n["v"] for n in nums], "lead_nums": [n["v"] for n in nums if n["pos"] < end]}
+         "nums": [n["v"] for n in nums], "lead_nums": [n["v"] for n in nums if n["pos"] < end],
+         "size": R.size_of(post["text"]), "pic": bool(post.get("pic")),
+         "head": [t["term"] for t in terms if t["pos"] < found.get("head", end) or t["term"] in lead]}
     return {**m, "row": row_pair(m, found, num_pairs(post["text"], found) if pairs is None else pairs)}
 
 
 def row_pair(m, found, pairs):
-    """혼자 쓴 글이 줄이 될 때의 짝 {"term", "v"} 또는 None. 첫머리의 첫 숫자 하나만 본다 — 시세 수준이거나 한 곳만 쓴 숫자로 싣기
-    어려운 꼴(R.solo_num_ok)이면 줄이 없다. 낱말은 그 숫자 바로 곁(row_term_chars자 안)의 A·B급 낱말이어야 한다 — 두 곳이 확인하지
-    않은 숫자라 숫자 칸보다 좁게 본다(첫머리에 같이 있다는 것만으로 짝짓지 않는다)."""
+    """혼자 쓴 글이 줄이 될 때의 짝 {"term", "v"} 또는 None. 숫자는 첫머리의 첫 숫자 하나만 본다 — 시세 수준이거나 한 곳만 쓴 숫자로
+    싣기 어려운 꼴(R.solo_num_ok)이면 숫자를 싣지 않는다(다음 숫자로 넘어가지 않는다). 숫자와 짝짓는 낱말은 그 숫자 바로 곁
+    (row_term_chars자 안)의 A·B급 낱말이어야 한다 — 두 곳이 확인하지 않은 숫자라 숫자 칸보다 좁게 본다.
+    짝이 없으면 숫자 없는 줄(v None): 첫 두 줄의 대표 낱말(head_top). 그것도 없으면 줄이 없다."""
     v = m["lead_nums"][0] if m["lead_nums"] else None
     term = R.named_before(found["hits"], pairs[v][2], TH["row_term_chars"]) if v in pairs else None
-    return {"term": term, "v": v} if term in m["lead"] and R.solo_num_ok(v) else None
+    if term in m["lead"] and R.solo_num_ok(v):
+        return {"term": term, "v": v}
+    top = head_top(m)
+    return {"term": top, "v": None} if top else None
+
+
+def head_top(m):
+    """숫자 없는 줄의 낱말 — 첫 두 줄에서 가장 먼저 나온 A·B급 낱말. A·B급이 없으면 그 글의 낱말이 둘 이상일 때만 첫 두 줄의
+    첫 낱말(흔한 C급 낱말 하나만 있는 글은 줄이 되지 않는다). 첫 두 줄에 낱말이 없으면 None."""
+    head = m["head"]
+    return next((t for t in head if R.grade_of(t) in AB), head[0] if head and len(m["terms"]) > 1 else None)
 
 
 def lead_top(m):

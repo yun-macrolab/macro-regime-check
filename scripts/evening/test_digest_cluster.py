@@ -119,7 +119,8 @@ class LeadTest(unittest.TestCase):
         self.assertEqual((m["terms"], m["lead"]), (["미 CPI", "유가"], ["미 CPI"]))
         self.assertEqual((m["nums"], m["lead_nums"]), (["3.1%", "0.3%", "2.1%"], ["3.1%", "0.3%"]))
         self.assertEqual(m["results"], ["상회"])                                     # 첫머리의 결과 낱말만
-        self.assertEqual(set(m), {"ch", "id", "at", "group", "role", "fwd", "terms", "lead", "results", "nums", "lead_nums", "row"})
+        self.assertEqual(set(m), {"ch", "id", "at", "group", "role", "fwd", "terms", "lead", "results", "nums", "lead_nums", "row",
+                                  "size", "pic", "head"})                # 길이 구간 · 그림 · 첫 두 줄의 낱말(2026-10-08 저녁)
         self.assertEqual(F.leaks(S.dump(m)), [])
         self.assertEqual(DC.lead_top(m), "미 CPI")
         self.assertIsNone(DC.lead_top({**m, "lead": []}))
@@ -130,14 +131,16 @@ class LeadTest(unittest.TestCase):
         row = lambda text: DC.mention(post("fxpers1", 1, "08 09:00", text), "personal", "source")["row"]
         self.assertEqual(row("미 CPI 3.1%로 나왔다는 지어낸 글"), {"term": "미 CPI", "v": "3.1%"})
         self.assertEqual(row("금통위 얘기 조금. 유가는 2.1% 내렸다는 지어낸 글"), {"term": "유가", "v": "2.1%"})    # 숫자 앞의 가장 가까운 낱말
-        self.assertIsNone(row("지어낸 가게 매출이 1.45% 늘었다. 유가 얘기는 뒤에 적는다."))            # 숫자가 낱말보다 앞
-        self.assertIsNone(row("유가 얘기로 시작해서 지어낸 가게들의 등락을 길게 늘어놓는다. 첫째 1.45%"))    # 한 곳만 쓴 숫자는 낱말 바로 곁이어야 한다
-        self.assertIsNone(row("미 PCE 1234567.891명이라는 지어낸 숫자"))                              # 긴 숫자(전화번호 크기)
-        self.assertIsNone(row("금통위 인하 폭이 25%p라는 지어낸 오타"))                               # 상식 밖의 %p
-        self.assertIsNone(row("유가 85달러 얘기 뒤에 미 CPI 3.1%"))                                  # 첫 숫자가 시세 수준 — 다음 숫자로 넘어가지 않는다
-        self.assertIsNone(row("환율 얘기 끝에 3.1%"))                                               # C급 낱말뿐
-        self.assertIsNone(row("미 CPI 얘기만 있고 숫자는 없는 지어낸 글"))
-        self.assertIsNone(row("첫 줄에는 아무것도 없다\n둘째 줄도 마찬가지다\n미 CPI 3.1%는 셋째 줄"))   # 첫머리 밖
+        # 숫자가 짝지어지지 않으면 숫자는 싣지 않는다. 2026-10-08 저녁부터는 그런 글도 첫 두 줄의 낱말만으로 줄이 된다(v None)
+        bare = lambda term: {"term": term, "v": None}
+        self.assertEqual(row("지어낸 가게 매출이 1.45% 늘었다. 유가 얘기는 뒤에 적는다."), bare("유가"))        # 숫자가 낱말보다 앞
+        self.assertEqual(row("유가 얘기로 시작해서 지어낸 가게들의 등락을 길게 늘어놓는다. 첫째 1.45%"), bare("유가"))   # 한 곳만 쓴 숫자는 낱말 바로 곁이어야 한다
+        self.assertEqual(row("미 PCE 1234567.891명이라는 지어낸 숫자"), bare("미 PCE"))                # 긴 숫자(전화번호 크기)
+        self.assertEqual(row("금통위 인하 폭이 25%p라는 지어낸 오타"), bare("금통위"))                  # 상식 밖의 %p
+        self.assertEqual(row("유가 85달러 얘기 뒤에 미 CPI 3.1%"), bare("유가"))                      # 첫 숫자가 시세 수준 — 다음 숫자로 넘어가지 않는다
+        self.assertIsNone(row("환율 얘기 끝에 3.1%"))                                               # C급 낱말 하나뿐
+        self.assertEqual(row("미 CPI 얘기만 있고 숫자는 없는 지어낸 글"), bare("미 CPI"))
+        self.assertIsNone(row("첫 줄에는 아무것도 없다\n둘째 줄도 마찬가지다\n미 CPI 3.1%는 셋째 줄"))   # 첫 두 줄 밖
 
     def test_plain_texts_carry_no_terms(self):
         for t in PLAIN:
@@ -400,7 +403,7 @@ class ShapeTest(unittest.TestCase):
         self.assertEqual((c["cell"], c["terms"][0]), ({"factor": "수급", "region": "국내"}, {"term": "국고채 입찰", "n_ch": 3}))
         self.assertEqual(c["results"][0], {"result": "응찰률", "n_ch": 2})
         leads = (["금리", "FOMC"], ["금리", "국고채 입찰"], ["국고채 입찰", "금리"])
-        ms = [{**m, "lead": lead, "terms": lead, "row": None} for m, lead in zip(ms, leads)]
+        ms = [{**m, "lead": lead, "terms": lead, "head": lead, "row": None} for m, lead in zip(ms, leads)]
         c = S.validate_cluster(DC.shape(ms, [S.key_of("k", "국고채 입찰|국내")]))
         # 두 곳 이상이 쓴 낱말이 먼저(그 안에서 A·B급 → 많이 쓴 순) — 한 곳만 쓴 A급 낱말(FOMC)이 여럿이 쓴 낱말을 밀어내지 않는다
         self.assertEqual([t["term"] for t in c["terms"]], ["국고채 입찰", "금리", "FOMC"])
@@ -408,7 +411,7 @@ class ShapeTest(unittest.TestCase):
 
 
 class FixtureTest(unittest.TestCase):
-    """fixtures의 지어낸 글 40개 — 겨냥한 답(EXPECT_*)대로 묶이고, 원문은 한 글자도 남지 않는다."""
+    """fixtures의 지어낸 글 41개 — 겨냥한 답(EXPECT_*)대로 묶이고, 원문은 한 글자도 남지 않는다."""
 
     @classmethod
     def setUpClass(cls):
@@ -417,7 +420,7 @@ class FixtureTest(unittest.TestCase):
 
     def test_output_follows_the_contract(self):
         S.validate_clusters_doc(self.out)
-        self.assertEqual(self.out["stats"], {"posts": 40, "kept": 35, "dropped": {c: 1 for c in R.DROP_CODES}})
+        self.assertEqual(self.out["stats"], {"posts": 41, "kept": 36, "dropped": {c: 1 for c in R.DROP_CODES}})
         self.assertEqual({k: self.out[k] for k in ("schema", "edition", "window", "collected_at")},
                          {k: self.posts[k] for k in ("schema", "edition", "window", "collected_at")})
 
@@ -429,7 +432,7 @@ class FixtureTest(unittest.TestCase):
         for a, b in F.EXPECT_APART:
             self.assertNotEqual(got[a], got[b])
         self.assertFalse(set(F.EXPECT_DROP) & set(got))
-        self.assertEqual((len(got), len(self.out["clusters"])), (35, 17))
+        self.assertEqual((len(got), len(self.out["clusters"])), (36, 18))
 
     def test_each_cluster_carries_the_keys_that_tied_it(self):
         want = {"cpi": {"f", "u", "k", "n", "g"}, "auction": {"k", "n"}, "capex": {"u", "n"}, "rumor": {"f", "u", "g"}, "card": {"t", "k"}}
@@ -522,7 +525,7 @@ class CliTest(unittest.TestCase):
             self.write(tmp)
             code, out, err = self.call(["--work", tmp])
             self.assertEqual((code, err), (0, ""))
-            self.assertEqual(out, "[digest_cluster] posts=40 kept=35 dropped=5 clusters=17 joined=5\n")
+            self.assertEqual(out, "[digest_cluster] posts=41 kept=36 dropped=5 clusters=18 joined=5\n")
             with open(os.path.join(tmp, "clusters.json"), encoding="utf-8") as f:
                 text = f.read()
             self.assertEqual(F.leaks(text), [])
@@ -536,7 +539,7 @@ class CliTest(unittest.TestCase):
             S.write_json(os.path.join(data, "calendar.json"), F.calendar())
             S.write_json(os.path.join(data, "korea.json"), F.korea())
             flags = ["--calendar", os.path.join(data, "calendar.json"), "--korea", os.path.join(data, "korea.json")]
-            self.assertEqual(self.call(["--work", tmp, *flags]), (0, "[digest_cluster] posts=40 kept=35 dropped=5 clusters=17 joined=5\n", ""))
+            self.assertEqual(self.call(["--work", tmp, *flags]), (0, "[digest_cluster] posts=41 kept=36 dropped=5 clusters=18 joined=5\n", ""))
             keys = {k for c in S.read_json(os.path.join(tmp, "clusters.json"))["clusters"] for k in c["keys"]}
             self.assertLessEqual({S.key_of("k", "e|미 CPI|2026-10-07"), S.key_of("k", "e|국고채 입찰|2026-10-08")}, keys)
             self.call(["--work", tmp])                                               # 옵션 없이는 일정 열쇠가 없다
@@ -577,7 +580,7 @@ class CliTest(unittest.TestCase):
                                   capture_output=True, text=True, encoding="utf-8", cwd=S.REPO, timeout=120)
             self.assertEqual((done.returncode, done.stderr), (0, ""))
             self.assertEqual(F.leaks(done.stdout), [])
-            self.assertTrue(done.stdout.startswith("[digest_cluster] posts=40 "))
+            self.assertTrue(done.stdout.startswith("[digest_cluster] posts=41 "))
 
 
 if __name__ == "__main__":

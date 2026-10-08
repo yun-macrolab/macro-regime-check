@@ -81,7 +81,7 @@ class LexiconTest(unittest.TestCase):
     def test_table_is_well_formed(self):
         names = [e["term"] for e in R.LEXICON]
         self.assertEqual(len(names), len(set(names)))
-        self.assertTrue(110 <= len(names) <= 130, len(names))
+        self.assertTrue(160 <= len(names) <= 210, len(names))        # 2026-10-08 저녁에 47개를 더했다(test_digest_words.py)
         for e in R.LEXICON:
             self.assertIn(e["grade"], R.GRADES, e["term"])
             self.assertIn(R.cell_id(e["factor"], e["region"]), R.CELLS, e["term"])
@@ -114,7 +114,7 @@ class LexiconTest(unittest.TestCase):
             "FOMC 의사록이 공개됐다": ["연준 의사록"],
             "연준 이사가 인하를 서두르지 않겠다고 했다": ["연준 발언"],
             "금통위가 기준금리를 동결": ["금통위", "기준금리"],
-            "금통위 의사록에서 소수의견 확인": ["금통위 의사록"],
+            "금통위 의사록에서 소수의견 확인": ["금통위 의사록", "소수의견"],
             "한은 총재 기자간담회": ["한은 발언"],
             "한국은행은 성장률 전망을 유지": ["한은"],
             "국고채 발행계획이 나왔다": ["국고채 발행계획"],

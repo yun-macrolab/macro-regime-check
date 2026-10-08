@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """저녁판 화면(site/evening.js · evening.css) 테스트. 미리 보기(preview.py)는 test_preview.py, 읽는 순서는 test_evening_site_order.py.
 
-  글자 검사  브라우저 없이 파일의 글자만 본다: 글자는 텍스트 노드로만 · 자료는 data/ 아래에서만 · 바깥 주소는 t.me와 삭제 요청 창구뿐 ·
+  글자 검사  브라우저 없이 파일의 글자만 본다: 글자는 텍스트 노드로만 · 자료는 data/ 아래에서만 · 코드에 적힌 바깥 주소는 t.me와 삭제 요청
+             창구뿐(낱말 풀이의 공식 자료 링크는 자료에서 오고 허용 도메인으로 거른다 — test_evening_site_more.py) ·
              규칙 쪽과 같아야 하는 값(고정 문구 · 허용 단위 · 예약 시각)이 digest_rules와 같은지 · 색과 글꼴은 dashboard.css의 변수만
   그려 보기  node가 있으면 가짜 문서(evening_dom.cjs)에 지어낸 판을 실제로 그린다: 링크의 꼴 · 상태 문구 · 깨진 자료 · 숨김 목록 ·
              지난 판 · 열어 둔 채 시간이 지났을 때. 모양과 가로 넘침(폭 375px)은 여기서 볼 수 없다 — preview.py로 띄워 눈으로 본다
@@ -263,7 +264,8 @@ class SourceTest(unittest.TestCase):
 
     def test_file_sizes_stay_small(self):
         self.assertLessEqual(JS.count("\n"), 800)
-        self.assertLess(len(JS.encode("utf-8")), 60_000)
+        # 60KB → 64KB(2026-10-08 밤): 지문 표 둘(풀이 138개 · 사전 낱말 168개, 합쳐 2.6KB)이 들어왔다 — 화면이 낱말·풀이를 사전과 견주려면 필요하다
+        self.assertLess(len(JS.encode("utf-8")), 64_000)
 
     @unittest.skipUnless(NODE, "node가 없다")
     def test_node_accepts_the_syntax(self):
@@ -346,14 +348,14 @@ class EditionTest(Screen):
 
     def test_head_of_the_edition(self):
         self.shows(self.frame, "저녁판 2026-10-08(목)", "시범", "규칙 선별 · 문장 없음", "수집 10-08 18:09",
-                   "수집 창 10-07 18:02 ~ 10-08 18:07", "읽은 40건 → 묶음 10 → 후보 3 → 꼭 3건", "24채널 중 24 읽음",
+                   "수집 창 10-07 18:02 ~ 10-08 18:07", "읽은 41건 → 묶음 11 → 후보 3 → 꼭 3건", "24채널 중 24 읽음",
                    "국고 10년 4.376% (+0.7bp) 자료일 10-08", "국고 3년 3.961% (+2.8bp) 자료일 10-08", "→ 보합 · 플랫 당일 종가",
                    "미 10년 5.27% (-4.0bp) 자료일 10-07", "가장 많이 다뤄진 주제: 미 CPI · 국고채 입찰 · 한은 발언")
         self.lacks(self.frame, "판이 없습니다", "수집 부족", "읽지 못했습니다", "내렸습니다")
 
     def test_must_items_carry_cell_terms_numbers_reasons_coverage_and_links(self):
         self.shows(self.frame, "꼭 3건", "펀더멘털 / 글로벌", "미 CPI · 미 국채 금리", "미 CPI · 상회 · 3.1% 8곳",
-                   "채권 채널 3곳", "세 그룹 모두", "발표일 일치", "같은 숫자 8곳", "다룬 곳 채권 3 · 애널 2 · 개인 3 · 속보형 1",
+                   "채권 채널 3곳", "세 그룹 모두", "발표일 일치", "같은 숫자 8곳", "채권 3곳 · 애널 2곳 · 개인 3곳이", "속보형 1곳 겹침",
                    "가상 채권 bond1 10-07 21:41", "수급 / 국내", "국고채 입찰 · 응찰률 · 247.4% 2곳", "입찰일 일치", "규칙 점수 13.125")
         for url in ("https://t.me/fxbond1/501", "https://t.me/fxbond4/640", "https://t.me/fxanal5/318"):
             self.assertIn(url, posts(self.frame))
@@ -370,7 +372,7 @@ class EditionTest(Screen):
         self.assertTrue(any(f.startswith(flat("펀더멘털/글로벌 1줄")) for f in folds), folds)
         self.assertTrue(any(f.startswith(flat("기타 1줄")) for f in folds), folds)
         self.assertFalse(any(f.startswith(flat("통화정책/국내")) for f in folds), folds)     # 채권 한 곳만 쓴 글은 단독 절로 간다
-        self.shows(self.frame, "통화정책 / 국내 금통위 의사록 · 국고채 금리", "수급 / 국내 WGBI · 국고채 금리",
+        self.shows(self.frame, "통화정책 / 국내 금통위 의사록 · 소수의견 · 국고채 금리", "수급 / 국내 WGBI · 국고채 금리",
                    "AI 회사채 발행 12조원", "애널 2 · 개인 2")
 
     def test_tomorrow_wire_solo_and_context_rows(self):
@@ -382,13 +384,13 @@ class EditionTest(Screen):
         self.assertNotIn("https://t.me/fxwire1/90017", posts(self.frame))      # 채널당 다섯 줄까지(자료가 그렇게 온다)
         self.assertIn("https://t.me/fxctx1/4100", posts(self.frame))
 
-    def test_every_link_is_a_listed_post_a_listed_channel_or_the_takedown_form(self):
+    def test_every_link_is_a_listed_post_a_listed_channel_an_official_page_or_the_takedown_form(self):
         handles = {c["handle"] for c in fx("sources")["channels"]}
         outs = outside(self.frame)
         self.assertGreater(len(posts(self.frame)), 20)
         for a in outs:
             m = POST.match(a["href"]) or CHANNEL.match(a["href"])
-            self.assertTrue(a["href"] == TAKEDOWN or (m and m.group(1) in handles), a["href"])
+            self.assertTrue(a["href"] == TAKEDOWN or a["href"] in R.OFFICIAL_URLS or (m and m.group(1) in handles), a["href"])
             self.assertEqual((a["target"], a["rel"]), ("_blank", "noopener noreferrer"), a["href"])
             self.assertTrue(a["text"].strip(), a["href"])
         self.assertEqual(sum(a["href"] == TAKEDOWN for a in outs), 1)
@@ -592,7 +594,7 @@ class StateTest(Screen):
                                      (site(overrides=off, past={"2026-10-07": PV.shift(fx("digest"), -1)}), THU_EVENING, "2026-10-07"))
         for frame in (gone, switched):
             self.shows(frame, "이 판은 내렸습니다", "저녁판 2026-10-08(목)")
-            self.lacks(frame, "꼭 3건", "미 CPI", "읽은 40건", "다가오는 일정")
+            self.lacks(frame, "꼭 3건", "미 CPI", "읽은 41건", "다가오는 일정")
             self.assertEqual(posts(frame), [])
             self.assertEqual([a for a in frame["links"] if a["href"].startswith("#evening/")], [])
         self.shows(past, "이 판은 내렸습니다", "저녁판 2026-10-07(수)")
@@ -624,7 +626,7 @@ class StateTest(Screen):
         frame = draw(site(sources=None))
         self.shows(frame, "출처 목록(sources.json)을 읽지 못해 원문 링크를 걸지 않았습니다", "꼭 3건", "fxbond1 10-07 21:41",
                    "출처 목록을 읽지 못했습니다")
-        self.assertEqual([a["href"] for a in outside(frame)], [TAKEDOWN])
+        self.assertEqual([a["href"] for a in outside(frame) if a["href"] not in R.OFFICIAL_URLS], [TAKEDOWN])   # 채널로 가는 링크는 없다
 
     def test_channels_off_the_list_get_no_link(self):
         src = fx("sources")

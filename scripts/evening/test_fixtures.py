@@ -21,10 +21,10 @@ import fixtures as F
 
 class PostsTest(unittest.TestCase):
     def test_counts_and_window(self):
-        self.assertEqual((len(F.posts()), len(F.old_posts()), len(F.all_posts())), (40, 2, 42))
+        self.assertEqual((len(F.posts()), len(F.old_posts()), len(F.all_posts())), (41, 2, 43))
         self.assertTrue(all(F.WINDOW["from"] < p["at"] <= F.WINDOW["to"] for p in F.posts()))
         self.assertEqual(S.collect_window(S.parse_iso(F.NOW), F.state())["from"], F.WINDOW["from"])
-        self.assertEqual(len({(p["ch"], p["id"]) for p in F.all_posts()}), 42)
+        self.assertEqual(len({(p["ch"], p["id"]) for p in F.all_posts()}), 43)
         self.assertTrue({p["ch"] for p in F.all_posts()} <= set(F.REQUESTED))
 
     def test_cases_the_posts_are_meant_to_cover(self):
@@ -111,7 +111,7 @@ class SamplesTest(unittest.TestCase):
         for a, b in F.EXPECT_APART:
             self.assertNotEqual(where[a], where[b])
         self.assertFalse(set(F.EXPECT_DROP) & set(where))
-        self.assertEqual(len(where), 35)
+        self.assertEqual(len(where), 36)
         cpi = cs[where[("fxbond1", 501)]]
         self.assertEqual([(n["term"], n["result"], n["v"]) for n in cpi["nums"]],
                          [("미 CPI", "상회", "3.1%"), ("미 CPI", None, "0.3%")])       # 낱말에서 먼 금리 수준 5.31%는 짝이 없어 싣지 않는다
@@ -124,12 +124,12 @@ class SamplesTest(unittest.TestCase):
         self.assertEqual([x["id"] for x in d["must"]], ["20261008-fxbond1-501", "20261008-fxbond4-640", "20261008-fxbond2-213"])
         self.assertEqual(d["must"][0]["coverage"], {"bond": 3, "analyst": 2, "personal": 3, "wire": 1})
         self.assertEqual([g["cell"] for g in d["rest"]], ["펀더멘털/글로벌", "통화정책/국내", "수급/국내", "기타"])
-        self.assertEqual(d["funnel"], {"posts": 40, "clusters": 10, "candidates": 3, "must": 3, "truncated": 0})
+        self.assertEqual(d["funnel"], {"posts": 41, "clusters": 11, "candidates": 3, "must": 3, "truncated": 0})
         wire = {c["ch"]: c for c in d["wire"]["channels"]}
         self.assertEqual(wire["fxwire1"], {"ch": "fxwire1", "read": 7, "joined": 1, "hit": 6})        # 여섯 줄이 맞았지만
         self.assertEqual(sum(r["ch"] == "fxwire1" for r in d["wire"]["rows"]), R.TH["rows_per_channel"])   # 다섯 줄만 싣는다
         self.assertEqual([(r["ch"], r["term"], r["v"]) for r in d["solo"]["rows"]],
-                         [("fxpers6", "국고채 발행계획", "12.5조원"), ("fxpers7", "미 CPI", "3.1%")])
+                         [("fxpers6", "국고채 발행계획", "12.5조원"), ("fxpers8", "한은 발언", None), ("fxpers7", "미 CPI", "3.1%")])
         self.assertEqual([x["ch"] for x in d["context"]], ["fxctx1"])
         self.assertEqual(d["sources"], {"channels_ok": 24, "channels_total": 24})
 
@@ -167,7 +167,7 @@ class SamplesTest(unittest.TestCase):
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
                 self.assertEqual(F.main(["--out", tmp]), 0)
-            self.assertEqual(out.getvalue(), "[fixtures] files=13 posts=40\n")
+            self.assertEqual(out.getvalue(), "[fixtures] files=13 posts=41\n")
             public = os.path.join(tmp, "public")
             names = sorted(os.listdir(public))
             self.assertEqual(names, sorted(["digest", "digest.json", "digest_index.json", "digest_state.json", "digest_status.json",

@@ -55,7 +55,7 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
 자료 형태 (칸 이름은 아래 _obj(...) 정의가 기준이다. 정해지지 않은 칸이 있으면 검증에서 떨어진다. 시각은 모두 ISO +09:00)
   <work> 안에서만
     posts.json           {schema, edition, window{from,to}, collected_at, posts[post]} — 창 안(from < at ≤ to)의 글, (at, ch, id) 순
-      post               {ch, id, at, text, links[], fwd{ch,id}|null, card{title,site,url}|null, reply, media, via(page·search)}
+      post               {ch, id, at, text, links[], fwd{ch,id}|null, card{title,site,url}|null, reply, media, via(page·search), pic?}
                          fwd의 ch·id는 전달 원글의 주소가 있을 때만(없으면 null — 원글 이름은 남기지 않는다)
     collect_status.json  {…, window_kind(first·next·rerun), capped, replay, requests, elapsed_s, verdict(ok·short·broken),
                           channels[{ch, group, role, ok, code, pages, posts, with_text, in_window, last_post, last_at, title_sha,
@@ -65,8 +65,9 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
                          한 묶음에 든다(혼자인 묶음 포함), 한 글은 한 묶음에만
       cluster            {seed{ch,id}, key, keys[], first_at, last_at, cell{factor,region}|null, terms[{term,n_ch}],
                           results[{result,n_ch}], nums[{term,result|null,v,n_ch≥2}], members[글]}
-        글(원문 없음)     {ch, id, at, group, role, fwd, terms[], lead[], results[], nums[], lead_nums[], row?} — lead는 첫 80자 안의 것.
-                         row{term,v}|null = 혼자 쓴 글이 줄이 될 때의 짝(첫머리의 첫 숫자와 그 앞의 가까운 A·B급 낱말)
+        글(원문 없음)     {ch, id, at, group, role, fwd, terms[], lead[], results[], nums[], lead_nums[], row?, size?, pic?, head?}
+                         lead는 첫 80자 안의 것, head는 첫 두 줄 안의 것. row{term, v|null}|null = 혼자 쓴 글이 줄이 될 때의 짝
+                         (첫머리의 첫 숫자와 그 앞의 가까운 A·B급 낱말. 짝이 없으면 첫 두 줄의 대표 낱말만 — 아래 '더 자세히')
         열쇠             "<f·u·t·n·k·g>:<해시 12자리>" = key_of(종류, 재료). 혼자인 묶음은 g 하나. key = primary_key(keys)
     scored.json          {…, stats, head, tomorrow[], clusters[cluster + {coverage{bond,analyst,personal,wire}, score{total,C,X,K,
                           E,M,Y,P,L}, gate{pass, fails[sources·grade·score·group]}, why[고정 문구], pick(must·rest·none), rank}]}
@@ -78,7 +79,7 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
        notes[고정 문구], must[≤3], rest[{cell(8칸 이름), items[]}], wire, solo, context[{ch,at,url}], tomorrow[], youtube{enabled false}}
       must 항목   {id, key, cell{factor,region}, terms[1~4], nums[≤3], score, why[≤4], coverage, links[1~6 {ch,url,at,fwd}]}
       rest 항목   {id, key, cell, terms[≤3], nums[≤1], s(총점), coverage, links[1~2]} — 모두 합쳐 30줄까지
-      wire · solo {channels[{ch, read, joined, hit}], rows[{ch, term, result|null, v, at, url}]} — 줄은 채널당 5개까지
+      wire · solo {channels[{ch, read, joined, hit}], rows[{ch, term, result|null, v|null, at, url}]} — 줄은 채널당 5개까지
       tomorrow    [{date, time|null, term, detail[만기 낱말·숫자], tier(A·B), src(korea·calendar)}]
       id = item_id(판 날짜, 씨앗 글) — 순위가 아니라 seed_of(가장 이른 원천 글). 링크는 pick_links가 고른다
       칸의 뜻     status   short = 수집 부족(must를 비운다) · withdrawn = 내림(모든 절이 빈다, blank_digest)
@@ -88,8 +89,8 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
                            비운다. basis는 kr10 기준(당일 종가·전일 종가). top_terms = 가장 많이 다뤄진 주제(원인이 아니다)
                   coverage 그 묶음에서 점수에 센 채널 수(그룹별) + 속보형 채널 수
                   wire·solo read 창 안에서 읽은 글(속보형은 검색에 걸린 글) · joined 다른 채널과 묶인 글 · hit 혼자 쓴 글 가운데
-                           첫머리의 첫 숫자가 바로 곁의 A·B급 낱말과 짝지어진 글(줄은 그중 5개까지 — 한 곳만 쓴 숫자다).
-                           solo는 개인 원천 채널, wire는 속보형 채널
+                           줄이 될 수 있었던 글(줄은 그중 5개까지). 줄의 숫자는 첫머리의 첫 숫자가 바로 곁의 A·B급 낱말과 짝지어질
+                           때만 붙는다 — 한 곳만 쓴 숫자다. solo는 개인 원천 채널, wire는 속보형 채널
                   at       글을 올린 시각(ISO). 화면이 보기 좋게 줄인다
     digest_index.json   {schema, updated_at, latest, editions[{date,status,must,rest,posts,channels_ok,channels_total,collected_at}]} 최신순
     digest_state.json   {schema, edition, base} — 판 기록 {date, window, collected_at, empty_streak, must[{id,keys[],c}],
@@ -100,6 +101,50 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
     calendar.json       {schema, updated, events[{date, term(사전 낱말), tier(A·B), time?(HH:MM KST), detail?[]}]}
     digest_overrides.json {schema, withdraw, hide_ids[], hide_channels[]} — 화면(site/evening.js)도 읽는다: 든 것을 감추고,
                          withdraw면 판 전체를 감춘다(조립은 다음 실행부터 빼고 만든다 — 숨긴 자리를 다른 묶음으로 채우지 않는다)
+
+더 자세히 — 2026-10-08 저녁에 더한 칸 (읽을거리를 늘리되 채널 글의 글자는 여전히 0자다)
+  schema는 1 그대로이고 새 칸은 모두 '없어도 되는 칸'이다 — 10-08에 이미 나간 판(digest.json · digest/2026-10-08.json)과 상태 기록에는
+  이 칸들이 없다. 화면은 칸이 있을 때만 그린다. 새 문자열은 전부 닫힌 값이다: 사전 낱말 · 길이 구간 이름(R.SIZES) · 시각 · 날짜 ·
+  우리가 쓴 풀이(R.GLOSS의 것과 글자까지 같을 때만) · 공식 주소(R.OFFICIAL_URLS의 것과 글자까지 같을 때만).
+  낱말 목록은 글에 나온 순서로 나가지 않는다 — 곳 수 ↓ → 등급 → (넓은 낱말 R.WIDE는 뒤) → 가나다(R.by_count), 곳 수가 없는 목록은
+  등급 → (넓은 낱말은 뒤) → 가나다(R.by_grade). 이 순서가 아니면 형식 검사에서 떨어진다(낱말을 늘어놓은 것이 글의 요약 문장처럼
+  읽히지 않게). 좁은 낱말이 곁에 있는 넓은 낱말('연준 의사록' 곁의 '연준', 'AI Capex' 곁의 'AI')은 싣지 않는다(R.narrow).
+    must · rest 항목
+      words  [{term, n_ch}]   함께 나온 낱말 — 그 묶음의 보이는 원천 글 가운데 '직접 쓴' 글 전체(첫머리만이 아니다)에서 걸린 사전
+                              낱말과 그 낱말을 쓴 원천 채널 수. 전달 글은 세지 않는다 — 전달 글뿐인 묶음에는 칸이 없다.
+                              여러 채널이 든 묶음은 두 곳 이상이 쓴 낱말만, 한 채널뿐인 묶음은 그 글의 낱말(모두 1곳).
+                              항목의 낱말(terms)은 되풀이하지 않는다 — terms와 겹치면 형식 검사에서 떨어진다. must 16개 · rest 4개까지.
+                              비면 칸이 없다.  예(terms가 연준 의사록 · 금리일 때): [{"term":"인플레","n_ch":4},{"term":"관세","n_ch":3}]
+      span   {from, to, posts} 그 묶음의 보이는 글 가운데 첫 글·마지막 글의 시각(ISO)과 글 수(속보형·주제 한정 채널의 글, 전달 글도
+                              센다 — 그래서 coverage의 채널들이 '쓴' 시각 범위가 아니라 '묶인 글'의 범위다. 화면도 그렇게 적는다)
+      prev   {date, bond, analyst, personal}  직전 판(date)에 같은 대표 낱말(terms[0])을 단 항목이 있었으면 그때 센 채널 수.
+                              대표 낱말이 A·B급일 때만 붙는다(흔한 C급 낱말은 날마다 다른 묶음의 대표가 된다). 같은 낱말일 뿐
+                              같은 묶음이라는 뜻이 아니다 — 화면은 "대표 낱말이 직전 판에도 있었습니다"라고만 쓴다
+      links[] 에 더해   more [낱말]  이 글에만 더 있는 낱말 — 그 링크의 글에서 걸렸지만 항목의 terms · words에 없고 두 곳 이상이
+                              함께 쓴 낱말도 아닌 것(must 4개 · rest 2개까지, 등급 → 가나다). 비면 칸이 없다
+                        n_terms 정수  그 글에서 걸린 사전 낱말 수(TH member_terms_max까지 센다) — 어느 글이 넓게 다뤘는지
+                        size  "짧음"·"보통"·"김"  그 글의 길이 구간(TH size_short자 미만 · 그 사이 · size_long자 이상)
+                        pic   true    그림·영상·파일이 붙은 글일 때만 싣는다(없으면 붙은 것이 없거나 모르는 것)
+    wire · solo의 rows   v가 null일 수 있다(숫자 없는 줄). 줄이 되는 글 = 혼자 쓴 글 가운데 첫 두 줄(TH row_head_chars자까지)에
+                        A·B급 낱말이 있는 글, 또는 첫 두 줄에 C급 낱말뿐이어도 그 글의 낱말이 둘 이상인 글.
+                        숫자(v)는 예전 규칙대로 첫머리의 첫 숫자가 바로 곁의 A·B급 낱말과 짝지어질 때만이고, 그때 term은 그 짝이다.
+                        숫자 없는 줄의 term = 그 글의 낱말 가운데 등급이 가장 높은 것(R.by_grade의 맨 앞 — 첫 두 줄의 낱말이 흔한
+                        C급이어도 더 높은 등급이 덧낱말 뒤에 묻히지 않게. 글의 주제라는 뜻은 아니다). result는 v가 있을 때만 싣는다.
+                        채널당 5줄은 A급 → B급 → C급, 숫자 있는 줄, 이른 글 순으로 고르고 시각순으로 싣는다.
+                        + more [낱말 2개까지] · n_terms · size · pic (links와 같은 뜻)
+    gloss  [{term, text, url|null}]  이 판에 나온 사전 낱말(S.shown_terms) 가운데 풀이가 있는 것 — 한 번씩, 사전에 실린 순서로.
+                        text = 우리가 쓴 한 줄 풀이(60자 안쪽), url = 공공 기관의 쪽(없으면 null — digest_gloss.py 머리말).
+                        조립은 R.glosses(S.shown_terms(판))을 싣고, 판이 크기 상한에 걸리면 꼭 볼 것·머리 줄·일정의 낱말 것만 남기거나
+                        비운다. 검사는 풀이마다 그 낱말의 것(R.gloss_of)과 글자까지 같은지 · 겹치지 않는지 · 순서 · 그 낱말이 이 판에
+                        나왔는지를 본다('빠짐없이'는 묻지 않는다 — 크기 때문에 덜어 낸 판이 떨어지지 않게)
+    notes에 더해        "크기 상한에 맞추려고 낱말 풀이나 단독 줄을 줄였습니다"(note_slim) — 풀이·단독 줄을 덜어 낸 판에 붙는다
+    digest_state.json의 판 기록   topics [{key, bond, analyst, personal}] — 이 판 항목들의 A·B급 대표 낱말마다 낱말 id
+                        (key_of("k", "w|낱말")의 해시)와 그때 센 채널 수. 다음 판의 prev가 이것을 읽는다(낱말 글자는 두지 않는다 —
+                        사전을 고쳐도 상태가 안 깨진다)
+  <work> 안: post에 pic(그림·영상·파일이 붙음 — 본문이 있어도 참)이 붙고, 묶음의 글에 size · pic · head(첫 두 줄 안의 낱말)가 붙는다.
+  글의 terms는 TH member_terms_max개까지(자리순), row의 v는 null일 수 있다.
+  싣지 않기로 한 것: '짝 없이 두 곳 이상이 똑같이 쓴 숫자' 칸 — 10-08 저장분에서 원천 2곳 이상인 묶음 3개에 1개뿐이었고(작은 % 하나),
+  무엇의 숫자인지 말할 수 없어 읽는 사람이 뜻을 지어내게 된다. 숫자 칸(nums)은 낱말과 짝지어진 것만 싣는 그대로다.
 """
 import datetime
 import re
@@ -108,7 +153,7 @@ import digest_rules as R
 from digest_base import (     # 밑바탕(digest_base.py)의 것도 이 모듈에서 그대로 꺼내 쓴다 — 여기서 안 쓰는 이름도 일부러 들여온다
     SCHEMA, TH, KST, REPO, DATA, WORK, HANDLE_RE, URL_RE, ID_RE, KEY_KINDS, KEY_RE, SHA_RE, ISO_RE, DATE_RE, HHMM_RE, PAGE_FILE_RE,
     MAX_POST, MAX_TEXT, MAX_URL, FIELDS, WORDS, iso, parse_iso, edition_date, collect_window, state_base, next_state, in_window,
-    rate_fits, post_url, item_id, key_of, primary_key, title_sha, page_title, seed_of, pick_links, coverage_verdict, is_closed,
+    rate_fits, post_url, item_id, key_of, topic_key, primary_key, title_sha, page_title, seed_of, pick_links, coverage_verdict, is_closed,
     closed_violations, dump, read_json, write_json, report, run_cli,
     _fail, _obj, _arr, _map, _enum, _re, _int, _num, _is, _null, _bool, _text, _iso, _date, _phrase, _detail, _label, _unique)
 
@@ -146,7 +191,7 @@ _DOC = {"schema": _one, "edition": _date, "window": _window, "collected_at": _is
 _post = _obj({"ch": _handle, "id": _postid, "at": _iso, "text": _text(MAX_TEXT), "links": _arr(_text(MAX_URL), 50),
               "fwd": _null(_obj({"ch": _null(_handle), "id": _null(_postid)})),
               "card": _null(_obj({"title": _text(500), "site": _text(200), "url": _text(MAX_URL)})),
-              "reply": _bool, "media": _bool, "via": _enum("page", "search")})
+              "reply": _bool, "media": _bool, "via": _enum("page", "search")}, {"pic": _bool})
 _posts_doc = _obj({**_DOC, "posts": _arr(_post, 5_000)})
 _chan = {"ch": _handle, "ok": _bool, "code": _enum(*CH_CODES), "posts": _count, "with_text": _count, "in_window": _count,
          "fail_streak": _streak}
@@ -160,10 +205,12 @@ _manifest = _obj({"schema": _one, "now": _iso, "pages": _arr(_obj({
 
 _cell = _obj({"factor": _enum(*R.FACTORS), "region": _enum(*R.REGIONS)})
 _numrow = _obj({"term": _term, "result": _null(_result), "v": _numv, "n_ch": _int(2, 99)})
+_size = _enum(*R.SIZES)
 _mention = _obj({"ch": _handle, "id": _postid, "at": _iso, "group": _group, "role": _role, "fwd": _bool,
-                 "terms": _arr(_term, 12), "lead": _arr(_term, 12), "results": _arr(_result, len(R.RESULT_WORDS)),
+                 "terms": _arr(_term, TH["member_terms_max"]), "lead": _arr(_term, 12), "results": _arr(_result, len(R.RESULT_WORDS)),
                  "nums": _arr(_numv, 12), "lead_nums": _arr(_numv, 12)},
-                {"row": _null(_obj({"term": _term, "v": _numv}))})
+                {"row": _null(_obj({"term": _term, "v": _null(_numv)})), "size": _size, "pic": _bool,
+                 "head": _arr(_term, TH["member_terms_max"])})
 _CLUSTER = {"seed": _obj({"ch": _handle, "id": _postid}), "key": _key, "keys": _arr(_key, 60, 1), "first_at": _iso, "last_at": _iso,
             "cell": _null(_cell), "terms": _arr(_obj({"term": _term, "n_ch": _int(1, 99)}), 12),
             "results": _arr(_obj({"result": _result, "n_ch": _int(1, 99)}), len(R.RESULT_WORDS)),
@@ -188,22 +235,52 @@ _scored = _obj({**_CLUSTER, "coverage": _coverage, "score": _score, "why": _arr(
                 "rank": _null(_int(1, TH["must_max"]))})
 _scored_doc = _obj({**_DOC, "stats": _stats, "head": _head, "tomorrow": _tomorrow, "clusters": _arr(_scored, 5_000)})
 
-_link = _obj({"ch": _handle, "url": _url, "at": _iso, "fwd": _bool})
+_LINK = {"ch": _handle, "url": _url, "at": _iso, "fwd": _bool}
 _ITEM = {"id": _itemid, "key": _key, "cell": _cell, "coverage": _coverage}
+
+
+def _link_more(n):
+    """더 자세히(없어도 되는 칸) — 링크·줄에 붙는 덧낱말 n개까지 · 길이 구간 · 붙은 것 · 그 글의 사전 낱말 수."""
+    return {"more": _arr(_term, n, 1), "size": _size, "pic": _is(True), "n_terms": _int(0, TH["member_terms_max"])}
+
+
+def _item_more(n):
+    """더 자세히(없어도 되는 칸) — 항목에 붙는 함께 나온 낱말 n개까지 · 첫 글~마지막 글 · 직전 판의 채널 수."""
+    return {"words": _arr(_obj({"term": _term, "n_ch": _int(1, 99)}), n, 1),
+            "span": _obj({"from": _iso, "to": _iso, "posts": _int(1, TH["cluster_max_posts"])}),
+            "prev": _obj({"date": _date, **{g: _int(0, 99) for g in R.GROUPS}})}
+
+
 _must = _obj({**_ITEM, "terms": _arr(_term, TH["terms_max"], 1), "nums": _arr(_numrow, TH["nums_max"]), "score": _score,
-              "why": _arr(_phrase, TH["why_max"]), "links": _arr(_link, TH["links_max"], 1)})
+              "why": _arr(_phrase, TH["why_max"]), "links": _arr(_obj(_LINK, _link_more(TH["more_max"])), TH["links_max"], 1)},
+             _item_more(TH["words_max"]))
 _rest_item = _obj({**_ITEM, "terms": _arr(_term, TH["rest_terms_max"]), "nums": _arr(_numrow, TH["rest_nums_max"]),
-                   "s": _num(-10, TH["s_max"]), "links": _arr(_link, TH["rest_links_max"], 1)})
+                   "s": _num(-10, TH["s_max"]), "links": _arr(_obj(_LINK, _link_more(TH["rest_more_max"])), TH["rest_links_max"], 1)},
+                  _item_more(TH["rest_words_max"]))
 _side = _obj({"channels": _arr(_obj({"ch": _handle, "read": _count, "joined": _count, "hit": _count}), 50),
-              "rows": _arr(_obj({"ch": _handle, "term": _term, "result": _null(_result), "v": _numv, "at": _iso, "url": _url}), 250)})
+              "rows": _arr(_obj({"ch": _handle, "term": _term, "result": _null(_result), "v": _null(_numv), "at": _iso, "url": _url},
+                                _link_more(TH["row_more_max"])), 250)})
+
+
+def _gloss_text(v, path):
+    if not (isinstance(v, str) and v in R.GLOSS_TEXTS):
+        _fail(path, "규칙에 적힌 풀이가 아님")
+
+
+def _gloss_url(v, path):
+    if not (isinstance(v, str) and v in R.OFFICIAL_URLS):
+        _fail(path, "규칙에 적힌 공식 주소가 아님")
+
+
+_gloss = _arr(_obj({"term": _term, "text": _gloss_text, "url": _null(_gloss_url)}), len(R.GLOSS))
 _digest = _obj({
     "schema": _one, "date": _date, "mode": _enum("rules"), "status": _enum(*STATUSES), "window": _window, "collected_at": _iso,
     "funnel": _obj({k: _count for k in ("posts", "clusters", "candidates", "must", "truncated")}),
     "sources": _obj({"channels_ok": _int(0, 100), "channels_total": _int(0, 100)}),
-    "head": _head, "notes": _arr(_phrase, 6), "must": _arr(_must, TH["must_max"]),
+    "head": _head, "notes": _arr(_phrase, 7), "must": _arr(_must, TH["must_max"]),
     "rest": _arr(_obj({"cell": _enum(*R.CELLS), "items": _arr(_rest_item, TH["rest_max"], 1)}), len(R.CELLS)),
     "wire": _side, "solo": _side, "context": _arr(_obj({"ch": _handle, "at": _iso, "url": _url}), TH["context_max"]),
-    "tomorrow": _tomorrow, "youtube": _obj({"enabled": _is(False), "rows": _arr(_bool, 0)})})
+    "tomorrow": _tomorrow, "youtube": _obj({"enabled": _is(False), "rows": _arr(_bool, 0)})}, {"gloss": _gloss})
 
 _index = _obj({"schema": _one, "updated_at": _iso, "latest": _null(_date), "editions": _arr(_obj({
     "date": _date, "status": _enum(*STATUSES), "must": _int(0, KEPT_MUST), "rest": _int(0, KEPT_REST), "posts": _count,
@@ -211,7 +288,7 @@ _index = _obj({"schema": _one, "updated_at": _iso, "latest": _null(_date), "edit
 _snap = _obj({"date": _date, "window": _window, "collected_at": _iso, "empty_streak": _streak,
               "must": _arr(_obj({"id": _itemid, "keys": _arr(_key, 60, 1), "c": _num(0, KEPT_C)}), KEPT_MUST),
               "channels": _map(_obj({"last_post": _null(_postid), "last_at": _null(_iso), "fail_streak": _streak}), 100)},
-             {"read_to": _iso})
+             {"read_to": _iso, "topics": _arr(_obj({"key": _key, **{g: _int(0, 99) for g in R.GROUPS}}), TH["topics_max"])})
 _state = _obj({"schema": _one, "edition": _null(_snap), "base": _null(_snap)})
 _status = _obj({"schema": _one, "checked_at": _iso, "ok": _bool, "reason": _enum(*REASONS), "edition": _null(_date), "published": _bool,
                 "last_success": _null(_obj({"date": _date, "at": _iso})), "empty_streak": _streak,
@@ -238,6 +315,20 @@ def blank_digest(now):
             "notes": [R.phrase("note_withdrawn")], "must": [], "rest": [],
             "wire": {"channels": [], "rows": []}, "solo": {"channels": [], "rows": []}, "context": [], "tomorrow": [],
             "youtube": {"enabled": False, "rows": []}}
+
+
+def shown_terms(d):
+    """판에 나온 사전 낱말 전부 — 머리 줄의 주제 · 항목의 낱말과 함께 나온 낱말 · 링크별 덧낱말 · 숫자의 짝 · 단독 줄 · 일정.
+    풀이 칸(gloss)은 이 낱말들로만 만든다."""
+    out = set(d["head"]["top_terms"]) | {e["term"] for e in d["tomorrow"]}
+    for x in d["must"] + [x for g in d["rest"] for x in g["items"]]:
+        out.update(x["terms"], (n["term"] for n in x["nums"]), (w["term"] for w in x.get("words", ())))
+        for ln in x["links"]:
+            out.update(ln.get("more", ()))
+    for side in ("wire", "solo"):
+        for r in d[side]["rows"]:
+            out.update((r["term"], *r.get("more", ())))
+    return out
 
 
 def handles_of(sources, roles=None):
@@ -321,9 +412,14 @@ def _check_cluster(c, path, span):
     for i, m in enumerate(ms):
         if not set(m["lead"]) <= set(m["terms"]) or not set(m["lead_nums"]) <= set(m["nums"]):
             _fail(f"{path}.members[{i}]", "첫머리 낱말·숫자가 그 글의 낱말·숫자에 없음")
+        head = m.get("head", m["lead"])
+        if not set(m["lead"]) <= set(head) <= set(m["terms"]):
+            _fail(f"{path}.members[{i}].head", "첫 두 줄의 낱말이 첫머리 낱말을 품지 않거나 그 글의 낱말에 없음")
         row = m.get("row")
-        if row and not (row["term"] in m["lead"] and row["v"] in m["lead_nums"] and R.grade_of(row["term"]) in ("A", "B")):
-            _fail(f"{path}.members[{i}].row", "줄의 짝이 그 글 첫머리의 A·B급 낱말·숫자가 아님")
+        graded = row and (R.grade_of(row["term"]) in ("A", "B") or (row["v"] is None and len(m["terms"]) > 1))
+        paired = row and (row["term"] in head if row["v"] is None else row["term"] in m["lead"] and row["v"] in m["lead_nums"])
+        if row and not (graded and paired):
+            _fail(f"{path}.members[{i}].row", "줄의 짝이 그 글 첫머리의 낱말·숫자가 아니거나 등급 규칙에 어긋남")
         if span:
             _inside(m["at"], span, f"{path}.members[{i}].at")
     if any(x["n_ch"] > chans for x in c["terms"] + c["results"] + c["nums"]):
@@ -403,12 +499,39 @@ def _check_links(item, path, date, span, roles):
         if URL_RE.match(x["url"]).group("ch") != x["ch"]:
             _fail(f"{path}.links[{i}]", "주소의 채널이 ch와 다름")
         _inside(x["at"], span, f"{path}.links[{i}].at")
+    _check_more(item, path, date, span)
     if roles is not None:
         got = [roles.get(x["ch"]) for x in item["links"]]
         rank = [(x["fwd"], R.GROUP_ORDER.index(g[0])) for x, g in zip(item["links"], got) if g]
         if any(g is None or g[1] != "source" for g in got) or rank != sorted(rank) \
                 or sum(g[0] == "personal" for g in got) > TH["links_personal_max"]:
             _fail(f"{path}.links", "링크 규칙(원천 채널만 · 전달 아닌 글 → 채권 → 애널 → 개인 · 개인 2개까지)에 어긋남")
+
+
+def _check_more(item, path, date, span):
+    """더 자세히 칸 — 낱말 목록의 순서(곳 수 ↓ → 등급 → 가나다, 글에 나온 순서가 아니다) · 함께 나온 낱말이 항목의 낱말을 되풀이하지
+    않는가 · 덧낱말이 항목의 낱말과 겹치지 않는가 · 첫 글~마지막 글이 창 안이고 링크의 시각을 품는가 · 직전 판의 날짜가 이 판보다
+    앞이고 대표 낱말이 A·B급인가."""
+    words = item.get("words", [])
+    counts = {w["term"]: w["n_ch"] for w in words}
+    if [(w["term"], w["n_ch"]) for w in words] != R.by_count(counts) or len(counts) != len(words) or set(counts) & set(item["terms"]) \
+            or (words and min(counts.values()) < 2 and max(counts.values()) > 1):
+        _fail(f"{path}.words", "함께 나온 낱말의 순서(곳 수 → 등급 → 가나다)가 다르거나 겹치거나 항목의 낱말을 되풀이하거나 곳 수가 규칙과 다름")
+    shown = set(item["terms"]) | set(counts)
+    for i, x in enumerate(item["links"]):
+        more = x.get("more", [])
+        if more != R.by_grade(more) or shown & set(more):
+            _fail(f"{path}.links[{i}].more", "덧낱말의 순서(등급 → 가나다)가 다르거나 항목의 낱말과 겹침")
+        if x.get("n_terms", len(more)) < len(more):
+            _fail(f"{path}.links[{i}].n_terms", "그 글의 낱말 수가 덧낱말보다 적음")
+    sp = item.get("span")
+    if sp:
+        _inside(sp["from"], span, f"{path}.span.from")
+        _inside(sp["to"], span, f"{path}.span.to")
+        if sp["from"] > sp["to"] or any(not sp["from"] <= x["at"] <= sp["to"] for x in item["links"]) or sp["posts"] < len(item["links"]):
+            _fail(f"{path}.span", "첫 글·마지막 글의 시각이 뒤집혔거나 링크의 글을 품지 않음")
+    if item.get("prev") and not (item["terms"] and R.grade_of(item["terms"][0]) in ("A", "B") and item["prev"]["date"] < date):
+        _fail(f"{path}.prev", "직전 판의 날짜가 이 판보다 앞이 아니거나 대표 낱말이 없거나 A·B급이 아님")
 
 
 def _check_side(side, path, span, roles, want):
@@ -420,6 +543,13 @@ def _check_side(side, path, span, roles, want):
         if r["ch"] not in names or URL_RE.match(r["url"]).group("ch") != r["ch"]:
             _fail(f"{path}.rows[{i}]", "줄의 채널이 channels에 없거나 주소와 다름")
         _inside(r["at"], span, f"{path}.rows[{i}].at")
+        more = r.get("more", [])
+        if more != R.by_grade(more) or r["term"] in more or (r["v"] is None and r["result"] is not None):
+            _fail(f"{path}.rows[{i}]", "덧낱말의 순서(등급 → 가나다)가 다르거나 줄의 낱말과 겹치거나, 숫자 없는 줄에 결과 낱말이 있음")
+        if r["v"] is None and R.grade_of(r["term"]) == "C" and not more and r.get("n_terms", 1) < 2:
+            _fail(f"{path}.rows[{i}]", "C급 낱말 하나뿐인 글은 줄이 될 수 없음")
+        if r.get("n_terms", 1 + len(more)) < 1 + len(more):
+            _fail(f"{path}.rows[{i}].n_terms", "그 글의 낱말 수가 줄에 실린 낱말보다 적음")
     if any(sum(r["ch"] == n for r in side["rows"]) > TH["rows_per_channel"] for n in names):
         _fail(f"{path}.rows", "채널당 줄 수가 상한을 넘음")
     if roles is not None and any(roles.get(n) not in want for n in names):
@@ -465,6 +595,9 @@ def validate_digest(d, sources=None):
     for i, x in enumerate(d["context"]):
         if URL_RE.match(x["url"]).group("ch") != x["ch"] or (roles is not None and (roles.get(x["ch"]) or ("", ""))[1] != "context"):
             _fail(f"digest.context[{i}]", "주소의 채널이 ch와 다르거나 참고 채널이 아님")
+    gloss = d.get("gloss", [])
+    if gloss != R.glosses(x["term"] for x in gloss) or not {x["term"] for x in gloss} <= shown_terms(d):
+        _fail("digest.gloss", "풀이가 그 낱말의 것이 아니거나 겹치거나 사전에 실린 순서가 아니거나 이 판에 나오지 않은 낱말의 것임")
     if len(dump(d).encode("utf-8")) > TH["bytes_max"]:
         _fail("digest", "판이 크기 상한을 넘음")
     return d
@@ -488,6 +621,8 @@ def validate_state(d):
             _fail(f"state.{name}", "창이 뒤집혔거나 판 날짜와 맞지 않음")
         if s and s.get("read_to", "") > s["window"]["to"]:
             _fail(f"state.{name}.read_to", "제대로 읽은 곳이 창의 끝보다 뒤")
+        if s and [t["key"] for t in s.get("topics", [])] != sorted({t["key"] for t in s.get("topics", [])}):
+            _fail(f"state.{name}.topics", "대표 낱말 id가 겹치거나 글자순이 아님")
     return d
 
 

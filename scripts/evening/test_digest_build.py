@@ -149,7 +149,7 @@ class SampleTest(BuildCase):
         code, text = self.build()
         blob = b"".join(self.raw(n) for n in FILES).decode("utf-8")
         self.assertEqual(F.leaks(blob + text), [])
-        self.assertRegex(text, r"^\[digest_build\] edition=2026-10-08 status=ok reason=ok must=3 rest=4 wire=5 solo=2 "
+        self.assertRegex(text, r"^\[digest_build\] edition=2026-10-08 status=ok reason=ok must=3 rest=4 wire=5 solo=3 "
                                r"truncated=0 dropped=0 bytes=\d+ code=0\n$")
         self.assertLess(len(self.raw("digest.json")), C.EDITION_BYTES)
 
@@ -276,7 +276,7 @@ class OverridesTest(BuildCase):
         self.assertEqual(d["must"][0]["links"][0]["ch"], "fxbond2")
         self.assertNotIn("20261008-fxbond1-502", rest_ids(d))                  # 그 채널 혼자 쓴 글은 항목째 빠진다
         self.assertEqual(([c["ch"] for c in d["wire"]["channels"]], d["wire"]["rows"], d["context"]), (["fxwire2"], [], []))
-        self.assertEqual([r["ch"] for r in d["solo"]["rows"]], ["fxpers7"])
+        self.assertEqual([r["ch"] for r in d["solo"]["rows"]], ["fxpers8", "fxpers7"])
         self.passes_check()
 
     def test_withdraw_puts_out_an_empty_edition(self):
@@ -331,20 +331,20 @@ class SizeTest(BuildCase):
         self.assertIn(R.phrase("note_truncated", n=19), d["notes"])
         self.assertEqual(rest_ids(d)[:1] + rest_ids(d)[-1:], ["20261008-fxanal4-905", "20261008-fxbond1-28502"])   # 점수 높은 것부터
         self.assertFalse({"20261008-fxpers5-610", "20261008-fxbond3-89"} & set(rest_ids(d)))      # 점수가 낮은 줄, 같으면 늦은 글부터 잘린다
-        self.assertLessEqual(len(self.raw("digest.json")), 20_000)
+        self.assertLessEqual(len(self.raw("digest.json")), C.EDITION_BYTES)
         self.passes_check(raw=False)
 
-    def test_twenty_kilobytes_binds_on_a_heavy_day(self):
-        """링크 둘이 붙은 줄이 30개면 20KB를 조금 넘는다 — 진짜 상한에서도 점수가 낮은 줄부터 줄여 맞춘다."""
+    def test_a_heavy_day_fits_the_real_limit(self):
+        """링크 둘 · 낱말 · 덧낱말 · 시각이 붙은 줄이 30개면 30KB쯤이다(예전 상한 20KB로는 열 줄쯤 잘렸다) — 지금 상한 36KB에서는
+        30줄이 다 실린다. 상한에 걸릴 때 점수가 낮은 줄부터 줄이는 것은 test_edition_is_trimmed_to_the_byte_limit가 본다."""
         scored, collect = with_heavy_rows(fx("scored_doc"), fx("collect_status"), 40)
         self.given(scored=scored, collect=collect)
         code, text = self.build()
         d = self.doc("digest.json")
         self.assertEqual(code, 0, text)
-        self.assertLessEqual(len(self.raw("digest.json")), 20_000)
-        self.assertTrue(20 < len(rest_ids(d)) < 30, len(rest_ids(d)))
-        self.assertEqual(d["funnel"]["truncated"], 44 - len(rest_ids(d)))
-        self.assertIn(R.phrase("note_truncated", n=d["funnel"]["truncated"]), d["notes"])
+        self.assertTrue(20_000 < len(self.raw("digest.json")) <= C.EDITION_BYTES, len(self.raw("digest.json")))
+        self.assertEqual((len(rest_ids(d)), d["funnel"]["truncated"]), (30, 14))     # 줄인 것은 30줄 상한 때문뿐이다
+        self.assertIn(R.phrase("note_truncated", n=14), d["notes"])
         self.assertEqual(len(d["solo"]["channels"]), 8)                         # 줄이는 것은 나머지 표뿐이다
         self.passes_check(raw=False)
 
@@ -485,7 +485,8 @@ class RowTest(unittest.TestCase):
         rows = {(r["ch"], r["term"], r["v"]) for side in ("wire", "solo") for r in fx("digest")[side]["rows"]}
         self.assertIn(("fxwire1", "미 PPI", "0.2%"), rows)
         self.assertIn(("fxpers6", "국고채 발행계획", "12.5조원"), rows)
-        self.assertTrue(all(R.solo_num_ok(v) for _, _, v in rows))
+        self.assertIn(("fxpers8", "한은 발언", None), rows)                    # 숫자 없는 줄(2026-10-08 저녁 — 낱말만)
+        self.assertTrue(all(v is None or R.solo_num_ok(v) for _, _, v in rows))
 
 
 class TakedownTest(BuildCase):

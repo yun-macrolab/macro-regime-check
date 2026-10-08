@@ -366,7 +366,7 @@ class ShapesTest(unittest.TestCase):
         self.refuse(S.validate_clusters_doc, d)
         self.refuse(S.validate_clusters_doc, {**doc, "stats": {**doc["stats"], "kept": doc["stats"]["kept"] + 1}})
         self.refuse(S.validate_clusters_doc, {**doc, "clusters": doc["clusters"][1:]})
-        self.assertEqual(doc["stats"], {"posts": 40, "kept": 35, "dropped": {"empty": 1, "short": 1, "ad": 1, "coin": 1, "filing": 1}})
+        self.assertEqual(doc["stats"], {"posts": 41, "kept": 36, "dropped": {"empty": 1, "short": 1, "ad": 1, "coin": 1, "filing": 1}})
 
     def test_scored_doc_rules(self):
         doc = F.scored_doc()

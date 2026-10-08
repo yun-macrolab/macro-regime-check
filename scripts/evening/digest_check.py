@@ -4,10 +4,16 @@
 수집 잡에서 조립 직후 한 번(--raw: 원문과도 대조), 게시 잡에서 원문 없이 한 번 더 돈다. 읽기만 하고 아무것도 쓰지 않는다.
 가장 중요한 검사는 닫힌 글자다: 공개 JSON의 모든 문자열과 칸 이름이 사전 낱말 · 출처 목록의 채널 이름 · 고정 문구 ·
 숫자+허용 단위 · 시각 · https://t.me/<목록의 채널>/<글 번호>로 다시 조립돼야 한다(S.closed_violations). 원문 없이도 돈다.
+2026-10-08 저녁에 더한 칸도 같다: 길이 구간 이름 · 낱말 풀이와 공식 주소(규칙에 적힌 것과 글자까지 같을 때만, 그 낱말의 것이고
+그 낱말이 이 판에 나왔을 때만).
+새로 더한 낱말 목록(함께 나온 낱말 words · 링크와 줄의 덧낱말 more)이 글에 나온 순서대로 놓여 있으면 형식(shape)에서 떨어진다 —
+곳 수 → 등급 → 가나다 순만 받는다. 항목의 낱말(terms)과 머리 줄의 주제(top_terms)의 순서는 여기서 보지 않는다(묶기·점수 단계가
+채널 수·등급으로 세운 순서 그대로 나온다 — 글에 나온 순서가 아니다).
 '원문과 8자 이상 겹치지 않는다'는 검사는 두지 않는다 — 8자짜리 사전 낱말에 스스로 걸리고, 닫힌 글자가 더 강한 조건이다(설계 12절).
 
 무엇이 걸리면 어떻게 되나 (설계 8절 — 위반마다 scope를 붙인다)
-  link     허용되지 않은 주소(url) · 원천이 아닌 채널의 링크(role) · --raw: 수집되지 않은 글(unseen)        → 그 링크만 뺀다
+  link     허용되지 않은 주소(url) · 원천이 아닌 채널의 링크(role) · --raw: 수집되지 않은 글(unseen) · 그 글에 없는 덧낱말,
+           그 글과 다른 길이 구간·그림 표시(mismatch)                                                    → 그 링크만 뺀다
   row      속보형·개인 단독 줄과 참고 줄의 같은 문제 · 닫히지 않은 글자(open) · --raw: 그 글에 없는 낱말·숫자(mismatch) → 그 줄만 뺀다
   item     항목 안의 닫히지 않은 글자(open, --raw로 원문과 8자 이상 겹치면 leak) · 링크가 남지 않은 항목(empty)   → 그 항목만 뺀다
   rate     금리가 0~20 밖 · 자료일이나 방향 칸이 수집 창과 맞지 않음(rate)                                 → 그 금리 칸을 비운다
@@ -38,7 +44,12 @@ import digest_rules as R
 import digest_schema as S
 
 TH = S.TH
-EDITION_BYTES = 20_000                  # 판 하나(digest.json)의 크기 상한 — 조립이 나머지 표를 줄여 맞춘다. 계약의 상한(TH bytes_max)보다 좁다
+# 판 하나(digest.json)의 크기 상한 — 조립이 나머지 표를 줄여 맞춘다. 계약의 상한(TH bytes_max)보다 좁다.
+# 2026-10-08 저녁에 20KB → 36KB: 항목마다 함께 나온 낱말·링크별 덧낱말·시각이 붙고 판 끝에 낱말 풀이가 실린다
+# (첫 판의 저장분으로 다시 만든 판이 8.9KB → 20KB 남짓 — 꼭 볼 것 1건 · 나머지 18줄 · 단독 줄 14개 · 풀이 서른 개 남짓.
+# 꼭 볼 것 3건 · 나머지 30줄 · 단독 줄 50개 · 풀이 70개가 모두 찬 날은 어림으로 40KB를 넘는다. 그때는 조립이 덜 아까운 것부터
+# 덜어 낸다: 나머지·단독 줄에만 나온 낱말의 풀이 → 단독 줄 → 나머지 표 → 남은 풀이(digest_build.SLIM))
+EDITION_BYTES = 36_000
 SERIES = {"kr10": "kr", "kr3": "kr", "us10": "us"}
 SOURCE = tuple((g, "source") for g in R.GROUPS)                    # 항목의 링크로 나갈 수 있는 채널
 SIDES = {"wire": tuple((g, "wire") for g in R.GROUPS), "solo": (("personal", "source"),)}
@@ -202,6 +213,9 @@ def prune(d, sources, file="digest.json"):
     head = head_line(d["head"], d["window"])
     found += bad + [_f(file, f"$.head.{k}", "rate", "rate") for k in head if head[k] != d["head"].get(k)]
     out = {**d, "funnel": {**d["funnel"], "must": len(must)}, "head": head, "must": must, "rest": rest, **sides, "context": context}
+    if "gloss" in d:                                   # 뺀 링크·줄에만 있던 낱말의 풀이는 함께 뺀다(풀이 칸이 덩달아 걸리지 않게)
+        shown = S.shown_terms(out)
+        out["gloss"] = [g for g in d["gloss"] if not isinstance(g, dict) or g.get("term") in shown]
     return out, found
 
 
@@ -215,8 +229,10 @@ def check_edition(d, sources, file="digest.json"):
     try:
         pruned, found = prune(d, sources, file)
         size = len(S.dump(d).encode("utf-8"))
+        stray = [g for g in d.get("gloss", []) if isinstance(g, dict) and g.get("term") not in S.shown_terms(d)]
     except (AttributeError, IndexError, KeyError, TypeError, ValueError):
         return [_f(file, "$", "shape")]
+    found += [_f(file, "digest.gloss", "shape")] if stray else []      # 이 판에 나오지 않은 낱말의 풀이
     try:
         S.validate_digest(pruned, sources)
     except ValueError as e:
@@ -300,7 +316,7 @@ def _cross(docs, raws):
     if any(n not in docs for n in (*S.PUBLIC_FILES, day)):
         return []                                      # 형식에서 이미 걸린 파일이 있다
     d, idx, ed = docs["digest.json"], docs["digest_index.json"], docs["digest_state.json"]["edition"]
-    out = []
+    out = _prev_found(d, docs["digest_state.json"]["base"])
     if raws[day] != raws["digest.json"] or d["date"] != st["edition"]:
         out.append(_f(day, "$", "cross"))
     if next((e for e in idx["editions"] if e["date"] == d["date"]), None) != index_row(d):
@@ -311,6 +327,15 @@ def _cross(docs, raws):
         same = bool(ed) and (ed["date"], ed["window"], ed["collected_at"], [m["id"] for m in ed["must"]]) == \
             (d["date"], d["window"], d["collected_at"], [x["id"] for x in d["must"]])
     return out + ([] if same else [_f("digest_state.json", "$.edition", "cross")])
+
+
+def _prev_found(d, base):
+    """항목의 prev(직전 판의 채널 수)가 상태 기록의 직전 판(base.topics)에 적힌 것과 같은가 — 대표 낱말의 id로 찾는다."""
+    known = {t["key"]: {"date": base["date"], **{g: t[g] for g in R.GROUPS}} for t in (base or {}).get("topics", [])}
+    rows = [(f"$.must[{i}]", x) for i, x in enumerate(d["must"])]
+    rows += [(f"$.rest[{gi}].items[{i}]", x) for gi, g in enumerate(d["rest"]) for i, x in enumerate(g["items"])]
+    return [_f("digest.json", where + ".prev", "cross") for where, x in rows
+            if "prev" in x and known.get(S.topic_key(x["terms"][0])) != x["prev"]]
 
 
 def _health(st, d, groups):
@@ -373,10 +398,19 @@ def _post_of(x, by):
     return p if p and p["at"] == x["at"] else None
 
 
+def _more_in(x, p):
+    """링크·줄에 붙은 것이 그 글의 것인가 — 덧낱말이 그 글에서 걸리고, 길이 구간 · 그림 표시 · 사전 낱말 수가 그 글과 같다."""
+    terms = {t["term"] for t in R.match_terms(p["text"])}
+    count = min(len(terms), TH["member_terms_max"])                    # 글 하나의 낱말은 member_terms_max개까지만 센다
+    return set(x.get("more", [])) <= terms and x.get("n_terms", count) == count \
+        and x.get("size", R.size_of(p["text"])) == R.size_of(p["text"]) and (not x.get("pic") or bool(p.get("pic")))
+
+
 def _row_in(r, p):
-    """줄의 낱말·결과 낱말·숫자가 그 글에 있는가."""
-    return r["term"] in {t["term"] for t in R.match_terms(p["text"])} and r["v"] in {n["v"] for n in R.find_nums(p["text"])} \
-        and (r["result"] is None or r["result"] in {x["result"] for x in R.match_results(p["text"])})
+    """줄의 낱말·결과 낱말·숫자(있으면)와 덧붙은 것이 그 글에 있는가."""
+    return r["term"] in {t["term"] for t in R.match_terms(p["text"])} \
+        and (r["v"] is None or r["v"] in {n["v"] for n in R.find_nums(p["text"])}) \
+        and (r["result"] is None or r["result"] in {x["result"] for x in R.match_results(p["text"])}) and _more_in(r, p)
 
 
 def _against_raw(name, d, ix):
@@ -389,8 +423,10 @@ def _against_raw(name, d, ix):
     items = [(f"$.must[{i}]", x) for i, x in enumerate(d["must"])]
     items += [(f"$.rest[{gi}].items[{i}]", x) for gi, g in enumerate(d["rest"]) for i, x in enumerate(g["items"])]
     for where, x in items:
-        out += [_f(name, f"{where}.links[{i}]", "unseen", "link") for i, ln in enumerate(x["links"]) if not _post_of(ln, ix["by"])]
-        words = set(x["terms"]) | {n["term"] for n in x["nums"]}
+        seen = [(i, ln, _post_of(ln, ix["by"])) for i, ln in enumerate(x["links"])]
+        out += [_f(name, f"{where}.links[{i}]", "unseen" if p is None else "mismatch", "link") for i, ln, p in seen
+                if p is None or not _more_in(ln, p)]
+        words = set(x["terms"]) | {n["term"] for n in x["nums"]} | {w["term"] for w in x.get("words", [])}
         if not (words <= ix["terms"] and {n["v"] for n in x["nums"]} <= ix["nums"]):
             out.append(_f(name, where, "mismatch", "item"))
     for side in SIDES:

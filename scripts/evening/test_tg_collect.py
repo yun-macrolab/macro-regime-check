@@ -569,7 +569,7 @@ class CollectTest(Case):
         self.assertEqual((row["ok"], row["posts"], row["with_text"], row["in_window"], row["last_post"]), (True, 2, 2, 1, 502))
         self.assertEqual([p["id"] for p in self.doc("posts.json")["posts"] if p["ch"] == "fxbond1"], [502])
         self.assertRegex(self.out, r"fxbond1 code=ok pages=\d posts=2 with_text=2 with_time=1 in_window=1 ")
-        self.assertRegex(self.out, r" posts=42 with_text=41 with_time=41 in_window=39 cut=\d+ verdict=ok\n$")
+        self.assertRegex(self.out, r" posts=43 with_text=42 with_time=42 in_window=40 cut=\d+ verdict=ok\n$")
 
     def test_renamed_body_makes_the_verdict_broken(self):
         renamed = {u: p.replace("js-message_text", "js-message_body") for u, p in site().items()}

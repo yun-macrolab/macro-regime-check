@@ -4,11 +4,13 @@
 여기 있는 글·채널·숫자·일정·금리는 전부 지어낸 것이다. 실제 채널 글이나 기사 문장은 없고, 채널 이름(fxbond1 …)도 가짜다.
 미리보기 HTML의 뼈대(태그·class)만 2026-10-08에 받은 실제 쪽과 같다.
 
-  글         posts() 창 안 40개 · old_posts() 창 밖 2개 · posts_doc() · EXPECT_SAME/APART/DROP/TERMS(묶기·버리기가 겨냥한 답)
+  글         posts() 창 안 41개 · old_posts() 창 밖 2개 · posts_doc() · EXPECT_SAME/APART/DROP/TERMS(묶기·버리기가 겨냥한 답)
   심은 글자  CANARIES — 산출물·로그 어디에도 나오면 안 된다. leaks(글자 덩어리)가 걸린 번호를 돌려준다(글자는 돌려주지 않는다)
   사람 파일  sources()(가짜 25채널 — 진짜 목록과 같은 구성) · calendar() · overrides() · korea()(korea.json에서 쓰는 칸만)
   수집       render_page(채널) · pages() · manifest() · collect_status(fail=…) · state()(직전 판 2026-10-07)
   예시 산출  clusters_doc() · scored_doc() · digest() · index() · status() · state_after()
+             — digest()에는 2026-10-08 저녁에 더한 칸의 보기가 다 들어 있다: 함께 나온 낱말(words) · 첫 글~마지막 글(span) · 직전 판의
+               채널 수(prev) · 링크별 덧낱말·길이 구간·그림(more · size · pic) · 숫자 없는 줄(fxpers8) · 낱말 풀이(gloss)
              — 뒤 단계가 앞 단계를 기다리지 않고 만들 수 있게 손으로 맞춘 값이다(점수는 설계 4절을 따라 셈한 예시일 뿐, 정답이 아니다)
   파일로     python scripts/evening/fixtures.py --out .work/evening/sample   → <out>/(원문) · <out>/public/(공개 형태)
              예시는 .work/ 아래에만 쓴다. data/에 넣지 않는다.
@@ -94,7 +96,10 @@ _RAW = (
     ("fxbond2", 212, "07 21:55", "CPI 헤드라인 3.1%, 근원 0.3%. 주거비가 끌어올렸다. 예상 상회라 인하 기대는 후퇴.", [_NEWS], None, None),
     ("fxanal1", 1401, "07 22:10", _CPI, [_NEWS + "?utm_source=tg&utm_medium=social"], ("fxbond1", 501), None),
     ("fxpers1", 3001, "07 23:02", _CPI, [], ("fxbond1", 501), None),
-    ("fxpers2", 912, "08 00:15", "CPI 3.1% 나왔네요. 근원 0.3%. 생각보다 높습니다.", [_NEWS + "?fbclid=abc123"], None, None),
+    # 둘째 줄의 '주거비'는 첫머리(80자) 밖이다 — fxbond2와 함께 쓴 낱말(미 주거비 2곳)이 되지만 묶음의 제목에는 오르지 않는다
+    ("fxpers2", 912, "08 00:15", "CPI 3.1% 나왔네요. 근원 0.3%. 생각보다 높습니다.\n"
+     "지어낸 덧붙임: 세부 항목은 아직 다 보지 못했지만 눈에 띄는 것은 서비스 쪽이고 그중에서도 가장 컸던 것은 주거비였다는 말.",
+     [_NEWS + "?fbclid=abc123"], None, None),
     ("fxbond3", 88, "08 07:30", "간밤 미국 소비자물가가 예상을 상회(3.1%). 채권 약세로 출발할 듯.", [], None, None),
     ("fxanal2", 77, "08 08:05", f"미 9월 CPI 3.1% 상회, 근원 0.3%. 서비스 물가가 끈적하다는 평가. {C2} 코멘트.", [], None, None),
     ("fxpers3", 150, "08 09:00", "미 9월 CPI 3.1% 상회, 근원 0.3%. 서비스 물가가 끈적하다는 평가가 많네요.", [], None, None),
@@ -104,7 +109,8 @@ _RAW = (
     ("fxtopp1", 777, "08 06:48", "AI 설비투자 85조원이라니. Capex 가이던스가 또 올라갔다.", [f"https://www.youtube.com/watch?v={_TUBE}&t=120s"], None, None),
     ("fxanal4", 905, "08 07:55", "빅테크 Capex 가이던스 상향 — 설비투자 85조원. AI 관련 회사채 발행도 12조원 예고.",
      [f"https://m.youtube.com/watch?v={_TUBE}"], None, None),
-    ("fxpers4", 41, "08 08:30", "설비투자 85조원, AI 회사채 발행 12조원. 숫자가 계속 커진다.", [], None, None),
+    ("fxpers4", 41, "08 08:30", "설비투자 85조원, AI 회사채 발행 12조원. 숫자가 계속 커진다.\n"
+     "지어낸 덧붙임: 이 숫자들은 지난 분기 설명 자리에서 처음 나왔고 그때도 화제였던 빅테크 실적 얘기와 이어진다.", [], None, None),
     # 속보형 혼자 쓴 글 — 첫머리에 B급 낱말과 숫자(채널당 5줄 상한을 넘게 6개)
     ("fxwire1", 90012, "08 08:01", "미 PPI 전월 대비 0.2% 상승…시장 예상에 부합", [], None, None),
     ("fxwire1", 90013, "08 08:20", "ISM 제조업 지수 전월보다 0.4%p 하락", [], None, None),
@@ -135,6 +141,8 @@ _RAW = (
      {**_CARD, "url": "https://bit.example/yy"}),
     # 혼자 쓴 글 — 개인(첫머리에 A급 낱말과 숫자) · 채권 둘(시세 숫자만 같다 — 묶이면 안 된다) · 참고 채널 · 지시문이 든 글
     ("fxpers6", 73, "08 15:00", "국고채 발행계획 발표: 11월 12.5조원. 생각보다 많다는 반응.", [], None, None),
+    # 혼자 쓴 글 — 개인(첫 두 줄에 B급 낱말은 있고 숫자는 없다: 숫자 없는 줄이 된다)
+    ("fxpers8", 56, "08 15:30", "한은 총재 발언을 다시 읽었다는 지어낸 메모.\n기준금리와 가계부채 얘기가 길었다.", [], None, None),
     ("fxbond1", 502, "08 15:20", f"금통위 의사록 공개. 소수의견 2명. {_QUOTE}로 마감.", [], None, None),
     ("fxbond3", 89, "08 16:05", f"WGBI 편입 자금 유입 일정 재확인. {_QUOTE}.", [], None, None),
     ("fxctx1", 4100, "08 16:09", "오늘의 주식 시황: 코스피 강보합. 금리 영향은 제한적.", ["https://research.example.org/daily/1008"], None, None),
@@ -146,11 +154,15 @@ _RAW = (
 )
 
 
+_PICS = {("fxbond4", 640), ("fxanal2", 77)}        # 본문에 그림(표)이 붙은 글 — 본문 없는 글은 늘 그림만 있는 글이다
+
+
 def _post(row):
     ch, pid, when, text, links, fwd, card = row
     at = f"2026-10-{when[:2]}T{when[3:]}:00+09:00"
     return {"ch": ch, "id": pid, "at": at, "text": text, "links": list(links), "fwd": fwd and {"ch": fwd[0], "id": fwd[1]},
-            "card": card and dict(card), "reply": False, "media": not text, "via": "search" if ROLE[ch] == "wire" else "page"}
+            "card": card and dict(card), "reply": False, "media": not text, "via": "search" if ROLE[ch] == "wire" else "page",
+            "pic": not text or (ch, pid) in _PICS}
 
 
 def all_posts():
@@ -158,7 +170,7 @@ def all_posts():
 
 
 def posts():
-    """창 안의 글 40개 — (시각, 채널, 번호) 순."""
+    """창 안의 글 41개 — (시각, 채널, 번호) 순."""
     return [p for p in all_posts() if WINDOW["from"] < p["at"] <= WINDOW["to"]]
 
 
@@ -182,9 +194,10 @@ EXPECT_SAME = {
 EXPECT_APART = [(("fxbond1", 502), ("fxbond3", 89)), (("fxwire1", 90016), ("fxbond4", 640)), (("fxpers7", 1901), ("fxbond1", 501))]
 EXPECT_DROP = {("fxanal6", 12): "empty", ("fxpers1", 3002): "ad", ("fxpers2", 913): "short", ("fxpers3", 151): "coin",
                ("fxpers4", 42): "filing"}
-EXPECT_TERMS = {("fxbond3", 88): ["미 CPI"], ("fxbond4", 640): ["국고채 입찰", "금리"], ("fxbond1", 502): ["금통위 의사록", "국고채 금리"],
+EXPECT_TERMS = {("fxbond3", 88): ["미 CPI"], ("fxbond4", 640): ["국고채 입찰", "금리"], ("fxbond1", 502): ["금통위 의사록", "소수의견", "국고채 금리"],
                 ("fxbond3", 89): ["WGBI", "국고채 금리"], ("fxpers5", 611): [], ("fxwire1", 90015): ["외국인 국채선물"],
-                ("fxpers6", 73): ["국고채 발행계획"], ("fxbond2", 213): ["한은 발언", "가계부채"]}
+                ("fxpers6", 73): ["국고채 발행계획"], ("fxbond2", 213): ["한은 발언", "가계부채"],
+                ("fxpers8", 56): ["한은 발언", "기준금리", "가계부채"]}
 # 예시 묶음의 열쇠 재료(꼴은 묶기 단계가 정한다 — 여기 것은 보기일 뿐)와 손으로 셈한 점수
 _KEYS = {"cpi": (("f", "fxbond1/501"), ("u", "news.example.com/cpi-sept"), ("k", "미 CPI|글로벌"), ("n", "0.3%|3.1%|미 CPI")),
          "auction": (("k", "국고채 입찰|국내"), ("n", "2.8조원|247.4%|국고채 입찰")),
@@ -232,9 +245,11 @@ def state():
         first = min(p["id"] for p in _on_page(ch))                 # 글 번호는 되돌아가지 않는다 — 지난 판의 마지막 글은 그 앞 번호
         chans[ch] = {"last_post": last["id"] if last else first - 1, "last_at": last["at"] if last else "2026-10-06T10:00:00+09:00",
                      "fail_streak": 0}
+    topics = [{"key": topic_key(t), "bond": b, "analyst": a, "personal": p} for t, b, a, p in (("금통위", 2, 1, 0), ("미 CPI", 2, 0, 1))]
     snap = {"date": "2026-10-07", "window": {"from": "2026-10-06T18:00:00+09:00", "to": WINDOW["from"]},
             "collected_at": "2026-10-07T18:04:00+09:00", "empty_streak": 0, "channels": chans,
-            "must": [{"id": "20261007-fxbond2-205", "keys": [S.key_of("k", "금통위|국내")], "c": 4.0}]}
+            "must": [{"id": "20261007-fxbond2-205", "keys": [S.key_of("k", "금통위|국내")], "c": 4.0}],
+            "topics": sorted(topics, key=lambda t: t["key"])}        # 그 판 항목들의 대표 낱말 id와 채널 수(어제와 견주기)
     return {"schema": 1, "edition": snap, "base": None}
 
 
@@ -246,8 +261,9 @@ def _post_html(p):
                         f'<span dir="auto">전달 원글 채널</span></a></div>')
     body = "<br/>".join(html.escape(x) for x in p["text"].split("\n"))
     body += "".join(f'<br/><a href="{html.escape(u)}" target="_blank" rel="noopener">{html.escape(u)}</a>' for u in p["links"])
-    text = f'<div class="tgme_widget_message_text js-message_text" dir="auto">{body}</div>' if p["text"] else \
-        '<a class="tgme_widget_message_photo_wrap" href="https://t.me/' + f'{ch}/{p["id"]}"></a>'
+    photo = '<a class="tgme_widget_message_photo_wrap" href="https://t.me/' + f'{ch}/{p["id"]}"></a>'
+    text = (photo if p.get("pic") else "") + f'<div class="tgme_widget_message_text js-message_text" dir="auto">{body}</div>' \
+        if p["text"] else photo
     c = p["card"]
     card = c and (f'<a class="tgme_widget_message_link_preview" href="{html.escape(c["url"])}">'
                   f'<div class="link_preview_site_name accent_color" dir="auto">{html.escape(c["site"])}</div>'
@@ -284,18 +300,49 @@ def manifest():
 
 # ---------- 예시 산출물 — 묶음 ----------
 
+def topic_key(term):
+    """대표 낱말의 id — 상태 기록의 topics와 항목의 prev가 이것으로 만난다(낱말 글자는 해시로만 남는다)."""
+    return S.key_of("k", "w|" + term)
+
+
+def _by_grade(terms):
+    """등급 → (넓은 낱말은 뒤) → 가나다."""
+    return sorted(set(terms), key=lambda t: (R.GRADES.index(R.grade_of(t)), t in R.WIDE, t))
+
+
+def _narrow(terms, among=()):
+    """좁은 낱말(이름이 그 낱말을 토막째 품은 것 — '연준 의사록'과 '연준')이 terms나 among에 있는 넓은 낱말을 뺀다."""
+    pool = set(terms) | set(among)
+    return [t for t in terms if not (t in R.WIDE and any(t != o and f" {t} " in f" {o} " for o in pool))]
+
+
+def _head_end(text):
+    """단독 줄이 보는 첫머리의 끝 — 첫 두 줄(빈 줄 제외), row_head_chars자까지. 지어낸 글은 모두 두 줄 이하라 첫 80자를 품는다."""
+    lines = [x for x in map(R.norm_text, text.splitlines()) if x]
+    return min(len(" ".join(lines[:2])), R.TH["row_head_chars"])
+
+
+def _plain_row(m):
+    """숫자 없는 줄의 낱말 — 첫 두 줄 안에서 먼저 나온 A·B급 낱말, 없으면 그 글의 낱말이 둘 이상일 때 첫 두 줄의 첫 낱말."""
+    ab = [t for t in m["head"] if R.grade_of(t) in ("A", "B")]
+    top = ab[0] if ab else m["head"][0] if m["head"] and len(m["terms"]) > 1 else None
+    return {"term": top, "v": None} if top else None
+
+
 def _mention(p):
-    """글 하나에서 닫힌 값만 남긴 것 — 낱말·결과 낱말·숫자와 그중 첫머리(첫 80자)에 있는 것, 혼자 쓴 글이 줄이 될 때의 짝(row)."""
-    lead = R.TH["lead_chars"]
-    terms, nums = R.match_terms(p["text"])[:12], R.find_nums(p["text"])[:12]
+    """글 하나에서 닫힌 값만 남긴 것 — 낱말·결과 낱말·숫자와 그중 첫머리(첫 80자)에 있는 것, 첫 두 줄 안의 낱말(head), 길이 구간,
+    붙은 그림, 혼자 쓴 글이 줄이 될 때의 짝(row — 숫자가 없으면 낱말만)."""
+    lead, limit = R.TH["lead_chars"], R.TH["member_terms_max"]
+    terms, nums = R.match_terms(p["text"])[:limit], R.find_nums(p["text"])[:12]
     m = {"ch": p["ch"], "id": p["id"], "at": p["at"], "group": GROUP[p["ch"]], "role": ROLE[p["ch"]], "fwd": p["fwd"] is not None,
          "terms": [t["term"] for t in terms], "lead": [t["term"] for t in terms if t["pos"] < lead],
          "results": [r["result"] for r in R.match_results(p["text"])],
-         "nums": [n["v"] for n in nums], "lead_nums": [n["v"] for n in nums if n["pos"] < lead]}
+         "nums": [n["v"] for n in nums], "lead_nums": [n["v"] for n in nums if n["pos"] < lead],
+         "size": R.size_of(p["text"]), "pic": p["pic"], "head": [t["term"] for t in terms if t["pos"] < _head_end(p["text"])]}
     first = next((n for n in nums if n["pos"] < lead), None)             # 첫머리의 첫 숫자 하나만 본다
     near = R.TH["row_term_chars"]                                         # 한 곳만 쓴 숫자는 낱말 바로 곁이어야 한다
     term = R.named_before(R.term_hits(p["text"]), first["pos"], near) if first and R.solo_num_ok(first["v"]) else None
-    return {**m, "row": {"term": term, "v": first["v"]} if term in m["lead"] else None}
+    return {**m, "row": {"term": term, "v": first["v"]} if term in m["lead"] else _plain_row(m)}
 
 
 def _tally(members, field, only_source=False):
@@ -321,7 +368,7 @@ def _pair(v, members):
 
 def _cluster(members, keys):
     members = sorted(members, key=lambda m: (m["at"], m["ch"], m["id"]))
-    terms = sorted(_tally(members, "terms").items(), key=lambda kv: (R.GRADES.index(R.grade_of(kv[0])), -kv[1], kv[0]))[:12]
+    terms = sorted(_tally(members, "lead").items(), key=lambda kv: (R.GRADES.index(R.grade_of(kv[0])), -kv[1], kv[0]))[:12]
     results = sorted(_tally(members, "results").items(), key=lambda kv: (-kv[1], kv[0]))
     shared = [(v, n) for v, n in _tally(members, "nums", True).items() if n >= 2 and not R.is_quote(v)]
     shared = sorted(shared, key=lambda x: (-x[1], x[0]))
@@ -415,24 +462,64 @@ def scored_doc():
     return _doc(stats=_stats(), head=head(), tomorrow=tomorrow(), clusters=order)
 
 
+def _words(members, limit, terms):
+    """함께 나온 낱말과, 두 곳 이상이 쓴 낱말 전부 — 원천 채널이 직접 쓴 글(전달 글은 세지 않는다) 전체에서 걸린 낱말과 그것을 쓴
+    채널 수. 여러 채널이면 두 곳 이상이 쓴 것만. 항목의 낱말(제목)과 좁은 낱말 곁의 넓은 낱말은 뺀다. 곳 수 ↓ → 등급 → 가나다."""
+    src, seen = [m for m in members if m["role"] == "source" and not m["fwd"]], {}
+    for m in src:
+        for t in m["terms"]:
+            seen.setdefault(t, set()).add(m["ch"])
+    many, shared = len({m["ch"] for m in src}) > 1, {t for t, chs in seen.items() if len(chs) >= 2}
+    pool = shared if many else set(seen)
+    keep = _narrow([t for t in pool if t not in terms], [*pool, *terms])
+    rows = sorted((-len(seen[t]), R.GRADES.index(R.grade_of(t)), t in R.WIDE, t) for t in keep)[:limit]
+    return [{"term": t, "n_ch": -n} for n, _, _, t in rows], shared
+
+
+def _more(m, shown, limit):
+    """글 하나에 붙는 것 — 이 글에만 더 있는 낱말(등급 → 가나다, 좁은 낱말 곁의 넓은 낱말은 뺀다. 없으면 칸도 없다) · 길이 구간 ·
+    그림이 붙었으면 pic · 그 글에서 걸린 사전 낱말 수."""
+    extra = _by_grade(_narrow([t for t in m["terms"] if t not in shown], [*m["terms"], *shown]))[:limit]
+    return {**({"more": extra} if extra else {}), "size": m["size"], **({"pic": True} if m["pic"] else {}), "n_terms": len(m["terms"])}
+
+
+def _prev(terms):
+    """직전 판(state())에 같은 대표 낱말의 항목이 있었으면 그때의 채널 수 — 대표 낱말이 A·B급일 때만."""
+    base = state()["edition"]
+    lead = terms[0] if terms and R.grade_of(terms[0]) in ("A", "B") else None
+    hit = next((t for t in base["topics"] if lead and t["key"] == topic_key(lead)), None)
+    return {"prev": {"date": base["date"], **{g: hit[g] for g in R.GROUPS}}} if hit else {}
+
+
 def _item(c, must):
     terms = [t["term"] for t in c["terms"]]
     if len({m["ch"] for m in c["members"]}) > 1:                   # 여러 채널이 든 묶음은 두 곳 이상이 쓴 낱말만(없으면 대표 하나)
         terms = [t["term"] for t in c["terms"] if t["n_ch"] >= 2] or terms[:1]
+    terms = terms[:R.TH["terms_max" if must else "rest_terms_max"]]
+    words, shared = _words(c["members"], R.TH["words_max" if must else "rest_words_max"], terms)
+    shown, by = set(terms) | shared | {w["term"] for w in words}, {S.post_url(m["ch"], m["id"]): m for m in c["members"]}
+    links = [{**ln, **_more(by[ln["url"]], shown, R.TH["more_max" if must else "rest_more_max"])}
+             for ln in S.pick_links(c["members"], None if must else R.TH["rest_links_max"])]
     base = {"id": S.item_id(EDITION, c["seed"]["ch"], c["seed"]["id"]), "key": c["key"], "coverage": c["coverage"],
-            "cell": c["cell"] or {"factor": "기타", "region": "글로벌"}}
+            "cell": c["cell"] or {"factor": "기타", "region": "글로벌"}, "terms": terms, "links": links,
+            **({"words": words} if words else {}), **_prev(terms),
+            "span": {"from": c["members"][0]["at"], "to": c["members"][-1]["at"], "posts": len(c["members"])}}
     if must:
-        return {**base, "terms": terms[:R.TH["terms_max"]], "nums": c["nums"], "score": c["score"], "why": c["why"],
-                "links": S.pick_links(c["members"])}
-    return {**base, "terms": terms[:R.TH["rest_terms_max"]], "nums": c["nums"][:R.TH["rest_nums_max"]], "s": c["score"]["total"],
-            "links": S.pick_links(c["members"], R.TH["rest_links_max"])}
+        return {**base, "nums": c["nums"], "score": c["score"], "why": c["why"]}
+    return {**base, "nums": c["nums"][:R.TH["rest_nums_max"]], "s": c["score"]["total"]}
+
+
+def _row_term(m):
+    """줄의 낱말 — 숫자 있는 줄은 숫자의 짝, 숫자 없는 줄은 그 글의 낱말 가운데 등급이 가장 높은 것."""
+    return m["row"]["term"] if m["row"]["v"] else _by_grade(_narrow(m["terms"]))[0]
 
 
 def _side(clusters, want):
-    """혼자 쓴 글의 줄 — 첫머리의 첫 숫자가 그 앞의 가까운 A·B급 낱말과 짝지어진 글만(row), 채널당 5줄까지(이른 글부터).
+    """혼자 쓴 글의 줄 — 줄의 짝(row)이 있는 글만. 숫자는 첫머리의 첫 숫자가 바로 곁의 A·B급 낱말과 짝지어질 때만 붙고, 아니면
+    낱말만(v null — 그 글에서 등급이 가장 높은 낱말). 채널당 5줄을 A급 → B급 → C급, 숫자 있는 줄, 이른 글 순으로 고르고 시각순으로 싣는다.
     read = 창 안에서 읽은 글(버린 글 포함), joined = 다른 채널과 묶인 글, hit = 줄이 될 수 있었던 글."""
     read = {c["ch"]: c["in_window"] for c in collect_status()["channels"]}
-    chans, rows = {}, []
+    chans, found = {}, {}
     for c in clusters:
         for m in c["members"]:
             if (m["group"], m["role"]) not in want:
@@ -441,14 +528,24 @@ def _side(clusters, want):
             row["joined"] += len(c["members"]) > 1
             if len(c["members"]) == 1 and c["pick"] == "none" and m["row"]:
                 row["hit"] += 1
-                if sum(r["ch"] == m["ch"] for r in rows) < R.TH["rows_per_channel"]:
-                    rows.append({"ch": m["ch"], "term": m["row"]["term"], "result": (m["results"] or [None])[0], "v": m["row"]["v"],
-                                 "at": m["at"], "url": S.post_url(m["ch"], m["id"])})
-    return {"channels": sorted(chans.values(), key=lambda r: r["ch"]), "rows": rows}
+                found.setdefault(m["ch"], []).append(m)
+    rows = []
+    for ms in found.values():
+        ms.sort(key=lambda m: (R.GRADES.index(R.grade_of(_row_term(m))), m["row"]["v"] is None, m["at"], m["id"]))
+        for m in ms[:R.TH["rows_per_channel"]]:
+            pair, term = m["row"], _row_term(m)
+            rows.append({"ch": m["ch"], "term": term, "result": (m["results"] or [None])[0] if pair["v"] else None,
+                         "v": pair["v"], "at": m["at"], "url": S.post_url(m["ch"], m["id"]), **_more(m, {term}, R.TH["row_more_max"])})
+    return {"channels": sorted(chans.values(), key=lambda r: r["ch"]), "rows": sorted(rows, key=lambda r: (r["at"], r["ch"], r["url"]))}
 
 
 def digest():
-    """공개 판의 예시 — 꼭 볼 것 3 · 나머지(칸별) · 속보형·개인 단독 줄 · 참고 한 줄 · 내일 볼 것."""
+    """공개 판의 예시 — 꼭 볼 것 3 · 나머지(칸별) · 속보형·개인 단독 줄 · 참고 한 줄 · 내일 볼 것 · 이 판에 나온 낱말의 풀이."""
+    d = _edition()
+    return {**d, "gloss": R.glosses(S.shown_terms(d))}
+
+
+def _edition():
     doc = scored_doc()
     cs = doc["clusters"]
     must = [_item(c, True) for c in sorted((c for c in cs if c["pick"] == "must"), key=lambda c: c["rank"])]
@@ -493,8 +590,15 @@ def state_after():
             for c in sorted((c for c in cs if c["pick"] == "must"), key=lambda c: c["rank"])]
     chans = {c["ch"]: {"last_post": c["last_post"], "last_at": c["last_at"], "fail_streak": c["fail_streak"]}
              for c in collect_status()["channels"]}
+    best, d = {}, digest()                                         # A·B급 대표 낱말마다 가장 많은 곳이 다룬 항목의 채널 수
+    for x in d["must"] + [x for g in d["rest"] for x in g["items"]]:
+        cov = {g: x["coverage"][g] for g in R.GROUPS}
+        lead = x["terms"][0] if x["terms"] and R.grade_of(x["terms"][0]) in ("A", "B") else None
+        if lead and sum(cov.values()) > sum(best.get(lead, {"n": -1}).values()):
+            best[lead] = cov
+    topics = sorted(({"key": topic_key(t), **cov} for t, cov in best.items()), key=lambda t: t["key"])
     snap = {"date": EDITION, "window": dict(WINDOW), "collected_at": COLLECTED, "empty_streak": 0, "must": must, "channels": chans,
-            "read_to": WINDOW["to"]}                               # 정상 판 — 여기까지 제대로 읽었다
+            "read_to": WINDOW["to"], "topics": topics}             # 정상 판 — 여기까지 제대로 읽었다
     return S.next_state(state(), snap)
 
 

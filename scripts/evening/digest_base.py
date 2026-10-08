@@ -293,6 +293,11 @@ def key_of(kind, material):
     return f"{kind}:{hashlib.sha1(unicodedata.normalize('NFKC', material).encode('utf-8')).hexdigest()[:12]}"
 
 
+def topic_key(term):
+    """대표 낱말의 id — 상태 기록의 topics와 항목의 prev가 이것으로 만난다. 낱말 글자는 해시로만 남는다."""
+    return key_of("k", "w|" + term)
+
+
 def primary_key(keys):
     """묶음의 대표 열쇠 — 종류 우선순위(f → u → t → n → k → g), 그다음 글자순."""
     if not keys:
@@ -373,8 +378,9 @@ def coverage_verdict(channels):
 
 
 def is_closed(s, handles=(), labels=()):
-    """문자열 하나가 허용 목록(사전 낱말·결과 낱말·코드·고정 문구·숫자+단위·시각·날짜·열쇠·해시·목록 채널의 이름·주소·id)인가."""
-    if s in WORDS or s in handles or s in labels or R.is_num(s) or R.is_phrase(s):
+    """문자열 하나가 허용 목록(사전 낱말·결과 낱말·코드·고정 문구·숫자+단위·시각·날짜·열쇠·해시·목록 채널의 이름·주소·id)인가.
+    낱말 풀이와 공식 주소는 규칙(digest_gloss)에 적힌 것과 글자까지 같을 때만 닫힌 것이다."""
+    if s in WORDS or s in handles or s in labels or R.is_num(s) or R.is_phrase(s) or s in R.GLOSS_TEXTS or s in R.OFFICIAL_URLS:
         return True
     if any(rx.fullmatch(s) for rx in (ISO_RE, DATE_RE, HHMM_RE, KEY_RE, SHA_RE)):
         return True

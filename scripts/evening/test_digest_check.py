@@ -219,7 +219,7 @@ class ScopeTest(FolderCase):
         self.assertEqual(codes(C.check_edition(lone, self.src)), [("empty", "item"), ("url", "link")])
         pruned, _ = C.prune(lone, self.src)
         self.assertEqual(([x["id"] for x in pruned["must"]], pruned["funnel"]["must"]), ([x["id"] for x in good["must"][:2]], 2))
-        open_text = edit(good, ["rest", 0, "items", 0, "terms"], [F.CANARIES[0]])
+        open_text = regloss(edit(good, ["rest", 0, "items", 0, "terms"], [F.CANARIES[0]]))
         self.assertEqual(codes(C.check_edition(open_text, self.src)), [("open", "item")])
         pruned, _ = C.prune(open_text, self.src)
         self.assertEqual([g["cell"] for g in pruned["rest"]], [g["cell"] for g in good["rest"][1:]])      # 빈 칸 묶음은 남기지 않는다
@@ -268,7 +268,7 @@ class ScopeTest(FolderCase):
             self.assertEqual(codes(C.check_edition(good, self.src)), [("size", "edition")])
         finally:
             C.EDITION_BYTES = old
-        self.assertEqual(C.EDITION_BYTES, 20_000)
+        self.assertEqual(C.EDITION_BYTES, 36_000)
 
 
 class HeadTest(unittest.TestCase):
@@ -311,11 +311,16 @@ class HeadTest(unittest.TestCase):
         self.assertEqual(h, before)
 
 
+def regloss(d):
+    """항목을 덜어 내거나 바꾼 지어낸 판의 풀이를 그 판에 나온 낱말의 것으로 다시 맞춘다."""
+    return {**d, "gloss": R.glosses(S.shown_terms(d))}
+
+
 def short_set(must=()):
     """수집 부족인 날의 한 벌 — 채권 세 곳을 못 읽었다."""
     fail = {"fxbond1": "fetch", "fxbond2": "fetch", "fxbond3": "empty"}
     cs = F.collect_status(fail=fail)
-    d = {**fx("digest"), "status": "short", "must": list(must), "notes": [R.phrase("note_short")]}
+    d = regloss({**fx("digest"), "status": "short", "must": list(must), "notes": [R.phrase("note_short")]})
     d["funnel"] = {**d["funnel"], "must": len(d["must"])}
     d["sources"] = {"channels_ok": 21, "channels_total": 24}
     keep = ("ch", "ok", "code", "posts", "with_text", "in_window", "fail_streak")
@@ -349,8 +354,8 @@ class HealthTest(FolderCase):
     def streak_set(self, before, must, bond_new=True, claim=None, reason=None):
         """직전 판까지 0건이 before판 이어졌고, 이번 판의 꼭 볼 것이 must건인 한 벌."""
         d = fx("digest")
-        d = {**d, "must": d["must"][:must], "funnel": {**d["funnel"], "must": must},
-             "notes": [] if must == 3 else [R.phrase("note_none") if must == 0 else R.phrase("note_fewer", n=must)]}
+        d = regloss({**d, "must": d["must"][:must], "funnel": {**d["funnel"], "must": must},
+                     "notes": [] if must == 3 else [R.phrase("note_none") if must == 0 else R.phrase("note_fewer", n=must)]})
         state = fx("state_after")
         state["base"]["empty_streak"] = before
         state["edition"]["must"] = state["edition"]["must"][:must]
