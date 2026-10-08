@@ -287,6 +287,8 @@ html[data-motion="off"] figure.ch.ch-fresh .ch-line { stroke-dasharray: none; st
 .market-value>strong,.market-deltas strong,.market-table td{font-family:var(--f-mono)}
 .market-value>strong,.market-card h3{color:var(--amber)}
 /* 인쇄 — 아직 화면에 들어온 적 없는 그래프도 선이 보이게, 흐르는 띠는 뺀다 */
+/* 저녁판·읽기 노트는 아침 갱신(FRED 규칙 점검)과 따로 도는 화면이다 — 아침 상태 줄·안내·실패 배너를 그 화면의 것처럼 보이지 않게 감춘다 */
+main[data-view="evening"] > :is(#status, #notice, #banner), main[data-view="notes"] > :is(#status, #notice, #banner) { display: none; }
 /* 화면 키의 초점 테두리가 가로 스크롤 상자에 잘리지 않게 안쪽으로 */
 #category-nav a:focus-visible { outline-offset: -3px; }
 /* 강제 색(Windows 고대비) — 배경색·그림자로만 하던 구분을 테두리로. 실제 고대비 화면에서는 아직 확인하지 못했다 */

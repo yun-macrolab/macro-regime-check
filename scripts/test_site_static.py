@@ -50,6 +50,21 @@ class PageTest(unittest.TestCase):
         block = self.css[self.css.index("@media print"):]
         self.assertIn("stroke-dasharray: none", block)
 
+    def test_evening_and_notes_screens_are_wired(self):
+        for view, key, script, style in (("evening", "8", "evening.js", "evening.css"), ("notes", "9", "notes.js", "notes.css")):
+            self.assertIn(f'data-view="{view}" aria-keyshortcuts="{key}"', self.page)
+            self.assertIn(f'<section id="{view}-wrap" hidden', self.page)
+            self.assertIn(f'<script src="{script}"></script>', self.page)
+            self.assertIn(f'href="{style}"', self.page)
+            self.assertTrue(os.path.getsize(os.path.join(REPO, "site", script)) > 2000, script)   # 뼈대가 아니라 구현
+        self.assertEqual(self.page.count("/^[1-9]$/"), 2)        # 명령줄과 숫자 키 둘 다 1~9
+
+    def test_morning_status_is_hidden_on_evening_and_notes(self):
+        # 아침 갱신의 상태 줄·실패 배너가 저녁판·읽기 노트의 것처럼 읽히지 않게
+        self.assertIn('dataset.view = activeView', self.page)
+        for view in ("evening", "notes"):
+            self.assertIn(f'main[data-view="{view}"] > :is(#status, #notice, #banner)', self.css)
+
 
 if __name__ == "__main__":
     unittest.main()

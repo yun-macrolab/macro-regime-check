@@ -57,6 +57,7 @@ jobs:
         run: |
           python -m unittest discover -s scripts
           node --test scripts/test_korea_health.cjs
+          node --test scripts/test_notes_render.cjs
 
   update:
     needs: check
