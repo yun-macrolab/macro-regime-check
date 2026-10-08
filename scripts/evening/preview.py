@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """저녁판 미리 보기 — site/ 사본과 판을 한 폴더로 조립한다 (2026-10-08). 화면(site/evening.js)을 눈으로 확인할 때 쓴다.
 
-  python scripts/evening/preview.py [--case ok] [--date YYYY-MM-DD] [--out .work/evening/preview]
-  python scripts/evening/preview.py --from .work/evening/public [--data data] [--out .work/evening/preview]
+  python scripts/evening/preview.py [--case ok] [--date YYYY-MM-DD] [--ai] [--out .work/evening/preview]
+  python scripts/evening/preview.py --from .work/evening/public [--data data] [--picks <요약 층 파일>] [--out .work/evening/preview]
   python -m http.server 8765 --directory .work/evening/preview      →  http://localhost:8765/#evening
 
 --from을 주지 않으면 fixtures.py의 지어낸 글로 만든 판이고 채널도 가짜 이름이다. 판 날짜는 오늘에 맞춰 옮긴다(그대로 두면 화면이
@@ -14,6 +14,9 @@
   --from  PC 시범 실행(evening_run.py pipeline --out <폴더>)이 낸 공개 JSON 폴더를 그대로 본다. 출처 목록·일정표·숨김 파일은
           --data(기본: 저장소의 data/)에서 읽고, 날짜는 옮기지 않는다. 검사(digest_check)를 통과한 폴더만 받는다 —
           내보낼 수 없는 것은 미리 보지도 않는다. 게시가 아니다: 조립한 것은 .work/ 아래에만 있다.
+  --ai    지어낸 판에 지어낸 AI 요약 문장(fixtures.picks)을 같이 둔다 — 화면이 문장을 어떻게 붙이는지 볼 때
+  --picks AI 요약 층 파일(evening_llm.py --dry-run이 .work/ 아래에 쓴 digest_picks.json 같은 것)을 같이 둔다. 형식 검사
+          (digest_picks.validate_picks)를 통과한 것만 받는다. 주지 않으면 요약 층 없이 조립한다(data/에 올라간 것을 따라 읽지 않는다).
 """
 import argparse
 import copy
@@ -26,6 +29,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import digest_check as C
+import digest_picks as K
 import digest_rules as R
 import digest_schema as S
 import fixtures as F
@@ -33,7 +37,7 @@ import fixtures as F
 CASES = ("ok", "fewer", "none", "short", "partial", "hidden", "withdrawn", "late", "failed", "empty")
 OUT = os.path.join(S.WORK, "preview")
 EVENING = ("digest.json", "digest_index.json", "digest_status.json", "digest_state.json", "sources.json", "calendar.json",
-           "digest_overrides.json")                    # 미리 보기가 직접 쓰는 이름 — 아침 자료를 옮길 때 건너뛴다
+           "digest_overrides.json", K.FILE)            # 미리 보기가 직접 쓰는 이름 — 아침 자료를 옮길 때 건너뛴다
 _ISO = re.compile(r"^(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2}:\d{2}\+09:00)$")
 
 
@@ -140,8 +144,9 @@ def _days(a, b):
     return (b - a).days
 
 
-def build(case="ok", day=None, now=None):
-    """미리 볼 자료 {data/ 아래 경로: 자료}. day = 맨 앞 판의 날짜(없으면 지금에 맞춘다). 쓰기 전에 형태를 검증한다."""
+def build(case="ok", day=None, now=None, ai=False):
+    """미리 볼 자료 {data/ 아래 경로: 자료}. day = 맨 앞 판의 날짜(없으면 지금에 맞춘다). 쓰기 전에 형태를 검증한다.
+    ai면 지어낸 AI 요약 층을 맨 앞 판의 날짜로 같이 둔다(그 판에 없는 항목의 문장은 화면이 붙이지 않는다)."""
     if case not in CASES:
         raise ValueError("없는 경우")
     now = now or datetime.datetime.now(S.KST)
@@ -163,28 +168,34 @@ def build(case="ok", day=None, now=None):
                                  "editions": [_row(e) for e in editions]}
     last = {"date": editions[0]["date"], "at": editions[0]["collected_at"]}
     docs["digest_status.json"] = {**shift(st, _days(base, ran)), "last_success": last}
+    if ai:
+        docs[K.FILE] = shift(_fx("picks"), _days(base, first))
     return _checked(docs)
 
 
 def _checked(docs):
     for name, doc in docs.items():
-        if S.validator_for(name) is S.validate_digest:
+        if name == K.FILE:                            # AI 요약 층은 규칙판의 계약 밖이다 — 제 검증으로 본다
+            K.validate_picks(doc, docs["sources.json"])
+        elif S.validator_for(name) is S.validate_digest:
             S.validate_digest(doc, docs["sources.json"])
         else:
             S.validator_for(name)(doc)
     return docs
 
 
-def real(public, data=S.DATA):
+def real(public, data=S.DATA, picks=None):
     """파이프라인이 낸 공개 폴더 + 사람이 쓰는 파일(<data>의 출처 목록 · 일정표 · 숨김) → 미리 볼 자료 {data/ 아래 경로: 자료}.
-    낸 그대로다(날짜를 옮기지 않는다). 검사에 걸리는 폴더면 ValueError — 위반의 자리와 값은 싣지 않는다."""
+    낸 그대로다(날짜를 옮기지 않는다). 검사에 걸리는 폴더면 ValueError — 위반의 자리와 값은 싣지 않는다.
+    picks = AI 요약 층 파일의 경로(있으면 같이 둔다 — 형식에 안 맞으면 ValueError)."""
     human = {name: S.read_json(os.path.join(data, name)) for name in S.HUMAN_FILES}
     sources = S.validate_sources(human["sources.json"])
     found, _ = C.check_folder(os.path.abspath(public), sources)
     if found:
         raise ValueError("검사에 걸린 폴더는 미리 보지 않음")
     names, _ = C.list_files(public)
-    return _checked({**human, **{name: S.read_json(os.path.join(public, *name.split("/"))) for name in names}})
+    extra = {K.FILE: S.read_json(picks)} if picks else {}
+    return _checked({**human, **{name: S.read_json(os.path.join(public, *name.split("/"))) for name in names}, **extra})
 
 
 # ---------- 폴더 조립 ----------
@@ -225,10 +236,12 @@ def main(argv=None):
     ap.add_argument("--date", help="맨 앞 판의 날짜 YYYY-MM-DD (기본: 오늘에 맞춘다)")
     ap.add_argument("--from", dest="source", help="시범 실행이 낸 공개 JSON 폴더 — 주면 지어낸 판 대신 그것을 그대로 본다")
     ap.add_argument("--data", default=S.DATA, help="--from일 때 출처 목록 · 일정표 · 숨김 파일을 읽을 폴더 (기본: 저장소의 data/)")
+    ap.add_argument("--ai", action="store_true", help="지어낸 판에 지어낸 AI 요약 문장을 같이 둔다")
+    ap.add_argument("--picks", help="--from일 때 같이 둘 AI 요약 층 파일(digest_picks.json) — 형식 검사를 통과한 것만")
     ap.add_argument("--out", default=OUT, help="쓸 폴더 (기본: .work/evening/preview)")
     a = ap.parse_args(argv)
     day = datetime.date.fromisoformat(a.date) if a.date else None
-    docs = real(a.source, a.data) if a.source else build(a.case, day)
+    docs = real(a.source, a.data, a.picks) if a.source else build(a.case, day, ai=a.ai)
     n = assemble(a.out, docs)
     S.report("preview", files=n, editions=sum(name.startswith("digest/") for name in docs))
     print('  python -m http.server 8765 --directory "' + os.path.abspath(a.out).replace(os.sep, "/") + '"')

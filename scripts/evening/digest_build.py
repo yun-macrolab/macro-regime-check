@@ -38,7 +38,8 @@
 
 사용법: python scripts/evening/digest_build.py --work .work/evening --out <폴더> [--data data]
         ... --blank [--now ISO]   내리기 전용: 수집한 것 없이 빈 판을 쓰고, <out>/digest/의 지난 판과 목차·꼭 볼 것의 id를 지운다.
-                                   출처 목록·상태 파일이 깨져 있어도 돈다(그때는 상태 기록을 비운다)
+                                   출처 목록·상태 파일이 깨져 있어도 돈다(그때는 상태 기록을 비운다).
+                                   AI 요약 층(<out>/digest_picks.json — PC가 올리는 파일)도 빈 것으로 바꾼다
         ... --error [--now ISO]   실행이 실패한 날: 판 없이 상태(reason error)만 쓴다
 종료코드: 0 판을 냄(내린 판 포함) / 2 판은 냈지만 실행을 실패로 끝낼 것 / 3 판을 내지 않고 상태만 씀 / 1 실패(아무것도 쓰지 않음)
 """
@@ -48,6 +49,7 @@ import os
 import sys
 
 import digest_check as C
+import digest_picks as K
 import digest_rules as R
 import digest_schema as S
 
@@ -461,6 +463,8 @@ def main(argv=None):
         code, files, sources, facts = _normal(data, work)
     write(out, files, sources, wipe=a.blank)
     d, status = files.get("digest.json"), files["digest_status.json"]
+    if a.blank:                                        # AI 요약 층(PC가 올리는 파일)도 빈 것으로 바꾼다 — 내린 판에 문장이 남지 않게
+        K.write_picks(os.path.join(out, K.FILE), K.blank_picks(d["date"], d["collected_at"]))
     shown = {"edition": status["edition"], **({"status": d["status"]} if d else {}), "reason": status["reason"]}
     if d:
         shown.update(must=len(d["must"]), rest=sum(len(g["items"]) for g in d["rest"]), wire=len(d["wire"]["rows"]),

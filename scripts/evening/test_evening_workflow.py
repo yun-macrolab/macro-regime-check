@@ -11,6 +11,8 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 PIN = re.compile(r"^[\w.-]+/[\w.-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$")
+# data/digest_picks.json(PC가 올리는 AI 요약 층)은 여기 없다: 그 push마다 daily(push — 배포)와 이 워크플로(push — check뿐)가 같은
+# concurrency 그룹에 함께 서는데, 그룹에는 기다리는 실행이 하나만 남는다 — 셋째 실행이 오면 기다리던 배포가 취소될 수 있다(2026-10-09 검토)
 PATHS = ["scripts/evening/**", "site/evening.*", "data/sources.json", "data/calendar.json", ".github/workflows/evening.yml"]
 COLLECT_CRON, WATCH_CRON = "41 8 * * 1-5", "41 13 * * 1-5"
 ON = "vars.EVENING_ENABLED == 'true'"            # 켜는 스위치 — 변수가 없으면 꺼져 있다
@@ -221,7 +223,7 @@ class BoundaryTest(WorkflowCase):
         self.assertIn("if: steps.blank.outcome == 'failure'", job)
         removed = [p for line in job.split("\n") if line.strip().startswith("rm ") for p in line.split()[2:]]
         self.assertEqual(removed, ["data/digest.json", "data/digest_index.json", "data/digest_state.json", "data/digest_status.json",
-                                   "data/digest"])
+                                   "data/digest_picks.json", "data/digest"])            # AI 요약 층도 함께 내려간다
         self.assertRegex(check, r"name: 저녁 테스트\n\s+if: inputs\.takedown != true[^\n]*\n"
                                 r"\s+run: python -m unittest discover -s scripts/evening\n")
         self.assertRegex(check, r"name: 공개 전 검사\n\s+env:\n\s+BLIND_PATTERNS: [^\n]+\n\s+run: python scripts/check_blind\.py\n")

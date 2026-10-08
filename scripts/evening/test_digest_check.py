@@ -16,9 +16,11 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import digest_check as C
+import digest_picks as K
 import digest_rules as R
 import digest_schema as S
 import fixtures as F
+import test_digest_picks as TK
 
 DAY = f"digest/{F.EDITION}.json"
 _FX = {}
@@ -161,7 +163,7 @@ class ClosedTextTest(FolderCase):
                 self.assertEqual(F.leaks(self.cli()[1]), [])
 
     def test_files_outside_the_contract_are_refused(self):
-        for name, mark in (("digest/latest.json", "latest"), ("digest/zqx7-note.html", "zqx7"), ("digest_picks.json", "picks"),
+        for name, mark in (("digest/latest.json", "latest"), ("digest/zqx7-note.html", "zqx7"), ("digest_notes.json", "notes"),
                            ("digest/2026-10-07/zqx7.json", "zqx7")):
             with self.subTest(name), tempfile.TemporaryDirectory() as tmp:
                 self.pub = put(tmp, {**docs(), name: {"schema": 1}})
@@ -171,6 +173,24 @@ class ClosedTextTest(FolderCase):
         with tempfile.TemporaryDirectory() as tmp:                                          # 아침 자료가 같이 있어도 된다(data/를 볼 때)
             self.assertEqual(C.check_folder(put(tmp, {**docs(), "korea.json": {"any": 1}, "sources.json": self.src}), self.src)[0], [])
 
+
+    def test_the_summary_layer_is_checked_where_it_lives(self):
+        """AI 요약 층(digest_picks.json)은 PC가 data/에 올린다 — data/를 볼 때는 형식 · 꼴 · 금지 낱말 · 다시 쓴 바이트를 보고,
+        아티팩트로 올라가는 폴더(--strict)에 있으면 계약에 없는 파일이다(Actions는 이 파일을 쓰지 않는다)."""
+        layer = TK.doc()
+        item = layer["items"][0]
+        cases = {"문장이 실린 것": (layer, []), "빈 것": (K.blank_picks(F.EDITION, F.COLLECTED), []),
+                 "형식이 아님": ({"schema": 1}, [("shape", "edition")]),
+                 "권유가 든 문장": ({**layer, "items": [{**item, "fact": "국고채 10년물은 지금 매수할 만하다."}]}, [("shape", "edition")]),
+                 "개인 채널의 글": ({**layer, "items": [{**item, "src": [["fxpers1", 3001]]}]}, [("shape", "edition")]),
+                 "덧붙인 글자": (S.dump(layer).encode("utf-8") + b" " + F.CANARIES[0].encode("utf-8"), [("json", "edition")]),
+                 "보기 좋게 다시 쓴 것": (json.dumps(layer, ensure_ascii=False, indent=1).encode("utf-8"), [("canon", "edition")])}
+        for name, (doc, want) in cases.items():
+            with self.subTest(name), tempfile.TemporaryDirectory() as tmp:
+                self.pub = put(tmp, {**docs(), "digest_picks.json": doc})
+                self.assertEqual(codes(C.check_folder(self.pub, self.src)[0]), want)
+                self.assertEqual(F.leaks(self.cli()[1]), [])
+                self.assertEqual(codes(C.check_folder(self.pub, self.src, strict=True)[0]), [("stray", "edition")])
 
     def test_the_artifact_folder_holds_nothing_but_the_edition(self):
         """아티팩트로 올라가는 폴더(--strict)에는 저녁판 파일 말고 아무것도 없어야 한다 — 이름이 digest로 시작하지 않아도 걸린다."""

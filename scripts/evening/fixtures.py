@@ -12,6 +12,7 @@
              — digest()에는 2026-10-08 저녁에 더한 칸의 보기가 다 들어 있다: 함께 나온 낱말(words) · 첫 글~마지막 글(span) · 직전 판의
                채널 수(prev) · 링크별 덧낱말·길이 구간·그림(more · size · pic) · 숫자 없는 줄(fxpers8) · 낱말 풀이(gloss)
              — 뒤 단계가 앞 단계를 기다리지 않고 만들 수 있게 손으로 맞춘 값이다(점수는 설계 4절을 따라 셈한 예시일 뿐, 정답이 아니다)
+  AI 요약 층 picks() — data/digest_picks.json의 보기(지어낸 문장 둘 + 검사에 걸려 개수만 남은 항목 하나). 화면 테스트가 digest()와 함께 쓴다
   파일로     python scripts/evening/fixtures.py --out .work/evening/sample   → <out>/(원문) · <out>/public/(공개 형태)
              예시는 .work/ 아래에만 쓴다. data/에 넣지 않는다.
 """
@@ -21,6 +22,7 @@ import html
 import os
 import sys
 
+import digest_picks as K
 import digest_rules as R
 import digest_schema as S
 
@@ -600,6 +602,25 @@ def state_after():
     snap = {"date": EDITION, "window": dict(WINDOW), "collected_at": COLLECTED, "empty_streak": 0, "must": must, "channels": chans,
             "read_to": WINDOW["to"], "topics": topics}             # 정상 판 — 여기까지 제대로 읽었다
     return S.next_state(state(), snap)
+
+
+# ---------- AI 요약 층의 예시 (2026-10-09 — 지어낸 문장. 형태는 digest_picks.py) ----------
+
+PICK_FACTS = ("미국 9월 소비자물가는 전년 대비 3.1% 올라 예상을 웃돌았다. 근원 지수는 전월 대비 0.3% 상승했다.",
+              "10년 만기 국고채 2.8조원이 응찰률 247.4%로 낙찰됐다.")
+PICKS_AT = "2026-10-08T18:20:00+09:00"
+
+
+def picks():
+    """data/digest_picks.json의 예시 — 꼭 볼 것 첫 두 건에 문장이 실리고, 셋째는 검사(숫자 대조)에 걸려 개수만 남은 날.
+    읽힌 글(src)은 항목의 링크 가운데 채권 · 애널 원천 채널의 전달 아닌 글 3개까지다(evening_llm.select와 같은 규칙)."""
+    asked = []
+    for x in digest()["must"]:
+        read = [ln for ln in x["links"] if not ln["fwd"] and ROLE[ln["ch"]] == "source" and GROUP[ln["ch"]] in ("bond", "analyst")]
+        asked.append({"key": x["key"], "id": x["id"],
+                      "src": [[ln["ch"], int(ln["url"].rsplit("/", 1)[1])] for ln in read[:R.TH["llm_posts_max"]]]})
+    facts = {a["key"]: fact for a, fact in zip(asked, PICK_FACTS)}
+    return K.picks_doc(EDITION, PICKS_AT, "claude-fx-1", asked, facts, {"number": 1})
 
 
 # ---------- korea.json에서 저녁판이 읽는 칸만 (지어낸 금리) ----------

@@ -63,6 +63,14 @@
 .eve-lede strong { font-weight: 600; color: var(--key); }
 .eve-lede small { display: block; font-size: 12px; }
 .eve-when { font: 500 12.5px var(--f-mono); color: var(--amber); font-variant-numeric: tabular-nums; }
+/* AI 요약(2026-10-09) — 규칙이 낸 낱말·숫자와 섞여 보이지 않게 호박색 띠와 표시를 붙인다. 문장은 본문 글꼴로, 낱말 칩보다 크게 읽힌다.
+   표시와 '틀릴 수 있습니다'가 문장보다 먼저 온다. 나머지 줄(.eve-ai-row)에서는 낱말 줄 아래에 한 단계 작게 */
+.eve-ai { margin: 0 0 8px; padding: 6px 10px 7px; border: 1px solid var(--rule); border-left: 3px solid var(--amber); background: var(--black); font-size: 12px; line-height: 1.5; color: var(--dim); word-break: keep-all; overflow-wrap: anywhere; }
+.eve-ai-tag { display: inline-block; margin-right: 4px; padding: 0 6px; background: var(--amber); color: var(--black); font: 600 11.5px/1.6 var(--f-text); white-space: nowrap; }
+.eve-ai small { font-size: 11.5px; }
+.eve-ai-text { display: block; margin: 5px 0 3px; font: 400 14.5px/1.65 var(--f-text); color: var(--ink); }
+.eve-ai-row { flex: 1 1 100%; min-width: 0; margin: 3px 0 4px; padding: 4px 9px 5px; }
+.eve-ai-row .eve-ai-text { margin: 3px 0 2px; font-size: 13px; line-height: 1.6; }
 .eve-def { margin: 0 0 8px; padding: 5px 9px; border-left: 3px solid var(--key); background: var(--black); font-size: 12.5px; line-height: 1.55; color: var(--ink); }
 .eve-def strong { margin-right: 4px; font-weight: 600; color: var(--key); }
 .eve-def a, .eve-defs a { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; font-size: 12px; }
@@ -168,7 +176,7 @@
 }
 /* 강제 색(Windows 고대비) — 배경색으로만 하던 구분을 테두리로. 실제 고대비 화면에서는 확인하지 못했다 */
 @media (forced-colors: active) {
-  .eve-rank, .eve-badge, .eve-why li, .eve-tag, .eve-pip { border: 1px solid CanvasText; }
+  .eve-rank, .eve-badge, .eve-why li, .eve-tag, .eve-pip, .eve-ai-tag { border: 1px solid CanvasText; }
   .eve-editions a[aria-current="page"] { outline: 2px solid Highlight; outline-offset: -3px; }
 }
 @media print {

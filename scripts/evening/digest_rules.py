@@ -101,6 +101,26 @@ TH = {
     "words_max": 16, "rest_words_max": 4, "more_max": 4, "rest_more_max": 2, "row_more_max": 2,
     "size_short": 200, "size_long": 700, "row_head_chars": 200, "member_terms_max": 24, "topics_max": 40,
     "head_flat_bp": 1.0, "rate_min": 0.0, "rate_max": 20.0, "chg_bp_max": 100.0,
+    # AI 요약 층(2026-10-09 — PC에서만 돈다: evening_llm.py · digest_picks.py). 규칙판의 숫자가 아니다
+    # 고르기: 꼭 볼 것 전부 + 나머지 중 채권·애널 원천이 llm_rest_sources곳 이상 직접 쓴 항목, 합쳐 llm_items_max개. 항목마다 글 llm_posts_max개,
+    # 글마다 llm_post_chars자. 받기: 채널마다 한 번, llm_requests요청까지. 묻기: llm_timeout_s초(점검 호출은 llm_probe_s초), 출력 llm_out_bytes까지
+    "llm_items_max": 6, "llm_posts_max": 3, "llm_rest_sources": 2, "llm_post_chars": 1500, "llm_requests": 20,
+    "llm_timeout_s": 180, "llm_probe_s": 90, "llm_out_bytes": 400_000,
+    # 읽을거리(가린 뒤)가 llm_read_min자 미만이거나 읽힌 채널이 llm_chans_min곳 미만인 항목은 묻지 않는다 — 간추릴 것이 없으면 글 하나를
+    # 통째로 바꿔 쓰게 된다. 맥락 상한(물음 말고 다른 것이 모델에게 실렸는가): 점검 호출의 입력 토큰은 llm_probe_tokens까지, 본 호출은
+    # 거기에 물음 글자 수 × llm_char_tokens를 더한 데까지. 잰 값(2026-10-09, claude 2.1.294): 깨끗한 점검 호출 667토큰 · 사용자 규칙
+    # 파일 8개가 실렸을 때 9,040토큰 · 본 호출은 글자당 1.0토큰쯤(5,578자에 6,255토큰)
+    "llm_read_min": 300, "llm_chans_min": 1, "llm_probe_tokens": 1000, "llm_char_tokens": 1.3,
+    # 문장 검사: fact_min_chars~fact_chars자 · fact_sentences문장까지 · 글자 가운데 한글이 fact_hangul_min 이상. 공백·문장부호를 뺀 뒤 한 글과
+    # 연속 copy_run자 이상 겹치거나 문장의 글자 copy_gram-gram 가운데 copy_ratio 이상이 한 글에 있으면 베낌. 조사를 뗀 어절이 한 글과
+    # copy_stems개 이상 같은 차례로 이어져도, copy_piece자 이상 겹친 토막들이(어느 글의 것이든) 문장의 copy_cover 이상을 덮어도 베낌.
+    # 숫자 앞 num_ctx_chars자 안의 꼬리표(예상 · 전월 · 전년 …)는 문장과 글이 같아야 한다. 이어진 숫자가 fact_digits_max자 이상이면 전화번호 같은 것
+    "fact_chars": 140, "fact_min_chars": 10, "fact_sentences": 2, "fact_hangul_min": 0.6, "fact_digits_max": 8,
+    "copy_run": 20, "copy_gram": 3, "copy_ratio": 0.6, "copy_stems": 5, "copy_piece": 10, "copy_cover": 0.5,
+    "num_ctx_chars": 12, "picks_bytes_max": 20_000,
+    # 규칙판 실행을 시작하기(--dispatch): 판 날짜가 평일이고 KST 자정에서 dispatch_from_min분(17:30) 뒤부터, 그 판이 아직 안 올라왔을 때만.
+    # 기다리기: dispatch_poll_s초마다 보고 dispatch_wait_s초까지
+    "dispatch_from_min": 1050, "dispatch_poll_s": 30, "dispatch_wait_s": 720,
 }
 
 # ---------- 분류 8칸 (요인 × 지역 — 주간 시트 7행 + 기타) ----------
@@ -622,6 +642,13 @@ def _lex_kept(text):
 def match_terms(text):
     """글에서 사전 낱말을 찾는다 → [{"term", "pos"}] 자리순."""
     return _earliest(_lex_kept(text), "term")
+
+
+def covered(term, among):
+    """낱말이 among의 낱말로 설명되는가 — 그 낱말이 among에 있거나, 그 자리를 대신하는 더 좁은 낱말이 among에 있다
+    ('미 국채 금리'가 있으면 '금리', 나라를 밝힌 '국고채 입찰'이 있으면 '국채 입찰'). AI 요약 문장의 낱말 검사(digest_picks)가 쓴다."""
+    among = set(among)
+    return term in among or not narrow([term], among) or any(n in among for n in _GENERIC.get(term, ()))
 
 
 def term_hits(text):

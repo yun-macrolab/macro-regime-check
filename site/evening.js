@@ -13,6 +13,8 @@
                (digest_gloss.py에 우리가 쓴 풀이의 지문이다. 풀이를 고치면 지문도 고친다 — test_evening_site_more.py가 견준다)
      공식 자료  https이고 도메인이 RULES.official_domains(공공 기관)에 들거나 그 하위일 때만 링크로(FRED · FRASER는 '시계열' · '문서 모음')
      길이 구간  RULES.sizes에 있는 이름일 때만
+     AI 요약    닫힌 값이 아닌 하나뿐인 칸 — data/digest_picks.json의 문장(AI가 채권·애널 원천 채널의 글을 읽고 쓴 것, 2026-10-09). 최신 판 화면이고
+               판 날짜 · 항목의 key · 읽힌 글(그 항목의 걸린 링크)이 맞을 때만, 꼴을 한 번 더 보고(fact) 'AI 요약' 표시와 함께 — picksOf() · aiOf()
    2026-10-08 저녁에 더한 칸(함께 나온 낱말 · 첫 글~마지막 글 · 직전 판 · 덧낱말 · 낱말 수 · 길이 · 붙은 것 · 풀이)은 모두 없어도 되는 칸이다 —
    있을 때만 그리고, 없는 판(10-08 첫 판)은 예전 그대로 그린다. 낱말 목록은 자료의 순서 그대로 둔다(화면이 다시 섞지 않는다).
    글자는 전부 el()의 텍스트 노드로 넣는다. 바깥 요청은 없다(자료는 data/ 아래 JSON뿐).
@@ -45,56 +47,54 @@ window.Evening = (() => {
     "src": {"korea": "국고채 입찰 일정", "calendar": "일정표"},
     "run_kst": "17:41", "late_kst": "22:41", "edition_shift_h": 6, "show_editions": 10, "keep_days": 35,
     "min_bond_ok": 3, "min_total_ok": 16, "rows_per_channel": 5, "wire_query": "금리",
+    "fact_min_chars": 10, "fact_chars": 140, "llm_items_max": 6, "llm_posts_max": 3,
     "sizes": {"짧음": "짧은 글", "보통": "보통 길이", "김": "긴 글"}, "size_short": 200, "size_long": 700,
     "official_domains": ["stlouisfed.org", "newyorkfed.org", "kansascityfed.org", "chicagofed.org", "treasury.gov", "treasurydirect.gov",
       "bea.gov", "eia.gov", "boj.or.jp", "mof.go.jp", "stat.go.jp", "europa.eu", "imf.org", "bok.or.kr", "mods.go.kr", "mofe.go.kr",
       "tradedata.go.kr", "nps.or.kr", "hf.go.kr"],
     "gloss_marks": [
-      "02335a85024d516002fbe06d04f43f11074e541c08505a380b031b180d88bf0b0f4cf94e1127cdcb1392068414089ce9",
-      "1929b0d21ae5052f1c5233101ddbf5811de0fe4a1e5796951f2c5d501f840f0322f6b78023d330f9240b83fe245ec547",
-      "24b90918253ab802274b3b95301ac5013488a569351fce7a35ec3ad33663b709368fbbd3374a1304381cab413bc1954b",
-      "3c23f4023cb776053cce6c833e5c3b083fd8808a3ff2f3424230f2674514818b47ad64cf47d55de3481337c4495ec4f4",
-      "5202987c52e86a6d534f1a5a5499baa055722ce6558ad6c5560359075a002be25ab0a95b5f0ec8f76358e8e2643dc591",
-      "6637d34a68219ef3683985956a0758406adb68316f4188006f9e9b5670920c2c7139adf8730405f973c192bd74c2b60d",
-      "74f6f1db7cad19e07db717487e6bf27e7ef4c94e805abfd282ed9b7386bd530587cc476a8ccaf2a08d0ce41291e4eb0d",
-      "940147a29473c7659902759d9d8347349ee3ed3f9eeb80aba28abb19a680cf11a95261f2a96456c6ac9493e9ad236461",
-      "ade4c51cae09fa3baf0b80c0b1ea320fb2627821b3652f83b9271cd1b9e0124abeb7fae4bec66283c2d32f89c509a4f5",
-      "c989b734ca01b103cc39f081cc45350dcf6a13badec502c9e02356c3e4cd2ad1e56d9913e7f58c76ebc0feb9ecb0482a",
-      "ed01c1b9ef2a6ccbf03120dcf0a5aad3f0e9aab7f2d0e2eff44f86aaf599196bf5e63cb4f6a4245cf70a2f3ef8446983",
-      "f917165cf9eb7baefacdb875fed0e4afff0335f3ffb8c9cb"],
+      "02335a85024d516002fbe06d04f43f11074e541c08505a380b031b180d88bf0b0f4cf94e1127cdcb1392068414089ce91929b0d21ae5052f1c5233101ddbf5811de0fe4a",
+      "1e5796951f2c5d501f840f0322f6b78023d330f9240b83fe245ec54724b90918253ab802274b3b95301ac5013488a569351fce7a35ec3ad33663b709368fbbd3374a1304",
+      "381cab413bc1954b3c23f4023cb776053cce6c833e5c3b083fd8808a3ff2f3424230f2674514818b47ad64cf47d55de3481337c4495ec4f45202987c52e86a6d534f1a5a",
+      "5499baa055722ce6558ad6c5560359075a002be25ab0a95b5f0ec8f76358e8e2643dc5916637d34a68219ef3683985956a0758406adb68316f4188006f9e9b5670920c2c",
+      "7139adf8730405f973c192bd74c2b60d74f6f1db7cad19e07db717487e6bf27e7ef4c94e805abfd282ed9b7386bd530587cc476a8ccaf2a08d0ce41291e4eb0d940147a2",
+      "9473c7659902759d9d8347349ee3ed3f9eeb80aba28abb19a680cf11a95261f2a96456c6ac9493e9ad236461ade4c51cae09fa3baf0b80c0b1ea320fb2627821b3652f83",
+      "b9271cd1b9e0124abeb7fae4bec66283c2d32f89c509a4f5c989b734ca01b103cc39f081cc45350dcf6a13badec502c9e02356c3e4cd2ad1e56d9913e7f58c76ebc0feb9",
+      "ecb0482aed01c1b9ef2a6ccbf03120dcf0a5aad3f0e9aab7f2d0e2eff44f86aaf599196bf5e63cb4f6a4245cf70a2f3ef8446983f917165cf9eb7baefacdb875fed0e4af",
+      "ff0335f3ffb8c9cb"],
     "term_marks": [
-      "00a5d847019bec5001e257a702496fb0037c155c03d704bd0586a1930808efde08eb63cf08f2bb8c098195230a2b4265",
-      "0a7c20610b284c610bbdd76d0c658bb70d53308e0e92660210f52ee7117dc855135f365a1491977d1515962f15bd1f47",
-      "16224b55178fa32017a6b26c1b6bee7a1c1914f61db817821dd5526b1e42bf64201a83ad21a3559423d5135f25aa5882",
-      "273b80e828ea29882a3efb662b890aef2cbe95ed2ceebc33333328d633f8f6dd355dadcb369af43c3840450239e23160",
-      "3dbbecbe3ea71ba93fe8d879451370f04602bd1546662a4347025ceb4716813d4af258574ba86efa4da350d94df4f5fc",
-      "4f89077e50e3e28150fd9f925365bd5c5447b74d59d5eb905ac1e9bd5e1df7866486d6dd65c3415566aa2b45677cb12e",
-      "67ff1f4568efc397697539586b0d06816bc662f96bec7c976cbaa4e56db8eb9f741547bc745b086476a4299176d41101",
-      "7ae386667e461a5f807189b581531d5c822d7b5483e0fd9b86663708872702dd8c82cda68e3c96148e85762590610d85",
-      "916a99989256ee209305c7e5961bf1c296be159a96f5907e97b8adfb97fa0ce19934a3519ab709219b145ef39d944657",
-      "9df6360b9e4de0819f16a4269fd7e752a555053faded8ab8ae3d5061ae5d2395af8811d6b2e41cecb3d3e025b662564d",
-      "b716d9e9b96a597fb9d3003dba68c434bd50780dc24f42ffc4155271c43587dbc59c4f10c64ec9d7c8829339c8bed6cc",
-      "cb76dc93cbb64e37cc467b7dccfd2b0acdc3fdddcf04bcc6cf771f75d2753d10d3b59f09d3d32374d5095a9ad8f3f22e",
-      "d95934dedaed65fddde3f108decb810be432701be6d2eb72e6e5ebe3e72ec4b5e7368c35e7aa03e6e880cb42eab5a9f7",
-      "eae05ae2ee1af6def2296ffaf26d0c52f361d288f518ce19f6d8622bf9f96225fa0f8bcefa1e0b51fd249389fec68596"]
+      "00a5d847019bec5001e257a702496fb0037c155c03d704bd0586a1930808efde08eb63cf08f2bb8c098195230a2b42650a7c20610b284c610bbdd76d0c658bb70d53308e",
+      "0e92660210f52ee7117dc855135f365a1491977d1515962f15bd1f4716224b55178fa32017a6b26c1b6bee7a1c1914f61db817821dd5526b1e42bf64201a83ad21a35594",
+      "23d5135f25aa5882273b80e828ea29882a3efb662b890aef2cbe95ed2ceebc33333328d633f8f6dd355dadcb369af43c3840450239e231603dbbecbe3ea71ba93fe8d879",
+      "451370f04602bd1546662a4347025ceb4716813d4af258574ba86efa4da350d94df4f5fc4f89077e50e3e28150fd9f925365bd5c5447b74d59d5eb905ac1e9bd5e1df786",
+      "6486d6dd65c3415566aa2b45677cb12e67ff1f4568efc397697539586b0d06816bc662f96bec7c976cbaa4e56db8eb9f741547bc745b086476a4299176d411017ae38666",
+      "7e461a5f807189b581531d5c822d7b5483e0fd9b86663708872702dd8c82cda68e3c96148e85762590610d85916a99989256ee209305c7e5961bf1c296be159a96f5907e",
+      "97b8adfb97fa0ce19934a3519ab709219b145ef39d9446579df6360b9e4de0819f16a4269fd7e752a555053faded8ab8ae3d5061ae5d2395af8811d6b2e41cecb3d3e025",
+      "b662564db716d9e9b96a597fb9d3003dba68c434bd50780dc24f42ffc4155271c43587dbc59c4f10c64ec9d7c8829339c8bed6cccb76dc93cbb64e37cc467b7dccfd2b0a",
+      "cdc3fdddcf04bcc6cf771f75d2753d10d3b59f09d3d32374d5095a9ad8f3f22ed95934dedaed65fddde3f108decb810be432701be6d2eb72e6e5ebe3e72ec4b5e7368c35",
+      "e7aa03e6e880cb42eab5a9f7eae05ae2ee1af6def2296ffaf26d0c52f361d288f518ce19f6d8622bf9f96225fa0f8bcefa1e0b51fd249389fec68596"]
   };
   const P = RULES.phrases;
   const QUIET_NOTES = ["note_short", "note_withdrawn", "note_fewer", "note_none", "note_channels"];   // 판 머리가 아닌 자리에서 말하는 알림
   const SCORE_PARTS = [["C", "다룬 곳"], ["X", "그룹을 넘은 확인"], ["K", "낱말 등급"], ["E", "일정"], ["M", "금리 변동"], ["Y", "유튜브"],
     ["P", "감점"]];
   const HOW = [
-    `텔레그램 공개 채널의 웹 미리보기를 평일 저녁에 한 번 읽습니다(예약 ${RULES.run_kst} KST — 늦게 돌 수 있어 실제 수집 시각을 위에 적습니다). ` +
+    `텔레그램 공개 채널의 웹 미리보기를 평일 저녁에 읽습니다(예약 ${RULES.run_kst} KST — 늦게 돌거나 같은 판을 다시 계산할 수 있어 실제 수집 시각을 위에 적습니다. AI 요약에 쓸 글이 있는 채널은 운영자 PC가 한 번 더 읽습니다). ` +
       "로그인하지 않으며 누구나 볼 수 있는 미리보기 쪽만 읽습니다.",
-    "채널 글의 문장은 싣지 않습니다. 싣는 것은 미리 정한 낱말 사전의 낱말과 그 낱말을 쓴 채널 수, 두 곳 이상이 똑같이 쓴 숫자와 단위, " +
+    "채널 글의 문장은 옮겨 싣지 않습니다. 채널 글에서 가져오는 것은 미리 정한 낱말 사전의 낱말과 그 낱말을 쓴 채널 수, 두 곳 이상이 똑같이 쓴 숫자와 단위, " +
       `글을 올린 시각, 글 길이 구간(${RULES.size_short}자 미만 짧은 글 · ${RULES.size_long}자 이상 긴 글), 그 글에서 걸린 사전 낱말의 수, ` +
       "그림·파일이 붙었는지, 원문 링크뿐입니다. " +
       "다만 속보형·개인 채널이 혼자 쓴 글의 숫자는 한 곳만 쓴 숫자입니다(낱말 바로 곁의 숫자 하나). " +
       "무슨 내용인지는 링크를 눌러 원문에서 읽어 주세요.",
+    `'AI 요약' 표시가 붙은 문장은 채널의 글이 아니라 AI(Claude)가 쓴 것입니다. 채권·애널 그룹 원천 채널의 글을 항목마다 ${RULES.llm_posts_max}건까지 읽고 ` +
+      "자기 말로 한두 문장을 씁니다(개인·속보형 채널의 글과 전달 글은 읽히지 않습니다). 원문과 길게 겹치지 않는지, 숫자와 단위가 원문에 있는지, 정해 둔 권유·전망 표현이 없는지 같은 " +
+      "자동 검사를 통과한 문장만 싣습니다(짧은 어구는 원문과 겹칠 수 있습니다). 그래도 뜻이 틀릴 수 있습니다 — 원문에서 확인해 주세요. 요약은 운영자의 PC에서 따로 만들어 " +
+      "올리므로 문장이 없는 날과 항목이 있습니다. 텔레그램 약관은 플랫폼에서 얻은 자료를 AI에 쓰는 것을 제한합니다 — 채널 운영자가 요청하면 그 채널을 내립니다(아래 '삭제·정정 요청').",
     "낱말 풀이는 채널의 글이 아니라 이 사이트가 직접 쓴 한 줄입니다. 낱말의 뜻만 적고(그 글의 내용이 아닙니다) 시세·전망·평가는 담지 않습니다. " +
       "나라를 밝히지 않은 지표는 미국 지표로 셉니다. '공식 자료' 링크는 공공 기관의 쪽이고(첫 쪽일 때도 있습니다), " +
       "'시계열' · '문서 모음' 링크는 세인트루이스 연은이 통계와 문서를 모아 싣는 쪽(FRED · FRASER)입니다 — 민간 기관이 내는 지표도 그 안에 있습니다. " +
       "어느 것도 채널 글이 가리킨 주소가 아닙니다.",
-    "고르는 일은 LLM 없이 규칙이 합니다. 규칙은 몇 곳이 함께 다뤘는지를 셀 뿐이고 금리의 방향이나 강도, 매매 판단을 내지 않습니다. " +
+    "고르는 일은 LLM 없이 규칙이 합니다(AI는 규칙이 고른 항목에 요약 문장만 붙입니다). 규칙은 몇 곳이 함께 다뤘는지를 셀 뿐이고 금리의 방향이나 강도, 매매 판단을 내지 않습니다. " +
       "낱말과 숫자만으로는 글의 뜻을 잘못 짚을 수 있습니다.",
     "이 화면은 아침 점검표의 규칙 판정과 무관한 참고 자료입니다. 시범 운영 중이라 낱말 사전과 점수 기준은 바뀔 수 있습니다."
   ];
@@ -103,10 +103,11 @@ window.Evening = (() => {
   const RERUN = " 저장소 Actions의 evening 실행 기록에서 원인을 볼 수 있고, 수동 실행으로 다시 돌릴 수 있습니다.";
   const CARD_NOTE = "채널 글의 문장은 싣지 않습니다 — 낱말은 미리 정한 사전에서 찾은 것이고, 풀이는 이 사이트가 쓴 것입니다. " +
     "풀이는 낱말의 뜻이지 그 글의 내용이 아닙니다(나라를 밝히지 않은 지표는 미국 지표로 셉니다). 내용은 원문 링크에서 읽어 주세요.";
+  const AI_NOTE = " 'AI 요약'은 AI(Claude)가 채권·애널 채널의 글을 읽고 자기 말로 쓴 문장입니다 — 채널 글의 문장이 아니고, 틀릴 수 있습니다.";
   const UNFOLD = 10;                                                      // 나머지 표가 이 줄 수 이하면 펼쳐 둔다
   const PIPS = 12;                                                        // 곳 수 막대의 칸 수 상한(넘으면 숫자만 커진다)
-  const COMMON = ["digest.json", "digest_index.json", "digest_status.json", "sources.json", "digest_overrides.json"];
-  const PIECES = ["latest", "index", "status", "sources", "overrides"];        // COMMON과 같은 순서
+  const COMMON = ["digest.json", "digest_index.json", "digest_status.json", "sources.json", "digest_overrides.json", "digest_picks.json"];
+  const PIECES = ["latest", "index", "status", "sources", "overrides"];        // COMMON과 같은 순서(끝의 요약 층은 따로 — 못 받으면 비운다)
   const HOUR = 36e5, DAY = 24 * HOUR, KST = 9 * HOUR, BEAT_MS = 6e4, REFETCH_MS = 10 * 6e4;
   const DOW = "일월화수목금토";
 
@@ -121,6 +122,8 @@ window.Evening = (() => {
   const ISO_RE = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):\d{2}\+09:00$/;
   const NOT_LABEL = /[<>@\\\p{Cc}\p{Cf}\p{Zl}\p{Zp}]|https?:/u;
   const OFFICIAL_RE = /^https:\/\/((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,})\/[A-Za-z0-9._~\/?&=%-]*$/;
+  const FACT_RE = new RegExp(`^[가-힣A-Za-z0-9 .,·%()~/+:&-]{${RULES.fact_min_chars},${RULES.fact_chars}}$`);
+  const LINKISH = /https?:|www\.|[A-Za-z0-9-]+\.[A-Za-z]{2,}/i;
   const marks = rows => new Set(rows.join("").match(/.{8}/g));              // 지문 8자씩 이어 붙여 둔 것 → 집합
   const MARKS = marks(RULES.gloss_marks), TERMS = marks(RULES.term_marks);
   const PHRASE_RES = Object.entries(P).map(([code, text]) =>
@@ -136,6 +139,8 @@ window.Evening = (() => {
   const term = v => (word(v) && TERMS.has(fingerprint(v)) ? v : null);
   const label = v => (typeof v === "string" && v.length > 0 && v.length <= 40 && v === v.trim() && !NOT_LABEL.test(v) ? v : null);
   const hhmm = (v, fallback) => (typeof v === "string" && HHMM_RE.test(v) ? v : fallback);
+  // AI 요약 문장은 닫힌 값이 아니다 — 꼴을 한 번 더 본다(digest_picks.ok_shape의 앞부분): 길이 · 정해 둔 글자만(제어 문자 · 꺾쇠 · @ · 줄바꿈 없음) · 주소 꼴 없음 · '…다.'로 맺음
+  const fact = v => (typeof v === "string" && FACT_RE.test(v) && !LINKISH.test(v) && v === v.trim() && v.endsWith("다.") ? v : null);
   // 숫자 + 허용 단위. 보기 좋게 정수부에 쉼표만 넣는다("4732계약" → "4,732계약")
   const num = v => (typeof v === "string" && NUM_RE.test(v)
     ? v.replace(/^(-?)(\d+)/, (_, sign, n) => sign + n.replace(/\B(?=(\d{3})+$)/g, ",")) : null);
@@ -216,13 +221,14 @@ window.Evening = (() => {
   async function fetchCommon() {
     const got = await Promise.allSettled(COMMON.map(name => getJson("data/" + name)));
     const pick = i => (got[i].status === "fulfilled" && isObj(got[i].value) ? got[i].value : null);
-    return { latest: usable(pick(0)), index: pick(1), status: pick(2), sources: pick(3), overrides: pick(4), at: clock() };
+    return { latest: usable(pick(0)), index: pick(1), status: pick(2), sources: pick(3), overrides: pick(4), picks: pick(5), at: clock() };
   }
-  // 공용 자료 — 처음 한 번 읽고, 10분이 지났으면 다시 읽는다. 다시 읽다 못 받은 조각은 가진 것을 둔다(잠깐의 수신 실패로 화면이 비지 않게)
+  // 공용 자료 — 처음 한 번 읽고, 10분이 지났으면 다시 읽는다. 다시 읽다 못 받은 조각은 가진 것을 둔다(잠깐의 수신 실패로 화면이 비지 않게).
+  // AI 요약 층만은 못 받으면 비운다(picks) — 없는 날이 보통이고, 내려간 문장이 열어 둔 화면에 남으면 안 된다
   function common() {
     if (store.common && clock() - store.common.at < REFETCH_MS) return Promise.resolve(store.common);
     if (!store.pending) store.pending = fetchCommon().then(next => {
-      const old = store.common || {}, merged = { at: next.at };
+      const old = store.common || {}, merged = { at: next.at, picks: next.picks };
       for (const k of PIECES) merged[k] = next[k] || old[k] || null;
       store.common = merged;
       store.pending = null;
@@ -240,7 +246,7 @@ window.Evening = (() => {
     return d;
   }
   const mark = c => JSON.stringify([c.latest && [c.latest.date, c.latest.collected_at], c.status && c.status.checked_at,
-    c.index && c.index.updated_at, c.overrides, !!c.sources]);
+    c.index && c.index.updated_at, c.overrides, !!c.sources, c.picks && [c.picks.date, c.picks.made_at]]);
 
   // ---------- 화면 전환 · 다시 판정 ----------
   // index.html의 applyView()가 화면이 바뀔 때마다 부른다. 여기서 난 예외가 다른 화면의 전환을 막지 않게 삼킨다
@@ -302,9 +308,21 @@ window.Evening = (() => {
       && Array.isArray(ov.hide_channels);
     const hide = { broken: !ok, all: !ok || ov.withdraw || (!!d && d.status === "withdrawn"),
       ids: new Set(ok ? ov.hide_ids : []), chans: new Set(ok ? ov.hide_channels : []) };
-    // gloss = 이 판의 풀이, used = 화면에 실제로 나간 사전 낱말(풀이 절은 이 낱말의 것만 싣는다 — 숨긴 항목의 낱말은 빠진다)
+    // gloss = 이 판의 풀이, used = 화면에 실제로 나간 사전 낱말(풀이 절은 이 낱말의 것만 싣는다 — 숨긴 항목의 낱말은 빠진다), ai = 그려진 요약 문장 수
     return { dir, hide, group: names(m.sources, "groups"), role: names(m.sources, "roles"), gloss: glossary(d), used: new Set(),
-      label: ch => (dir && dir.has(ch) ? dir.get(ch).label : ch) };
+      picks: picksOf(m), ai: 0, label: ch => (dir && dir.has(ch) ? dir.get(ch).label : ch) };
+  }
+  // AI 요약 층 → {항목의 key: {fact, src} | null}. 최신 판 화면이고 파일의 판 날짜가 보는 판과 같을 때만(digest_schema.py 머리말 'AI 요약 층' — 파이썬 판은
+  // digest_picks.attach. 내린 판은 항목을 그리지 않아 붙일 자리가 없다). 물을 수 있는 수보다 많이 든 파일은 통째로 믿지 않는다. 문장마다 key ·
+  // 읽힌 글 1~3개([채널, 글 번호], 겹치지 않게) · 문장의 꼴을 보고, 어긋난 문장과 key가 겹친 문장은 그 문장만 뺀다(null)
+  function picksOf(m) {
+    const p = m.picks, d = m.digest, got = new Map(), rows = list(isObj(p) ? p.items : null), most = RULES.llm_posts_max;
+    if (m.past || !d || !isObj(p) || p.schema !== 1 || p.mode !== "ai" || p.date !== d.date || rows.length > RULES.llm_items_max) return got;
+    const post = s => Array.isArray(s) && s.length === 2 && Number.isInteger(s[1]);
+    const read = v => Array.isArray(v) && v.length > 0 && v.length <= most && v.every(post) && new Set(v.map(String)).size === v.length;
+    for (const x of rows.filter(x => isObj(x) && typeof x.key === "string"))
+      got.set(x.key, !got.has(x.key) && read(x.src) && fact(x.fact) ? { fact: x.fact, src: x.src } : null);
+    return got;
   }
   // 새 창으로 여는 바깥 링크는 여기서만 만든다 — 연 쪽 창을 건드리지 못하고, 어디서 왔는지 넘기지 않는다
   function out(href, text, name) {
@@ -378,12 +396,11 @@ window.Evening = (() => {
     }
     paintAlerts();
     if (m.loading || m.failed) { live.body.replaceChildren(); return; }
-    const ctx = context(m), d = m.digest;
-    const parts = [d ? () => headBox(ctx, d, m.status) : null, ctx.hide.all ? null : () => editionNav(m.index, d ? d.date : "")];
-    if (d && !ctx.hide.all) parts.push(() => mustSection(ctx, d), () => tomorrowSection(ctx, d), () => restSection(ctx, d),
-      () => bondSection(ctx, d), () => sideSection(ctx, d), () => contextSection(ctx, d), () => glossSection(ctx));   // 풀이 절은 맨 뒤(나간 낱말을 다 센 뒤)
-    parts.push(() => about(ctx, m));
-    live.body.replaceChildren(...parts.map(part).filter(Boolean));
+    const ctx = context(m), d = m.digest, open = d && !ctx.hide.all;
+    // 항목 절을 판 머리보다 먼저 만든다 — 머리의 배지가 그려진 요약 문장 수(ctx.ai)를 쓴다. 풀이 절은 맨 뒤(머리와 항목에 나간 낱말을 다 센 뒤)
+    const secs = (open ? [mustSection, tomorrowSection, restSection, bondSection, sideSection, contextSection] : []).map(f => part(() => f(ctx, d)));
+    const top = [d ? () => headBox(ctx, d, m.status) : null, ctx.hide.all ? null : () => editionNav(m.index, d ? d.date : "")].map(part);
+    live.body.replaceChildren(...[...top, ...secs, open ? part(() => glossSection(ctx)) : null, part(() => about(ctx, m))].filter(Boolean));
     if (!calm()) {                                                        // 판이 그려질 때 숫자가 한 번 깜박인다(움직임을 껐으면 하지 않는다)
       live.body.classList.add("eve-fresh");
       setTimeout(() => live.body.classList.remove("eve-fresh"), 1000);
@@ -410,7 +427,7 @@ window.Evening = (() => {
     return el("section", { class: "box eve-head" },
       el("div", { class: "eve-bar" }, el("h2", {}, `저녁판 ${d.date}(${dow(d.date)})`),
         el("span", { class: "eve-badges" }, el("span", { class: "eve-badge eve-pilot" }, "시범"),
-          el("span", { class: "eve-badge" }, "규칙 선별 · 문장 없음"))),
+          el("span", { class: "eve-badge" }, ctx.ai ? "규칙 선별 + AI 요약" : "규칙 선별 · 문장 없음"))),
       el("div", { class: "eve-head-body" },
         el("p", {}, "수집 ", when(d.collected_at) || "시각 없음", " (KST) · 수집 창 ", when(w.from) || "?", " ~ ", when(w.to) || "?"),
         ...open));
@@ -509,7 +526,23 @@ window.Evening = (() => {
     // head = 제목의 낱말: 대표 낱말(첫머리의 것), 없으면 본문에서 걸린 낱말 둘(body)
     const body = !terms.length, head = body ? all.slice(0, 2) : terms;
     return { raw: x, links, terms, nums, words, all, head, body, cell: cellName(x.cell), cover: coverText(ctx, x.coverage),
-      span: spanOf(x.span), prev: quiet(() => prevOf(ctx, x)) };
+      span: spanOf(x.span), prev: quiet(() => prevOf(ctx, x)), ai: quiet(() => aiOf(ctx, x, links)) };
+  }
+  // 이 항목에 붙일 요약 {fact, n(읽힌 글 수)} — key가 같고, 읽힌 글이 모두 이 항목의 걸린 링크 가운데 채권·애널 원천 채널의 전달 아닌 글일 때만
+  // (숨긴 채널 · 목록에 없는 채널의 글로 쓴 문장은 빠진다). 출처 목록을 못 읽었으면 붙이지 않는다 — 어느 채널의 글인지 견줄 수 없다
+  function aiOf(ctx, x, links) {
+    const p = ctx.picks.get(x.key), from = ch => (ctx.dir && ctx.dir.get(ch)) || {};
+    const read = ([ch, n]) => from(ch).role === "source" && ["bond", "analyst"].includes(from(ch).group)
+      && links.some(l => l.ch === ch && !l.fwd && l.url === `https://t.me/${ch}/${n}`);
+    return p && p.src.every(read) ? { fact: p.fact, n: p.src.length } : null;
+  }
+  // AI 요약 한 토막 — 표시 · 틀릴 수 있다는 말 · 문장(텍스트 노드) · 읽힌 글 수. 카드에서는 한 문단, 나머지 줄(row)에서는 낱말 줄 아래에 작게
+  function aiNote(ctx, it, row) {
+    if (!it.ai) return null;
+    ctx.ai += 1;
+    return el(row ? "span" : "p", { class: row ? "eve-ai eve-ai-row" : "eve-ai" }, el("span", { class: "eve-ai-tag" }, "AI 요약"), " ",
+      el("small", {}, "틀릴 수 있습니다 — 원문에서 확인하세요"), " ", el("span", { class: "eve-ai-text" }, it.ai.fact), " ",
+      el("small", {}, `채권·애널 채널 글 ${it.ai.n}건을 읽고 씀`));
   }
   const items = (ctx, raw) => list(raw).map(x => quiet(() => item(ctx, x))).filter(Boolean);
   const termNodes = it => (it.head.length ? [it.body ? el("small", {}, "본문 낱말 ") : null, el("strong", {}, it.head[0]),
@@ -549,7 +582,7 @@ window.Evening = (() => {
       n ? el("ol", { class: "eve-must" }, ...shown.map((it, i) => el("li", {}, mustCard(ctx, it, i + 1))))
         : el("p", { class: "empty-state" }, why + "." + where),
       lost > 0 ? el("p", { class: "reading-note" }, `표시하지 않은 항목 ${lost}건 — 숨김 목록에 있거나 자료의 형식이 맞지 않습니다.`) : null,
-      el("p", { class: "eve-note" }, CARD_NOTE));                         // 카드 뒤에 — 폰 첫 화면에 카드의 제목이 들어오게
+      el("p", { class: "eve-note" }, CARD_NOTE + (ctx.ai ? AI_NOTE : "")));   // 카드 뒤에 — 폰 첫 화면에 카드의 제목이 들어오게
   }
   // 고정 틀에 값을 끼운 한 문장 — "채권 채널 4곳이 함께 다뤘습니다." + 작게 "묶인 글 7건 · 10-08 05:44 ~ 10:12"(값은 채널 수·글 수·시각뿐).
   // 시각 범위는 묶인 글(속보형·전달 포함)의 것이라 문장 밖에 적는다
@@ -591,7 +624,7 @@ window.Evening = (() => {
     return el("article", { class: "eve-item" },
       el("div", { class: "eve-item-head" }, el("span", { class: "eve-rank", "aria-hidden": "true" }, String(rank)), cellTag(it.cell)),
       el("div", { class: "eve-cols" }, el("div", {},
-        el("h3", { class: "eve-terms" }, ...termNodes(it)), quiet(() => lede(ctx, it)), defLine(ctx, it.terms[0]),
+        el("h3", { class: "eve-terms" }, ...termNodes(it)), quiet(() => lede(ctx, it)), aiNote(ctx, it), defLine(ctx, it.terms[0]),
         p ? el("p", { class: "eve-prev" }, `대표 낱말이 직전 판 ${md(p.date)}에도 있었습니다 — 그때 ${p.then} → 이번 ${p.now} `,
           el("small", {}, "(낱말이 같을 뿐 같은 묶음이 아닐 수 있습니다)")) : null,
         it.nums.length ? el("ul", { class: "eve-nums", "aria-label": "두 곳 이상이 똑같이 쓴 숫자" }, ...it.nums.map(n => el("li", {},
@@ -648,7 +681,7 @@ window.Evening = (() => {
     const rows = lone(it) ? it.all.filter(t => !it.head.includes(t)).slice(0, 6) : it.words.map(w => `${w.term} ${w.n}곳`);
     return rows.length ? el("span", { class: "eve-sub" }, lone(it) ? "이 글의 낱말: " : "함께 나온 낱말: ", rows.join(" · ")) : null;
   }
-  function restRow(it, withCell) {
+  function restRow(ctx, it, withCell) {
     const n = it.nums[0], s = it.raw.s, sp = it.span;
     return el("li", {},
       el("span", { class: "eve-main" }, withCell ? cellTag(it.cell) : null, withCell ? " " : null, ...termNodes(it)),
@@ -657,7 +690,7 @@ window.Evening = (() => {
       Number.isFinite(s) ? el("span", { class: "eve-meta" }, `점수 ${Math.round(s * 100) / 100}`) : null,
       sp && sp.posts > 1 ? el("span", { class: "eve-meta" }, `글 ${sp.posts}건 · ${sp.text}`) : null,
       it.prev ? el("span", { class: "eve-meta" }, `대표 낱말이 직전 판 ${md(it.prev.date)}에도 있음`) : null,
-      wordsNote(it), el("span", { class: "eve-row-links" }, ...it.links.map(l => rowLink(l, lone(it), it.head))));
+      wordsNote(it), aiNote(ctx, it, true), el("span", { class: "eve-row-links" }, ...it.links.map(l => rowLink(l, lone(it), it.head))));
   }
   function restSection(ctx, d) {
     const groups = restGroups(ctx, d).map(g => ({ ...g, items: g.items.filter(it => !bondAlone(it)) })).filter(g => g.items.length);
@@ -667,7 +700,7 @@ window.Evening = (() => {
     return section("나머지", `${total}줄 · 분류 칸별` + (total > UNFOLD ? "로 접혀 있습니다" : ""), ...groups.map(g => el("details", fold,
       el("summary", {}, el("strong", {}, g.cell || "분류 보류"), ` ${g.items.length}줄`,
         el("small", {}, g.items.map(it => it.terms[0]).filter(Boolean).slice(0, 3).join(" · "))),
-      el("ul", { class: "eve-rows" }, ...g.items.map(it => restRow(it, false))))),
+      el("ul", { class: "eve-rows" }, ...g.items.map(it => restRow(ctx, it, false))))),
       cut ? el("p", { class: "reading-note" }, P.note_truncated.replace("{n}", cut) + ".") : null);
   }
   // 채권 채널 한 곳만 쓴 글 한 줄 — 시각 · 칸 · 낱말 · 꼬리표 · 원문(채널 이름은 묶음의 머리에 한 번만)
@@ -759,5 +792,5 @@ window.Evening = (() => {
       el("h3", {}, "채널 목록"), part(() => channelList(ctx, status)));
   }
 
-  return { setView, _: { editionOf, dueEdition, judge, num, word, term, label, phraseCode, official, fingerprint } };
+  return { setView, _: { editionOf, dueEdition, judge, num, word, term, label, phraseCode, official, fingerprint, fact } };
 })();

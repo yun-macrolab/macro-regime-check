@@ -48,8 +48,8 @@ def term_marks():
 
 
 def marks_block(name, got):
-    """evening.js에 붙여 넣을 꼴 — 지문 12개씩을 이어 붙인 문자열들(화면이 8자씩 끊어 읽는다)."""
-    lines = ['"' + "".join(got[i:i + 12]) + '"' for i in range(0, len(got), 12)]
+    """evening.js에 붙여 넣을 꼴 — 지문 17개씩을 이어 붙인 문자열들(화면이 8자씩 끊어 읽는다. 17개 = 한 줄 150자 안)."""
+    lines = ['"' + "".join(got[i:i + 17]) + '"' for i in range(0, len(got), 17)]
     return f'    "{name}": [\n      ' + ",\n      ".join(lines) + "]"
 
 

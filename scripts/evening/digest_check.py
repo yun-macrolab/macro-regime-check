@@ -29,6 +29,8 @@
                (채권 채널의 새 글이 하나도 없던 날, 수집 부족·내린 판은 세지 않는다)
 
 출력은 공개 Actions 로그에 남는다 — 파일 이름 · 위반 코드 · 자리(칸 이름과 번호)만 찍고 값은 찍지 않는다.
+AI 요약 층(digest_picks.json — PC가 data/에 올리는 파일, 2026-10-09)이 폴더에 같이 있으면 형식 · 읽힌 글의 채널 · 문장의 꼴과 금지 낱말 ·
+다시 쓴 바이트를 본다(걸리면 shape · json · canon). 아티팩트로 올라가는 폴더(--strict)에 있으면 계약에 없는 파일이다(stray).
 --strict: 폴더에 저녁판 파일(PUBLIC_FILES와 digest/<날짜>.json) 말고 아무것도 없어야 한다 — 이름이 digest로 시작하지 않는 파일 · 다른
 하위 폴더 · 숨김 파일도 stray. 아티팩트로 올라가는 폴더(수집 잡의 <out>, 게시 잡이 받은 것)를 볼 때 쓴다. data/를 볼 때는 쓰지 않는다.
 사용법: python scripts/evening/digest_check.py --public <폴더> [--raw .work/evening] [--sources data/sources.json] [--strict] [--alert]
@@ -40,6 +42,7 @@ import os
 import re
 import sys
 
+import digest_picks as K
 import digest_rules as R
 import digest_schema as S
 
@@ -252,7 +255,7 @@ def list_files(public, strict=False):
         return os.path.isfile(path) and not os.path.islink(path)
     top = sorted(os.listdir(public))
     names = [n for n in S.PUBLIC_FILES if n in top and plain(n)]
-    known = ("digest",) if strict else ("digest", "digest_overrides.json")
+    known = ("digest",) if strict else ("digest", "digest_overrides.json", K.FILE)      # 요약 층은 data/에서만 아는 파일이다(_picks가 본다)
     stray = sum((strict or n.startswith("digest")) and n not in names and n not in known for n in top)
     sub = os.path.join(public, "digest")
     if os.path.isdir(sub) and not os.path.islink(sub):
@@ -302,6 +305,21 @@ def _human(public, sources):
             labels = [c["label"] for c in doc["channels"]] + list(R.GROUPS.values()) + list(R.ROLES.values())
             found += [_f(name, p, "open") for p in S.closed_violations(doc, S.handles_of(doc, list(R.ROLES)), labels)]
     return found
+
+
+def _picks(public, sources):
+    """AI 요약 층(digest_picks.json — PC가 data/에 올린다)이 폴더에 같이 있으면 본다: 다시 쓴 바이트와 같은가, 형식, 읽힌 글의 채널,
+    문장의 꼴과 금지 낱말(원문 없이 도는 검사 — digest_picks.validate_picks). 문장은 닫힌 값이 아니라서 닫힌 글자 검사는 하지 않는다."""
+    if not os.path.isfile(os.path.join(public, K.FILE)):
+        return []
+    _, doc, code = _read(public, K.FILE)
+    if code:
+        return [_f(K.FILE, "$", code)]
+    try:
+        K.validate_picks(doc, sources)
+    except ValueError as e:
+        return [_f(K.FILE, _where(e), "shape")]
+    return []
 
 
 # ---------- 파일끼리 · 수집 판정 · 0건 연속 ----------
@@ -493,7 +511,7 @@ def check_folder(public, sources, raw=None, strict=False):
         if not bad:
             docs[name] = doc                           # 위반이 하나도 없는 파일만 서로 맞춰 본다
         found += bad
-    found += _human(public, sources)
+    found += _human(public, sources) + ([] if strict else _picks(public, sources))
     st, groups = docs.get("digest_status.json"), {c["handle"]: c["group"] for c in sources["channels"]}
     if "digest_status.json" not in raws:
         found.append(_f("digest_status.json", "$", "missing"))

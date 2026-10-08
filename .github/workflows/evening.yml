@@ -44,6 +44,8 @@ on:
       - "site/evening.*"
       - "data/sources.json"
       - "data/calendar.json"
+      # data/digest_picks.json(PC가 올리는 AI 요약 층)은 넣지 않는다 — 그 push의 검사와 배포는 daily.yml의 push 실행이 한다.
+      # 여기에도 걸면 같은 concurrency 그룹에 실행이 둘 서고, 기다리던 배포가 뒤따른 실행에 밀려 취소될 수 있다
       - ".github/workflows/evening.yml"
   schedule:
     - cron: "41 8 * * 1-5"    # UTC 월~금 08:41 = KST 17:41 수집(국내 마감 뒤). 수십 분~몇 시간 늦을 수 있다
@@ -223,7 +225,7 @@ jobs:
         if: steps.blank.outcome == 'failure'
         run: |
           echo "::warning::빈 판을 만들지 못해 저녁판 파일을 지웠다 — scripts/evening/digest_build.py --blank 확인"
-          rm -f data/digest.json data/digest_index.json data/digest_state.json data/digest_status.json
+          rm -f data/digest.json data/digest_index.json data/digest_state.json data/digest_status.json data/digest_picks.json
           rm -rf data/digest
       - name: notes 받기
         run: git fetch --quiet origin '+refs/notes/*:refs/notes/*'

@@ -43,9 +43,9 @@ TAKEDOWN = "https://github.com/yun-macrolab/macro-regime-check/issues/new?templa
 HANDLE = S.HANDLE_RE.pattern[1:-1]
 POST = re.compile(rf"^https://t\.me/({HANDLE})/[1-9]\d{{0,9}}$")
 CHANNEL = re.compile(rf"^https://t\.me/({HANDLE})$")
-REQUEST = re.compile(r"^data/(?:digest|digest_index|digest_status|digest_overrides|sources|digest/\d{4}-\d{2}-\d{2})\.json$")
+REQUEST = re.compile(r"^data/(?:digest|digest_index|digest_status|digest_overrides|digest_picks|sources|digest/\d{4}-\d{2}-\d{2})\.json$")
 NAMES = {"digest": "digest.json", "index": "digest_index.json", "status": "digest_status.json", "sources": "sources.json",
-         "overrides": "digest_overrides.json"}
+         "overrides": "digest_overrides.json", "picks": "digest_picks.json"}      # picks = AI 요약 층(없는 날이 보통이다 — site(picks=…)로 둔다)
 THU_EVENING = "2026-10-08T19:00:00+09:00"      # 10-08(목) 판이 막 나온 저녁
 FRI_MORNING = "2026-10-09T10:00:00+09:00"      # 다음 날 아침 — 오늘 판은 아직 수집 전
 FRI_NIGHT = "2026-10-09T22:45:00+09:00"        # 22:41이 지났는데 10-09 판이 없다
@@ -265,7 +265,8 @@ class SourceTest(unittest.TestCase):
     def test_file_sizes_stay_small(self):
         self.assertLessEqual(JS.count("\n"), 800)
         # 60KB → 64KB(2026-10-08 밤): 지문 표 둘(풀이 138개 · 사전 낱말 168개, 합쳐 2.6KB)이 들어왔다 — 화면이 낱말·풀이를 사전과 견주려면 필요하다
-        self.assertLess(len(JS.encode("utf-8")), 64_000)
+        # 64KB → 68KB(2026-10-09): AI 요약 층을 붙이는 규칙 · 문장의 2차 가드와, 그 방식을 사실대로 적은 안내 문단(한글 1.5KB)이 들어왔다
+        self.assertLess(len(JS.encode("utf-8")), 68_000)
 
     @unittest.skipUnless(NODE, "node가 없다")
     def test_node_accepts_the_syntax(self):
@@ -401,7 +402,7 @@ class EditionTest(Screen):
                 self.assertIsNone(a["target"])
 
     def test_source_note_says_how_and_where_to_ask(self):
-        self.shows(self.frame, "웹 미리보기를 평일 저녁에 한 번", "채널 글의 문장은 싣지 않습니다", "규칙 판정과 무관한 참고 자료",
+        self.shows(self.frame, "웹 미리보기를 평일 저녁에 읽습니다", "채널 글의 문장은 싣지 않습니다", "규칙 판정과 무관한 참고 자료",
                    "채널 운영자가 요청하면 그 채널을 목록에서 내립니다", "채권 5곳", "애널 8곳", "개인 12곳", "가상 개인 off1 제외")
 
     def test_nothing_planted_is_in_the_fixture_screen(self):

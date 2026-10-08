@@ -17,9 +17,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import digest_build as B
 import digest_check as C
+import digest_picks as K
 import digest_rules as R
 import digest_schema as S
 import fixtures as F
+import test_digest_picks as TK
 
 DAY = f"digest/{F.EDITION}.json"
 FILES = ("digest.json", DAY, "digest_index.json", "digest_state.json", "digest_status.json")
@@ -495,6 +497,7 @@ class TakedownTest(BuildCase):
         self.publish()
         S.write_json(os.path.join(self.data, "digest", "2026-10-07.json"), {"old": 1})
         S.write_json(os.path.join(self.data, "korea.json"), {"morning": 1})
+        S.write_json(os.path.join(self.data, K.FILE), TK.doc())                 # PC가 올려 둔 AI 요약 문장
         shutil.rmtree(self.work)                                                # 내리기는 수집한 것 없이도 돈다
         code, text = self.build("--blank", "--now", LATER, out=self.data)
         d, state, status = (self.doc(n, self.data) for n in ("digest.json", "digest_state.json", "digest_status.json"))
@@ -505,6 +508,8 @@ class TakedownTest(BuildCase):
         self.assertEqual((state["edition"]["must"], state["base"]["must"], state["edition"]["window"]), ([], [], F.WINDOW))
         self.assertEqual((status["ok"], status["reason"], status["published"], status["edition"]), (False, "withdrawn", True, F.EDITION))
         self.assertEqual(self.doc("korea.json", self.data), {"morning": 1})    # 아침 자료는 건드리지 않는다
+        self.assertEqual(self.doc(K.FILE, self.data), K.blank_picks(F.EDITION, LATER))      # AI 요약 층도 빈 것으로 — 문장이 남지 않는다
+        self.assertNotIn("다.".encode("utf-8"), self.raw(K.FILE, self.data))
         for name in ("digest.json", "digest_index.json", "digest_state.json"):
             self.assertNotIn(b"t.me", self.raw(name, self.data))
             self.assertNotIn(b"-fx", self.raw(name, self.data))                 # 항목 id(채널 이름 + 글 번호)도 남지 않는다
@@ -518,6 +523,7 @@ class TakedownTest(BuildCase):
         self.assertEqual(self.build("--blank", "--now", LATER)[0], 0)
         self.assertEqual(self.doc("digest_state.json"), {"schema": 1, "edition": None, "base": None})
         self.passes_check(raw=False)
+        self.assertEqual(self.doc(K.FILE)["items"], [])                         # 올린 적이 없어도 빈 요약 층을 둔다
 
     def test_blank_does_not_depend_on_files_a_person_may_have_broken(self):
         """내리는 날은 목록·숨김 파일을 손으로 고치다 깨뜨리기 쉽다 — 그래도 내려가야 한다."""
