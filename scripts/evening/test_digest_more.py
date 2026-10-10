@@ -11,6 +11,7 @@
 네트워크 불필요 — 글은 fixtures.py의 지어낸 것과 여기서 지어낸 한두 줄뿐이다. data/의 파일은 이미 공개된 산출물이다(채널 글이 아니다).
 """
 import copy
+import datetime
 import os
 import shutil
 import sys
@@ -507,13 +508,17 @@ class PublishedTest(unittest.TestCase):
     def test_the_next_edition_builds_on_the_published_state(self):
         state = S.validate_state(S.read_json(os.path.join(self.data, "digest_state.json")))
         index = S.validate_index(S.read_json(os.path.join(self.data, "digest_index.json")))
-        nxt = S.collect_window(S.parse_iso("2026-10-09T17:41:00+09:00"), state)
-        self.assertEqual((nxt["kind"], nxt["from"]), ("next", state["edition"].get("read_to") or state["edition"]["window"]["to"]))
-        self.assertIsNotNone(S.state_base(state, "2026-10-09"))
-        moved = S.next_state(state, {**state["edition"], "date": "2026-10-09", "window": {"from": nxt["from"], "to": nxt["to"]},
+        # 다음 판의 날짜는 게시된 상태에서 계산한다 — 날짜를 적어 두면 그날 판이 나간 뒤부터 이 테스트가 깨진다
+        day = (datetime.date.fromisoformat(state["edition"]["date"]) + datetime.timedelta(days=1)).isoformat()
+        nxt = S.collect_window(S.parse_iso(day + "T17:41:00+09:00"), state)
+        self.assertEqual(nxt["kind"], "next")
+        if not nxt["capped"]:                           # 여러 날 못 읽은 뒤라 96시간 상한에 걸리면 시작점은 그 상한이다
+            self.assertEqual(nxt["from"], state["edition"].get("read_to") or state["edition"]["window"]["to"])
+        self.assertIsNotNone(S.state_base(state, day))
+        moved = S.next_state(state, {**state["edition"], "date": day, "window": {"from": nxt["from"], "to": nxt["to"]},
                                      "collected_at": nxt["to"], "must": [], "topics": []})
         S.validate_state(moved)
-        self.assertEqual(index["editions"][0]["date"], "2026-10-08")
+        self.assertLessEqual(index["editions"][0]["date"], state["edition"]["date"])    # 목차의 최신 판이 상태 기록보다 앞서지 않는다
 
 
 if __name__ == "__main__":
