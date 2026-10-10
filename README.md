@@ -199,7 +199,7 @@ python -X utf8 scripts/korea_market.py --out .work/public
 python -m unittest discover -s scripts/evening
 ```
 
-네트워크 없이 돌고 자료는 지어낸 글뿐입니다. 2026-10-09 기준 683개입니다(진짜 git을 쓰는 4개는 임시 폴더의 저장소에서만 돕니다)(화면을 그려 보는 테스트는 node가 있을 때만 돕니다). 아침 테스트(`python -m unittest discover -s scripts`)와는 따로 돕니다.
+네트워크 없이 돌고 자료는 지어낸 글뿐입니다. 2026-10-10 기준 698개입니다(진짜 git을 쓰는 4개는 임시 폴더의 저장소에서만 돕니다)(화면을 그려 보는 테스트는 node가 있을 때만 돕니다). 아침 테스트(`python -m unittest discover -s scripts`)와는 따로 돕니다.
 
 PC에서 저장분으로 끝까지 돌려 보기:
 
@@ -247,10 +247,11 @@ python -X utf8 scripts/test_notes_charts.py
 python -X utf8 scripts/test_notes_site.py
 node --test scripts/test_korea_health.cjs
 node --test scripts/test_notes_render.cjs
+python -X utf8 scripts/test_site_origin.py
 python -X utf8 -m unittest discover -s scripts/evening   # 저녁판(아침 테스트와 따로)
 ```
 
-**아침 쪽 Python 테스트 367개 + node 테스트 28개**(공개 전 검사 52 · 판정 48 · 공개본 18 · 상태 기록 12 · 그래프 27 · 국고채 참고 48 · 한국 시장 36 · 갱신 신뢰성 25 · 화면 정적 검사 8 · 읽기 노트 93 / node: 상태 로직 8 · 노트 그리기 20)와 **저녁판 테스트 683개**(네트워크 불필요, Python 3.13 표준 라이브러리만 — 공개 전 검사와 그 테스트는 git 명령이 필요합니다).
+**아침 쪽 Python 테스트 382개 + node 테스트 28개**(공개 전 검사 52 · 판정 48 · 공개본 18 · 상태 기록 12 · 그래프 27 · 국고채 참고 48 · 한국 시장 36 · 갱신 신뢰성 25 · 화면 정적 검사 8 · 화면 폴더 검사 15 · 읽기 노트 93 / node: 상태 로직 8 · 노트 그리기 20)와 **저녁판 테스트 698개**(네트워크 불필요, Python 3.13 표준 라이브러리만 — 공개 전 검사와 그 테스트는 git 명령이 필요합니다).
 
 - 공개 전 검사는 보호 장치를 하나씩 꺼 본 변이 검사 27건을 테스트가 모두 잡는 것까지 확인했습니다(변이 검사 스크립트는 저장소에 넣지 않았습니다).
 - 여러 AI 검토자에게 서로 다른 관점으로 결함을 찾게 하고, **다른 검토자가 재현한 것만** 고쳤습니다.
