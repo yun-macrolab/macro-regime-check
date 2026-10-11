@@ -1,0 +1,88 @@
+/* 공부 화면의 모양 — 혼자 선다(다른 화면의 모양 파일을 빌리지 않는다). 검정 한 벌이고 움직임이 없다.
+   색 값은 바로 아래 :root 블록에만 적는다. 입력 글자는 16px 이상, 누르는 곳은 48px 이상이다.
+   클래스 이름은 st-btn st-btn-big st-input st-secret st-row st-warn st-amber st-red st-dim st-status st-strip st-cell st-fold st-group sr 가 전부다. */
+:root {
+  --black: #000; --panel: #0a0a0a; --bar: #171717; --rule: #2c2c2c;
+  --amber: #ff9e1b; --ink: #e9e6df; --dim: #8f8f8f;
+  --blue: #5ab1ff; --key: #f6d200; --go: #36d07f; --alert: #ff5449; --alert-bg: #2a0907;
+  --f-text: "IBM Plex Sans KR", "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --f-mono: "IBM Plex Mono", "D2Coding", "Cascadia Mono", "Consolas", "Menlo", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { background: var(--black); -webkit-text-size-adjust: 100%; }
+body {
+  max-width: 560px; margin: 0 auto;
+  padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: var(--black); color: var(--ink); font: 16px/1.6 var(--f-text); overflow-wrap: anywhere; -webkit-font-smoothing: antialiased;
+}
+a { color: var(--blue); text-underline-offset: 3px; }
+a, button, summary, input, label { -webkit-tap-highlight-color: transparent; }
+a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible, audio:focus-visible {
+  outline: 2px solid var(--key); outline-offset: 2px;
+}
+h1, h2 { margin: 16px 0 8px; color: var(--amber); font-size: 18px; font-weight: 600; line-height: 1.4; }
+h2 { font-size: 16px; }
+p { margin: 8px 0; }
+ul, ol { margin: 8px 0; padding-left: 22px; }
+li { margin: 6px 0; }
+small { color: var(--dim); font-size: 14px; }
+strong { font-weight: 600; }
+
+/* 뼈대: 기본 문구 · 날짜 줄과 상태 줄 · 이동 줄 · 알림 한 줄 · 화면 자리 */
+#st-fallback { margin: 24px 0; }
+#st-fallback a { display: inline-flex; align-items: center; min-height: 48px; padding: 0 12px; }
+#st-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 10px 0 6px; }
+#st-date { color: var(--amber); font: 600 18px/1.4 var(--f-mono); font-variant-numeric: tabular-nums; }
+.st-status { color: var(--dim); font-size: 15px; }
+#st-nav { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+#st-nav a { display: flex; align-items: center; justify-content: center; min-height: 48px; color: var(--ink); font-size: 16px; text-decoration: none; }
+#st-nav a[aria-current="page"] { background: var(--key); color: var(--black); font-weight: 600; }
+#st-note { margin: 8px 0 0; color: var(--key); }
+#st-note:empty { display: none; }
+#st-main { display: block; padding: 8px 0 0; }
+
+/* 누르는 곳과 적는 곳 */
+button, .st-btn {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 48px; margin: 6px 6px 6px 0; padding: 8px 16px;
+  border: 1px solid var(--rule); border-radius: 4px; background: var(--bar); color: var(--ink); font: 16px/1.3 var(--f-text);
+  text-decoration: none; cursor: pointer; touch-action: manipulation;
+}
+.st-btn-big { display: flex; width: 100%; min-height: 72px; margin: 12px 0; border-color: var(--key); background: var(--key); color: var(--black); font-size: 22px; font-weight: 600; }
+button[aria-pressed="true"] { border-color: var(--key); color: var(--key); }
+button[disabled] { border-style: dashed; background: var(--panel); color: var(--dim); cursor: default; }
+input[type="text"], .st-input {
+  display: block; width: 100%; min-height: 48px; margin: 6px 0; padding: 8px 12px;
+  border: 1px solid var(--rule); border-radius: 4px; background: var(--panel); color: var(--ink); font: 17px/1.4 var(--f-text);
+}
+.st-secret { font-family: var(--f-mono); -webkit-text-security: disc; }
+input[type="checkbox"] { width: 24px; height: 24px; margin: 12px 10px 12px 0; accent-color: var(--key); vertical-align: middle; }
+label { display: inline-flex; align-items: center; min-height: 48px; margin-right: 12px; }
+summary { display: flex; align-items: center; min-height: 48px; color: var(--dim); cursor: pointer; }
+audio { display: block; width: 100%; min-height: 48px; margin: 6px 0; }
+pre {
+  margin: 8px 0; padding: 12px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); font: 15px/1.6 var(--f-text);
+  white-space: pre-wrap; -webkit-user-select: text; user-select: text;
+}
+
+/* 줄과 묶음 */
+.st-dim { color: var(--dim); }
+.st-amber { color: var(--amber); }
+.st-red { padding: 2px 8px; background: var(--alert-bg); color: var(--alert); }
+.st-warn { margin: 2px 0 6px; color: var(--alert); font-size: 14px; }
+.st-warn:empty { display: none; }
+.st-row { margin: 0; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 15px; }
+.st-group { margin: 16px 0; padding: 4px 12px 8px; border: 1px solid var(--rule); background: var(--panel); }
+.st-fold { margin: 12px 0; border-top: 1px solid var(--rule); }
+.st-strip { display: grid; grid-template-columns: repeat(14, 1fr); gap: 2px; margin: 16px 0; padding: 0; list-style: none; }
+.st-cell { margin: 0; padding: 6px 0; border: 1px solid var(--rule); color: var(--dim); font: 14px/1.4 var(--f-mono); text-align: center; }
+.st-cell[data-k="full"] { border-color: var(--go); color: var(--go); }
+.st-cell[data-k="min"] { border-color: var(--amber); color: var(--amber); }
+.st-cell[data-k="rest"] { color: var(--blue); }
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* 오늘 · 질문 화면의 큰 글자(시계, 오늘 말할 개념, 찍은 도장) */
+#td-clock, #ask-clock { margin: 12px 0; color: var(--key); font: 600 44px/1.2 var(--f-mono); font-variant-numeric: tabular-nums; text-align: center; }
+#td-topic { margin: 12px 0; font-size: 18px; }
+#td-done { color: var(--go); font-size: 18px; }

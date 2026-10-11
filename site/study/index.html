@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://api.github.com; media-src blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; worker-src 'none'; webrtc 'block'; require-trusted-types-for 'script'; trusted-types 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="2분 노트">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="format-detection" content="telephone=no">
+<title>2분 노트</title>
+<link rel="manifest" href="manifest.webmanifest?v=1">
+<link rel="stylesheet" href="study.css?v=1">
+</head>
+<body>
+<p id="st-fallback">화면을 다 받지 못했다 — 책을 덮고 2분 말한 뒤 나중에 도장 <a href="./">새로 받기</a></p>
+<header id="st-head"></header>
+<nav id="st-nav"></nav>
+<p id="st-note" role="status"></p>
+<main id="st-main"></main>
+<script src="core.js?v=1"></script>
+<script src="store.js?v=1"></script>
+<script src="timer.js?v=1"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>

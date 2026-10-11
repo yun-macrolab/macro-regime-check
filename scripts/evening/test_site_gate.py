@@ -8,6 +8,7 @@ import unittest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))    # 뒤에 붙인다 — 저녁 쪽 모듈 이름을 가리지 않게
 from test_site_origin import *   # noqa: E402,F401,F403 — TestCase를 이 모듈 이름으로 다시 실어 discover가 줍게 한다
+from test_study_site import *   # noqa: E402,F401,F403 — 공부 화면(site/study/)의 검사와 node 묶음도 저녁 배포 앞에 선다
 
 if __name__ == "__main__":
     unittest.main()

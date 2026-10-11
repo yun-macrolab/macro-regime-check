@@ -1,0 +1,11 @@
+{
+  "name": "2분 노트",
+  "short_name": "2분 노트",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "lang": "ko"
+}
