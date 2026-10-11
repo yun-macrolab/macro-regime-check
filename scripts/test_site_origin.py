@@ -3,6 +3,7 @@
 
 같은 주소 아래에 놓이는 파일은 브라우저 저장 공간을 함께 쓴다. 그래서 화면 하나가 아니라 폴더를 통째로 훑는다.
   나무       site/에는 EXT_OK의 확장자만 둔다
+             그 파일은 모두 엄격한 UTF-8로 풀리고 NUL 바이트가 없다(아니면 아래 낱말 검사들이 읽지 못하고 지나친다)
   금지 낱말   site/의 모든 파일에서 BANNED가 0번(주석은 떼고 센다). 스크립트는 그 문서와 같은 폴더의 것만 싣는다
   허용 표     study/ 밖 파일의 WATCHED 낱말 횟수가 ALLOW와 같다(표에 없는 파일 · 낱말은 0번)
   덫         study/ 밖 파일은 study 쪽 저장 이름을 모른다 · data/는 전부 .json · .jsonl 파일이 없다 ·
@@ -88,6 +89,24 @@ def odd_extensions(site):
     return [n for n in files_under(site) if os.path.splitext(n)[1] not in EXT_OK]
 
 
+def not_utf8(site):
+    """site/ 아래(study/ 포함)에서 엄격한 UTF-8로 풀리지 않거나 NUL 바이트가 든 파일 → 문구 목록(저장소 기준 경로 · 까닭).
+    read()는 풀리지 않는 바이트를 바꿔서 읽는다 — 그런 파일은 낱말 검사들이 조용히 지나치는데 브라우저는 BOM을 보고 실행한다.
+    UTF-8 BOM은 막지 않는다(낱말 검사가 내용을 읽는 데 지장이 없다)."""
+    out = []
+    for n in files_under(site):
+        with open(os.path.join(site, *n.split("/")), "rb") as f:
+            raw = f.read()
+        try:
+            raw.decode("utf-8")
+            why = "NUL 바이트" if b"\x00" in raw else ""
+        except UnicodeDecodeError:
+            why = "UTF-8로 풀리지 않음"
+        if why:
+            out.append("site/%s: %s" % (n, why))
+    return out
+
+
 class SiteTreeTest(unittest.TestCase):
     def test_the_walk_really_sees_the_folder(self):
         self.assertIn("index.html", files_under(SITE), "site/를 읽지 못했다 — 빈 폴더가 아래 검사를 통과하지 않게 한다")
@@ -99,6 +118,20 @@ class SiteTreeTest(unittest.TestCase):
         files = {"a.html": "", "b.JS": "", "study/m.webmanifest": "{}", "img/a.png": "x", "notes.txt": "x", ".nojekyll": ""}
         with planted(files) as site:
             self.assertEqual(odd_extensions(site), [".nojekyll", "b.JS", "img/a.png", "notes.txt"])
+
+    def test_every_site_file_is_strict_utf8(self):
+        self.assertEqual(not_utf8(SITE), [], "UTF-8로 다시 저장한다 — 이 파일은 아래 낱말 검사들이 읽지 못한다")
+
+    def test_a_planted_wrong_encoding_is_caught(self):
+        raw = {"a.js": b"\xff\xfe" + ("box." + BANNED[0] + " = t;\n").encode("utf-16-le"),     # BOM 달린 UTF-16 — 브라우저는 실행한다
+               "study/b.js": b"const a = 1;\x00\n",
+               "d.css": b"\xef\xbb\xbf" + b"a { color: red; }\n"}                               # UTF-8 BOM은 걸리지 않는다
+        with planted({"study/c.js": 'const 이름 = "한글";\n'}) as site:                         # UTF-8로 저장한 한글도 걸리지 않는다
+            for name, data in raw.items():
+                with open(os.path.join(site, *name.split("/")), "wb") as f:
+                    f.write(data)
+            self.assertEqual(banned_hits(site), [])                                             # 낱말 검사는 a.js의 금지 낱말을 보지 못한다
+            self.assertEqual(not_utf8(site), ["site/a.js: UTF-8로 풀리지 않음", "site/study/b.js: NUL 바이트"])
 
 
 JS_TOKEN = re.compile(                  # 문자열 셋 | 줄 주석 | 블록 주석 | 정규식 리터럴(앞 글자로 알아본다)
