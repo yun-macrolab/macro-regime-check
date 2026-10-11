@@ -138,7 +138,7 @@ class StudyCssTest(unittest.TestCase):
 POLICY = ("default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://api.github.com; media-src blob:; "
           "manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; worker-src 'none'; webrtc 'block'; "
           "require-trusted-types-for 'script'; trusted-types 'none'")
-SCRIPTS = ("core.js", "store.js", "timer.js", "app.js", "today.js", "screens.js", "settings.js")   # index.html이 싣는 차례
+SCRIPTS = ("core.js", "store.js", "timer.js", "sync.js", "app.js", "today.js", "screens.js", "settings.js")   # index.html이 싣는 차례
 IDS = ("st-fallback", "st-head", "st-nav", "st-note", "st-main")        # 뼈대의 id — 가짜 묶음의 SKELETON과 같다
 GLOBALS = {"core.js": "StudyCore", "store.js": "StudyStore", "timer.js": "StudyTimer", "sync.js": "StudySync",
            "recorder.js": "StudyRecorder", "app.js": "StudyApp", "today.js": "StudyToday", "screens.js": "StudyScreens",
@@ -289,6 +289,8 @@ CAPS = {
     "core.js": {"https://github.com/settings/personal-access-tokens/new": 1},
     "store.js": {"localStorage": None, "navigator.storage": None, "readKey(": 1},
     "timer.js": {"Date.now": None, "setInterval": None, "clearInterval": None},
+    "sync.js": {"https://api.github.com/repos/": 1, "fetch(": 1, "AbortController": 1, "Authorization": 1, "readKey(": 1,
+                "Date.now": None, "setTimeout": None, "clearTimeout": None},   # 맞춤 — 통신을 부르고 열쇠를 꺼내는 유일한 파일
     "app.js": {"document.createElement": 1, "document.addEventListener": None, "document.getElementById": None,
                "document.visibilityState": None, "navigator.standalone": None, "navigator.share": None, "navigator.clipboard": None,
                "location.hash": None, "location.protocol": None, "location.reload(": None, "history.replaceState": None,
@@ -431,7 +433,7 @@ class StudyWordsTest(unittest.TestCase):
 # ── 크기 ────────────────────────────────────────────────────────────────────────────
 TESTS = os.path.join(REPO, "scripts")
 SUITES = ("test_study_fakes.cjs", "test_study_core.cjs", "test_study_app.cjs", "test_study_today.cjs",
-          "test_study_screens.cjs")                                     # node 묶음 — 아래 StudyNodeTest가 돌린다
+          "test_study_screens.cjs", "test_study_sync.cjs", "test_study_device.cjs")   # node 묶음 — 아래 StudyNodeTest가 돌린다
 MAX_LINES, MAX_BLOCK = 800, 50
 BLOCKS = {                                                              # 확장자 → (덩어리의 첫 줄, 끝 줄)
     ".js": (r"  (?:async )?function \w+\(", r"  \}$"),

@@ -216,7 +216,7 @@ test("틀 el: 허용 목록이 약속과 같다(뒤 단계는 이 목록에 기�
   assert.deepEqual(F.plain(A._.ATTRS), ["id", "class", "role", "type", "value", "placeholder", "maxlength", "inputmode", "enterkeyhint", "autocomplete", "autocapitalize", "autocorrect",
     "spellcheck", "name", "for", "disabled", "hidden", "checked", "readonly", "open", "tabindex", "href", "rel", "target", "src", "controls", "preload", "data-k",
     "aria-label", "aria-live", "aria-current", "aria-pressed", "aria-describedby", "aria-hidden"]);
-  assert.deepEqual([F.plain(A._.FLAGS), A.VERSION, Object.isFrozen(A._.TAGS)], [["disabled", "hidden", "checked", "open", "readonly"], "1", true]);
+  assert.deepEqual([F.plain(A._.FLAGS), A.VERSION, Object.isFrozen(A._.TAGS)], [["disabled", "hidden", "checked", "open", "readonly"], "2", true]);
 });
 
 // ── app.js: 창 — 환경 · 난수 · 공유 ──

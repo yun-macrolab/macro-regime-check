@@ -231,3 +231,29 @@ test("가짜 줄: line은 core.js의 makeLine으로 만들고, 꼴이 맞지 않
   assert.throws(() => F.line("next", { text: "" }), /line: next 줄을 만들지 못했다 — field/);
   assert.throws(() => F.line("note", {}), /kind/);
 });
+
+// ── 맞춤의 가짜 ── 가짜 열쇠와 기록 저장소의 응답 본문
+const fs = require("node:fs");
+const path = require("node:path");
+
+test("가짜 열쇠: 한 글자를 64번 되풀이한 것이다 — 열쇠 꼴을 지나고, 그 글자열은 테스트 소스 어디에도 적혀 있지 않다", () => {
+  assert.deepEqual([F.KEY.length, new Set(F.KEY).size, F.world(["core.js"]).scope.StudyCore.keyShape(F.KEY)], [64, 1, true]);
+  const sources = fs.readdirSync(__dirname).filter(name => /^(?:test_)?study_\w+\.cjs$/.test(name));
+  assert.deepEqual([sources.includes("study_fakes.cjs"), sources.filter(name => fs.readFileSync(path.join(__dirname, name), "utf8").includes(F.KEY))], [true, []]);
+});
+
+test("가짜 응답 ghFile: base64에 60자마다 줄바꿈이 들어가고 끝에도 붙는다 — 풀면 한글이 그대로고, over로 칸을 바꾼다", () => {
+  const text = "가나다 😀 abc\n".repeat(9);
+  const body = F.ghFile(text, "s1");
+  const rows = body.content.split("\n");
+  assert.deepEqual([rows.pop(), rows.length > 2, rows.slice(0, -1).every(row => row.length === 60), rows[rows.length - 1].length <= 60], ["", true, true, true]);
+  assert.equal(Buffer.from(body.content, "base64").toString("utf8"), text);
+  assert.deepEqual([body.type, body.encoding, body.size, body.sha], ["file", "base64", Buffer.byteLength(text), "s1"]);
+  const odd = F.ghFile("x", "s1", { size: 700000, encoding: "none", content: "" });
+  assert.deepEqual([F.ghFile("", "s0").content, F.ghFile("", "s0").size, odd.size, odd.encoding, odd.content, odd.sha], ["", 0, 700000, "none", "", "s1"]);
+});
+
+test("가짜 응답 ghRepo: 비공개이고 Pages가 꺼져 있다 — over로 칸을 바꾼다", () => {
+  assert.deepEqual([F.ghRepo(), F.ghRepo({ private: false }), F.ghRepo({ has_pages: true, name: "repo" })],
+    [{ private: true, has_pages: false }, { private: false, has_pages: false }, { private: true, has_pages: true, name: "repo" }]);
+});

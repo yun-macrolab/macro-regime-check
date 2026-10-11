@@ -293,3 +293,17 @@ function line(kind, fields, at = {}) {
 }
 
 Object.assign(module.exports, { line });
+
+// ── 맞춤(sync.js)의 가짜 ── 가짜 열쇠와, 기록 저장소가 돌려주는 응답 본문.
+// 열쇠 글자는 소스에 적지 않고 실행 때 만든다(영문 한 글자를 64번).
+const KEY = "k".repeat(64);
+// 파일 내용 응답: base64에 60자마다 줄바꿈이 들어가고 끝에도 줄바꿈이 붙는다. over로 칸을 바꾼다(예: { size: 700000 }).
+function ghFile(text, sha, over = {}) {
+  const bytes = Buffer.from(String(text), "utf8");
+  const rows = bytes.toString("base64").match(/.{1,60}/g) || [];
+  return { type: "file", encoding: "base64", size: bytes.length, sha: sha === undefined ? "sha0" : String(sha), content: rows.map(row => row + "\n").join(""), ...over };
+}
+// 저장소 정보 응답: 비공개이고 Pages가 꺼져 있다. over로 칸을 바꾼다(예: { private: false }).
+const ghRepo = (over = {}) => ({ private: true, has_pages: false, ...over });
+
+Object.assign(module.exports, { KEY, ghFile, ghRepo });
