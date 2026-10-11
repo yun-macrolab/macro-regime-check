@@ -551,12 +551,13 @@ test("틀: 약속된 이름이 모두 있고 그 밖의 것은 없다", () => {
 });
 
 // ── 뼈대 문서(index.html)가 싣는 그대로 ──
-test("뼈대: index.html이 싣는 차례대로 실어 시작한다 — 화면 모듈이 아직 없어도 틀은 돈다", async () => {
-  assert.deepEqual(F.scripts(), APP_FILES);
+test("뼈대: index.html이 싣는 차례대로 실어 시작한다 — 틀의 파일 넷이 그 차례로 있고 화면은 틀 뒤에 실리며, 파일마다 전역 이름을 하나씩 단다", async () => {
+  const listed = F.scripts();
+  assert.deepEqual([listed.filter(name => APP_FILES.includes(name)), listed.indexOf("app.js") < listed.indexOf("today.js")], [APP_FILES, true]);
   const w = await F.boot({ storage: named() });
-  assert.deepEqual(Object.keys(w.scope).filter(k => k.startsWith("Study")).sort(), ["StudyApp", "StudyCore", "StudyStore", "StudyTimer"]);
+  assert.equal(Object.keys(w.scope).filter(k => k.startsWith("Study")).length, listed.length);
   const at = id => F.byId(w.doc, id);
-  assert.deepEqual([F.text(at("st-head")), F.byTag(at("st-nav"), "a").length, F.text(at("st-main")), at("st-fallback")], ["10-13 화" + C.T.ST_LOCAL, 4, "", null]);
+  assert.deepEqual([F.text(at("st-head")), F.byTag(at("st-nav"), "a").length, at("st-fallback")], ["10-13 화" + C.T.ST_LOCAL, 4, null]);
   assert.equal(w.scope.StudyApp.write("day", MIN).stored, true);
   F.press(F.byK(w.doc, "set")[0]);
   assert.deepEqual([w.scope.location.hash, w.net.calls.length, w.net.unexpected, F.text(at("st-status"))], ["#set", 0, 0, C.T.ST_LOCAL]);

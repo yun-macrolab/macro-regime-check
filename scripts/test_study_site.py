@@ -138,7 +138,7 @@ class StudyCssTest(unittest.TestCase):
 POLICY = ("default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://api.github.com; media-src blob:; "
           "manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; worker-src 'none'; webrtc 'block'; "
           "require-trusted-types-for 'script'; trusted-types 'none'")
-SCRIPTS = ("core.js", "store.js", "timer.js", "app.js")                 # index.html이 싣는 차례
+SCRIPTS = ("core.js", "store.js", "timer.js", "app.js", "today.js", "screens.js", "settings.js")   # index.html이 싣는 차례
 IDS = ("st-fallback", "st-head", "st-nav", "st-note", "st-main")        # 뼈대의 id — 가짜 묶음의 SKELETON과 같다
 GLOBALS = {"core.js": "StudyCore", "store.js": "StudyStore", "timer.js": "StudyTimer", "sync.js": "StudySync",
            "recorder.js": "StudyRecorder", "app.js": "StudyApp", "today.js": "StudyToday", "screens.js": "StudyScreens",
@@ -294,7 +294,12 @@ CAPS = {
                "location.hash": None, "location.protocol": None, "location.reload(": None, "history.replaceState": None,
                "crypto.getRandomValues": None, "window.top": None, "window.self": None, "window.addEventListener": None,
                "Date.now": None},
+    "today.js": {},                                                     # 화면 모듈은 능력 낱말을 하나도 쓰지 않는다(틀과 기기 저장의 손만 빌린다)
+    "screens.js": {},
+    "settings.js": {},
 }
+SCREENS = ("today.js", "screens.js", "settings.js")                     # 화면 모듈 — 요소는 StudyApp.el로만, 기록은 StudyApp.write로만
+SCREEN_BANNED = ("document", "navigator", "location", "localStorage", "fetch(", "appendLine(", "makeLine(", "absorb(", "dequeue(")
 FAMILIES = (                                                            # 능력 낱말을 찾아내는 무늬 — 찾은 것마다 CAPS의 낱말로 시작해야 한다
     r"\blocalStorage\b", r"\bindexedDB\b", r"\bnavigator\.\w+", r"\blocation\.\w+\(?", r"\bdocument\.\w+", r"\bhistory\.\w+",
     r"\bcrypto\.\w+", r"\bwindow\.(?!Study)\w+", r"\bfetch\(", r"\bAbortController\b", r"\bAuthorization\b", r"\breadKey\(",
@@ -391,6 +396,12 @@ class StudyWordsTest(unittest.TestCase):
         self.assertEqual(gaps, [], "능력 표(CAPS)와 다르다 — 능력마다 그것을 만지는 파일은 하나다")
         self.assertEqual([n for n in CAPS if n not in SCRIPTS], [], "CAPS에 싣지 않는 파일의 줄이 있다")
 
+    def test_screens_only_borrow_the_frame(self):
+        shown = [(n, c) for n, c in self.code() if n in SCREENS]
+        self.assertEqual([(n, w) for n, c in shown for w in SCREEN_BANNED if w in c], [], "화면 모듈은 문서 · 저장 공간 · 통신을 직접 만지지 않고, 기록 줄을 스스로 만들지 않는다")
+        self.assertEqual([n for n, c in shown if CAPS.get(n) != {} or "StudyApp.register(" not in c], [], "화면 모듈의 능력 표는 비어 있고, 틀에 register로 들어간다")
+        self.assertIn("today.js", [n for n, c in shown])
+
     def test_storage_names_start_with_the_prefix(self):
         self.assertEqual([g for n, c in self.code() for g in name_gaps(n, c)], [])
         self.assertEqual([n for n in PAGE_FILES if "macro-study" in study(n)], [])
@@ -419,7 +430,8 @@ class StudyWordsTest(unittest.TestCase):
 
 # ── 크기 ────────────────────────────────────────────────────────────────────────────
 TESTS = os.path.join(REPO, "scripts")
-SUITES = ("test_study_fakes.cjs", "test_study_core.cjs", "test_study_app.cjs")   # node 묶음 — 아래 StudyNodeTest가 돌린다
+SUITES = ("test_study_fakes.cjs", "test_study_core.cjs", "test_study_app.cjs", "test_study_today.cjs",
+          "test_study_screens.cjs")                                     # node 묶음 — 아래 StudyNodeTest가 돌린다
 MAX_LINES, MAX_BLOCK = 800, 50
 BLOCKS = {                                                              # 확장자 → (덩어리의 첫 줄, 끝 줄)
     ".js": (r"  (?:async )?function \w+\(", r"  \}$"),
