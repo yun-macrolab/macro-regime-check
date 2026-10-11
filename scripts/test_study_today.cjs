@@ -442,15 +442,15 @@ test("오늘 쉬는 날: 단추에 보이던 것과 기록이 다르면(다른 �
   assert.deepEqual([w.wrote().map(r => [r.k, r.ref, r.hide]), pressed(w, "td-rest1")], [[["fix", idOf(theirs), true]], "false"]);
 });
 
-test("오늘: 화면의 차례 — 개념 줄과 권고 → 말하기 자리 → 14일 줄 → 쉬는 날. 날짜 고르기도 다른 쪽으로 가는 링크도 없다", async () => {
+test("오늘: 화면의 차례 — 개념 줄과 권고 → 말하기 자리 → 14일 줄 → 쉬는 날 → 녹음 듣기. 날짜 고르기도 다른 쪽으로 가는 링크도 없다", async () => {
   const w = await open({ storage: device([day("2026-10-11T08:30:00", "full", "d001")]) });
-  assert.deepEqual(tdIds(w), ["td-topic", "td-weekhint", "td-advice", "td-talk", "td-strip", "td-rest1", "td-rest2"]);
+  assert.deepEqual(tdIds(w), ["td-topic", "td-weekhint", "td-advice", "td-talk", "td-strip", "td-rest1", "td-rest2", "td-listen"]);
   talked(w, 1000);
-  assert.deepEqual(tdIds(w).slice(3, 5), ["td-clock", "td-stop"]);
+  assert.deepEqual(tdIds(w).slice(3, 6), ["td-clock", "td-stop", "td-recnote"]);           // 이 브라우저(가짜)에는 녹음기가 없다 — "녹음 없이 진행 중" 한 줄이 선다
   w.clock.advance(119000);
-  assert.deepEqual(tdIds(w), ["td-topic", "td-weekhint", "td-advice", "td-clock", "td-stuck", "td-warn", "td-nostuck", "td-min", "td-full", "td-strip", "td-rest1", "td-rest2"]);
+  assert.deepEqual(tdIds(w), ["td-topic", "td-weekhint", "td-advice", "td-clock", "td-stuck", "td-warn", "td-nostuck", "td-min", "td-full", "td-strip", "td-rest1", "td-rest2", "td-listen"]);
   F.press(w.at("td-min"));
-  assert.deepEqual(tdIds(w), ["td-topic", "td-weekhint", "td-done", "td-next", "td-warn", "td-nextsave", "td-again", "td-share", "td-strip", "td-rest1", "td-rest2"]);
+  assert.deepEqual(tdIds(w), ["td-topic", "td-weekhint", "td-done", "td-next", "td-warn", "td-nextsave", "td-again", "td-share", "td-strip", "td-rest1", "td-rest2", "td-listen"]);
   const main = w.at("st-main");
   assert.deepEqual([F.byTag(main, "a").length, F.byTag(main, "input").map(n => n.getAttribute("type")), F.byTag(main, "audio").length], [0, ["text"], 0]);
 });

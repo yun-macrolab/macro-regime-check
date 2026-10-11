@@ -4,7 +4,7 @@
 window.StudyApp = (() => {
   "use strict";
 
-  const VERSION = "2";
+  const VERSION = "3";
 
   // ── 요소 도우미 ── 허용 목록 밖의 태그 · 속성 · 주소는 던진다(그것은 버그다). 문자열 자식은 글자로만 들어간다.
   const TAGS = Object.freeze(["div", "section", "header", "nav", "main", "h1", "h2", "p", "span", "strong", "small", "ul", "ol", "li",

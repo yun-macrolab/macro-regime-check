@@ -138,7 +138,7 @@ class StudyCssTest(unittest.TestCase):
 POLICY = ("default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://api.github.com; media-src blob:; "
           "manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; worker-src 'none'; webrtc 'block'; "
           "require-trusted-types-for 'script'; trusted-types 'none'")
-SCRIPTS = ("core.js", "store.js", "timer.js", "sync.js", "app.js", "today.js", "screens.js", "settings.js")   # index.html이 싣는 차례
+SCRIPTS = ("core.js", "store.js", "timer.js", "sync.js", "recorder.js", "app.js", "today.js", "screens.js", "settings.js")   # index.html이 싣는 차례
 IDS = ("st-fallback", "st-head", "st-nav", "st-note", "st-main")        # 뼈대의 id — 가짜 묶음의 SKELETON과 같다
 GLOBALS = {"core.js": "StudyCore", "store.js": "StudyStore", "timer.js": "StudyTimer", "sync.js": "StudySync",
            "recorder.js": "StudyRecorder", "app.js": "StudyApp", "today.js": "StudyToday", "screens.js": "StudyScreens",
@@ -291,6 +291,9 @@ CAPS = {
     "timer.js": {"Date.now": None, "setInterval": None, "clearInterval": None},
     "sync.js": {"https://api.github.com/repos/": 1, "fetch(": 1, "AbortController": 1, "Authorization": 1, "readKey(": 1,
                 "Date.now": None, "setTimeout": None, "clearTimeout": None},   # 맞춤 — 통신을 부르고 열쇠를 꺼내는 유일한 파일
+    "recorder.js": {"MediaRecorder": None, "navigator.mediaDevices": None, "navigator.wakeLock": 1, "document.addEventListener": 1,
+                    "document.visibilityState": 1, "indexedDB": 1, "createObjectURL": 1, "revokeObjectURL": 1,
+                    "Date.now": None, "setTimeout": 1, "clearTimeout": 1},   # 녹음 — 마이크 · 녹음기 · 화면 켜 두기 · 보관 · 재생 주소를 만지는 유일한 파일(때맞춤은 녹음의 한도 하나)
     "app.js": {"document.createElement": 1, "document.addEventListener": None, "document.getElementById": None,
                "document.visibilityState": None, "navigator.standalone": None, "navigator.share": None, "navigator.clipboard": None,
                "location.hash": None, "location.protocol": None, "location.reload(": None, "history.replaceState": None,
@@ -320,7 +323,8 @@ STUDY_BANNED = (                                                        # 공부
     "module.exports", "typeof window", "require(",
 )
 STUDY_BANNED_RE = (r"new Date\(\s*\)", r"location\.hash\s*=(?!=)", r"\.(?:hidden|disabled)\s*=(?!=)")   # 인자 없는 시계 · 주소 대입 · 속성 대입
-NAME_LINES = {"store.js": 'const P = "macro-study.";'}                  # 저장 이름의 머리를 적는 줄(파일마다 한 줄). 다른 파일은 그 글자를 모른다
+NAME_LINES = {"store.js": 'const P = "macro-study.";',                   # 저장 이름의 머리를 적는 줄(파일마다 한 줄). 다른 파일은 그 글자를 모른다
+              "recorder.js": 'const DB = "macro-study.takes";'}        # 녹음을 두는 데이터베이스의 이름
 STORE_CALL = r"localStorage\.(?:getItem|setItem|removeItem)\(P \+ "     # 저장 공간을 부르는 꼴은 이것뿐이다(훑는 꼴이 없다)
 OUTSIDE = ("https://api.github.com/repos/", "https://github.com/settings/personal-access-tokens/new")   # 코드에 적는 바깥 주소
 JS_TOKEN = re.compile(                  # 문자열 셋 | 줄 주석 | 블록 주석 | 정규식 리터럴(앞 글자로 알아본다)
@@ -433,7 +437,8 @@ class StudyWordsTest(unittest.TestCase):
 # ── 크기 ────────────────────────────────────────────────────────────────────────────
 TESTS = os.path.join(REPO, "scripts")
 SUITES = ("test_study_fakes.cjs", "test_study_core.cjs", "test_study_app.cjs", "test_study_today.cjs",
-          "test_study_screens.cjs", "test_study_sync.cjs", "test_study_device.cjs")   # node 묶음 — 아래 StudyNodeTest가 돌린다
+          "test_study_screens.cjs", "test_study_sync.cjs", "test_study_device.cjs", "test_study_recorder.cjs",
+          "test_study_mic.cjs")                                         # node 묶음 — 아래 StudyNodeTest가 돌린다
 MAX_LINES, MAX_BLOCK = 800, 50
 BLOCKS = {                                                              # 확장자 → (덩어리의 첫 줄, 끝 줄)
     ".js": (r"  (?:async )?function \w+\(", r"  \}$"),

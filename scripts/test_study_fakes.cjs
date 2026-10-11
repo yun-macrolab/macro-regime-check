@@ -257,3 +257,118 @@ test("가짜 응답 ghRepo: 비공개이고 Pages가 꺼져 있다 — over로 �
   assert.deepEqual([F.ghRepo(), F.ghRepo({ private: false }), F.ghRepo({ has_pages: true, name: "repo" })],
     [{ private: true, has_pages: false }, { private: false, has_pages: false }, { private: true, has_pages: true, name: "repo" }]);
 });
+
+// ── 녹음의 가짜 ── 가짜 마이크 · 녹음기 · 화면 켜 두기 · 재생 주소와 가짜 IndexedDB
+const mediaWorld = opts => { const media = F.fakeMedia(opts); return { media, w: F.world([], { media }) }; };
+const seenBy = promise => { const seen = []; promise.then(v => seen.push(["ok", v]), err => seen.push(["no", err.name])); return seen; };
+
+test("가짜 마이크: 허용 · 거절 · 마이크 없음 · 끝나지 않음 · 나중에 답함을 고른다 — 청한 것을 적고, 트랙을 닫으면 live가 준다", async () => {
+  const { media, w } = mediaWorld();
+  const stream = await w.scope.navigator.mediaDevices.getUserMedia({ audio: true });
+  assert.deepEqual([media.asks, media.streams.length, stream.getTracks().map(t => [t.kind, t.readyState]), media.live()], [[{ audio: true }], 1, [["audio", "live"]], 1]);
+  stream.getTracks()[0].stop();
+  assert.deepEqual([stream.getTracks()[0].readyState, media.live()], ["ended", 0]);
+  const ask = opts => seenBy(mediaWorld(opts).w.scope.navigator.mediaDevices.getUserMedia({ audio: true }));
+  const [deny, error, hang] = [ask({ mic: "deny" }), ask({ mic: "error" }), ask({ mic: "hang" })];
+  const held = mediaWorld({ mic: "hold" });
+  const late = seenBy(held.w.scope.navigator.mediaDevices.getUserMedia({ audio: true }));
+  await F.settle();
+  assert.deepEqual([deny, error, hang, late, held.media.asks.length], [[["no", "NotAllowedError"]], [["no", "NotFoundError"]], [], [], 1]);
+  held.media.answer("ok");
+  await F.settle();
+  assert.deepEqual([late.length, late[0][0], held.media.live()], [1, "ok", 1]);
+  const bare = mediaWorld({ mic: "none", recorder: "none", wake: "none" }).w.scope;
+  assert.deepEqual([bare.navigator.mediaDevices, bare.MediaRecorder, bare.navigator.wakeLock], [undefined, undefined, undefined]);
+});
+
+test("가짜 녹음기: 받는 형식을 답하고, 돈 시간만큼의 덩어리를 stop 뒤에 내놓는다 — 빈 파일 · 종료 사건 없음 · 만들지 못함을 고른다", async () => {
+  const run = async (opts, ms = 30000) => {
+    const { media, w } = mediaWorld(opts);
+    const rec = new w.scope.MediaRecorder({}, { mimeType: media.types[0], audioBitsPerSecond: 64000 });
+    const seen = [];
+    rec.addEventListener("dataavailable", ev => seen.push(["data", ev.data.size, ev.data.type]));
+    rec.addEventListener("stop", () => seen.push(["stop"]));
+    rec.start();
+    w.clock.advance(ms);
+    rec.stop();
+    await F.settle();
+    return { rec, seen, media, w };
+  };
+  const ok = await run({});
+  assert.deepEqual([ok.seen, ok.rec.state, ok.rec.options, ok.media.recorders.length], [[["data", 240000, "audio/mp4"], ["stop"]], "inactive", { mimeType: "audio/mp4", audioBitsPerSecond: 64000 }, 1]);
+  assert.throws(() => ok.rec.stop(), { name: "InvalidStateError" });
+  assert.deepEqual([(await run({ recorder: "empty" })).seen, (await run({ recorder: "nostop" })).seen, (await run({ types: ["audio/webm;codecs=opus"], rate: 1000 }, 2000)).seen],
+    [[["data", 0, "audio/mp4"], ["stop"]], [], [["data", 2000, "audio/webm;codecs=opus"], ["stop"]]]);
+  const R = ok.w.scope.MediaRecorder;
+  assert.deepEqual([R.isTypeSupported("audio/mp4"), R.isTypeSupported("audio/webm;codecs=opus")], [true, false]);
+  assert.throws(() => new (mediaWorld({ recorder: "throw" }).w.scope.MediaRecorder)({}), { name: "NotSupportedError" });
+  const blob = new ok.w.scope.Blob([{ size: 3 }, { size: 4 }], { type: "audio/mp4" });
+  assert.deepEqual([blob.size, blob.type, new ok.w.scope.Blob([]).size], [7, "audio/mp4", 0]);
+});
+
+test("가짜 화면 켜 두기 · 재생 주소: 잠금은 놓으면 표시가 남고, 주소는 내준 것과 거둔 것을 적는다", async () => {
+  const { media, w } = mediaWorld();
+  const lock = await w.scope.navigator.wakeLock.request("screen");
+  assert.deepEqual([media.locks.length, lock.released], [1, false]);
+  await lock.release();
+  assert.equal(media.locks[0].released, true);
+  const asked = opts => seenBy(mediaWorld(opts).w.scope.navigator.wakeLock.request("screen"));
+  const [deny, hang] = [asked({ wake: "deny" }), asked({ wake: "hang" })];
+  await F.settle();
+  assert.deepEqual([deny, hang], [[["no", "NotAllowedError"]], []]);
+  const urls = [w.scope.URL.createObjectURL({ size: 1 }), w.scope.URL.createObjectURL({ size: 2 })];
+  w.scope.URL.revokeObjectURL(urls[0]);
+  assert.deepEqual([urls, media.urls, media.revoked], [["blob:study/1", "blob:study/2"], urls, ["blob:study/1"]]);
+  w.scope.navigator.mediaDevices.getUserMedia({ audio: true });
+  assert.deepEqual(media.log, ["wake", "url", "url", "revoke", "mic"]);                    // 한 일의 차례가 남는다
+});
+
+// 가짜 IndexedDB를 화면 코드가 쓰는 꼴 그대로 부른다: 열고 → 트랜잭션 하나에서 일 하나 → 끝나면 답
+function idbDo(scope, mode, job) {
+  return new Promise((resolve, reject) => {
+    const open = scope.indexedDB.open("db", 1);
+    open.addEventListener("upgradeneeded", () => open.result.createObjectStore("box", { keyPath: "id" }));
+    open.addEventListener("error", () => reject(open.error));
+    open.addEventListener("success", () => {
+      const tx = open.result.transaction("box", mode);
+      const req = job(tx.objectStore("box"));
+      tx.addEventListener("complete", () => resolve(req.result));
+      tx.addEventListener("error", () => reject(tx.error));
+    });
+  });
+}
+
+test("가짜 IndexedDB: 넣고 · 꺼내고 · 모두 읽고 · 지우고 · 비운다 — 같은 것을 두 world에 넘기면 남아 있다", async () => {
+  const idb = F.fakeIdb();
+  const w = F.world([], { idb });
+  assert.equal(await idbDo(w.scope, "readwrite", s => s.put({ id: "a", n: 1 })), "a");
+  await idbDo(w.scope, "readwrite", s => s.put({ id: "b", n: 2 }));
+  await idbDo(w.scope, "readwrite", s => s.put({ id: "a", n: 3 }));
+  assert.deepEqual([await idbDo(w.scope, "readonly", s => s.get("a")), await idbDo(w.scope, "readonly", s => s.get("없음")), await idbDo(w.scope, "readonly", s => s.getAll())],
+    [{ id: "a", n: 3 }, undefined, [{ id: "a", n: 3 }, { id: "b", n: 2 }]]);
+  assert.deepEqual(idb.log.slice(0, 5), ["open db v1", "store box keyPath=id", "put a", "open db v1", "put b"]);   // 저장소는 처음 열 때 한 번만 만든다
+  const again = F.world([], { idb });
+  await idbDo(again.scope, "readwrite", s => s.delete("a"));
+  assert.deepEqual([[...idb.rows.keys()], idb.log.filter(row => row.startsWith("store")).length], [["b"], 1]);
+  await idbDo(again.scope, "readwrite", s => s.clear());
+  assert.equal(idb.rows.size, 0);
+  assert.equal(F.world([], { idb: F.fakeIdb({ none: true }) }).scope.indexedDB, undefined);
+});
+
+test("가짜 IndexedDB: 열기 · 쓰기 · 읽기를 따로 실패시키거나 끝나지 않게 한다 — 실패한 쓰기는 하나도 들어가지 않는다", async () => {
+  const run = (opts, mode, job) => { const idb = F.fakeIdb(opts); return { idb, seen: seenBy(idbDo(F.world([], { idb }).scope, mode, job)) }; };
+  const put = s => s.put({ id: "a" });
+  const cases = [run({ open: "fail" }, "readwrite", put), run({ open: "hang" }, "readwrite", put), run({ write: "fail" }, "readwrite", put), run({ write: "hang" }, "readwrite", put),
+    run({ read: "fail" }, "readonly", s => s.getAll()), run({ read: "hang" }, "readonly", s => s.getAll()), run({ read: "fail" }, "readwrite", put)];
+  await F.settle();
+  assert.deepEqual(cases.map(c => [c.seen, c.idb.rows.size]),
+    [[[["no", "UnknownError"]], 0], [[], 0], [[["no", "QuotaExceededError"]], 0], [[], 0], [[["no", "QuotaExceededError"]], 0], [[], 0], [[["ok", "a"]], 1]]);
+  const idb = F.fakeIdb({ write: "hang" });
+  const w = F.world([], { idb });
+  const first = seenBy(idbDo(w.scope, "readwrite", put));
+  await F.settle();
+  idb.opts.write = "ok";                                                                  // 도중에 고쳐도 된다 — 그 뒤에 연 쓰기부터 끝난다
+  const second = seenBy(idbDo(w.scope, "readwrite", s => s.put({ id: "b" })));
+  await F.settle();
+  assert.deepEqual([first, second, [...idb.rows.keys()]], [[], [["ok", "b"]], ["b"]]);
+});

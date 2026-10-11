@@ -1,12 +1,13 @@
-// 공부 화면의 주간 · 질문 화면 — 주간: 이번 주 내 판정(두 번 눌러 저장) → 그 뒤에만 지난주 판정과 채점, 공유. 질문: 한 줄 · 말하기 2:00 · 세 칸 · 최근 질문.
-// 문서 · 저장 공간 · 통신을 직접 만지지 않는다: 요소는 StudyApp.el로만 만들고, 기록은 StudyApp.write로만 적는다.
+// 공부 화면의 주간 · 질문 화면 — 주간: 이번 주 내 판정(두 번 눌러 저장) → 그 뒤에만 지난주 판정과 채점, 공유. 질문: 한 줄 · 말하기 2:00(녹음 한 줄) · 세 칸 · 최근 질문.
+// 문서 · 저장 공간 · 통신 · 마이크를 직접 만지지 않는다: 요소는 StudyApp.el로만 만들고, 기록은 StudyApp.write로만 적고, 녹음은 녹음 모듈에 맡긴다.
 // 닻 내림 방지: 이번 주 판정을 저장하기 전에는 지난주 판정 · 채점 칸을 감추는 것이 아니라 만들지 않는다.
 // 맞춤이 알리거나 화면으로 돌아왔을 때는 아무것도 바꾸지 않는다(쓰던 칸 · 확인 · 시계는 그대로다). 자기 저장 뒤에만 새로 그린다.
 window.StudyScreens = (() => {
   "use strict";
 
   let week = null;               // 주간 화면에 그려 둔 자리(root · 그린 주 wk · 칸들). 화면을 떠나면 null이다
-  let ask = null;                // 질문 화면에 그려 둔 자리(root · 칸들 form · 말하기 자리 stage · 시계 글자 face). 화면을 떠나면 null이다
+  let ask = null;                // 질문 화면에 그려 둔 자리(root · 칸들 form · 말하기 자리 stage · 시계 글자 face · 녹음 한 줄 rec). 화면을 떠나면 null이다
+  let recLine = { d: "", key: null, sec: 0, nowake: false };   // 질문 화면의 녹음 한 줄의 재료: 그 말하기의 공부 날짜 · 문구 키 · 끊긴 초 · 화면 켜 두기를 얻지 못했는가
   let clock = null;              // 질문 화면의 2분 시계 — 처음 쓸 때 만든다
   let turn = 0;                  // 주간 화면을 떠날 때마다 오른다(늦게 끝난 공유가 떠난 화면 · 다시 연 화면에 글을 쓰지 않게)
 
@@ -178,16 +179,59 @@ window.StudyScreens = (() => {
     week = null;
   }
 
+  // ── 질문: 녹음 한 줄 ── 오늘 화면과 같은 규칙이다: 녹음 없이 진행 중(허용을 기다리는 동안에도) · 녹음 중 · 끊김 m:ss · 녹음 실패 · 녹음 보관 불가.
+  // 녹음 모듈의 손은 쓸 때마다 다시 본다. 모듈이 없거나 던지면 undefined다(없는 대로 돈다).
+  const REC_KEYS = new Map([["on", "REC_ON"], ["off", "REC_OFF"], ["cut", "REC_CUT"], ["empty", "REC_FAIL"], ["store", "REC_NOSTORE"]]);
+  function hear(method, ...args) {
+    try {
+      const recorder = window.StudyRecorder;
+      return recorder && typeof recorder[method] === "function" ? recorder[method](...args) : undefined;
+    } catch (err) {
+      return undefined;
+    }
+  }
+  function drawRec() {
+    if (ask === null) return;
+    const calm = recLine.key === "REC_ON" || recLine.key === "REC_OFF";
+    const text = recLine.key === null ? "" : t(recLine.key, { t: StudyCore.mmss(recLine.sec) }) + (recLine.nowake && recLine.key === "REC_ON" ? " · " + t("REC_NOWAKE") : "");
+    fill(ask.rec, [recLine.key === null ? null : el("p", { id: "ask-recnote", class: calm ? "st-dim" : "st-amber", role: "status" }, text)]);
+  }
+  function recEvent(ev) {
+    const key = REC_KEYS.get(ev.type === "fail" ? ev.code : ev.type);
+    if (ev.type === "nowake") recLine = { ...recLine, nowake: true };
+    if (key !== undefined) recLine = { ...recLine, key, sec: Number.isInteger(ev.sec) ? ev.sec : 0 };
+    drawRec();
+  }
+  // 시계가 돌지 않으면 이 화면의 마이크도 닫혀 있어야 한다. "녹음 중" · "녹음 없이 진행 중"은 지우고, 끊김 · 실패의 줄은 남긴다
+  function recStop() {
+    hear("end", "ask");
+    if (recLine.key === "REC_ON" || recLine.key === "REC_OFF") recLine = { ...recLine, key: null };
+  }
+  // 질문 줄에 적을 '녹음기를 돌린 초'(녹음하지 않았으면 0). 시계가 비어 있으면 이 질문에서는 말하지 않은 것이다 — 녹음 모듈이 쥔 앞 말하기의 초를 싣지 않는다
+  function recSec() {
+    const sec = timer().state().phase === "idle" ? 0 : hear("seconds", "ask");
+    return Number.isInteger(sec) && sec >= 0 && sec <= StudyCore.TALK_SEC ? sec : 0;
+  }
+
   // ── 질문: 말하기와 시계 ── 시계의 상태는 기기 저장에 있다. 그릴 때마다 resume()으로 묻는다(화면이 죽었다 살아나도 이어 간다).
   function timer() {
-    clock = clock || StudyTimer.create("ask", { onTick: left => ticked(left), onDone: () => drawTalk() });
+    clock = clock || StudyTimer.create("ask", { onTick: left => ticked(left), onDone: () => talkEnded() });
     return clock;
   }
   function ticked(left) {
     if (ask !== null && ask.face !== null) ask.face.textContent = StudyCore.mmss(left);
   }
+  // 2분이 찼거나 [그만] · [저장]으로 멈췄다 — 마이크를 닫고(다른 화면에 가 있어도) 말하기 자리를 다시 그린다
+  function talkEnded() {
+    recStop();
+    drawTalk();
+  }
+  // [말하기]를 누른 그 처리 안에서 녹음을 청하고 곧바로 돌아온다(허용을 기다리지 않는다 — 시계는 이미 돈다)
   function startTalk() {
+    const today = StudyApp.ctx().today;
     timer().start();
+    recLine = { d: today, key: null, sec: 0, nowake: false };
+    hear("begin", "ask", today, ev => recEvent(ev));
     drawTalk();
   }
   // 말하기 자리: 도는 동안은 남은 시간과 [그만], 그 밖에는 [말하기 2:00](끝났으면 "끝 · 말한 시간"과 함께 — 다시 말할 수 있다)
@@ -198,8 +242,10 @@ window.StudyScreens = (() => {
     const face = phase === "idle" ? null : el("p", { id: "ask-clock", role: "timer" }, phase === "running" ? StudyCore.mmss(s.left) : t("TD_TALKED", { t: StudyCore.mmss(s.sec) }));
     const stop = phase === "running" ? tap(button("ask-stop", "TD_STOP"), () => timer().stop()) : null;
     const talk = phase === "running" ? null : tap(button("ask-talk", "TD_TALK", { class: "st-btn st-btn-big" }), () => startTalk());
+    if (phase !== "running") recStop();
     ask = { ...ask, face };
     fill(ask.stage, [face, stop, talk]);
+    drawRec();
   }
 
   // ── 질문: 세 칸과 저장 ── 세 칸(결론 먼저 · 근거 둘 · 틀릴 조건)은 스스로 체크한다. 바뀔 때마다 "101" 꼴로 쓰던 글에 적는다. 체크 칸은 제 이름표 안에 든다.
@@ -219,7 +265,8 @@ window.StudyScreens = (() => {
   function saveAsk() {
     const f = ask.form;
     if (timer().resume() === "running") timer().stop();
-    const fields = { text: f.input.value, sec: timer().state().sec, rec: 0, s_head: f.boxes[0].checked, s_two: f.boxes[1].checked, s_wrong: f.boxes[2].checked };
+    recStop();                   // 시계가 끝을 알리지 않은 채 멈춰 있을 수 있다(2분이 찬 틈 · 날짜 바뀜) — 아래의 쓰기가 거절돼도 마이크가 남지 않게 여기서 닫는다
+    const fields = { text: f.input.value, sec: timer().state().sec, rec: recSec(), s_head: f.boxes[0].checked, s_two: f.boxes[1].checked, s_wrong: f.boxes[2].checked };
     if (!StudyApp.write("q", fields).ok) return;
     timer().clear();
     StudyStore.clearDrafts(["ask.text", "ask.s"]);
@@ -234,15 +281,16 @@ window.StudyScreens = (() => {
     return [el("h2", null, t("ASK_RECENT")), el("ul", { id: "ask-list" }, rows), qs.length === 0 ? says("ASK_EMPTY", null, { class: "st-dim" }) : null];
   }
 
-  // ── 질문 화면 ── 위에서부터: 한 줄 칸 → 규칙 한 줄 → 말하기 자리 → 세 칸 → [저장] → 최근 질문
+  // ── 질문 화면 ── 위에서부터: 한 줄 칸 → 규칙 한 줄 → 말하기 자리 → 녹음 한 줄 → 세 칸 → [저장] → 최근 질문
   function paintAsk(root, c) {
+    if (recLine.d !== c.today) recLine = { d: c.today, key: null, sec: 0, nowake: false };   // 지난 날의 녹음 한 줄은 버린다
     const form = { input: field("ask-text", "ask.text", "ASK_PH", "ask-warn", () => showAsk()), warn: el("p", { id: "ask-warn", class: "st-warn" }),
       boxes: checkBoxes(), save: button("ask-save", "ASK_SAVE") };
     const checks = el("div", null, form.boxes.map((box, i) => el("label", { for: CHECKS[i][0] }, box, t(CHECKS[i][1]))));
     onEnter(form.input, form.save, () => saveAsk());
     tap(form.save, () => saveAsk());
-    ask = { root, form, stage: el("div"), face: null };
-    fill(root, [form.input, form.warn, says("ASK_RULE", null, { id: "ask-rule", class: "st-dim" }), ask.stage, checks, form.save, listParts(c)]);
+    ask = { root, form, stage: el("div"), face: null, rec: el("div") };
+    fill(root, [form.input, form.warn, says("ASK_RULE", null, { id: "ask-rule", class: "st-dim" }), ask.stage, ask.rec, checks, form.save, listParts(c)]);
     showAsk();
     drawTalk();
   }

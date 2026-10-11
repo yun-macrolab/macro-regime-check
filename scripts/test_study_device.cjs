@@ -31,10 +31,11 @@ const rowsOf = w => F.byClass(w.at("set-g-state"), "st-row").map(n => [n.getAttr
 const row = (w, k) => F.text(F.byK(w.at("set-g-state"), k)[0]);                    // 상태 줄 하나의 글자
 
 // ── 설정: 상태 줄 ── 03의 넷(webapp · persist · queue · version)에 맞춤의 다섯(key · lastsync · lasterr · bad · clash)이 끼어든다
-test("설정 상태 줄: 아홉 줄의 차례 — 연결하지 않았고 맞춘 적 없는 기기의 처음 모습", async () => {
+test("설정 상태 줄: 열 줄의 차례 — 연결하지 않았고 맞춘 적 없는 기기의 처음 모습", async () => {
   const w = await open();
   assert.deepEqual(rowsOf(w), [["webapp", "웹앱으로 열림: —"], ["persist", "오래 두기: —"], ["key", "열쇠: 없음"], ["queue", "올릴 것: 0건"],
-    ["lastsync", "마지막 맞춤: —"], ["lasterr", "마지막 오류: 없음"], ["bad", "꼴이 맞지 않는 줄: 0개"], ["clash", "같은 id 충돌: 0건"], ["version", "판: " + w.A.VERSION]]);
+    ["lastsync", "마지막 맞춤: —"], ["lasterr", "마지막 오류: 없음"], ["bad", "꼴이 맞지 않는 줄: 0개"], ["clash", "같은 id 충돌: 0건"], ["rec", "녹음: 0개 · 0KB"],
+    ["version", "판: " + w.A.VERSION]]);
   assert.deepEqual([row(await open({ key: F.KEY }), "key"), row(await open({ key: "k".repeat(59) }), "key")], ["열쇠: 있음", "열쇠: 없음"]);
   assert.deepEqual([w.net.calls.length, w.net.unexpected], [0, 0]);
 });
@@ -427,4 +428,371 @@ test("설정 [사본 비우고 다시 받기]: 받는 동안 단추는 꺼져 �
   await tap(w, "set-pause");                                                                     // 자동 맞춤을 켰다 — 받던 것은 끊기고, 켠 맞춤이 사본을 다시 채운다
   assert.deepEqual([sent(w), copyOf(w), pullNote(w), off("set-repull"), status(w), w.net.unexpected],
     [[REPO, GET9, GET9, REPO, GET9, GET10], [THEIRS], C.T.SET_REPULL_NOTE, true, "맞춤 08:30", 0]);
+});
+
+// ── 녹음: 오늘 화면 ── 여기부터는 가짜 마이크 · 녹음기 · 화면 켜 두기 · IndexedDB를 꽂는다(F.fakeMedia · F.fakeIdb). 녹음 모듈만의 약속은 test_study_recorder.cjs가 본다.
+// 화면을 연다(기본은 오늘). media · idb는 가짜에 줄 것, seed는 device()에 줄 저장값(예: { rec: "0" }). wrote()는 이 기기가 쓴 줄(쓴 차례)
+async function studio({ media = {}, idb = {}, seed = {}, hash = "", ...opts } = {}) {
+  const [m, db] = [F.fakeMedia(media), F.fakeIdb(idb)];
+  const w = await open(seed, [], { hash, media: m, idb: db, ...opts });
+  return Object.assign(w, { media: m, idb: db, wrote: () => F.plain(w.S.queue()).map(text => JSON.parse(text)) });
+}
+const here = (w, ...ids) => ids.filter(id => w.at(id) !== null);                    // 그 가운데 지금 화면에 있는 id
+const lineOf = (w, id) => (w.at(id) === null ? null : F.text(w.at(id)));            // 그 id의 글자(없으면 null)
+const TAKE = TODAY + ".today";                                                      // 오늘 화면에서 한 녹음의 키
+// [말하기]를 누르고 약속이 끝나기를 기다린 뒤 ms만큼 보낸다
+async function say(w, ms = 120000, id = "td-talk") {
+  F.press(w.at(id));
+  await F.settle();
+  w.clock.advance(ms);
+  await F.settle();
+}
+
+test("오늘 녹음: [말하기]를 누른 그 처리 안에서 마이크를 청한다 — 허용되면 '녹음 중', 2분이 차면 마이크가 닫히고 도장에 녹음한 초가 실린다", async () => {
+  const w = await studio();
+  assert.deepEqual([w.media.asks.length, lineOf(w, "td-recnote"), here(w, "td-talk")], [0, null, ["td-talk"]]);              // 화면을 여는 것만으로는 청하지 않는다
+  F.press(w.at("td-talk"));
+  assert.deepEqual([F.plain(w.media.asks), lineOf(w, "td-recnote"), F.text(w.at("td-clock"))], [[{ audio: true }], C.T.REC_OFF, "2:00"]);   // 허용을 기다리는 동안에도 시계는 돈다
+  await F.settle();
+  const note = w.at("td-recnote");
+  assert.deepEqual([F.text(note), note.tag, note.getAttribute("class"), note.getAttribute("role"), w.media.live(), F.text(w.at("td-clock"))], [C.T.REC_ON, "p", "st-dim", "status", 1, "2:00"]);
+  const ids = F.all(w.at("st-main")).map(n => n.getAttribute("id")).filter(Boolean);
+  assert.deepEqual(ids.slice(ids.indexOf("td-clock"), ids.indexOf("td-clock") + 3), ["td-clock", "td-stop", "td-recnote"]);
+  w.clock.advance(120000);
+  assert.deepEqual([w.media.live(), w.media.recorders[0].state, lineOf(w, "td-recnote"), here(w, "td-full", "td-min")], [0, "inactive", null, ["td-full", "td-min"]]);
+  await F.settle();
+  F.press(w.at("td-min"));
+  const [row] = w.wrote();
+  assert.deepEqual([row.k, row.mark, row.sec, row.rec, [...w.idb.rows.keys()], lineOf(w, "td-recnote"), w.media.asks.length], ["day", "min", 120, 120, [TAKE], null, 1]);
+});
+
+test("오늘 녹음(끝나지 않는 약속): 마이크 허용 · 녹음기 종료 · 보관 쓰기가 끝나지 않아도 시계가 끝나면 도장이 열리고 찍힌다 — 마이크는 닫혀 있다", async () => {
+  const cases = [[{ media: { mic: "hang", wake: "hang" } }, C.T.REC_OFF, 0], [{ media: { recorder: "nostop" } }, C.T.REC_ON, 120],
+    [{ idb: { write: "hang" } }, C.T.REC_ON, 120], [{ idb: { open: "hang" } }, C.T.REC_ON, 120]];
+  for (const [opts, during, rec] of cases) {
+    const w = await studio(opts);
+    await say(w, 60000);
+    assert.deepEqual([lineOf(w, "td-recnote"), F.text(w.at("td-clock")), here(w, "td-min")], [during, "1:00", []], JSON.stringify(opts));
+    w.clock.advance(60000);
+    await F.settle();
+    assert.deepEqual([F.text(w.at("td-clock")), here(w, "td-full", "td-min"), w.media.live(), lineOf(w, "td-recnote")], ["끝 · 2:00", ["td-full", "td-min"], 0, null], JSON.stringify(opts));
+    F.press(w.at("td-min"));
+    assert.deepEqual([w.wrote().map(r => [r.mark, r.sec, r.rec]), F.text(w.at("td-done")), w.idb.rows.size], [[["min", 120, rec]], "오늘 △ 08:32", 0], JSON.stringify(opts));
+  }
+  const late = await studio({ media: { mic: "hold" } });
+  await say(late);
+  late.media.answer("ok");                                                               // 2분이 찬 뒤에야 허용을 눌렀다 — 마이크를 곧바로 닫는다
+  await F.settle();
+  assert.deepEqual([late.media.streams.length, late.media.live(), late.media.recorders.length, lineOf(late, "td-recnote"), here(late, "td-min")], [1, 0, 0, null, ["td-min"]]);
+});
+
+test("오늘 녹음(끊김): 말하는 중에 화면이 가려지면 '끊김 0:45'가 남고 시계는 그대로 간다 — 돌아와도 다시 녹음하지 않고, 도장에는 녹음한 만큼만 실린다", async () => {
+  const w = await studio({ now: kstMs("2026-10-13T23:00:00") });
+  await say(w, 45300);
+  w.fire("visibilitychange", "hidden");
+  await F.settle();
+  w.fire("visibilitychange", "visible");
+  const note = w.at("td-recnote");
+  assert.deepEqual([F.text(note), note.getAttribute("class"), w.media.live(), F.text(w.at("td-clock")), here(w, "td-stop")], ["끊김 0:45", "st-amber", 0, "1:15", ["td-stop"]]);
+  w.clock.advance(74700);
+  await F.settle();
+  assert.deepEqual([lineOf(w, "td-recnote"), w.media.asks.length, here(w, "td-min")], ["끊김 0:45", 1, ["td-min"]]);
+  F.press(w.at("td-min"));
+  assert.deepEqual([w.wrote().map(r => [r.sec, r.rec]), w.idb.rows.get(TAKE).sec, lineOf(w, "td-recnote")], [[[120, 45]], 45, "끊김 0:45"]);   // 도장을 찍은 뒤에도 그날은 보인다
+  w.clock.set(kstMs("2026-10-14T08:30:00"));
+  w.fire("visibilitychange", "visible");                                                 // 다음 날 — 지난 날의 줄은 버린다
+  assert.deepEqual([lineOf(w, "td-recnote"), here(w, "td-talk")], [null, ["td-talk"]]);
+});
+
+test("오늘 녹음: 빈 파일이면 '녹음 실패', 보관하지 못하면 '녹음 보관 불가', 거절 · 마이크 없음이면 '녹음 없이 진행 중' — 어느 경우에도 도장은 찍힌다", async () => {
+  const run = async opts => {
+    const w = await studio(opts);
+    await say(w, 60000);
+    const during = lineOf(w, "td-recnote");
+    w.clock.advance(60000);
+    await F.settle();
+    const after = [lineOf(w, "td-recnote"), w.at("td-recnote") === null ? null : w.at("td-recnote").getAttribute("class")];
+    F.press(w.at("td-min"));
+    return [during, after, w.wrote().map(r => [r.mark, r.rec]), w.media.live()];
+  };
+  assert.deepEqual(await run({ media: { recorder: "empty" } }), [C.T.REC_ON, [C.T.REC_FAIL, "st-amber"], [["min", 120]], 0]);
+  assert.deepEqual(await run({ idb: { write: "fail" } }), [C.T.REC_ON, [C.T.REC_NOSTORE, "st-amber"], [["min", 120]], 0]);
+  assert.deepEqual(await run({ idb: { none: true } }), [C.T.REC_ON, [C.T.REC_NOSTORE, "st-amber"], [["min", 120]], 0]);
+  assert.deepEqual(await run({ media: { mic: "deny" } }), [C.T.REC_OFF, [null, null], [["min", 0]], 0]);
+  assert.deepEqual(await run({ media: { mic: "error" } }), [C.T.REC_OFF, [null, null], [["min", 0]], 0]);
+  const dark = "녹음 중 · 화면이 꺼지면 녹음이 끊깁니다";                                           // 화면 켜 두기를 얻지 못했다
+  assert.deepEqual([await run({ media: { wake: "deny" } }), await run({ media: { wake: "none" } })], Array(2).fill([dark, [null, null], [["min", 120]], 0]));
+  assert.deepEqual(await run({ media: { wake: "none", mic: "deny" } }), [C.T.REC_OFF, [null, null], [["min", 0]], 0]);
+});
+
+const NOREC = F.scripts().filter(name => name !== "recorder.js").map(name => '<script src="' + name + '"></script>').join("");   // 녹음 모듈(recorder.js)을 싣지 않는 뼈대
+
+test("오늘 녹음: 녹음을 끈 기기에서는 마이크를 청하지 않는다 — 녹음기가 없는 브라우저에서는 '녹음 없이 진행 중'만 뜨고, 녹음 모듈이 없거나 던져도 도장은 찍힌다", async () => {
+  const off = await studio({ seed: { rec: "0" } });
+  await say(off, 60000);
+  assert.deepEqual([off.media.asks.length, off.media.locks.length, lineOf(off, "td-recnote"), F.text(off.at("td-clock"))], [0, 0, null, "1:00"]);
+  off.clock.advance(60000);
+  F.press(off.at("td-min"));
+  assert.deepEqual([off.wrote().map(r => [r.sec, r.rec]), off.media.asks.length, off.idb.rows.size], [[[120, 0]], 0, 0]);
+  for (const media of [{ recorder: "none" }, { mic: "none" }]) {
+    const bare = await studio({ media });
+    await say(bare, 60000);
+    assert.deepEqual([lineOf(bare, "td-recnote"), bare.media.asks.length, bare.media.locks.length], [C.T.REC_OFF, 0, 0], JSON.stringify(media));
+    bare.clock.advance(60000);
+    F.press(bare.at("td-min"));
+    assert.deepEqual([lineOf(bare, "td-recnote"), bare.wrote().map(r => r.rec)], [null, [0]]);
+  }
+  const boom = () => { throw new Error("지어낸 고장"); };
+  for (const extra of [{}, { StudyRecorder: { begin: boom, end: boom, seconds: boom, stopPlayback: boom } }, { StudyRecorder: { seconds: () => 999 } }]) {
+    const lone = await studio({ html: NOREC, extra });
+    await say(lone);
+    F.press(lone.at("td-min"));
+    assert.deepEqual([lone.scope.StudyRecorder === extra.StudyRecorder, lone.media.asks.length, here(lone, "td-recnote"), lone.wrote().map(r => [r.sec, r.rec]), F.text(lone.at("td-done"))],
+      [true, 0, [], [[120, 0]], "오늘 △ 08:32"]);
+  }
+});
+
+test("오늘 녹음: 다른 화면에 가 있는 동안 2분이 차도 마이크는 닫히고 녹음은 보관된다 — 돌아오면 도장 칸이 열려 있다", async () => {
+  const w = await studio();
+  await say(w, 30000);
+  F.press(F.byK(w.doc, "week")[0]);
+  assert.deepEqual([w.media.live(), here(w, "td-recnote")], [1, []]);                      // 화면을 옮겨도 녹음은 이어진다
+  w.clock.advance(90000);
+  await F.settle();
+  assert.deepEqual([w.media.live(), [...w.idb.rows.keys()], w.idb.rows.get(TAKE).sec], [0, [TAKE], 120]);
+  F.press(F.byK(w.doc, "today")[0]);
+  assert.deepEqual([here(w, "td-min", "td-recnote"), F.text(w.at("td-clock"))], [["td-min"], "끝 · 2:00"]);
+  F.press(w.at("td-min"));
+  assert.deepEqual(w.wrote().map(r => [r.sec, r.rec]), [[120, 120]]);
+});
+
+test("오늘 녹음: 말하는 중에 [그만]을 누르면 그 자리에서 마이크가 닫힌다 — 있는 만큼 보관되고, 도장에 그 초가 실린다", async () => {
+  const w = await studio();
+  await say(w, 30000);
+  F.press(w.at("td-stop"));
+  assert.deepEqual([w.media.live(), w.media.recorders[0].state, lineOf(w, "td-recnote"), F.text(w.at("td-clock"))], [0, "inactive", null, "끝 · 0:30"]);
+  await tap(w, "td-min");
+  assert.deepEqual([w.wrote().map(r => [r.k, r.sec, r.rec]), [...w.idb.rows].map(pair => [pair[0], pair[1].sec])], [[["day", 30, 30]], [[TAKE, 30]]]);
+});
+
+// ── 녹음: 오늘 화면의 녹음 듣기 ──
+// 지어낸 녹음 하나(날짜 · 화면 · 초 — 크기는 초당 8000바이트)와, 그런 녹음이 이미 있는 기기
+const clip = (date, slot, sec) => ({ id: date + "." + slot, date, slot, at: kstMs(date + "T08:30:00") + (slot === "ask" ? 3600000 : 0), sec, bytes: sec * 8000,
+  type: "audio/mp4", blob: { size: sec * 8000, type: "audio/mp4" } });
+async function shelf(clips, opts = {}) {
+  const w = await studio(opts);
+  for (const row of clips) w.idb.rows.set(row.id, row);
+  return w;
+}
+const CLIPS = [clip("2026-10-11", "today", 120), clip("2026-10-12", "today", 45), clip("2026-10-12", "ask", 90)];
+const STAMPED = F.line("day", { mark: "min", sec: 120, rec: 0, stuck: "" }, { ms: kstMs("2026-10-13T08:10:00"), rand: "s001" });   // 이 기기가 오늘 찍어 둔 도장
+const takesOf = w => F.byTag(w.at("td-listen"), "li").map(li => [li.getAttribute("data-k"), F.text(F.byTag(li, "button")[0])]);     // 듣기의 줄(키 · 글자)
+const players = w => F.byTag(w.doc, "audio").map(a => [a.getAttribute("src"), a.parent.parent.getAttribute("data-k")]);             // 재생 막대(주소 · 그 줄의 키)
+// 접힌 줄을 열거나 닫고, n번째 줄을 누른다(약속이 끝나기를 기다린다)
+async function fold(w) {
+  F.press(F.byTag(w.at("td-listen"), "summary")[0]);
+  await F.settle();
+}
+async function play(w, n) {
+  F.press(F.byTag(w.at("td-listen"), "button")[n]);
+  await F.settle();
+}
+
+test("오늘 녹음 듣기: 접힌 줄을 열면 이 기기의 최근 녹음이 늦은 것부터 뜬다 — 줄을 누르면 그 아래에 재생 막대가 서고, 다른 줄을 누르면 앞의 것을 비우고 치운다", async () => {
+  const w = await shelf(CLIPS);
+  const box = w.at("td-listen");
+  const ids = F.all(w.at("st-main")).map(n => n.getAttribute("id")).filter(Boolean);
+  assert.deepEqual([box.tag, box.getAttribute("class"), box.hasAttribute("open"), F.text(F.byTag(box, "summary")[0]), ids[ids.length - 1], takesOf(w), w.idb.log],
+    ["details", "st-fold", false, C.T.LISTEN_FOLD, "td-listen", [], []]);                    // 열기 전에는 읽지 않는다
+  await fold(w);
+  assert.deepEqual(takesOf(w), [["2026-10-12.ask", "10-12 월 · 1:30 · 0.7MB"], ["2026-10-12.today", "10-12 월 · 0:45 · 0.4MB"], ["2026-10-11.today", "10-11 일 · 2:00 · 1.0MB"]]);
+  assert.deepEqual([players(w), w.media.urls], [[], []]);
+  await play(w, 1);
+  const first = F.byTag(w.doc, "audio")[0];
+  assert.deepEqual([Object.fromEntries(first.attrs), players(w), w.media.asks.length], [{ controls: "", preload: "metadata", src: "blob:study/1" }, [["blob:study/1", "2026-10-12.today"]], 0]);
+  await play(w, 0);
+  assert.deepEqual([players(w), first.getAttribute("src"), first.parent, w.media.revoked], [[["blob:study/2", "2026-10-12.ask"]], "", null, ["blob:study/1"]]);
+});
+
+test("오늘 녹음 듣기: 다시 말하기 전에 재생을 멈추고 비운다 — 재생 막대를 치우고 주소를 거둔 뒤에 마이크를 청한다. 녹음하는 동안에는 틀지 않고, 보관되면 목록에 뜬다", async () => {
+  const w = await shelf(CLIPS, { seed: { mine: [STAMPED] } });
+  await fold(w);
+  await play(w, 0);
+  const [player, before] = [F.byTag(w.doc, "audio")[0], w.media.log.length];
+  F.press(w.at("td-again"));
+  assert.deepEqual([players(w), player.getAttribute("src"), player.parent, w.media.log.slice(before)], [[], "", null, ["revoke", "wake", "mic"]]);
+  await F.settle();
+  await play(w, 0);                                                                      // 녹음하는 동안 줄을 눌렀다
+  assert.deepEqual([players(w), w.media.urls.length, w.media.live(), lineOf(w, "td-recnote")], [[], 1, 1, C.T.REC_ON]);
+  w.clock.advance(120000);
+  await F.settle();
+  assert.deepEqual([takesOf(w)[0], takesOf(w).length, w.media.live(), w.at("td-listen").hasAttribute("open")], [[TAKE, "10-13 화 · 2:00 · 1.0MB"], 4, 0, true]);
+  await play(w, 0);
+  assert.deepEqual(players(w), [["blob:study/2", TAKE]]);
+});
+
+test("오늘 녹음 듣기: 녹음이 없으면 '녹음이 없다' — 같은 화면에서 다시 그려도 듣던 것은 그대로고, 접거나 화면을 떠나면 멈추고 주소를 거둔다", async () => {
+  const empty = await studio();
+  await fold(empty);
+  assert.deepEqual([F.byTag(empty.at("td-listen"), "p").map(p => [F.text(p), p.getAttribute("class")]), takesOf(empty)], [[[C.T.LISTEN_NONE, "st-dim"]], []]);
+  const w = await shelf(CLIPS);
+  await fold(w);
+  await play(w, 2);
+  const [box, player] = [w.at("td-listen"), F.byTag(w.doc, "audio")[0]];
+  F.press(w.at("td-rest1"));                                                             // 쉼 줄을 썼다 — 화면을 새로 그린다
+  assert.deepEqual([w.wrote().map(r => r.k), w.at("td-listen") === box, box.hasAttribute("open"), F.byTag(w.doc, "audio")[0] === player, w.media.revoked], [["rest"], true, true, true, []]);
+  await fold(w);                                                                         // 접었다
+  assert.deepEqual([players(w), player.getAttribute("src"), w.media.revoked], [[], "", ["blob:study/1"]]);
+  await fold(w);
+  await play(w, 0);
+  F.press(F.byK(w.doc, "week")[0]);                                                      // 다른 화면으로 갔다
+  assert.deepEqual([w.media.urls.length, w.media.revoked.length, F.byTag(w.doc, "audio").length], [2, 2, 0]);
+  F.press(F.byK(w.doc, "today")[0]);
+  assert.deepEqual([w.at("td-listen") === box, w.at("td-listen").hasAttribute("open"), takesOf(w)], [false, false, []]);   // 새로 열면 접혀 있다
+});
+
+test("오늘 녹음 듣기: 읽지 못하거나 답이 없어도 화면은 돈다 — 녹음 모듈이 실리지 않았으면 듣기 줄도 없다", async () => {
+  const broken = await shelf(CLIPS, { idb: { read: "fail" } });
+  await fold(broken);
+  assert.deepEqual([F.text(F.byTag(broken.at("td-listen"), "p")[0]), takesOf(broken)], [C.T.LISTEN_NONE, []]);
+  const silent = await shelf(CLIPS, { idb: { read: "hang" } });
+  await fold(silent);
+  await say(silent);
+  F.press(silent.at("td-min"));
+  assert.deepEqual([takesOf(silent), F.byTag(silent.at("td-listen"), "p").length, silent.wrote().map(r => [r.mark, r.rec]), F.text(silent.at("td-done"))], [[], 0, [["min", 120]], "오늘 △ 08:32"]);
+  const gone = await shelf(CLIPS);
+  await fold(gone);
+  gone.idb.rows.clear();                                                                 // 목록을 읽은 뒤에 지워졌다 — 주소가 오지 않으면 막대도 없다
+  await play(gone, 0);
+  assert.deepEqual([players(gone), gone.media.urls], [[], []]);
+  const lone = await studio({ html: NOREC });
+  assert.deepEqual([here(lone, "td-listen", "td-recnote"), here(lone, "td-talk", "td-rest1")], [[], ["td-talk", "td-rest1"]]);
+});
+
+// ── 녹음: 질문 화면 ──
+const ASKED = TODAY + ".ask";                                                       // 질문 화면에서 한 녹음의 키
+const QUESTION = "A사 금리가 오르면 B사 조달은 어떻게 되나";
+// 질문 한 줄을 적고 [저장]을 누른다
+async function saveAsk(w) {
+  F.type(w.at("ask-text"), QUESTION);
+  F.press(w.at("ask-save"));
+  await F.settle();
+}
+
+test("질문 녹음: [말하기]를 누른 그 처리 안에서 마이크를 청하고 '녹음 중'이 뜬다 — [저장]하면 시계와 마이크를 함께 멈추고, 줄에 녹음한 초가 실린다", async () => {
+  const w = await studio({ hash: "#ask" });
+  assert.deepEqual([w.media.asks.length, here(w, "ask-recnote")], [0, []]);
+  F.press(w.at("ask-talk"));
+  assert.deepEqual([w.media.asks.length, lineOf(w, "ask-recnote"), F.text(w.at("ask-clock"))], [1, C.T.REC_OFF, "2:00"]);
+  await F.settle();
+  const [ids, note] = [F.all(w.at("st-main")).map(n => n.getAttribute("id")).filter(Boolean), w.at("ask-recnote")];
+  assert.deepEqual([ids.slice(ids.indexOf("ask-rule"), ids.indexOf("ask-head") + 1), F.text(note), note.tag, note.getAttribute("class"), note.getAttribute("role")],
+    [["ask-rule", "ask-clock", "ask-stop", "ask-recnote", "ask-head"], C.T.REC_ON, "p", "st-dim", "status"]);
+  w.clock.advance(97000);
+  await saveAsk(w);
+  const [row] = w.wrote();
+  assert.deepEqual([row.k, row.text, row.sec, row.rec, w.media.live(), [...w.idb.rows.keys()], w.idb.rows.get(ASKED).sec, here(w, "ask-recnote", "ask-clock")],
+    ["q", QUESTION, 97, 97, 0, [ASKED], 97, []]);
+  await saveAsk(w);                                                                      // 말하지 않고 적은 다음 질문 — 앞 질문의 녹음한 초를 물려받지 않는다
+  assert.deepEqual(w.wrote().map(r => [r.sec, r.rec]), [[97, 97], [0, 0]]);
+});
+
+test("질문 녹음: [그만]이나 2분이면 마이크가 닫히고, 끊기면 '끊김'이 남는다 — 녹음을 끈 기기에서는 청하지 않고, 허용이 끝나지 않아도 [저장]은 된다", async () => {
+  const w = await studio({ hash: "#ask" });
+  await say(w, 30000, "ask-talk");
+  F.press(w.at("ask-stop"));
+  await F.settle();
+  assert.deepEqual([w.media.live(), F.text(w.at("ask-clock")), lineOf(w, "ask-recnote"), w.idb.rows.get(ASKED).sec], [0, "끝 · 0:30", null, 30]);
+  await say(w, 45300, "ask-talk");                                                       // 다시 말한다 — 새것이 앞의 것을 바꾼다
+  w.fire("visibilitychange", "hidden");
+  await F.settle();
+  w.fire("visibilitychange", "visible");
+  assert.deepEqual([lineOf(w, "ask-recnote"), w.at("ask-recnote").getAttribute("class"), w.media.live(), w.idb.rows.get(ASKED).sec, F.text(w.at("ask-clock"))],
+    ["끊김 0:45", "st-amber", 0, 45, "1:15"]);
+  w.clock.advance(74700);
+  assert.deepEqual([F.text(w.at("ask-clock")), lineOf(w, "ask-recnote"), w.media.asks.length], ["끝 · 2:00", "끊김 0:45", 2]);
+  await saveAsk(w);
+  assert.deepEqual(w.wrote().map(r => [r.sec, r.rec]), [[120, 45]]);
+  const off = await studio({ hash: "#ask", seed: { rec: "0" } });
+  await say(off, 120000, "ask-talk");
+  await saveAsk(off);
+  assert.deepEqual([off.media.asks.length, off.wrote().map(r => [r.sec, r.rec]), off.idb.rows.size], [0, [[120, 0]], 0]);
+  const hung = await studio({ hash: "#ask", media: { mic: "hang", wake: "hang" } });
+  await say(hung, 60000, "ask-talk");
+  assert.equal(lineOf(hung, "ask-recnote"), C.T.REC_OFF);
+  await saveAsk(hung);
+  assert.deepEqual([hung.wrote().map(r => [r.sec, r.rec]), here(hung, "ask-recnote"), F.text(hung.at("ask-text"))], [[[60, 0]], [], ""]);
+});
+
+// 질문 화면에서 말하다가 [저장]한다 — 틈: 2분이 찼는데 때맞춤(250ms)은 아직 울리지 않았다 / 밤(night): 말하는 도중 04:00을 넘겨 공부 날짜가 바뀌었다 / lost: 기기 이름이 지워져 쓰기가 거절된다
+async function lateSave(night, lost) {
+  const w = await studio({ hash: "#ask", now: night ? kstMs("2026-10-14T03:59:30") : F.T0 });
+  await say(w, night ? 40000 : 119900, "ask-talk");
+  w.clock.set(w.clock.now() + 200);                                                      // 시각만 옮긴다 — 때맞춤은 울리지 않는다(시계는 끝을 알리지 못했다)
+  if (lost) w.storage.removeItem(LS + "dev");
+  const live = w.media.live();
+  await saveAsk(w);
+  return [live, w.media.live(), w.wrote().map(r => [r.d, r.sec, r.rec]), [...w.idb.rows].map(pair => [pair[0], pair[1].sec])];   // 누르기 전의 마이크 · 누른 뒤의 마이크 · 쓴 줄 · 보관된 녹음
+}
+
+test("질문 녹음: 2분이 찬 틈에도, 말하는 도중 날짜가 바뀐 뒤에도 [저장]하면 마이크가 닫힌다 — 쓰기가 거절돼도 닫히고, 줄의 초는 그대로며, 녹음은 있는 만큼 보관된다", async () => {
+  assert.deepEqual([await lateSave(false), await lateSave(true)], [[1, 0, [[TODAY, 120, 120]], [[ASKED, 120]]], [1, 0, [["2026-10-14", 0, 0]], [[ASKED, 40]]]]);
+  assert.deepEqual([await lateSave(false, true), await lateSave(true, true)], [[1, 0, [], [[ASKED, 120]]], [1, 0, [], [[ASKED, 40]]]]);   // 쓰기가 거절됐다 — 줄은 없다
+});
+
+test("녹음은 한 번에 하나(화면 둘): 오늘의 말하기 도중 질문 화면에서 말하면 오늘 것은 거기서 끊긴다 — 오늘의 2분이 차도 질문의 녹음은 이어진다", async () => {
+  const w = await studio();
+  await say(w, 30000);
+  F.press(F.byK(w.doc, "ask")[0]);
+  await say(w, 90000, "ask-talk");                                                       // 오늘의 시계가 그 사이에 끝났다(30 + 90초)
+  assert.deepEqual([w.media.recorders.map(rec => rec.state), w.media.live(), lineOf(w, "ask-recnote"), w.S.talk("today").end === F.T0 + 120000, w.idb.rows.get(TAKE).sec],
+    [["inactive", "recording"], 1, C.T.REC_ON, true, 30]);
+  w.clock.advance(30000);
+  await F.settle();
+  assert.deepEqual([w.media.live(), [...w.idb.rows.keys()], w.idb.rows.get(ASKED).sec, lineOf(w, "ask-recnote")], [0, [TAKE, ASKED], 120, null]);
+  F.press(F.byK(w.doc, "today")[0]);
+  assert.deepEqual([lineOf(w, "td-recnote"), here(w, "td-min")], ["끊김 0:30", ["td-min"]]);
+  F.press(w.at("td-min"));
+  assert.deepEqual(w.wrote().map(r => [r.k, r.sec, r.rec]), [["day", 120, 30]]);
+});
+
+// ── 녹음: 설정 화면 ── 켬/끔 · 상태 줄 · [녹음 모두 지우기]
+test("설정 녹음: 켬/끔 단추 — 글자 · 눌림 · 저장값이 함께 바뀌고, 끄면 돌고 있던 녹음을 그 자리에서 닫는다(있는 만큼 보관된다)", async () => {
+  const w = await studio({ hash: "#set" });
+  const [knob, name] = [w.at("set-rec"), w.at("set-dev")];
+  const seen = () => [F.text(knob), knob.getAttribute("aria-pressed"), stored(w, "rec")];
+  assert.deepEqual([knob.tag, knob.getAttribute("class"), knob.getAttribute("type"), knob.parent === w.at("set-pause").parent, seen()], ["button", "st-btn", "button", true, ["녹음: 켬", "true", null]]);
+  F.type(name, "쓰는중");
+  await tap(w, "set-rec");
+  assert.deepEqual([seen(), w.at("set-rec") === knob, name.value, w.media.asks.length], [["녹음: 끔", "false", "0"], true, "쓰는중", 0]);
+  await tap(w, "set-rec");
+  assert.deepEqual(seen(), ["녹음: 켬", "true", "1"]);
+  const v = await studio();
+  await say(v, 30000);
+  F.press(F.byK(v.doc, "set")[0]);
+  assert.equal(v.media.live(), 1);
+  await tap(v, "set-rec");                                                               // 말하는 중에 녹음을 껐다
+  assert.deepEqual([v.media.live(), v.idb.rows.get(TAKE).sec, stored(v, "rec"), row(v, "rec")], [0, 30, "0", "녹음: 0개 · 0KB"]);   // 줄은 화면을 열 때 센 것이다
+  F.press(F.byK(v.doc, "today")[0]);                                                     // 오늘로 돌아가면 줄은 '녹음 중'이 아니다 — 시계는 그대로 간다
+  assert.deepEqual([lineOf(v, "td-recnote"), F.text(v.at("td-clock")), v.media.live()], [C.T.REC_OFF, "1:30", 0]);
+  F.press(F.byK(v.doc, "set")[0]);
+  await F.settle();
+  assert.equal(row(v, "rec"), "녹음: 1개 · 0.2MB");
+});
+
+test("설정 [녹음 모두 지우기]: 상태 줄이 녹음의 수와 크기를 보이고, 누르면 되묻지 않고 곧바로 지운다 — 답이 없거나 녹음 모듈이 없으면 그 줄은 없다", async () => {
+  const w = await shelf(CLIPS, { hash: "#set" });
+  F.press(F.byK(w.doc, "set")[0]);                                                       // 설정을 다시 열면 다시 센다
+  await F.settle();
+  const ids = F.all(w.at("st-main")).map(n => n.getAttribute("id"));
+  assert.deepEqual([row(w, "rec"), rowsOf(w).map(pair => pair[0]).slice(-3), F.text(w.at("set-recclear")), ids.indexOf("set-reload") < ids.indexOf("set-recclear"), ids.indexOf("set-recclear") < ids.indexOf("set-keyclear")],
+    ["녹음: 3개 · 2.0MB", ["clash", "rec", "version"], C.T.SET_RECCLEAR, true, true]);
+  await tap(w, "set-recclear");
+  assert.deepEqual([w.idb.rows.size, row(w, "rec"), w.net.calls.length], [0, "녹음: 0개 · 0KB", 0]);
+  const hung = await studio({ hash: "#set", idb: { open: "hang" } });
+  await tap(hung, "set-recclear");                                                       // 보관이 답하지 않아도 화면은 돈다
+  assert.deepEqual([F.byK(hung.at("set-g-state"), "rec").length, here(hung, "set-rec", "set-recclear"), rowsOf(hung).length, row(hung, "version")], [0, ["set-rec", "set-recclear"], 9, "판: " + hung.A.VERSION]);
+  const lone = await studio({ hash: "#set", html: NOREC });
+  assert.deepEqual([here(lone, "set-rec", "set-recclear"), rowsOf(lone).map(pair => pair[0]).includes("rec"), F.text(lone.at("set-pause")), F.all(lone.at("set-g-dev")).filter(n => n.tag === "button").length],
+    [[], false, "자동 맞춤: 켬", 2]);
 });

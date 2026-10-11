@@ -1,6 +1,6 @@
-// 공부 화면의 설정 화면 — 이 기기(이름 · 자동 맞춤), 연결(주인 · 저장소 이름 · 열쇠 · [연결 확인]), 열쇠 만들기, 상태 줄,
-// 단추([지금 맞춤] [새로 받기] [이 기기에서 열쇠 지우기] [사본 비우고 다시 받기]).
-// 문서 · 저장 공간 · 통신을 직접 만지지 않는다: 요소는 StudyApp.el로만 만들고, 기기 저장은 StudyStore의, 맞춤은 StudySync의 약속된 손으로만 한다.
+// 공부 화면의 설정 화면 — 이 기기(이름 · 자동 맞춤 · 녹음), 연결(주인 · 저장소 이름 · 열쇠 · [연결 확인]), 열쇠 만들기, 상태 줄,
+// 단추([지금 맞춤] [새로 받기] [녹음 모두 지우기] [이 기기에서 열쇠 지우기] [사본 비우고 다시 받기]).
+// 문서 · 저장 공간 · 통신 · 녹음 보관을 직접 만지지 않는다: 요소는 StudyApp.el로만 만들고, 기기 저장은 StudyStore의, 맞춤은 StudySync의, 녹음은 StudyRecorder의 약속된 손으로만 한다.
 // 열쇠는 칸에서 읽어 StudyStore.setKey에 넘기고 곧바로 칸을 비운다 — 화면 글자 · 속성 · 쓰던 글 어디에도 두지 않고, 다시 꺼내지도 않는다.
 // 맞춤이 알리거나 값을 바꾼 뒤(refresh)에는 상태 줄과 단추의 글 · 켜짐만 다시 그린다 — 쓰던 칸은 건드리지 않는다.
 window.StudySettings = (() => {
@@ -8,6 +8,7 @@ window.StudySettings = (() => {
 
   let ui = null;                 // 지금 그려 둔 자리. 화면을 떠나면 null이다
   let kept = null;               // '오래 두기'의 답(true · false · 아직 모르거나 없으면 null)
+  let heard = null;              // 이 기기에 둔 녹음의 수와 크기({ n, bytes } · 아직 모르거나 녹음 모듈이 없으면 null)
   let gen = 0;                   // 연결 설정이 바뀌거나 화면을 떠날 때마다 오른다 — 그 전에 물은 것의 답은 버린다
   let checking = false;          // [연결 확인]의 답을 기다리는 중이다(그동안 단추는 꺼져 있다)
   let pulling = false;           // [사본 비우고 다시 받기]의 답을 기다리는 중이다
@@ -24,6 +25,15 @@ window.StudySettings = (() => {
     try {
       const sync = window.StudySync;
       return sync && typeof sync[method] === "function" ? sync[method](...args) : undefined;
+    } catch (err) {
+      return undefined;
+    }
+  }
+  // 녹음 모듈의 손 — 맞춤과 같다: 쓸 때마다 다시 보고, 없거나 던지면 undefined다
+  function hear(method, ...args) {
+    try {
+      const recorder = window.StudyRecorder;
+      return recorder && typeof recorder[method] === "function" ? recorder[method](...args) : undefined;
     } catch (err) {
       return undefined;
     }
@@ -67,9 +77,19 @@ window.StudySettings = (() => {
     changed();
     if (!paused) StudyApp.requestSync("manual");
   }
+  // ── 녹음 켬/끔 ── 끄면 [말하기]를 눌러도 마이크를 청하지 않는다. 돌고 있던 녹음은 그 자리에서 닫는다(있는 만큼 보관된다).
+  function toggleRec() {
+    const on = !StudyStore.getFlag("rec");
+    StudyStore.setFlag("rec", on);
+    if (!on) hear("end");
+    StudyApp.refresh("set");
+  }
   // 단추의 글 · 눌림 · 켜짐 — 단추는 새로 만들지 않고 그 자리에서 고친다
   function drawKnobs() {
     const paused = StudyStore.getFlag("pause");
+    const rec = StudyStore.getFlag("rec");
+    if (ui.rec !== null) ui.rec.textContent = t("SET_REC", { v: t(rec ? "ON" : "OFF") });
+    if (ui.rec !== null) ui.rec.setAttribute("aria-pressed", String(rec));
     ui.pause.textContent = t("SET_PAUSE", { v: t(paused ? "PAUSED" : "ON") });
     ui.pause.setAttribute("aria-pressed", String(paused));
     StudyApp.flag(ui.check, "disabled", checking);
@@ -195,6 +215,7 @@ window.StudySettings = (() => {
       ["lasterr", lastErr(s.err)],
       ["bad", t("ROW_BAD", { n: s.bad + c.view.bad })],
       ["clash", t("ROW_CLASH", { n: c.view.clash })],
+      ...(heard === null ? [] : [["rec", t("ROW_REC", { n: heard.n, size: size(heard.bytes) })]]),
       ["version", t("ROW_VERSION", { v: StudyApp.VERSION })],
     ];
   }
@@ -205,6 +226,20 @@ window.StudySettings = (() => {
   function learned(v) {
     kept = v;
     if (ui !== null) drawRows(StudyApp.ctx());
+  }
+  // 녹음의 수와 크기도 늦게 온다(64kbps가 지켜졌는지는 이 크기로 본다 — 2분에 약 1MB). 답이 없으면 줄도 없다
+  const size = bytes => (bytes >= 100000 ? (bytes / 1000000).toFixed(1) + "MB" : Math.round(bytes / 1000) + "KB");
+  function counted(v) {
+    if (!v || !Number.isInteger(v.n) || !Number.isFinite(v.bytes)) return;
+    heard = { n: v.n, bytes: v.bytes };
+    if (ui !== null) drawRows(StudyApp.ctx());
+  }
+  function countTakes() {
+    settled(hear("stats")).then(v => counted(v));
+  }
+  // [녹음 모두 지우기]: 되묻지 않고 곧바로 지운다. 그 뒤 수와 크기를 다시 센다
+  function clearTakes() {
+    settled(hear("clearAll")).then(() => countTakes());
   }
 
   // ── 화면 ── 이 기기 → 연결 → 열쇠 만들기 → 상태 → 아이콘 안내 한 줄 → 단추 두 줄
@@ -217,15 +252,18 @@ window.StudySettings = (() => {
     const key = keyField(c);
     ui = { state: el("section", { id: "set-g-state", class: "st-group" }),
       pause: tap(el("button", { id: "set-pause", class: "st-btn", type: "button" }), () => togglePause()),
+      rec: window.StudyRecorder ? tap(el("button", { id: "set-rec", class: "st-btn", type: "button" }), () => toggleRec()) : null,
       key: key.input, check: tap(button("set-check", "SET_CHECK"), () => check()), checkout: el("p", { id: "set-checkout", role: "status" }),
       linkbox: el("p", null), link: null,
       repull: tap(button("set-repull", "SET_REPULL"), () => repull()), repullnote: el("p", { id: "set-repullnote", class: "st-dim" }, t("SET_REPULL_NOTE")) };
     const acts = [tap(button("set-syncnow", "SET_SYNCNOW"), () => StudyApp.requestSync("manual")), tap(button("set-reload", "RELOAD"), () => StudyApp.reload())];
-    const risky = [tap(button("set-keyclear", "SET_KEYCLEAR"), () => clearKey()), ui.repull, ui.repullnote];
-    root.replaceChildren(devGroup(c, ui.pause), connGroup(key, [ui.check, ui.checkout]), keyGroup(ui.linkbox), ui.state,
+    const wipe = ui.rec === null ? null : tap(button("set-recclear", "SET_RECCLEAR"), () => clearTakes());
+    const risky = [wipe, tap(button("set-keyclear", "SET_KEYCLEAR"), () => clearKey()), ui.repull, ui.repullnote];
+    root.replaceChildren(devGroup(c, [ui.pause, ui.rec]), connGroup(key, [ui.check, ui.checkout]), keyGroup(ui.linkbox), ui.state,
       el("p", { id: "set-iconnote", class: "st-dim" }, t("SET_ICON_NOTE")), el("div", null, acts), el("div", null, risky));
     draw(c);
     StudyStore.persist().then(v => learned(v));
+    countTakes();
   }
   function refresh(root, c) {
     if (ui === null) render(root, c);

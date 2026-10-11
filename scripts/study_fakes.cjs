@@ -307,3 +307,136 @@ function ghFile(text, sha, over = {}) {
 const ghRepo = (over = {}) => ({ private: true, has_pages: false, ...over });
 
 Object.assign(module.exports, { KEY, ghFile, ghRepo });
+
+// ── 녹음(recorder.js)의 가짜 ── 가짜 마이크 · 녹음기 · 화면 켜 두기 · 재생 주소(fakeMedia)와 가짜 IndexedDB(fakeIdb).
+// world의 opts.media · opts.idb로 꽂는다(install이 문맥에 전역을 단다). 실제 마이크도 실제 파일도 없고, 답은 모두 마이크로태스크로 온다(settle()이면 끝난다).
+// 사건을 받는 것(트랙 · 녹음기 · 요청 · 트랜잭션)의 뿌리: addEventListener로 받고 emit으로 울린다
+class FakeTarget {
+  constructor() { this.on = {}; }
+  addEventListener(type, fn) { (this.on[type] = this.on[type] || []).push(fn); }
+  emit(type, more) { for (const fn of [...(this.on[type] || [])]) fn({ type, target: this, ...more }); }
+}
+// 가짜 소리 덩어리: 크기와 형식만 있다. 조각을 모으면 크기를 더한다
+class FakeBlob {
+  constructor(parts, opts) {
+    this.size = (parts || []).reduce((sum, part) => sum + (part.size || 0), 0);
+    this.type = (opts && opts.type) || "";
+  }
+}
+const chunk = (size, type) => Object.assign(new FakeBlob([], { type }), { size });
+class FakeTrack extends FakeTarget {
+  constructor() { super(); this.kind = "audio"; this.readyState = "live"; }
+  stop() { this.readyState = "ended"; }
+}
+// 가짜 녹음기의 틀. 돈 시간(가짜 시계) × rate 바이트의 덩어리 하나를 stop 뒤에 내놓는다
+function recorderClass(media, w) {
+  return class FakeRecorder extends FakeTarget {
+    static isTypeSupported(type) { return media.types.includes(type); }
+    constructor(stream, options = {}) {
+      super();
+      if (media.opts.recorder === "throw") throw named("NotSupportedError");
+      Object.assign(this, { stream, options, state: "inactive", mimeType: options.mimeType || media.types[0] || "", began: null });
+      media.recorders.push(this);
+    }
+    start() { this.state = "recording"; this.began = w.clock.now(); }
+    stop() {
+      if (this.state === "inactive") throw named("InvalidStateError");
+      this.state = "inactive";
+      const size = media.opts.recorder === "empty" ? 0 : Math.round((w.clock.now() - this.began) / 1000 * media.rate);
+      if (media.opts.recorder === "nostop") return;
+      Promise.resolve().then(() => { this.emit("dataavailable", { data: chunk(size, this.mimeType) }); this.emit("stop"); });
+    }
+  };
+}
+// 마이크를 청했다: 청한 것을 적고, mic에 따라 답한다. "hold"는 answer("ok" | "deny" | "error")를 부를 때까지 기다린다
+function askMic(media, constraints) {
+  const grant = () => { const stream = { tracks: [new FakeTrack()], getTracks() { return [...this.tracks]; } }; media.streams.push(stream); return stream; };
+  const refuse = how => named(how === "deny" ? "NotAllowedError" : "NotFoundError");
+  const mode = media.opts.mic || "ok";
+  media.asks.push(constraints);
+  media.log.push("mic");
+  if (mode === "hold") return new Promise((resolve, reject) => { media.held = how => (how === "ok" ? resolve(grant()) : reject(refuse(how))); });
+  return mode === "error" ? Promise.reject(refuse(mode)) : outcome(mode, grant);
+}
+function installMedia(media, scope, w) {
+  const lock = () => { const held = { released: false, release() { held.released = true; return Promise.resolve(); } }; media.locks.push(held); return held; };
+  const lend = () => { const url = "blob:study/" + (media.urls.length + 1); media.urls.push(url); media.log.push("url"); return url; };
+  const wake = () => { media.log.push("wake"); return outcome(media.opts.wake || "ok", lock); };
+  if (media.opts.mic !== "none") scope.navigator.mediaDevices = { getUserMedia: constraints => askMic(media, constraints) };
+  if (media.opts.recorder !== "none") scope.MediaRecorder = recorderClass(media, w);
+  if (media.opts.wake !== "none") scope.navigator.wakeLock = { request: wake };
+  scope.Blob = FakeBlob;
+  scope.URL = { createObjectURL: lend, revokeObjectURL: url => { media.revoked.push(String(url)); media.log.push("revoke"); } };
+}
+// 가짜 마이크 · 녹음기 · 화면 켜 두기 · 재생 주소.
+// opts: mic "ok"(기본) "deny" "error"(마이크 없음) "hang"(허용이 끝나지 않음) "hold"(answer()로 나중에 답한다) "none"(mediaDevices 없음)
+//       recorder "ok"(기본) "empty"(빈 파일) "nostop"(종료 사건이 오지 않음) "throw"(만들지 못함) "none"(MediaRecorder 없음)
+//       wake "ok"(기본) "deny" "hang" "none"(wakeLock 없음) / types: 받는 형식(기본 ["audio/mp4"]) / rate: 초당 바이트(기본 8000 = 64kbps)
+// 본 것: asks(청한 것) · streams · recorders · locks · urls(내준 재생 주소) · revoked(거둔 주소) · live()(열려 있는 마이크 트랙 수)
+//       log(한 일의 차례 — "wake" "mic" "url" "revoke")
+function fakeMedia(opts = {}) {
+  const media = { opts, types: opts.types || ["audio/mp4"], rate: opts.rate || 8000, asks: [], streams: [], recorders: [], locks: [], urls: [], revoked: [],
+    log: [], held: null };
+  media.answer = how => { const held = media.held; media.held = null; if (held) held(how); };
+  media.live = () => media.streams.flatMap(stream => stream.tracks).filter(track => track.readyState === "live").length;
+  media.install = (scope, w) => installMedia(media, scope, w);
+  return media;
+}
+
+// 가짜 IndexedDB. 요청은 마이크로태스크 뒤에 끝난다. 쓰기는 트랜잭션이 끝날 때 한꺼번에 들어간다(실패 · 끝나지 않음이면 하나도 들어가지 않는다).
+function openIdb(idb, name, version) {
+  const req = Object.assign(new FakeTarget(), { result: undefined, error: null });
+  const how = idb.opts.open || "ok";
+  idb.log.push("open " + name + " v" + version);
+  if (how === "ok") Promise.resolve().then(() => opened(idb, name, req));
+  if (how === "fail") Promise.resolve().then(() => { req.error = named("UnknownError"); req.emit("error"); });
+  return req;
+}
+function opened(idb, name, req) {
+  const fresh = !idb.stores.has(name);
+  if (fresh) idb.stores.set(name, new Map());
+  req.result = {
+    createObjectStore: (store, options) => { idb.stores.get(name).set(store, options.keyPath); idb.log.push("store " + store + " keyPath=" + options.keyPath); },
+    transaction: (store, mode) => txOf(idb, idb.stores.get(name), store, mode),
+    close: () => { idb.log.push("close"); },
+  };
+  if (fresh) req.emit("upgradeneeded");
+  req.emit("success");
+}
+function txOf(idb, stores, store, mode) {
+  if (!stores.has(store)) throw named("NotFoundError");
+  const how = idb.opts[mode === "readwrite" ? "write" : "read"] || "ok";
+  const tx = Object.assign(new FakeTarget(), { error: null, jobs: [] });
+  const add = (label, job) => { const req = Object.assign(new FakeTarget(), { result: undefined, error: null }); tx.jobs.push({ req, job }); idb.log.push(label); return req; };
+  tx.objectStore = () => storeOf(idb, stores.get(store), add);
+  if (how !== "hang") Promise.resolve().then(() => settleTx(tx, how));
+  return tx;
+}
+function settleTx(tx, how) {
+  if (how === "fail") {
+    tx.error = named("QuotaExceededError");
+    for (const type of ["error", "abort"]) tx.emit(type);
+    return;
+  }
+  for (const { req, job } of tx.jobs) { req.result = job(); req.emit("success"); }
+  tx.emit("complete");
+}
+function storeOf(idb, key, add) {
+  const copy = row => ({ ...row });
+  return {
+    put: row => add("put " + row[key], () => { idb.rows.set(row[key], copy(row)); return row[key]; }),
+    get: id => add("get " + id, () => (idb.rows.has(id) ? copy(idb.rows.get(id)) : undefined)),
+    getAll: () => add("getAll", () => [...idb.rows.values()].map(copy)),
+    delete: id => add("delete " + id, () => { idb.rows.delete(id); }),
+    clear: () => add("clear", () => { idb.rows.clear(); }),
+  };
+}
+// opts: open · write · read 가 저마다 "ok"(기본) "fail" "hang"(끝나지 않음) / none: true면 indexedDB가 없다. 도중에 opts를 바꿔도 된다.
+// 본 것: rows(Map 키 → 값) · log(한 일의 차례). 두 world에 같은 것을 넘기면 같은 기기를 다시 연 것이다(rows가 남는다).
+function fakeIdb(opts = {}) {
+  const idb = { opts, rows: new Map(), stores: new Map(), log: [] };
+  idb.install = scope => { if (!idb.opts.none) scope.indexedDB = { open: (name, version) => openIdb(idb, name, version) }; };
+  return idb;
+}
+
+Object.assign(module.exports, { fakeMedia, fakeIdb });
