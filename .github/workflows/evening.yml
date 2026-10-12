@@ -67,7 +67,7 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
@@ -106,7 +106,7 @@ jobs:
     if: >-
       (github.event_name == 'schedule' && github.event.schedule == '41 8 * * 1-5' && vars.EVENING_ENABLED == 'true') ||
       (github.event_name == 'workflow_dispatch' && inputs.takedown != true)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -150,7 +150,7 @@ jobs:
     if: >-
       needs.collect.outputs.publish == 'true' && github.ref == 'refs/heads/main' &&
       vars.EVENING_ENABLED == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write   # 봇이 data/의 저녁판 파일을 커밋한다
@@ -200,7 +200,7 @@ jobs:
   takedown:
     needs: check
     if: github.event_name == 'workflow_dispatch' && inputs.takedown == true && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write   # 봇이 빈 판을 커밋한다
@@ -255,7 +255,7 @@ jobs:
     if: >-
       github.event_name == 'schedule' && github.event.schedule == '41 13 * * 1-5' &&
       vars.EVENING_ENABLED == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -283,7 +283,7 @@ jobs:
       always() && needs.check.result == 'success' &&
       (needs.publish.outputs.publish == 'true' || needs.takedown.outputs.publish == 'true' ||
        needs.watch.outputs.redeploy == 'true')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -312,7 +312,7 @@ jobs:
   alert:
     needs: [collect, publish, deploy]
     if: always() && needs.collect.outputs.alert == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: 저녁판 실패 알림
