@@ -17,7 +17,11 @@ const NOTES = read('notes.json'), FIXED = read('notes_charts.json');
 // 사이트 그래프 자료는 매일 바뀐다 — 지어낸 것으로 대신한다(그리는 쪽 MacroCharts도 대역이다)
 const CHARTS = { date: '2026-10-07', rules: { real_rate_bei: { key: 'real_rate_bei', title: '지어낸 그래프', lines: [] } } };
 const files = () => ({ 'data/notes.json': NOTES, 'data/notes_charts.json': FIXED, 'data/charts.json': CHARTS });
-const first = NOTES.notes[0];
+// 표본은 이름으로 고른다 — 그림 세 종류(사이트 그래프 real_rate_bei · 도식 · 정적 그래프 cpi_jp_us)를 모두 가진 글.
+// 목록의 첫 글(가장 최근 노트)로 고르면 새 노트를 올리는 날 그림 구성이 달라져 아래 단언이 깨진다
+const SAMPLE = '2026-10-08-japan-inflation-swaps';
+const first = NOTES.notes.find(n => n.slug === SAMPLE), at = NOTES.notes.indexOf(first);
+assert.ok(first, `표본 노트 ${SAMPLE}가 data/notes.json에 없다 — 그림 셋을 가진 다른 글로 표본을 바꿀 것`);
 
 class Text {
   constructor(t) { this.data = String(t); }
@@ -90,10 +94,10 @@ test('목록: 노트마다 카드 — 제목 링크 · 출처 · 날짜 · 읽�
   await settle();
   const cards = byClass(b.wrap, 'note-card');
   assert.equal(cards.length, NOTES.notes.length);
-  const link = byTag(cards[0], 'a')[0];
+  const link = byTag(cards[at], 'a')[0];
   assert.equal(link.attrs.href, '#notes/' + first.slug);
   assert.equal(link.textContent, first.title);
-  for (const part of [first.source.name, first.date, `${first.minutes}분`, first.summary[0].text]) assert.ok(cards[0].textContent.includes(part), part);
+  for (const part of [first.source.name, first.date, `${first.minutes}분`, first.summary[0].text]) assert.ok(cards[at].textContent.includes(part), part);
   assert.deepEqual(b.calls, ['data/notes.json']);                     // 목록에서는 그래프 자료를 읽지 않는다
 });
 
@@ -118,6 +122,25 @@ test('글: 머리 · 한 줄 결론 · 본문 블록 · 질문 · 원문 링크 
   assert.deepEqual(end.map(a => a.attrs.href), [first.source.url, '#notes']);
   assert.match(end[0].textContent, /원문 읽기/);
   assert.equal(byTag(byClass(art, 'note-back')[0], 'a')[0].attrs.href, '#notes');
+});
+
+test('글: 올린 노트는 모두 예외 없이 그려진다 — 제목 · 절 · 그림 · 표 · 질문 수가 자료와 같다', async () => {
+  // 표본에 묶인 단언과 따로 — 새로 올린 노트도 그림 구성에 기대지 않고 그려 본다
+  for (const [i, note] of NOTES.notes.entries()) {
+    const b = boot();
+    b.view('notes', '');
+    await settle();
+    assert.equal(byTag(byClass(b.wrap, 'note-card')[i], 'a')[0].attrs.href, '#notes/' + note.slug);   // 자료의 순서대로(최근 글부터)
+    b.view('notes', note.slug);
+    await settle();
+    const art = byClass(b.wrap, 'note')[0], n = type => note.blocks.filter(x => x.type === type).length;
+    assert.equal(byTag(art, 'h2')[0].textContent, note.title);
+    const sections = note.blocks.filter(x => x.type === 'heading' && x.level === 2).map(s => s.text);
+    assert.deepEqual(byTag(byClass(art, 'note-body')[0], 'h3').map(h => h.textContent), ['한 줄 결론', ...sections], note.slug);
+    assert.equal(byClass(art, 'note-fig').length, n('figure'), note.slug);
+    assert.equal(byClass(art, 'note-table').length, n('table'), note.slug);
+    assert.equal(byClass(art, 'note-q').length, 3, note.slug);
+  }
 });
 
 test('글: 그림 셋 — 사이트 그래프 · 도식 · 정적 그래프, 번호와 캡션', async () => {
@@ -145,7 +168,8 @@ test('글: 그림 셋 — 사이트 그래프 · 도식 · 정적 그래프, 번
   assert.equal(byClass(chart, 'ch-line').length, fixed.lines.length);
   assert.ok(chart.textContent.includes(fixed.source_note));
   assert.ok(chart.textContent.includes(`${fixed.retrieved}에 받은 값`));
-  assert.equal(byTag(chart, 'tbody')[0].kids.length, fixed.lines[0].points.length);
+  // 표는 두 선의 해를 합친 만큼 — 한 선만 한 해 더 길 때가 있다(미국은 12월 지수가 나오면, 일본은 연간값이 실리면 늘어난다)
+  assert.equal(byTag(chart, 'tbody')[0].kids.length, new Set(fixed.lines.flatMap(l => l.points.map(p => p[0]))).size);
   assert.equal(byTag(chart, 'svg')[0].attrs.role, 'img');
   assert.deepEqual(b.calls.slice().sort(), ['data/charts.json', 'data/notes.json', 'data/notes_charts.json']);
 });
@@ -334,7 +358,7 @@ test('노트 화면 안에서 옮기면 초점이 따라간다 — 글로 가면
   assert.deepEqual({ ...title.focusOpts }, { preventScroll: true });
   assert.equal(title.attrs.tabindex, '-1');
   b.view('notes', '');
-  assert.equal(b.doc.activeElement, byTag(byClass(b.wrap, 'note-card')[0], 'a')[0]);
+  assert.equal(b.doc.activeElement, byTag(byClass(b.wrap, 'note-card')[at], 'a')[0]);
 });
 
 test('차례 버튼: 그 절로 옮기고 초점을 둔다 — 움직임을 껐으면 부드러운 이동 없이', async () => {
@@ -481,7 +505,7 @@ test('다른 화면을 거쳐 돌아오면 초점을 가져가지 않는다 — 
   b.view('notes', first.slug);
   assert.equal(b.doc.activeElement, byTag(b.wrap, 'h2')[0]);
   b.view('notes', '');
-  const card = byTag(byClass(b.wrap, 'note-card')[0], 'a')[0];
+  const card = byTag(byClass(b.wrap, 'note-card')[at], 'a')[0];
   assert.equal(b.doc.activeElement, card);
   // index.html이 화면을 맨 위로 올린 다음에, 초점을 둔 카드가 화면 밖이면 보이는 데까지만 옮긴다
   assert.equal(card.scrolled, undefined);

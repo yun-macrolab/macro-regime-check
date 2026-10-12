@@ -147,6 +147,8 @@ class MoreCardTest(Screen):
         only = fx("digest")
         only["must"][0]["coverage"] = {"bond": 4, "analyst": 0, "personal": 0, "wire": 0}
         self.shows(draw(site(digest=only)), "채권 채널 4곳이 함께 다뤘습니다.")
+        only["must"][0]["coverage"] = {"bond": 1, "analyst": 0, "personal": 0, "wire": 0}     # 채권 한 곳 + 일정으로 뽑힌 항목
+        self.shows(draw(site(digest=only)), "채권 채널 1곳이 다뤘습니다.")
 
     def test_the_card_comes_before_the_note_about_sentences(self):
         """폰 첫 화면에 카드의 제목이 들어오게 안내 줄은 카드 뒤에 둔다(검토 2026-10-08 밤: 폭 375에서 카드 제목이 첫 화면 밖이었다)."""
@@ -469,21 +471,33 @@ class OldShapeTest(Screen):
     def test_published_editions_draw_with_the_screen_as_it_is_now(self):
         data = os.path.join(REPO, "data")
         names = ["digest.json", *sorted("digest/" + os.path.basename(p) for p in glob.glob(os.path.join(data, "digest", "*.json")))]
+        editions = [S.read_json(os.path.join(data, *n.split("/"))) for n in names if os.path.isfile(os.path.join(data, *n.split("/")))]
+        if not editions:                                    # 내리기가 저녁판 파일을 지운 뒤에는 목차도 없다 — 목차는 판이 있을 때만 읽는다
+            self.skipTest("게시된 판이 없다")
         human = {n: S.read_json(os.path.join(data, n)) for n in ("sources.json", "digest_overrides.json", "digest_index.json")}
         handles = {c["handle"] for c in human["sources.json"]["channels"]}
-        editions = [S.read_json(os.path.join(data, *n.split("/"))) for n in names if os.path.isfile(os.path.join(data, *n.split("/")))]
-        if not editions:
-            self.skipTest("게시된 판이 없다")
+        ov = human["digest_overrides.json"]
+        open_to = S.handles_of(human["sources.json"]) - set(ov["hide_channels"])          # 화면이 링크를 거는 채널
         frames = draws(*[({**{"data/" + k: v for k, v in human.items()}, "data/digest.json": d}, d["collected_at"]) for d in editions])
         for d, frame in zip(editions, frames):
             day = d["date"]
             self.shows(frame, f"저녁판 {day}")
             for bad in ("undefined", "NaN", "[object", "그리지 못했습니다"):
                 self.assertNotIn(bad, frame["text"], day)
-            shown = d["status"] == "ok" and not human["digest_overrides.json"]["withdraw"]
-            self.assertEqual(bool(posts(frame)), shown and bool(d["must"] or d["rest"]), day)
-            if shown and d["must"]:
-                self.shows(frame, f"꼭 {len(d['must'])}건", "함께 다뤘습니다.")
+            # 화면의 규칙대로(evening.js의 hide.all · item · source) — 내린 판과 내리기 스위치는 항목을 모두 가리고, 수집 부족(short) 판은
+            # 나머지 · 단독 줄을 그린다. 항목은 숨긴 id가 아니고 걸 수 있는 링크(목록에 있고 끄거나 숨기지 않은 채널의 글)가 있을 때 그려진다
+            live = d["status"] != "withdrawn" and not ov["withdraw"]
+            urls = lambda x: {ln["url"] for ln in x["links"] if live and x["id"] not in ov["hide_ids"] and ln["ch"] in open_to}
+            must = [x for x in d["must"] if urls(x)]
+            if not live:
+                self.assertEqual(posts(frame), [], day)
+            for x in must + [x for g in d["rest"] for x in g["items"] if urls(x)]:
+                # 그려지는 항목마다 원문 링크가 걸린다. 꼭 볼 것 · 나머지 없이 단독 · 속보형 · 참고 줄만 있는 판도 나간다 — 그 줄은 여기서 세지 않는다
+                self.assertTrue(urls(x) & set(posts(frame)), day)
+            if must:
+                # 카드의 문장은 그 항목이 센 곳 수를 따른다(evening.js의 lede와 같은 셈) — 채권 한 곳 + 일정으로 뽑힌 항목에는 '함께'가 없다
+                many = {sum(x["coverage"][g] for g in R.GROUPS) > 1 for x in must}
+                self.shows(frame, f"꼭 {len(must)}건", *["함께 다뤘습니다." if m else "곳이 다뤘습니다." for m in sorted(many)])
             for a in outside(frame):
                 m = POST.match(a["href"]) or a["href"].startswith("https://t.me/")
                 ok = a["href"] == TAKEDOWN or a["href"] in R.OFFICIAL_URLS or (m and a["href"].split("/")[3] in handles)

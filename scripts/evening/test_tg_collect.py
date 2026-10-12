@@ -395,7 +395,7 @@ class CollectTest(Case):
         got = [(c["group"], c["role"]) for c in T.ordered(src)]
         rank = [3 if role == "wire" else list(S.R.GROUPS).index(group) for group, role in got]
         self.assertEqual(rank, sorted(rank))                                                        # 채권 → 애널 → 개인 → 속보형
-        self.assertEqual((rank[0], rank[-1], len(got)), (0, 3, len(S.handles_of(src))))
+        self.assertEqual((rank[0], len(got)), (0, len(S.handles_of(src))))                          # 속보형이 없는 목록도 된다(명단은 못 박지 않는다)
         self.assertNotIn("off", [role for _, role in got])
         self.assertLessEqual(len(got), TH["max_requests"])                                          # 채널마다 첫 쪽은 받을 수 있다
 

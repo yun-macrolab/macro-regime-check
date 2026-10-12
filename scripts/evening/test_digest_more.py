@@ -5,7 +5,7 @@
   항목에 붙는 것 함께 나온 낱말과 곳 수(words) · 첫 글~마지막 글(span) · 링크별 덧낱말(more) · 직전 판의 채널 수(prev)
   판에 붙는 것   이 판에 나온 낱말의 풀이(gloss) · 상태 기록의 대표 낱말 id(topics)
   닫힌 글자      심은 글자 · 규칙에 없는 풀이 · 허용 목록 밖 주소 · 글에 나온 순서대로 늘어놓은 낱말이 모두 걸리는가
-  이미 나간 판   새 칸이 없는 10-08 판과 상태 기록(data/)을 새 코드가 그대로 읽는가
+  이미 나간 판   새 칸이 없는 옛 꼴의 판(지어낸 판에서 칸을 뗀 것)과 data/에 올라가 있는 판 · 상태 기록을 새 코드가 그대로 읽는가
 
 실행:  python -m unittest discover -s scripts/evening   (저장소 루트에서)
 네트워크 불필요 — 글은 fixtures.py의 지어낸 것과 여기서 지어낸 한두 줄뿐이다. data/의 파일은 이미 공개된 산출물이다(채널 글이 아니다).
@@ -24,11 +24,13 @@ sys.path.insert(0, HERE)
 import digest_build as B
 import digest_check as C
 import digest_cluster as DC
+import digest_picks as K
 import digest_rules as R
 import digest_schema as S
 import fixtures as F
 import test_digest_build as TB
 import test_digest_check as TC
+from test_evening_site_more import old_shape
 
 TH = R.TH
 fx, edit, codes = TC.fx, TC.edit, TC.codes
@@ -393,6 +395,22 @@ class ShapeTest(unittest.TestCase):
         self.assertRegex(F.topic_key("미 CPI"), r"^k:[0-9a-f]{12}$")               # 낱말 글자는 상태 기록에 남지 않는다
         self.assertNotIn("미 CPI", S.dump(state["edition"]["topics"]))
 
+    def test_an_edition_and_a_state_without_the_new_fields_are_still_valid(self):
+        """10-08 저녁에 칸을 더하기 전의 꼴. 그때 나간 판은 keep_days 뒤에 지워지므로 data/의 파일이 아니라 지어낸 판에서 새 칸을 떼어 본다."""
+        old, src = old_shape(fx("digest")), fx("sources")
+        for k in ("gloss", "words", "span", "prev", "more", "size", "pic", "n_terms"):
+            self.assertNotIn(f'"{k}":', S.dump(old))
+        S.validate_digest(old, src)
+        self.assertEqual((old["schema"], S.SCHEMA), (1, 1))
+        self.assertEqual(C.check_edition(old, src), [])
+        state = fx("state_after")
+        for snap in (state["edition"], state["base"]):
+            for k in ("topics", "read_to"):
+                snap.pop(k, None)
+        S.validate_state(state)
+        self.assertEqual(S.closed_violations(state, S.handles_of(src)), [])
+        self.assertEqual(S.collect_window(S.parse_iso("2026-10-09T17:41:00+09:00"), state)["from"], state["edition"]["window"]["to"])
+
 
 class CheckTest(TC.FolderCase):
     def test_planted_text_in_any_new_field_is_refused(self):
@@ -482,32 +500,68 @@ class CheckTest(TC.FolderCase):
         self.assertEqual(C.check_edition(pruned, self.src), [])
 
 
+def channels_in(doc, key=None):
+    """공개 자료가 채널 자리에 적은 이름들 — ch 칸의 값 · 글 주소와 항목 id 속의 이름 · 상태 기록 channels의 열쇠."""
+    if isinstance(doc, dict):
+        return (set(doc) if key == "channels" else set()).union(*(channels_in(v, k) for k, v in doc.items()))
+    if isinstance(doc, list):
+        return set().union(*(channels_in(v) for v in doc))
+    m = isinstance(doc, str) and (S.URL_RE.fullmatch(doc) or S.ID_RE.fullmatch(doc))
+    return {m.group("ch")} if m else {doc} if key == "ch" and isinstance(doc, str) else set()
+
+
 class PublishedTest(unittest.TestCase):
-    """10-08에 이미 나간 판(새 칸 없음)을 새 코드가 그대로 읽는가 — data/의 공개 산출물만 본다."""
+    """이미 나간 판과 상태 기록을 새 코드가 그대로 읽는가 — data/의 공개 산출물만 본다.
+    무엇이 올라가 있는지는 적어 두지 않는다: 판은 날마다 바뀌고 keep_days가 지나면 지워지며, 판을 못 낸 날에는 상태만 나가고,
+    내리기는 빈 판 하나만 남기거나(digest_build --blank) 저녁판 파일을 모두 지운다(evening.yml의 takedown)."""
 
     def setUp(self):
         self.data = os.path.join(REPO, "data")
         self.src = S.validate_sources(S.read_json(os.path.join(self.data, "sources.json")))
+        names, stray = C.list_files(self.data)
+        if not names and not stray:
+            self.skipTest("올라가 있는 저녁판 파일이 없다 — 내리기가 지웠거나 아직 첫 판 전이다")
+        self.docs = {n: S.read_json(os.path.join(self.data, *n.split("/"))) for n in names}
+        # 게시 뒤에 목록에서 빼거나 끈 채널(README: 그대로 해도 된다) — 나간 파일은 그 이름을 아직 적고 있다
+        self.left = set().union(*map(channels_in, self.docs.values())) - S.handles_of(self.src)
+
+    def beyond_the_list(self, found):
+        """위반 가운데 지금의 출처 목록 탓이 아닌 것. 판을 낼 때의 목록은 어디에도 남지 않는다 — 그 뒤에 채널을 빼거나 끄거나 역할을
+        바꾸면 나간 판의 그 링크 · 줄 · 항목이 걸리는데(scope link · row · item), 달라진 것은 판이 아니라 목록이다. 빠진 채널 이름의
+        닫힌 글자(open)는 첫 테스트가 그 이름을 더해 따로 본다. 요약 층의 문장 · 읽힌 채널은 여기서 묻지 않는다(test_digest_picks의
+        PublishedFileTest가 형식만 보는 까닭과 같다).
+        남는 약점: 목록이 줄어든 날부터 다음 판이 나가기 전까지는 걸린 파일이 파일끼리 맞추는 검사에서 빠진다(다음 판부터 다시 본다).
+        나간 파일의 채널 자리에 든 '이름 꼴의 낯선 글자'는 뺀 채널과 구별할 수 없다 — 새 판은 게시 때 digest_check가 지금 목록으로 본다.
+        목록이 그대로인 날에도 나간 판의 역할 자리(link · row · item)는 여기서 다시 보지 않는다 — 그것도 게시 때의 검사가 본 것이다."""
+        return [f for f in found if f["scope"] not in ("link", "row", "item") and (f["file"], f["code"]) != (K.FILE, "shape")
+                and not (self.left and f["code"] == "open")]
 
     def test_published_files_are_still_valid_and_closed(self):
-        names = [n for n in S.PUBLIC_FILES] + [f"digest/{n}" for n in sorted(os.listdir(os.path.join(self.data, "digest")))]
-        self.assertIn("digest/2026-10-08.json", names)
-        for name in names:
-            doc = S.read_json(os.path.join(self.data, *name.split("/")))
+        for name, doc in self.docs.items():
             S.validator_for(name)(doc)
-            self.assertEqual(S.closed_violations(doc, S.handles_of(self.src)), [], name)
-        first = S.read_json(os.path.join(self.data, "digest", "2026-10-08.json"))
-        self.assertEqual((first["schema"], S.SCHEMA), (1, 1))
-        self.assertEqual(C.check_edition(first, self.src), [])
+            self.assertEqual(S.closed_violations(doc, S.handles_of(self.src) | self.left), [], name)
+            if name.startswith("digest/"):              # 남아 있는 판마다 — 날짜를 적어 두면 keep_days가 지난 뒤(또는 내린 뒤)부터 깨진다
+                self.assertEqual((doc["schema"], S.SCHEMA), (1, 1), name)
+                self.assertEqual(self.beyond_the_list(C.check_edition(doc, self.src, name)), [], name)
 
     def test_published_folder_passes_the_check_as_it_is(self):
-        found, facts = C.check_folder(self.data, self.src)
-        self.assertEqual(found, [])
-        self.assertTrue(facts["published"])
+        found, _ = C.check_folder(self.data, self.src)
+        self.assertEqual(self.beyond_the_list(found), [])
+        st = S.validate_status(self.docs["digest_status.json"])
+        # 판 없이 상태만 나간 날(형식 바뀜 · 실행 실패)에는 published가 거짓이다 — 참이라고 적어 두면 그 다음 실행부터 이 테스트가 저녁판을 막는다
+        self.assertEqual(st["published"], st["reason"] not in ("broken", "error"))
 
     def test_the_next_edition_builds_on_the_published_state(self):
-        state = S.validate_state(S.read_json(os.path.join(self.data, "digest_state.json")))
-        index = S.validate_index(S.read_json(os.path.join(self.data, "digest_index.json")))
+        # 조립이 읽는 방식 그대로(digest_build._normal) — 판 없이 상태만 나간 저장소(파일을 지운 내리기 뒤나 첫 판 전의 실패 · 형식 바뀜)에는
+        # 상태 기록도 목차도 없다
+        state, index = B._read(self.data, "digest_state.json", B.EMPTY_STATE), B._read(self.data, "digest_index.json", None)
+        if state["edition"] is None:                    # 상태 기록이 없거나 못 읽은 채 내린 뒤 — 다음 판은 첫 실행의 창에서 시작한다
+            # 그런 폴더에 살아 있는 판은 없다(상태만 있거나 내린 빈 판뿐) — 판이 남았는데 상태 기록만 빠졌으면 건너뛰지 않고 여기서 걸린다
+            alive = [n for n, d in self.docs.items() if (n == "digest.json" or n.startswith("digest/")) and d["status"] != "withdrawn"]
+            self.assertEqual(alive, [])
+            self.assertEqual(S.collect_window(S.parse_iso(F.NOW), state)["kind"], "first")
+            self.skipTest("상태 기록에 이어 갈 판이 없다")
+        self.assertIsNotNone(index)                     # 이어 갈 판이 있으면 목차도 있다(조립은 둘을 함께 쓴다)
         # 다음 판의 날짜는 게시된 상태에서 계산한다 — 날짜를 적어 두면 그날 판이 나간 뒤부터 이 테스트가 깨진다
         day = (datetime.date.fromisoformat(state["edition"]["date"]) + datetime.timedelta(days=1)).isoformat()
         nxt = S.collect_window(S.parse_iso(day + "T17:41:00+09:00"), state)
@@ -518,7 +572,10 @@ class PublishedTest(unittest.TestCase):
         moved = S.next_state(state, {**state["edition"], "date": day, "window": {"from": nxt["from"], "to": nxt["to"]},
                                      "collected_at": nxt["to"], "must": [], "topics": []})
         S.validate_state(moved)
-        self.assertLessEqual(index["editions"][0]["date"], state["edition"]["date"])    # 목차의 최신 판이 상태 기록보다 앞서지 않는다
+        # 내리기(--blank)의 빈 판은 상태 기록을 옮기지 않는다(digest_check._cross와 같은 예외) — 내린 판의 줄은 견주지 않는다
+        real = [e["date"] for e in index["editions"] if e["status"] != "withdrawn"]
+        if real:
+            self.assertLessEqual(real[0], state["edition"]["date"])    # 목차의 최신 판이 상태 기록보다 앞서지 않는다
 
 
 if __name__ == "__main__":

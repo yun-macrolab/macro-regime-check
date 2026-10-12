@@ -189,9 +189,12 @@ class LexiconTest(unittest.TestCase):
         self.assertIn("국내 크레딧", terms("원화 회사채 발행이 늘었다"))
 
     def test_a_long_run_of_digits_is_scanned_quickly(self):
-        start = time.perf_counter()
-        self.assertEqual(terms("9" * 4096), [])                                       # 숫자만 이어진 글(텔레그램 글 상한 길이)
-        self.assertLess(time.perf_counter() - start, 0.1)
+        spent = []
+        for _ in range(3):      # 가장 덜 걸린 한 번 — 이 프로세스가 쓴 CPU 시간으로 잰다(실행기가 바빠 밀려나 기다린 시간은 세지 않는다)
+            start = time.process_time()
+            self.assertEqual(terms("9" * 4096), [])                                   # 숫자만 이어진 글(텔레그램 글 상한 길이)
+            spent.append(time.process_time() - start)
+        self.assertLess(min(spent), 0.1)
 
     def test_all_places_of_a_term_and_the_nearest_one_before_a_number(self):
         text = "미 CPI 발표를 앞둔 메모. " + "가" * 60 + " CPI 3.1%로 나왔다. 유가는 2.1% 내렸다."
