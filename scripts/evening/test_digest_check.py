@@ -428,6 +428,15 @@ class HealthTest(FolderCase):
                 found, facts = C.check_folder(self.pub, self.src)
                 self.assertEqual((found, facts["published"], facts["reason"]), ([], False, name))
                 self.assertEqual((self.cli()[0], self.cli("--alert")[0]), (0, 2))
+        down = S.blank_digest(S.parse_iso(F.NOW))                            # 내린 판이 남은 폴더에 상태만 나간 날 — 남은 판은 그 실행의 것이 아니다
+        index = {"schema": 1, "updated_at": down["collected_at"], "latest": down["date"], "editions": [C.index_row(down)]}
+        state = fx("state")
+        state["edition"]["must"] = []
+        for name, status in (("broken", broken), ("error", error)):
+            with self.subTest("내린 판 위의 " + name), tempfile.TemporaryDirectory() as tmp:
+                self.pub = put(tmp, {"digest.json": down, DAY: down, "digest_index.json": index, "digest_state.json": state,
+                                     "digest_status.json": status})
+                self.assertEqual(C.check_folder(self.pub, self.src)[0], [])
         with tempfile.TemporaryDirectory() as tmp:                           # 본문 비율이 절반 아래인데 판을 냈다
             self.pub = put(tmp, docs(digest_status={**fx("status"), "channels": chans, "counts": counts}))
             self.assertEqual(codes(C.check_folder(self.pub, self.src)[0]), [("coverage", "edition")])

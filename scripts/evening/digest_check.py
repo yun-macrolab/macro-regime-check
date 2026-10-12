@@ -361,7 +361,7 @@ def _health(st, d, groups):
     bad = [_f("digest_status.json", "$.reason", "coverage")]
     if st["reason"] == "error":
         return bad if st["published"] else []
-    if st["reason"] == "withdrawn" or (d is not None and d["status"] == "withdrawn"):
+    if st["reason"] == "withdrawn" or (st["published"] and d is not None and d["status"] == "withdrawn"):
         return [] if st["published"] and st["reason"] == "withdrawn" and d is not None and d["status"] == "withdrawn" else bad
     if any(c["ch"] not in groups for c in st["channels"]):
         return bad
