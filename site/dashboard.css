@@ -8,6 +8,7 @@
   --black: #000; --panel: #0a0a0a; --bar: #171717; --rule: #2c2c2c;
   --amber: #ff9e1b; --ink: #e9e6df; --dim: #8f8f8f;
   --blue: #5ab1ff; --key: #f6d200; --go: #36d07f; --alert: #ff5449;
+  --gold: #d3a45f; --gold-cell: #1f1810;   /* 흐름도(읽는 법) 전용 — 호박색보다 차분한 금색 테두리 · 표 머리 칸의 갈색 바탕 */
   /* 한국 시장 절(korea.js가 그리는 표·탭)이 쓰는 이름. 아랫줄 --ch-*는 그래프 색 — 검정 위 대비 3:1 이상, 선 셋은 밝기와 색상이 모두 다르다 */
   --bg: var(--black); --fg: var(--ink); --muted: var(--dim); --line: var(--rule); --card: var(--black); --link: var(--blue);
   --ch-1: #f4f4f4; --ch-2: #ff9e1b; --ch-3: #3ec6ff; --ch-ref: #808080; --ch-th: var(--key); --ch-grid: #2e2e2e; --ch-axis: #6a6a6a;
@@ -228,6 +229,30 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .rule-guide p { margin: 6px 0 0; line-height: 1.7; }
 .rule-guide strong { color: var(--fg); font-weight: 600; }
 .source-link { font-size: 12px; }
+/* 읽는 법의 흐름도 — 검정 바탕 · 금색 가는 테두리 · 흰 글자 · 직각으로만 꺾는 흰 점선. 움직이지 않는다.
+   그림 좌표는 viewBox 440 기준이고 어느 화면에서도 1:1(440px)까지만 커진다. 휴대폰 폭(480px 이하)에서만 카드 안쪽 여백까지 넓혀 글자를 키운다 */
+.tp-flow { margin: 12px 0 2px; }
+.tp-flow svg { display: block; width: 100%; max-width: 440px; height: auto; background: var(--black); border: 1px solid var(--rule); }
+.tp-flow figcaption { max-width: 440px; font-size: 12px; color: var(--dim); }
+.rule-guide .tp-flow figcaption p { margin: 6px 0 0; line-height: 1.6; }
+.tp-flow ul { margin: 2px 0 0; padding-left: 16px; line-height: 1.6; }
+.tpf text { font: 400 13px var(--f-text); fill: var(--ink); }
+.tpf .tpf-title { font-size: 20px; font-weight: 600; fill: var(--gold); }
+.tpf .tpf-head { font-size: 14px; font-weight: 600; }
+.tpf .tpf-unit { font: 600 15px var(--f-mono); }
+.tpf .tpf-plus { font: 400 15px var(--f-mono); fill: var(--dim); }
+.tpf .tpf-sub, .tpf .tpf-n, .tpf .tpf-src { fill: var(--dim); }
+.tpf .tpf-s { fill: var(--gold); font-weight: 600; }
+.tpf .tpf-c { fill: var(--ink); font-weight: 600; }
+.tpf rect { stroke-width: 1; }
+.tpf .tpf-box { fill: var(--black); stroke: var(--ink); }
+.tpf .tpf-group { fill: none; stroke: #5c5c5c; }
+.tpf .tpf-dash { fill: none; stroke: var(--ink); stroke-dasharray: 5 4; }
+.tpf .tpf-frame { fill: var(--black); stroke: var(--gold); }
+.tpf .tpf-th { fill: var(--gold-cell); stroke: var(--gold); }
+.tpf .tpf-arrow { fill: var(--black); stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: miter; }
+.tpf .tpf-link { fill: none; stroke: var(--ink); stroke-width: 1; stroke-linecap: square; }
+.tpf .tpf-obs { fill: none; stroke: var(--gold); stroke-width: 1; }   /* TFP → 'TFP를 보는 값' — 영향이 아니라 관측이라 점선과 다르게 */
 
 /* ── 출처 ── */
 .source-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 10px 0; }
@@ -272,6 +297,10 @@ main.switching > section:not([hidden]), main.switching > .bridge:not([hidden]) {
   .cmd input, .rule-toolbar select { font-size: 16px; }             /* 아이폰이 누를 때 화면을 확대하지 않게 */
   #category-nav a span { display: none; }
   .ch-tip { max-width: calc(100vw - 64px); white-space: normal; }
+}
+/* 휴대폰 폭에서만 흐름도를 카드 안쪽 여백(12px)까지 — 390px에서 글자 10px 남짓. 더 넓은 화면(태블릿·가로 휴대폰)은 440px 상한 그대로 */
+@media (max-width: 480px) {
+  .tp-flow svg { width: calc(100% + 24px); max-width: none; margin: 0 -12px; border-width: 1px 0; }
 }
 /* 낮은 화면(가로로 돌린 휴대폰)에서는 머리를 고정하지 않는다 — 화면의 절반을 가린다 */
 @media (max-height: 520px) { .term-head { position: static; } }

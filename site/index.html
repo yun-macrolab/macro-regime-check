@@ -292,19 +292,126 @@ const LEARN = {
   sofr: "미국 국채 담보 익일물 조달금리입니다. 월말·분기말의 일시적 움직임도 확인하세요.",
   reserves_multiplier: "지준의 경제규모 대비 비중과 통화승수를 함께 봅니다. 비율 하나만으로 자금 여건을 단정하지 않습니다."
 };
-// 카드 아래 접는 설명 — 규칙 카드 하나에 하나. 수치는 공개 통계로 계산한 값이고 날짜를 함께 적는다.
+// 카드 아래 접는 설명 — 규칙 카드 하나에 하나. 수치는 공개 통계로 계산한 값이거나 공개 논문에서 옮긴 값이고 날짜를 함께 적는다.
 const GUIDE = {
   term_premium: {
-    title: "읽는 법 — Kim-Wright와 ACM",
+    title: "읽는 법 — 흐름도 · Kim-Wright와 ACM",
     items: [
       ["무엇인가", "미국 10년 금리는 기대 경로(앞으로 단기금리가 어디로 갈지에 대한 기대)와 기간 프리미엄(장기채를 들고 있는 웃돈)으로 나눌 수 있습니다. 기간 프리미엄은 시장에서 바로 보이지 않아 모형으로 추정합니다."],
+      ["두 가지 웃돈", "댈러스 연준 논문(WP 2613, 2026)은 기간 프리미엄을 다시 둘로 나눕니다. 금리가 움직일 위험을 지는 대가(TRP, 금리 위험 보상)와, 금리 위험 없이 돈을 오래 묶어 두는 대가(TFP, 기간 자금 보상)입니다. TFP는 모형 없이 시장 가격으로 보입니다. 금리 위험이 없는 2년 변동금리 국채(FRN)도 단기국채보다 가산금리를 받고, 10년·30년 국채를 SOFR 변동금리로 바꾸는 자산스왑 스프레드는 최근 7년 내내 뚜렷한 양(+)이었습니다. 논문을 쓸 무렵(2026년 4월)에는 10년 국채를 자산스왑하면 SOFR + 약 45bp였고, 모형의 10년 기간 프리미엄은 ACM 약 70bp, Kim-Wright 약 65bp였습니다. 다만 45bp가 곧 TFP는 아닙니다. 논문은 만기별 자산스왑 스프레드를 듀레이션에 회귀한 기울기에 듀레이션을 곱한 값만 TFP로 보고, 모든 만기를 함께 올리는 몫(레포와 SOFR의 금리 차 같은 것)은 뺍니다. 이렇게 잰 10년 TFP는 2026년 2월 27일 약 34bp, 같은 날 Kim-Wright 기간 프리미엄은 약 46bp였습니다. TRP는 같은 날의 모형 기간 프리미엄에서 TFP를 뺀 값이라 모형마다 다릅니다."],
       ["왜 Kim-Wright인가", "이 점검은 미 연준 이사회의 Kim-Wright 추정치를 씁니다(FRED, 매일 · 약 1주 늦게 공개). 뉴욕 연준의 ACM 추정치는 월말 값이 약 한 달 늦게 나와 대조용으로만 봅니다. 같은 기간끼리 견주면 두 추정치의 월간 변화는 상관 0.79, 같은 방향 79%였습니다(2010년 이후 201개월)."],
       ["알아 둘 점", "Kim-Wright에서는 기간 프리미엄 변화가 10년 금리 변화의 약 절반으로 거의 일정합니다(2010~2026년 해마다 0.44~0.54배). 10년 금리가 크게 움직인 달에는 이 값도 함께 움직이므로, 이 값이 올랐다는 것만으로 금리 상승의 원인을 기간 프리미엄으로 단정하지 않습니다. ACM에서는 같은 비율이 해마다 0.50~1.24배로 더 크게 출렁입니다."],
       ["두 모형이 갈릴 때", "같은 금리 움직임을 두 모형이 다르게 나누기도 합니다. 2026년 9월 10년 금리가 46bp 오르는 동안 Kim-Wright는 기간 프리미엄 +20bp로, ACM은 +13bp(나머지 +32bp는 기대 경로)로 봤습니다. 이런 달에는 기간 프리미엄 해석을 덜 믿고 정책 기대의 변화와 함께 봅니다."],
       ["수준은 견주지 않는다", "모형마다 수준이 다릅니다(2026-09-30 ACM 0.89%, Kim-Wright 1.08%). 변화끼리만 견줍니다. 수치는 2026-10-13 계산 기준이며 판정 조건에는 쓰지 않습니다."]
-    ]
+    ],
+    figure: () => tpFlowFigure(), figureAfter: 2           // 흐름도는 '두 가지 웃돈' 바로 뒤에
   }
 };
+// 읽는 법의 흐름도 — 요인 → TRP·TFP → 기간 프리미엄(+ 기대 경로) → 미 10년 금리. 개념도이고 판정에는 쓰지 않는다.
+// 왼쪽은 금리의 층(속 빈 화살표, 담기는 상자), 오른쪽은 층을 움직이는 요인 표. 잇는 흰 점선은 직각으로만 꺾는다.
+// 좌표는 viewBox 440 기준, 글자는 13 이상 — 390px 화면(그림 폭 약 360px)에서도 10px 남짓으로 읽힌다. 움직이지 않는다.
+const TP_FLOW_TABLES = [   // [제목, 부제, 위 y, [[이름, 값, 값 종류]]] — 값 종류: s 구조(금색) · c 순환(흰색) · n 설명(회색)
+  ["기대 경로로 가는 것", "(단기금리 평균 기대)", 138, [["유가 수준", "기대 인플레(BEI)", "n"], ["정책금리 경로", "연준", "n"]]],
+  ["TRP로 가는 요인", "(금리 위험 보상)", 260, [["국채 듀레이션 공급", "구조", "s"], ["성장·고용(실업률 갭)", "순환", "c"],
+    ["유가·전쟁 불확실성", "순환", "c"], ["연준 경로 불확실성", "순환", "c"]]],
+  ["양쪽 모두", "(TRP와 TFP)", 430, [["금리 변동성", "순환", "c"], ["장기 회사채 발행(AI)", "구조", "s"]]],
+  ["TFP로 가는 요인", "(기간 자금 보상)", 552, [["딜러 재고·대차대조표", "구조", "s"], ["해외 공적 수요 후퇴", "구조", "s"]]]
+];
+const TP_FLOW_LINKS = [    // 상자 오른쪽 테두리 → 표 왼쪽 테두리(머리 칸 가운데). 점은 테두리가 칠해지는 화소 — 그릴 때 0.5를 더한다
+  [[147, 161], [224, 161]],                                         // 기대 경로 ← 기대 경로로 가는 것
+  [[139, 283], [224, 283]],                                         // TRP ← TRP로 가는 요인
+  [[139, 314], [198, 314], [198, 453], [224, 453]], [[139, 370], [198, 370]],   // TRP·TFP ← 양쪽 모두(한 줄이 둘로 갈린다)
+  [[139, 408], [172, 408], [172, 575], [224, 575]]                  // TFP ← TFP로 가는 요인(꺾는 곳은 두 열 사이 통로 안)
+];   // TFP → 'TFP를 보는 값'은 영향이 아니라 관측이라 점선에 넣지 않고 금색 실선 + '관측'으로 따로 그린다
+function tpFlowFigure() {
+  const W = 440, H = 724, svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "tpf", role: "img",
+    "aria-label": "기간 프리미엄 흐름도. 미 10년 금리는 기대 경로와 기간 프리미엄의 합이고, 기간 프리미엄은 TRP(금리 위험 보상)와 " +
+      "TFP(기간 자금 보상)의 합이다. 각 층을 움직이는 요인을 표로 잇는다." });
+  const put = (tag, attrs, text) => svg.appendChild(svgEl(tag, attrs, text));
+  const box = (x, y, w, h, cls) => put("rect", { x: x + .5, y: y + .5, width: w - 1, height: h - 1, class: cls });
+  const say = (x, y, text, cls, anchor) => put("text", { x, y, class: cls || "", "text-anchor": anchor || "start" }, text);
+  const dash = ([x1, y1], [x2, y2]) => {                            // 선분 4 + 빈칸 약 5(네모 끝이라 보이기는 5 + 4)
+    const len = Math.abs(x2 - x1) + Math.abs(y2 - y1), n = Math.max(2, Math.round((len + 5) / 9));
+    put("path", { class: "tpf-link", d: `M${x1 + .5} ${y1 + .5}L${x2 + .5} ${y2 + .5}`,
+      "stroke-dasharray": `4 ${((len - 4 * n) / (n - 1)).toFixed(2)}` });
+  };
+  const arrow = (cx, up) => {                                       // 속이 빈 굵은 화살표(위 98 ~ 아래 128)
+    const [tip, base, end] = up ? [98, 110, 128] : [128, 116, 98];
+    put("path", { class: "tpf-arrow", d: `M${cx} ${tip}L${cx + 11} ${base}H${cx + 4.5}V${end}H${cx - 4.5}V${base}H${cx - 11}Z` });
+  };
+  put("title", {}, "기간 프리미엄 스택");
+  put("desc", {}, "국채 듀레이션 공급(구조, 재무부 발행), 성장·고용(순환, 실업률 갭), 유가·전쟁 불확실성(순환, 인플레 불확실성), " +
+    "연준 경로 불확실성(순환, 정책 신호)은 TRP로 간다. 딜러 재고·대차대조표(구조, 스트레스 땐 급등)와 해외 공적 수요 후퇴" +
+    "(구조, 딜러 재고로 쌓임)는 TFP로 간다. 금리 변동성(순환, 스왑션·MOVE)과 장기 회사채 발행(AI 투자, 구조, 듀레이션과 스왑)은 " +
+    "둘 다로 간다. 유가 수준은 기대 인플레(BEI)를 거쳐, 정책금리 경로는 연준을 거쳐 기대 경로로 간다. TFP는 국채 자산스왑과 " +
+    "FRN 가산금리로 모형 없이 보이고, TRP는 모형 기간 프리미엄에서 TFP를 뺀 값이다. 자료: TRP·TFP 구분과 회귀 결과는 Dallas Fed WP 2613(2026), " +
+    "그 회귀에 없는 요인의 배치와 구조·순환 구분은 일반적 설명. 개념도이며 판정에 쓰지 않는다.");
+  say(16, 34, "기간 프리미엄 스택", "tpf-title");
+  box(224, 14, 200, 32, "tpf-frame");
+  say(324, 35, "층을 움직이는 요인", "tpf-head", "middle");
+  // 왼쪽 — 금리의 층
+  box(16, 58, 132, 32, "tpf-dash");
+  say(82, 79, "미 10년 금리", "tpf-head", "middle");
+  arrow(64, true); arrow(100, false);
+  say(120, 110, "= 기대 경로", "tpf-sub"); say(120, 127, "+ 기간 프리미엄", "tpf-sub");   // 화살표 바로 옆, 두 열 사이 통로 안
+  box(16, 136, 132, 50, "tpf-box");
+  say(82, 157, "기대 경로", "tpf-head", "middle");
+  say(82, 176, "단기금리 평균 기대", "tpf-sub", "middle");
+  say(82, 202, "+", "tpf-plus", "middle");
+  box(16, 206, 132, 228, "tpf-group");
+  say(82, 228, "기간 프리미엄", "tpf-head", "middle");
+  say(82, 246, "Kim-Wright · ACM", "tpf-sub", "middle");
+  for (const [y, name, gloss, how] of [[258, "TRP", "금리 위험 보상", "모형 TP − TFP"], [354, "TFP", "기간 자금 보상", "시장에서 관측"]]) {
+    box(24, y, 116, 72, "tpf-box");
+    say(82, y + 22, name, "tpf-unit", "middle");
+    say(82, y + 41, gloss, "", "middle");
+    say(82, y + 59, how, "tpf-sub", "middle");
+  }
+  say(82, 348, "+", "tpf-plus", "middle");
+  // 오른쪽 — 요인 표(머리 칸 + 이름 …… 값)
+  for (const [title, sub, y, rows] of TP_FLOW_TABLES) {
+    box(224, y, 200, 58 + rows.length * 24, "tpf-frame");
+    box(224, y, 200, 46, "tpf-th");
+    say(324, y + 20, title, "tpf-head", "middle");
+    say(324, y + 38, sub, "tpf-sub", "middle");
+    rows.forEach(([name, value, kind], i) => {
+      say(234, y + 69 + i * 24, name);
+      say(414, y + 69 + i * 24, value, "tpf-" + kind, "end");
+    });
+  }
+  // 잇는 점선 — 곧은 토막마다 따로 그리고 점선 간격을 토막 길이에 맞춘다(양 끝과 꺾인 곳이 늘 선분으로 닿게)
+  for (const pts of TP_FLOW_LINKS) for (let i = 1; i < pts.length; i++) dash(pts[i - 1], pts[i]);
+  // 왼쪽 아래 — TFP를 보는 값(관측: 금색 실선), 범례, 출처
+  put("path", { class: "tpf-obs", d: "M82.5 425.5V462.5" });
+  say(90, 451, "관측", "tpf-sub");
+  box(16, 462, 132, 86, "tpf-frame");
+  say(26, 484, "TFP를 보는 값", "tpf-head");
+  say(26, 507, "* 국채 자산스왑");
+  say(26, 529, "* FRN 가산금리");
+  say(16, 610, "구조", "tpf-s"); say(52, 610, "쉽게 안 변함", "tpf-sub");
+  say(16, 632, "순환", "tpf-c"); say(52, 632, "빠르게 변함", "tpf-sub");
+  dash([16, 649], [44, 649]); say(52, 654, "영향 경로", "tpf-sub");
+  say(16, 692, "자료: Dallas Fed WP 2613(2026) 회귀 + 일반적 설명", "tpf-src");
+  say(16, 710, "개념도 · 판정에 쓰지 않음", "tpf-src");
+  return el("figure", { class: "tp-flow" }, svg,
+    el("figcaption", {},
+      el("p", {}, "개념도 — Dallas Fed WP 2613(2026)의 회귀 결과와 일반적 설명을 그린 것이며, 이 점검의 판정 조건에는 쓰지 않습니다."),
+      el("p", {}, "논문의 회귀에서 본 크기(2019~2025 월간):"),
+      el("ul", {},
+        el("li", {}, "딜러 보유 국채 1,000억 달러↑ → TFP 약 +3.8bp (TRP도 ACM 약 +17bp·Christensen-Rudebusch 약 +7bp로 유의, " +
+          "Kim-Wright TRP는 유의하지 않음 — 그림의 TFP 쪽 배치는 논문의 해석)"),
+        el("li", {}, "금리 변동성(1년×10년 SOFR 스왑션 내재 변동성, 하루 bp 기준·3개월 평균) 1bp↑ → TFP 약 +4.3bp, " +
+          "Kim-Wright TRP 약 +10.1bp (ACM TRP는 유의하지 않음)"),
+        el("li", {}, "국채 듀레이션 공급 → TRP에는 유의, TFP에는 유의하지 않음"),
+        el("li", {}, "실업률 갭 1%p↓ → TRP 약 +7bp (ACM·Kim-Wright)"))));
+}
+function guideDetails(g) {
+  const parts = g.items.map(([head, text]) => el("p", {}, el("strong", {}, head), " · ", text));
+  if (g.figure) {
+    try { parts.splice(g.figureAfter, 0, g.figure()); } catch (e) { /* 그림이 깨져도 글은 그대로 */ }
+  }
+  return el("details", { class: "rule-detail rule-guide" }, el("summary", {}, g.title), ...parts);
+}
 let activeView = "all", ruleState = "all", publicData = null;
 const available = { overview: false, korea: false, snapshot: false, loaded: false, monitor: false };
 
@@ -332,8 +439,7 @@ function renderRule(r, chart, health) {
       el("p", {}, r.rule),
       el("p", { class: "muted" }, "충족 여부는 이 조건에 대한 점검 결과입니다. 임계값의 예측력은 검증되지 않았습니다."),
       ...sourceLinks.map(h => el("p", { class: "source-link" }, link(h.label + " [" + h.series + "]", h.url), " · ", h.owner || "", " / FRED"))),
-    GUIDE[r.key] ? el("details", { class: "rule-detail rule-guide" }, el("summary", {}, GUIDE[r.key].title),
-      ...GUIDE[r.key].items.map(([head, text]) => el("p", {}, el("strong", {}, head), " · ", text))) : null,
+    GUIDE[r.key] ? guideDetails(GUIDE[r.key]) : null,
     notices.length ? el("div", { class: "notices" }, ...notices.map(n => el("p", {}, n))) : null);
 }
 
