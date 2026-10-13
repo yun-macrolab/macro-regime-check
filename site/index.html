@@ -292,6 +292,19 @@ const LEARN = {
   sofr: "미국 국채 담보 익일물 조달금리입니다. 월말·분기말의 일시적 움직임도 확인하세요.",
   reserves_multiplier: "지준의 경제규모 대비 비중과 통화승수를 함께 봅니다. 비율 하나만으로 자금 여건을 단정하지 않습니다."
 };
+// 카드 아래 접는 설명 — 규칙 카드 하나에 하나. 수치는 공개 통계로 계산한 값이고 날짜를 함께 적는다.
+const GUIDE = {
+  term_premium: {
+    title: "읽는 법 — Kim-Wright와 ACM",
+    items: [
+      ["무엇인가", "미국 10년 금리는 기대 경로(앞으로 단기금리가 어디로 갈지에 대한 기대)와 기간 프리미엄(장기채를 들고 있는 웃돈)으로 나눌 수 있습니다. 기간 프리미엄은 시장에서 바로 보이지 않아 모형으로 추정합니다."],
+      ["왜 Kim-Wright인가", "이 점검은 미 연준 이사회의 Kim-Wright 추정치를 씁니다(FRED, 매일 · 약 1주 늦게 공개). 뉴욕 연준의 ACM 추정치는 월말 값이 약 한 달 늦게 나와 대조용으로만 봅니다. 같은 기간끼리 견주면 두 추정치의 월간 변화는 상관 0.79, 같은 방향 79%였습니다(2010년 이후 201개월)."],
+      ["알아 둘 점", "Kim-Wright에서는 기간 프리미엄 변화가 10년 금리 변화의 약 절반으로 거의 일정합니다(2010~2026년 해마다 0.44~0.54배). 10년 금리가 크게 움직인 달에는 이 값도 함께 움직이므로, 이 값이 올랐다는 것만으로 금리 상승의 원인을 기간 프리미엄으로 단정하지 않습니다. ACM에서는 같은 비율이 해마다 0.50~1.24배로 더 크게 출렁입니다."],
+      ["두 모형이 갈릴 때", "같은 금리 움직임을 두 모형이 다르게 나누기도 합니다. 2026년 9월 10년 금리가 46bp 오르는 동안 Kim-Wright는 기간 프리미엄 +20bp로, ACM은 +13bp(나머지 +32bp는 기대 경로)로 봤습니다. 이런 달에는 기간 프리미엄 해석을 덜 믿고 정책 기대의 변화와 함께 봅니다."],
+      ["수준은 견주지 않는다", "모형마다 수준이 다릅니다(2026-09-30 ACM 0.89%, Kim-Wright 1.08%). 변화끼리만 견줍니다. 수치는 2026-10-13 계산 기준이며 판정 조건에는 쓰지 않습니다."]
+    ]
+  }
+};
 let activeView = "all", ruleState = "all", publicData = null;
 const available = { overview: false, korea: false, snapshot: false, loaded: false, monitor: false };
 
@@ -319,6 +332,8 @@ function renderRule(r, chart, health) {
       el("p", {}, r.rule),
       el("p", { class: "muted" }, "충족 여부는 이 조건에 대한 점검 결과입니다. 임계값의 예측력은 검증되지 않았습니다."),
       ...sourceLinks.map(h => el("p", { class: "source-link" }, link(h.label + " [" + h.series + "]", h.url), " · ", h.owner || "", " / FRED"))),
+    GUIDE[r.key] ? el("details", { class: "rule-detail rule-guide" }, el("summary", {}, GUIDE[r.key].title),
+      ...GUIDE[r.key].items.map(([head, text]) => el("p", {}, el("strong", {}, head), " · ", text))) : null,
     notices.length ? el("div", { class: "notices" }, ...notices.map(n => el("p", {}, n))) : null);
 }
 

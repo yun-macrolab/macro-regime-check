@@ -225,6 +225,8 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .observations strong { display: block; font: 600 16px var(--f-mono); color: var(--amber); font-variant-numeric: tabular-nums; }
 .observations small { font: 400 11px var(--f-mono); color: #8a8a8a; }
 .rule-detail { margin: 8px 0 0; font-size: 12.5px; }
+.rule-guide p { margin: 6px 0 0; line-height: 1.7; }
+.rule-guide strong { color: var(--fg); font-weight: 600; }
 .source-link { font-size: 12px; }
 
 /* ── 출처 ── */
