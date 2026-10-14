@@ -324,7 +324,7 @@ def parse_result(raw, ident, tenor, today):
 def offering_links(raw):
     out = []
     for href, title in page(raw).links:
-        ident = re.fullmatch(r"javascript:popup\('https://www\.bok\.or\.kr/portal/bbs/P0001794/view\.do\?nttId=(\d+)&menuNo=200364'\)", href)
+        ident = re.fullmatch(r"javascript:popup\('https://www\.bok\.or\.kr/portal/bbs/P0001794/view\.do\?nttId=([0-9]{1,12})&menuNo=200364'\)", href)
         code = re.search(r"국고\s*(\d{5}-\d{4}-(?:02|03|05|10|20|30|50)\d{2})", title)
         if ident and code and "발행공고" in title:
             out.append((ident[1], code[1]))
@@ -333,7 +333,7 @@ def offering_links(raw):
 
 
 def offering_url(ident):
-    if not re.fullmatch(r"\d+", ident): raise ValueError("invalid notice id")
+    if not re.fullmatch(r"[0-9]{1,12}", ident): raise ValueError("invalid notice id")
     return BOK_PORTAL + "/portal/bbs/P0001794/view.do?nttId=" + ident + "&menuNo=200364"
 
 
@@ -459,6 +459,9 @@ def build(old, now, fetch=None):
         for s_ in skipped:
             print(f"[korea_market] offerings skip {s_['id']}: {s_['reason']}")
         if not any(r.get("id") not in {s_["id"] for s_ in skipped} for r in got):
+            codes = {s_["reason"] for s_ in skipped} - {"not_tried"}     # 한 건도 새로 못 읽음 — 원인에 맞는 코드로
+            if "timeout" in codes: raise FeedError("timeout")
+            if codes and all(c == "network" or c.startswith("http_") for c in codes): raise FeedError("unavailable")
             raise FeedError("unreadable_notices")
         return got
     run("offerings", offerings)

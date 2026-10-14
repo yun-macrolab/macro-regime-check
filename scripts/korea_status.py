@@ -37,7 +37,7 @@ def update(out, state, now=None, env=None):
     if state in ("success", "failure"):
         # 수집기 종료코드는 묶음 하나만 실패해도 1이다. 이번 실행이 새 스냅샷을 썼는지는 자료로 판정한다:
         # 새 스냅샷 + 8개 묶음 모두 성공 = success, 새 스냅샷 + 일부 실패 = partial(ok는 False — 실패 묶음만 표시),
-        # 새 스냅샷이 아니면(시간 초과·스냅샷 미교체) failure.
+        # 새 스냅샷이 아니거나(시간 초과·스냅샷 미교체) 모든 묶음이 실패하면 failure.
         data = read(out/"korea.json"); checked = timestamp(data.get("checked_at"))
         feeds = data.get("feeds")
         fresh = bool(prev.get("state") == "running" and data.get("schema") == 1 and
@@ -47,7 +47,8 @@ def update(out, state, now=None, env=None):
             failed = sorted(k for k in FEEDS if feeds[k].get("ok") is not True)
             ok = not failed
     last = now if ok else timestamp(prev.get("last_success"))
-    final = "running" if state == "started" else "success" if ok else "partial" if failed else "failure"
+    partial = bool(failed) and len(failed) < len(FEEDS)     # 한 묶음도 못 받았으면 partial이 아니라 failure
+    final = "running" if state == "started" else "success" if ok else "partial" if partial else "failure"
     result = {"schema": 1, "state": final, "ok": ok, "started_at": start.isoformat() if start else None, "checked_at": now.isoformat(),
               "last_success": last.isoformat() if last else None, "run_url": run_url(env)}
     if failed:

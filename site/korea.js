@@ -55,8 +55,8 @@ window.KoreaMarket = (() => {
     document.getElementById("korea-market-status").textContent="한국 자료 확인: "+checked+" (KST) · "+(notes.join(" · ") || "각 지표의 관측일을 확인하세요");
     const summary=document.getElementById("korea-teaser-status");
     summary.textContent=notes.join(" · "); summary.hidden=!notes.length;
-    const lamp=document.getElementById("link-lamp");
-    if(lamp && healthState.warning) { lamp.dataset.state="bad"; lamp.textContent="한국 자료 확인 필요"; }
+    window.koreaWarning=!!healthState.warning;                      // 머리 표시등은 시계가 매초 다시 그린다 — 거기서 함께 판정
+    if(typeof paintLamp==="function") paintLamp(new Date());
     document.querySelectorAll("[data-market-feed]").forEach(e=>{
       const note=[feedNote(e.dataset.marketFeed),e.dataset.marketDate && oldObservation(e.dataset.marketDate,now) ? "최근 관측이 7일을 넘었거나 자료일 확인이 필요합니다" : ""].filter(Boolean).join(" · ");
       e.textContent=note; e.hidden=!note;
@@ -116,8 +116,9 @@ window.KoreaMarket = (() => {
     if(cal) {
       schedule.append(node("p","muted",cal.month+" 공식 일정 · "+(feedNote("calendar") || "공고에 따라 변경될 수 있습니다")));
       if(feedNote("offerings") || feedNote("auctions"))schedule.append(node("p","market-warning","입찰금액: "+[feedNote("offerings"),feedNote("auctions")].filter(Boolean).join(" · ")));
-      const skipped=data.feeds?.offerings?.skipped;
-      if(Array.isArray(skipped) && skipped.length)schedule.append(node("p","market-warning","입찰 예정액: 발행공고 "+skipped.length+"건을 읽지 못했습니다. 해당 회차는 금액 대신 공고 목록으로 연결합니다."));
+      const kept=new Set((data.offerings||[]).map(o=>o.id)), skipped=data.feeds?.offerings?.skipped;
+      const unread=Array.isArray(skipped) ? skipped.filter(s=>!kept.has(s.id)) : [];   // 전에 읽은 값이 남은 공고는 빼고
+      if(unread.length)schedule.append(node("p","market-warning","입찰 예정액: 발행공고 "+unread.length+"건을 읽지 못했습니다. 금액이 없는 회차는 공고 목록으로 연결합니다."));
       schedule.append(table(["입찰일","만기","예정액"],cal.rows.map(r=>{
         const result=(data.auctions||[]).find(a=>a.date===r.date && a.tenor===r.tenor);
         const offer=result || (data.offerings||[]).find(a=>a.date===r.date && a.tenor===r.tenor);

@@ -168,6 +168,25 @@ class OfferingIsolationTests(unittest.TestCase):
         r, _ = self.build(board(views={"2": k.FeedError("timeout")}), old)
         self.assertEqual([o["id"] for o in r["offerings"]], ["1", "3"])
 
+    def test_feed_failure_code_follows_the_cause(self):
+        import urllib.error
+        down = {i: urllib.error.URLError("x") for i in NOTICES}
+        r, _ = self.build(board(views=down))
+        self.assertEqual(r["feeds"]["offerings"]["reason"], "unavailable")              # 접속 문제를 '형식'으로 적지 않는다
+        r, _ = self.build(board(views={"1": k.FeedError("timeout")}))
+        self.assertEqual(r["feeds"]["offerings"]["reason"], "timeout")
+        mixed = {"1": urllib.error.URLError("x"), "2": urllib.error.HTTPError("u", 404, "m", {}, None),
+                 "3": b'<a href="/x.pdf">no official pdf</a>'}
+        r, _ = self.build(board(views=mixed))
+        self.assertEqual(r["feeds"]["offerings"]["reason"], "unreadable_notices")
+
+    def test_notice_ids_are_ascii_digits_only(self):
+        href = "javascript:popup('https://www.bok.or.kr/portal/bbs/P0001794/view.do?nttId={}&menuNo=200364')"
+        raw = "".join(f'<a href="{html.escape(href.format(i), quote=True)}">국고 03500-2906-0310 국고채권 발행공고</a>'
+                      for i in ("١٢٣", "1" * 13, "77"))
+        self.assertEqual(k.offering_links(raw.encode()), [("77", "03500-2906-0310")])
+        with self.assertRaises(ValueError): k.offering_url("١٢٣")
+
     def test_list_failure_is_not_per_notice(self):
         r, _ = self.build(lambda *a: b"")
         self.assertEqual((r["feeds"]["offerings"]["ok"], r["feeds"]["offerings"]["reason"]), (False, "unavailable"))

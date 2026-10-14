@@ -156,6 +156,10 @@ class RunStatusTests(unittest.TestCase):
         r=self.update('failure',NOW+dt.timedelta(days=1,seconds=5))
         self.assertEqual((r['state'],r['ok'],r['failed']),('partial',False,['offerings']))
         self.assertEqual(r['last_success'],NOW.isoformat());self.assertEqual(r['started_at'],first['started_at'])
+    def test_every_feed_failed_is_failure_not_partial(self):
+        self.update('started')
+        for key in status.FEEDS: self.snapshot['feeds'][key]['ok']=False
+        self.write();r=self.update('failure');self.assertEqual((r['state'],r['ok']),('failure',False))
     def test_all_feeds_ok_with_failure_outcome_is_still_judged_by_data(self):
         self.update('started');r=self.update('failure');self.assertEqual((r['state'],r['ok']),('success',True))
     def test_failure_preserves_data_and_previous_success(self):

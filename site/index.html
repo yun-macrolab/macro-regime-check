@@ -185,8 +185,9 @@ function paintLamp(now) {
   const lamp = document.getElementById("link-lamp");
   if (!lastStatus || lamp.dataset.hold) return;                    // 상태를 못 받았거나 다른 절이 표시를 잡고 있다
   const late = !lastSuccess || lastSuccess < lastScheduledRun(now);
-  lamp.dataset.state = lastStatus.ok && publicOk && !late ? "ok" : "bad";
-  lamp.textContent = !lastStatus.ok ? "갱신 실패" : !publicOk ? "자료 없음" : late ? "갱신 지연" : "정상 수신";
+  const base = lastStatus.ok && publicOk && !late, korea = base && window.koreaWarning === true;   // 규칙 쪽 문제가 먼저
+  lamp.dataset.state = base && !korea ? "ok" : "bad";
+  lamp.textContent = !lastStatus.ok ? "갱신 실패" : !publicOk ? "자료 없음" : late ? "갱신 지연" : korea ? "한국 자료 확인 필요" : "정상 수신";
 }
 function tick() {
   const now = new Date(), pad = v => String(v).padStart(2, "0");
