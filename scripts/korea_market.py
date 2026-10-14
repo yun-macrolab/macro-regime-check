@@ -451,8 +451,10 @@ def build(old, now, fetch=None):
             except Exception as e:
                 skipped.append({"id": ident, "reason": skip_reason(e)})
                 if ident in prev: got.append(prev[ident])
-                if isinstance(e, FeedError):     # 시간 예산을 다 썼다 — 남은 공고는 시도하지 않는다
-                    skipped.extend({"id": rest, "reason": "not_tried"} for rest, _ in links[i + 1:])
+                if isinstance(e, FeedError):     # 시간 예산을 다 썼다 — 남은 공고는 시도하지 않고 전에 읽은 값만 둔다
+                    for rest, _ in links[i + 1:]:
+                        skipped.append({"id": rest, "reason": "not_tried"})
+                        if rest in prev: got.append(prev[rest])
                     break
         for s_ in skipped:
             print(f"[korea_market] offerings skip {s_['id']}: {s_['reason']}")

@@ -162,6 +162,11 @@ class OfferingIsolationTests(unittest.TestCase):
         self.assertTrue(f["ok"])
         self.assertEqual([o["id"] for o in r["offerings"]], ["1"])
         self.assertEqual(f["skipped"], [{"id": "2", "reason": "timeout"}, {"id": "3", "reason": "not_tried"}])
+        # 시도하지 못한 공고도 전에 읽은 값은 둔다(2026-10-14 실사이트 확인에서 09-14 10년물이 빠졌다)
+        prev = k.parse_offering_text(offer_text(*NOTICES["3"]), "3", NOTICES["3"][0], TODAY)
+        old = {"schema": 1, "feeds": {"offerings": {"data": [prev], "last_success": "previous"}}}
+        r, _ = self.build(board(views={"2": k.FeedError("timeout")}), old)
+        self.assertEqual([o["id"] for o in r["offerings"]], ["1", "3"])
 
     def test_list_failure_is_not_per_notice(self):
         r, _ = self.build(lambda *a: b"")
