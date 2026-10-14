@@ -143,13 +143,25 @@ class RunStatusTests(unittest.TestCase):
     def test_old_snapshot_cannot_pass_success(self):
         self.update('started',NOW+dt.timedelta(seconds=5));self.assertFalse(self.update('success',NOW+dt.timedelta(seconds=6))['ok'])
     def test_missing_feed_cannot_pass_success(self):
-        self.update('started');del self.snapshot['feeds']['rates'];self.write();self.assertFalse(self.update('success')['ok'])
+        self.update('started');del self.snapshot['feeds']['rates'];self.write()
+        r=self.update('success');self.assertFalse(r['ok']);self.assertEqual(r['state'],'failure')
     def test_failed_feed_cannot_pass_success(self):
-        self.update('started');self.snapshot['feeds']['rates']['ok']=False;self.write();self.assertFalse(self.update('success')['ok'])
+        self.update('started');self.snapshot['feeds']['rates']['ok']=False;self.write()
+        r=self.update('success');self.assertFalse(r['ok']);self.assertEqual((r['state'],r['failed']),('partial',['rates']))
+    def test_fresh_snapshot_with_one_failed_feed_is_partial_not_failure(self):
+        # 수집기는 묶음 하나만 실패해도 종료코드 1(--state failure) — 새 스냅샷이면 partial, 성공 시각은 그대로
+        self.update('started');self.update('success');first=self.update('started',NOW+dt.timedelta(days=1))
+        self.snapshot['checked_at']=(NOW+dt.timedelta(days=1,seconds=3)).isoformat()
+        self.snapshot['feeds']['offerings']['ok']=False;self.write()
+        r=self.update('failure',NOW+dt.timedelta(days=1,seconds=5))
+        self.assertEqual((r['state'],r['ok'],r['failed']),('partial',False,['offerings']))
+        self.assertEqual(r['last_success'],NOW.isoformat());self.assertEqual(r['started_at'],first['started_at'])
+    def test_all_feeds_ok_with_failure_outcome_is_still_judged_by_data(self):
+        self.update('started');r=self.update('failure');self.assertEqual((r['state'],r['ok']),('success',True))
     def test_failure_preserves_data_and_previous_success(self):
         self.update('started');self.update('success');before=(self.out/'korea.json').read_bytes()
         self.update('started',NOW+dt.timedelta(days=1));r=self.update('failure',NOW+dt.timedelta(days=1))
-        self.assertEqual(r['last_success'],NOW.isoformat());self.assertFalse(r['ok'])
+        self.assertEqual(r['last_success'],NOW.isoformat());self.assertFalse(r['ok']);self.assertEqual(r['state'],'failure')
         self.assertEqual((self.out/'korea.json').read_bytes(),before)
     def test_missing_start_cannot_report_success(self): self.assertFalse(self.update('success')['ok'])
     def test_skipped_or_cancelled_is_failure(self):

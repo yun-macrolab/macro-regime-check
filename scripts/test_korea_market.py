@@ -2,8 +2,11 @@
 import datetime as dt
 import html
 import io
+import json
+import tempfile
 import unittest
 import zipfile
+from pathlib import Path
 from xml.sax.saxutils import escape
 from unittest.mock import patch
 
@@ -72,6 +75,112 @@ class OfferingTests(unittest.TestCase):
         with patch('builtins.print'):
             r=k.build(old,dt.datetime(2026,10,8,tzinfo=k.UTC),lambda *args:b'')
         self.assertFalse(r['feeds']['offerings']['ok']);self.assertEqual(r['offerings'],[self.parse()])
+
+
+def offer_text(code, date, amount):
+    return f"국고 {code} 발행공고 (1) 경쟁입찰 입 찰 일 : {date}.(월) 발행예정금액 : {amount}억원 (2) 일반인입찰 발행예정금액 : 4,800억원"
+
+
+NOTICES = {"1": ("03500-2906-0310", "2026.10.12", "24,000"), "2": ("04000-7609-5005", "2026.10.16", "6,000"),
+           "3": ("02750-3612-1005", "2026.10.19", "21,000")}
+
+
+def board(views=None, pdfs=None, ids=("1", "2", "3")):
+    """공고 목록·상세·PDF(본문 글)를 돌려주는 가짜 fetch. 값이 예외면 그 요청에서 던진다. 다른 묶음은 빈 응답."""
+    views, pdfs = views or {}, pdfs or {}
+    def fetch(url, *args):
+        if url == k.OFFER_LIST:
+            href = "javascript:popup('https://www.bok.or.kr/portal/bbs/P0001794/view.do?nttId={}&menuNo=200364')"
+            return "".join(f'<a href="{html.escape(href.format(i), quote=True)}">국고 {NOTICES[i][0]} 국고채권 발행공고</a>'
+                           for i in ids).encode()
+        if "/portal/bbs/P0001794/view.do" in url:
+            i = url.split("nttId=")[1].split("&")[0]
+            v = views.get(i, f'<a href="/fileSrc/portal/ab/{i}/cd.pdf">pdf</a>'.encode())
+        elif "/fileSrc/portal/ab/" in url:
+            i = url.split("/fileSrc/portal/ab/")[1].split("/")[0]
+            v = pdfs.get(i, offer_text(*NOTICES[i]).encode())
+        else:
+            return b""
+        if isinstance(v, Exception): raise v
+        return v
+    return fetch
+
+
+class OfferingIsolationTests(unittest.TestCase):
+    """공고 하나가 못 읽혀도 나머지는 갱신하고, 못 읽은 공고는 고정 사유 코드로만 남긴다(2026-10-14)."""
+    def build(self, fetch, old=None):
+        text = lambda raw, ident, code, today: k.parse_offering_text(raw.decode(), ident, code, today)
+        with patch.object(k, "parse_offering", text), patch("builtins.print") as out:
+            r = k.build(old or {}, dt.datetime(2026, 10, 8, tzinfo=k.UTC), fetch)
+        return r, "\n".join(str(c.args[0]) for c in out.call_args_list)
+
+    def test_one_unreadable_notice_keeps_the_others(self):
+        two = b'<a href="/fileSrc/portal/ab/2/cd.pdf">a</a><a href="/fileSrc/portal/ab/2/ef.pdf">b</a>'
+        r, log = self.build(board(views={"2": two}))
+        f = r["feeds"]["offerings"]
+        self.assertTrue(f["ok"])
+        self.assertEqual([(o["id"], o["tenor"], o["offered_100m"]) for o in r["offerings"]], [("1", "3년", 24000), ("3", "10년", 21000)])
+        self.assertEqual(f["skipped"], [{"id": "2", "reason": "pdf_link"}])
+        self.assertIn("offerings skip 2: pdf_link", log)
+
+    def test_previous_reading_of_the_same_notice_is_kept(self):
+        prev = k.parse_offering_text(offer_text(*NOTICES["2"]), "2", NOTICES["2"][0], TODAY)
+        old = {"schema": 1, "feeds": {"offerings": {"data": [prev], "last_success": "previous"}}}
+        bad = offer_text(*NOTICES["2"]).replace("(1)", "(3)").encode()
+        r, _ = self.build(board(pdfs={"2": bad}), old)
+        self.assertTrue(r["feeds"]["offerings"]["ok"])
+        self.assertEqual([o["id"] for o in r["offerings"]], ["1", "2", "3"])
+        self.assertEqual(r["offerings"][1], prev)
+        self.assertEqual(r["feeds"]["offerings"]["skipped"], [{"id": "2", "reason": "no_competitive_section"}])
+
+    def test_no_readable_notice_fails_only_this_feed(self):
+        old = {"schema": 1, "feeds": {"offerings": {"data": [{"id": "old"}], "last_success": "previous"}}}
+        bad = {i: offer_text(*NOTICES[i]).replace("(1)", "(3)").encode() for i in NOTICES}
+        r, _ = self.build(board(pdfs=bad), old)
+        f = r["feeds"]["offerings"]
+        self.assertEqual((f["ok"], f["reason"], f["last_success"]), (False, "unreadable_notices", "previous"))
+        self.assertEqual(r["offerings"], [{"id": "old"}])
+        self.assertEqual([x["reason"] for x in f["skipped"]], ["no_competitive_section"] * 3)
+
+    def test_budget_timeout_stops_and_marks_the_rest(self):
+        r, _ = self.build(board(views={"2": k.FeedError("timeout")}))
+        f = r["feeds"]["offerings"]
+        self.assertTrue(f["ok"])
+        self.assertEqual([o["id"] for o in r["offerings"]], ["1"])
+        self.assertEqual(f["skipped"], [{"id": "2", "reason": "timeout"}, {"id": "3", "reason": "not_tried"}])
+
+    def test_list_failure_is_not_per_notice(self):
+        r, _ = self.build(lambda *a: b"")
+        self.assertEqual((r["feeds"]["offerings"]["ok"], r["feeds"]["offerings"]["reason"]), (False, "unavailable"))
+        self.assertEqual(r["feeds"]["offerings"]["skipped"], [])
+
+    def test_skip_reasons_are_fixed_codes(self):
+        from pypdf.errors import PdfReadError
+        import urllib.error
+        cases = [(urllib.error.HTTPError("https://x.invalid/secret", 404, "secret", {}, None), "http_404"),
+                 (urllib.error.URLError("secret host"), "network"), (TimeoutError("secret"), "network"),
+                 (UnicodeDecodeError("utf-8", b"\xff", 0, 1, "secret"), "decode"), (PdfReadError("secret"), "pdf_read"),
+                 (ValueError("missing competitive section"), "no_competitive_section"),
+                 (ValueError("ambiguous offering fields"), "ambiguous_fields"), (ValueError("원격 문구 secret"), "parse"),
+                 (KeyError("secret"), "parse"), (k.FeedError("timeout"), "timeout")]
+        for exc, want in cases:
+            self.assertEqual(k.skip_reason(exc), want, exc)
+            self.assertNotIn("secret", k.skip_reason(exc))
+        for code in k.SKIP_REASONS.values():
+            self.assertRegex(code, r"^[a-z_]+$")
+
+    def test_skips_reach_actions_log_as_warning_only(self):
+        two = b'<a href="/fileSrc/portal/ab/2/cd.pdf">a</a><a href="/fileSrc/portal/ab/2/ef.pdf">b</a>'
+        fetch, build = board(views={"2": two}), k.build
+        with tempfile.TemporaryDirectory() as folder, patch.object(k, "build", lambda old, now: build(old, now, fetch)), \
+                patch.object(k, "parse_offering", lambda raw, i, c, t: k.parse_offering_text(raw.decode(), i, c, t)), \
+                patch("builtins.print") as out:
+            code = k.main(["--out", folder])
+            saved = json.loads((Path(folder) / "korea.json").read_text(encoding="utf-8"))
+        lines = [str(c.args[0]) for c in out.call_args_list]
+        self.assertEqual(code, 1)                                       # 다른 묶음(빈 응답)은 실패 — 종료코드는 그대로
+        self.assertTrue(saved["feeds"]["offerings"]["ok"])
+        self.assertIn("::warning::한국은행 발행공고 1건을 읽지 못함 — 2 pdf_link", lines)
 
 
 class ParserTests(unittest.TestCase):

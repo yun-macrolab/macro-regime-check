@@ -358,6 +358,24 @@ def parse_offering_text(text, ident, code, today):
             "offered_100m": amount, "source_url": offering_url(ident)}
 
 
+# 공고 하나를 건너뛸 때 남기는 고정 사유 코드. 원격 문구는 남기지 않는다(우리 코드의 고정 문구만 코드로 바꾼다).
+SKIP_REASONS = {"ambiguous offering PDF": "pdf_link", "offering bond mismatch": "bond_mismatch",
+                "missing competitive section": "no_competitive_section", "ambiguous offering fields": "ambiguous_fields",
+                "offering outside range": "out_of_range", "unexpected offering PDF": "pdf_shape",
+                "oversized response": "oversized", "invalid notice id": "bad_id"}
+
+
+def skip_reason(exc):
+    """Fixed public code for one unreadable notice — never remote exception text."""
+    if isinstance(exc, FeedError): return str(exc)
+    if isinstance(exc, urllib.error.HTTPError): return f"http_{int(exc.code)}"
+    if isinstance(exc, (urllib.error.URLError, TimeoutError, ConnectionError)): return "network"
+    if isinstance(exc, UnicodeError): return "decode"
+    if type(exc).__module__.split(".")[0] == "pypdf": return "pdf_read"
+    if type(exc) is ValueError and str(exc) in SKIP_REASONS: return SKIP_REASONS[str(exc)]
+    return "parse"
+
+
 def parse_offering(raw, ident, code, today):
     from pypdf import PdfReader
     pdf = PdfReader(io.BytesIO(raw))
@@ -410,10 +428,28 @@ def build(old, now, fetch=None):
         # Re-read recent notices so corrections are picked up. Max eight public pages.
         return [parse_result(fetch(result_url(ident)), ident, tenor, today) for ident, tenor in result_links(fetch(RESULTS))]
     run("auctions", auctions)
+    skipped = []
     def offerings():
-        return [parse_offering(fetch(offering_pdf_url(fetch(offering_url(ident)))), ident, code, today)
-                for ident, code in offering_links(fetch(OFFER_LIST))]
+        # 공고마다 따로 읽는다 — 한 건의 양식이 달라도 나머지는 갱신한다. 못 읽은 공고는 고정 사유 코드로 남기고,
+        # 같은 공고를 전에 읽었으면 그 값을 둔다. 한 건도 못 읽으면 이 묶음만 실패(이전 자료 유지).
+        prev = {r.get("id"): r for r in (previous.get("offerings", {}).get("data") or []) if isinstance(r, dict)}
+        links, got = offering_links(fetch(OFFER_LIST)), []
+        for i, (ident, code) in enumerate(links):
+            try:
+                got.append(parse_offering(fetch(offering_pdf_url(fetch(offering_url(ident)))), ident, code, today))
+            except Exception as e:
+                skipped.append({"id": ident, "reason": skip_reason(e)})
+                if ident in prev: got.append(prev[ident])
+                if isinstance(e, FeedError):     # 시간 예산을 다 썼다 — 남은 공고는 시도하지 않는다
+                    skipped.extend({"id": rest, "reason": "not_tried"} for rest, _ in links[i + 1:])
+                    break
+        for s_ in skipped:
+            print(f"[korea_market] offerings skip {s_['id']}: {s_['reason']}")
+        if not any(r.get("id") not in {s_["id"] for s_ in skipped} for r in got):
+            raise FeedError("unreadable_notices")
+        return got
     run("offerings", offerings)
+    feeds["offerings"]["skipped"] = skipped
     cards = []
     for name, (chart_id, _) in CHARTS.items():
         feed = feeds[name]; data = dict(feed["data"] or {})
@@ -465,6 +501,10 @@ def main(argv=None):
         return 1
     failed = [k for k, v in data["feeds"].items() if not v["ok"]]
     print(f"[korea_market] {len(data['cards'])} cards; {len(failed)} failed feeds")
+    skipped = data["feeds"]["offerings"].get("skipped") or []
+    if skipped:     # GitHub Actions 경고(실행을 실패로 만들지 않음) — 공고 번호와 고정 사유 코드만
+        print("::warning::한국은행 발행공고 " + str(len(skipped)) + "건을 읽지 못함 — "
+              + ", ".join(f"{s_['id']} {s_['reason']}" for s_ in skipped))
     return int(bool(failed))
 
 

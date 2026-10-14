@@ -4,7 +4,7 @@ window.KoreaMarket = (() => {
   let data = null, attempt = null, healthState = null;
   const names = {credit:"회사채 스프레드", money:"CD·CP", rates:"한미 국채", foreign3:"외국인 3년 선물", foreign10:"외국인 10년 선물", calendar:"입찰 일정", auctions:"입찰 결과", offerings:"입찰 예정액"};
   const groups = {rates:"금리·커브", credit:"신용·단기자금", flows:"수급·입찰"};
-  const reasons = {stale:"관측일 지연", regressed:"과거 자료로 되돌아옴", calendar_month:"이번 달 일정 미확인", empty_or_duplicate:"빈 자료·중복 행", timeout:"수신 시간 초과", unavailable:"수신·형식 확인 실패"};
+  const reasons = {stale:"관측일 지연", regressed:"과거 자료로 되돌아옴", calendar_month:"이번 달 일정 미확인", empty_or_duplicate:"빈 자료·중복 행", timeout:"수신 시간 초과", unavailable:"수신·형식 확인 실패", unreadable_notices:"발행공고 형식 확인 실패"};
   function health(value, run, expectedAfter, now=Date.now()) {
     const checked=Date.parse(value?.checked_at), started=Date.parse(run?.started_at), ended=Date.parse(run?.checked_at);
     const valid=Number.isFinite(checked) && checked<=now+300000;
@@ -13,7 +13,7 @@ window.KoreaMarket = (() => {
     let issue="";
     if(!run || run.schema!==1) issue="갱신 실행 상태를 확인할 수 없습니다";
     else if(run.state==="running") issue=Number.isFinite(started) && now-started<240000 ? "한국 자료 갱신 중" : "한국 자료 갱신이 중단되었거나 지연됐습니다";
-    else if(run.ok!==true || run.state!=="success") issue="최근 한국 자료 갱신에 실패했습니다";
+    else if(!((run.state==="success" && run.ok===true) || (run.state==="partial" && run.ok===false))) issue="최근 한국 자료 갱신에 실패했습니다";
     else if(!valid || !Number.isFinite(started) || !Number.isFinite(ended) || ended>now+300000 || checked<started || checked>ended) issue="갱신 상태와 자료의 시각이 맞지 않습니다";
     if(late) issue="예정된 한국 자료 갱신이 반영되지 않았습니다";
     return {issue, late, failures, warning:!!issue || !!failures.length};
@@ -116,6 +116,8 @@ window.KoreaMarket = (() => {
     if(cal) {
       schedule.append(node("p","muted",cal.month+" 공식 일정 · "+(feedNote("calendar") || "공고에 따라 변경될 수 있습니다")));
       if(feedNote("offerings") || feedNote("auctions"))schedule.append(node("p","market-warning","입찰금액: "+[feedNote("offerings"),feedNote("auctions")].filter(Boolean).join(" · ")));
+      const skipped=data.feeds?.offerings?.skipped;
+      if(Array.isArray(skipped) && skipped.length)schedule.append(node("p","market-warning","입찰 예정액: 발행공고 "+skipped.length+"건을 읽지 못했습니다. 해당 회차는 금액 대신 공고 목록으로 연결합니다."));
       schedule.append(table(["입찰일","만기","예정액"],cal.rows.map(r=>{
         const result=(data.auctions||[]).find(a=>a.date===r.date && a.tenor===r.tenor);
         const offer=result || (data.offerings||[]).find(a=>a.date===r.date && a.tenor===r.tenor);
