@@ -1,1 +1,1 @@
-{"schema":1,"state":"failure","ok":false,"started_at":"2026-10-14T02:46:23+00:00","checked_at":"2026-10-14T02:46:44+00:00","last_success":"2026-10-13T03:05:18+00:00","run_url":"https://github.com/yun-macrolab/macro-regime-check/actions/runs/38502712102"}
+{"schema":1,"state":"success","ok":true,"started_at":"2026-10-14T04:10:41+00:00","checked_at":"2026-10-14T04:11:39+00:00","last_success":"2026-10-14T04:11:39+00:00","run_url":"https://github.com/yun-macrolab/macro-regime-check/actions/runs/38509926001"}
