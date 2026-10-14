@@ -433,7 +433,7 @@ def build(old, now, fetch=None):
     return {"schema": 1, "checked_at": stamp, "feeds": feeds, "cards": cards,
             "calendar": feeds["calendar"]["data"], "auctions": feeds["auctions"]["data"] or [],
             "offerings": feeds["offerings"]["data"] or [],
-            "notices": ["학습용 참고 자료이며 기존 11개 규칙 판정에는 쓰지 않습니다.",
+            "notices": ["학습용 참고 자료이며 기존 13개 규칙 판정에는 쓰지 않습니다.",
                 "한국은행 스냅샷 자료는 출처를 명시하여 비상업적 학습 목적으로 이용합니다. 원자료 저작권은 각 제공기관에 있습니다.",
                 "금리차·기간 변화·누적 순매수·분포는 이 사이트의 계산값입니다. 분포는 최근 관측일 기준 365일이며 저평가·고평가 판정이 아닙니다."]}
 

@@ -13,6 +13,7 @@ import regime_rules as rr
 import regime_check as rck
 
 TODAY = datetime.date(2026, 9, 22)
+MOD = rck                    # compute()·flat() 사본 — 비공개 사본의 테스트와 같은 블록이 쓴다
 D = datetime.date
 
 
@@ -259,7 +260,10 @@ class RulesTest(unittest.TestCase):
 
     def test_every_rule_has_log_ids_and_source(self):
         for s in rr.evaluate(self._ind()):
-            self.assertTrue(s["log_ids"], s["key"])
+            if s["key"] in ("core_momentum", "unemployment_rise"):     # 2026-10-14 사용자 결정: ID·시나리오 글자는 비워 둔다
+                self.assertEqual((s["log_ids"], s["scenario"]), ([], "—"), s["key"])
+            else:
+                self.assertTrue(s["log_ids"], s["key"])
             self.assertTrue(s["source"], s["key"])
             self.assertIn(s["fired"], (True, False, None))
 
@@ -295,6 +299,7 @@ def make_cache(cache_dir, end=D(2026, 9, 18)):
         "PCEPILFE": monthly(D(2023, 5, 1), [120 * (1.0027 ** i) for i in range(n_m)]),
         "CPILFESL": [r for r in monthly(D(2023, 5, 1), [310 * (1.002 ** i) for i in range(n_m)]) if r[0] != D(2025, 10, 1)],
         "CES5552300001": monthly(D(2023, 5, 1), [1100 + 2 * i for i in range(n_m)]),
+        "UNRATE": [r for r in monthly(D(2023, 5, 1), [4.0 + 0.02 * i for i in range(n_m)]) if r[0] != D(2025, 10, 1)],
         "GDP": [(q, 27000 * (1.013 ** i)) for i, q in enumerate(quarters)],
         "M2V": [(q, 1.35 + 0.005 * i) for i, q in enumerate(quarters)],
     }
@@ -311,7 +316,9 @@ BASE_IND = {"ci_yoy": 9.8, "ci_valid": True, "ngdp_yoy": 6.6, "ndfi_yoy": 18.6, 
             "rho60": -0.43, "rho60_run": 40, "rho60_sign": "-", "t10y2y": 0.25, "dfii10": 2.61,
             "bei": 2.34, "bei_chg_3m": 0.0, "core_pce_yoy": 3.34, "core_cpi_yoy": 2.45, "core_gap": -0.9,
             "tp": 0.96, "tp_chg_3m": 0.1, "sofr": 3.85, "sofr_chg_3m": 0.0,
-            "reserves_gdp": 9.3, "reserves_gdp_chg_3m": 0.0, "mult": 4.20, "emp_yoy": 2.7}
+            "reserves_gdp": 9.3, "reserves_gdp_chg_3m": 0.0, "mult": 4.20, "emp_yoy": 2.7,
+            "core_pce_a6": 3.08, "core_mom": 3.08 - 3.34, "unrate": 4.3, "unrate_rise": 0.2, "unrate_u3": 4.27,
+            "unrate_low": 4.07, "unrate_low_month": "2025-06-01", "unrate_n_used": 3}
 
 
 def fired(key, **kw):
@@ -373,6 +380,210 @@ class StepAndStaleTest(unittest.TestCase):
         self.assertGreaterEqual(rr.STALE_DAYS["Q"], 212)
 
 
+class MonthMathTest(unittest.TestCase):
+    """결측월 인식 달 산술(ann_rate_months·mavg_months·sahm_stats) — 빠진 달을 그 전 달로 대신하지 않는다."""
+
+    def test_ann_rate_months_uses_exact_base_month(self):
+        s = monthly(D(2025, 1, 1), [100 * 1.01 ** i for i in range(13)])          # 2025-01 … 2026-01, 매달 +1%
+        r = ff.ann_rate_months(s, 6)
+        self.assertAlmostEqual(r["value"], (1.01 ** 12 - 1) * 100, places=9)
+        self.assertEqual((r["asof"], r["base_date"]), (D(2026, 1, 1), D(2025, 7, 1)))
+        self.assertAlmostEqual(ff.ann_rate_months(s, 12)["value"], ff.yoy(s, same_month=True)["value"], places=9)
+
+    def test_ann_rate_months_none_without_exact_base_month(self):
+        s = [r for r in monthly(D(2025, 1, 1), [100 + i for i in range(13)]) if r[0] != D(2025, 7, 1)]
+        self.assertIsNone(ff.ann_rate_months(s, 6))                  # 2025-07이 빠졌다 — 2025-06으로 대신하지 않는다
+        self.assertEqual(ff.ann_rate_months(s, 5)["base_date"], D(2025, 8, 1))
+        self.assertIsNone(ff.ann_rate_months(monthly(D(2026, 1, 1), [1, 2, 3]), 6))          # 짧다
+        self.assertIsNone(ff.ann_rate_months(monthly(D(2025, 1, 1), [0] + [1] * 6), 6))      # 기준 0
+        self.assertIsNone(ff.ann_rate_months([], 6))
+
+    def test_mavg_months_two_month_average_over_hole(self):
+        # 2025-06 … 2026-01, 2025-10 결측(9.9는 지운 값 — 평균에 섞이면 틀린 것)
+        s = [r for r in monthly(D(2025, 6, 1), [4.0, 4.1, 4.2, 4.3, 9.9, 4.5, 4.6, 4.7]) if r[0] != D(2025, 10, 1)]
+        r = ff.mavg_months(s, D(2025, 9, 1))
+        self.assertAlmostEqual(r["value"], (4.1 + 4.2 + 4.3) / 3)
+        self.assertEqual((r["n_used"], r["end"]), (3, D(2025, 9, 1)))
+        for end, used in ((D(2025, 10, 15), (4.2, 4.3)), (D(2025, 11, 1), (4.3, 4.5)), (D(2025, 12, 1), (4.5, 4.6))):
+            r = ff.mavg_months(s, end)                                 # 빠진 달이 낀 창 — 남은 두 달(끝 달 자체가 빠져도)
+            self.assertAlmostEqual(r["value"], sum(used) / 2, msg=end)
+            self.assertEqual(r["n_used"], 2, end)
+        self.assertEqual(ff.mavg_months(s, D(2026, 1, 1))["n_used"], 3)
+        self.assertIsNone(ff.mavg_months(s, D(2025, 6, 1)))           # 한 달뿐 — 2개월 미만
+        self.assertEqual(ff.mavg_months(s, D(2025, 6, 1), min_n=1)["value"], 4.0)
+        self.assertIsNone(ff.mavg_months([], D(2025, 6, 1)))
+
+    def test_sahm_stats_hand_computed(self):
+        s = monthly(D(2025, 1, 1), [4.0] * 12 + [4.2, 4.4, 4.6])                 # 2025-01 … 2026-03
+        st = ff.sahm_stats(s)
+        self.assertAlmostEqual(st["u3"], 4.4)
+        self.assertEqual(st["low"], 4.0)
+        self.assertAlmostEqual(st["value"], 0.4)
+        self.assertEqual((st["asof"], st["n_used"], st["windows"]), (D(2026, 3, 1), 3, 12))
+        self.assertEqual(st["low_month"], D(2025, 12, 1))              # 같은 최저가 여럿이면 가장 늦은 창
+
+    def test_sahm_stats_two_month_average_at_hole(self):
+        # UNRATE 2025-10 셧다운 결측 재현: 최근 평균(10·11·12)은 11·12 두 달, 직전 창도 빠진 달은 두 달로
+        s = [r for r in monthly(D(2024, 8, 1), [4.0] * 15 + [4.5, 4.7]) if r[0] != D(2025, 10, 1)]
+        st = ff.sahm_stats(s)
+        self.assertAlmostEqual(st["u3"], 4.6)
+        self.assertEqual((st["n_used"], st["windows"], st["low"]), (2, 12, 4.0))
+        self.assertEqual(st["low_month"], D(2025, 10, 1))              # 2025-10 창(08·09 두 달 평균 4.0)이 가장 늦은 최저
+        self.assertAlmostEqual(st["value"], 0.6)
+
+    def test_sahm_stats_needs_nine_windows(self):
+        self.assertIsNone(ff.sahm_stats(monthly(D(2025, 1, 1), [4.0] * 10)))   # 직전 창 8개(앞 둘은 한 달 이하)
+        self.assertEqual(ff.sahm_stats(monthly(D(2025, 1, 1), [4.0] * 11))["windows"], 9)
+        base = monthly(D(2025, 1, 1), [4.0] * 15)                                # 2025-01 … 2026-03
+        three = [r for r in base if r[0] not in (D(2025, 5, 1), D(2025, 6, 1), D(2025, 7, 1))]
+        self.assertEqual(ff.sahm_stats(three)["windows"], 9)          # 06·07·08 창이 한 달 이하 → 12 − 3
+        four = [r for r in base if r[0] not in (D(2025, 5, 1), D(2025, 6, 1), D(2025, 7, 1), D(2025, 8, 1))]
+        self.assertIsNone(ff.sahm_stats(four))                         # 12 − 4 = 8개
+        lone = [r for r in base if r[0] not in (D(2026, 1, 1), D(2026, 2, 1))]
+        self.assertIsNone(ff.sahm_stats(lone))                         # 마지막 달 평균이 한 달뿐
+        self.assertIsNone(ff.sahm_stats([]))
+
+
+def _new_sig(key, **kw):
+    return next(s for s in rr.evaluate({**BASE_IND, **kw}) if s["key"] == key)
+
+
+class NewNeutralRulesTest(unittest.TestCase):
+    """2026-10-14 사용자 결정으로 넣은 중립 규칙 둘 — 근원 PCE 모멘텀(6개월 연율 − 전년비 ≥ 0.5%p, 수준 조건 없음)과
+    실업률 3개월 평균 상승 폭(Sahm형 ≥ 0.5%p). 판단로그 ID·시나리오 글자는 비워 둔다."""
+
+    def test_thresholds_fixed(self):
+        self.assertEqual((rr.TH["core_mom_gap"], rr.TH["unrate_rise"]), (0.5, 0.5))
+        self.assertNotIn("core_mom_level", rr.TH)                    # 수준 조건은 두지 않는다(보정은 차이만 쟀다)
+        self.assertEqual(list(rr.SERIES)[-1], "UNRATE")
+        self.assertEqual(rr.SERIES["UNRATE"][1], "M")
+
+    def test_order_and_empty_log_ids(self):
+        keys = [s["key"] for s in rr.evaluate(BASE_IND)]
+        self.assertEqual(keys[-3:], ["employment", "core_momentum", "unemployment_rise"])
+        for key in ("core_momentum", "unemployment_rise"):
+            s = _new_sig(key)
+            self.assertEqual((s["log_ids"], s["scenario"]), ([], "—"))
+            self.assertIn("2026-10-14", s["source"])
+
+    def test_core_momentum_fired_values(self):
+        self.assertTrue(_new_sig("core_momentum", core_pce_a6=3.9, core_mom=0.6)["fired"])
+        self.assertFalse(_new_sig("core_momentum", core_pce_a6=3.7, core_mom=0.4)["fired"])
+        self.assertTrue(_new_sig("core_momentum", core_pce_a6=1.2, core_pce_yoy=0.6, core_mom=0.6)["fired"])   # 수준 무관
+        s = _new_sig("core_momentum", core_pce_a6=3.0, core_mom=None)
+        self.assertIsNone(s["fired"])
+        self.assertIn("산출 불가", s["text"])
+
+    def test_core_momentum_boundary_after_rounding(self):
+        self.assertTrue(_new_sig("core_momentum", core_mom=4.1 - 3.6)["fired"])        # 0.49999999999999956 → 0.5 이상
+        self.assertFalse(_new_sig("core_momentum", core_mom=0.4999)["fired"])
+        s = _new_sig("core_momentum", core_pce_a6=3.84, core_pce_yoy=3.34, core_mom=3.84 - 3.34)
+        self.assertIn("6개월 연율 3.84% − 전년비 3.34% = +0.50%p", s["text"])
+
+    def test_unemployment_rise_fired_values(self):
+        kw = dict(unrate_u3=4.6, unrate_low=4.0, unrate_low_month="2025-10-01", unrate_n_used=2)
+        s = _new_sig("unemployment_rise", unrate_rise=0.6, **kw)
+        self.assertTrue(s["fired"])
+        self.assertIn("(2개월 평균)", s["text"])
+        self.assertIn("(2025-10)", s["text"])
+        s = _new_sig("unemployment_rise", unrate_rise=0.3, **{**kw, "unrate_n_used": 3})
+        self.assertFalse(s["fired"])
+        self.assertNotIn("개월 평균)", s["text"])
+        s = _new_sig("unemployment_rise", unrate_rise=None)
+        self.assertIsNone(s["fired"])
+        self.assertIn("산출 불가", s["text"])
+
+    def test_unemployment_rise_boundary_after_rounding(self):
+        # 15개월: 2025-03 창(3.8·3.9·4.0)이 최저, 마지막 창 4.3·4.4·4.5 — 뺄셈이 0.49999999999999956
+        s = monthly(D(2025, 1, 1), [3.8, 3.9, 4.0] + [4.1] * 9 + [4.3, 4.4, 4.5])
+        st = ff.sahm_stats(s)
+        self.assertLess(st["value"], 0.5)
+        self.assertAlmostEqual(st["value"], 0.5)
+        self.assertEqual((st["low_month"], st["windows"]), (D(2025, 3, 1), 12))
+        self.assertTrue(_new_sig("unemployment_rise", unrate_rise=st["value"])["fired"])
+        self.assertFalse(_new_sig("unemployment_rise", unrate_rise=0.4999)["fired"])
+
+
+def _compute(**series):
+    """compute()를 주어진 시리즈만으로 — 나머지 지표는 None."""
+    return MOD.compute(series, TODAY)
+
+
+class NewIndicatorComputeTest(unittest.TestCase):
+    """compute()·flat()이 새 규칙 재료를 같은 규칙으로 만든다(두 저장소의 사본이 같아야 한다)."""
+
+    def test_core_momentum_from_series(self):
+        vals = [100 * 1.002 ** i for i in range(13)]                  # 2025-02 … 2026-02 매달 +0.2%
+        vals += [vals[-1] * 1.004 ** k for k in range(1, 7)]           # 2026-03 … 2026-08 매달 +0.4%
+        pce = monthly(D(2025, 2, 1), vals)
+        ind, _, _ = _compute(PCEPILFE=pce)
+        a6 = (1.004 ** 12 - 1) * 100
+        y12 = (1.002 ** 6 * 1.004 ** 6 - 1) * 100
+        self.assertAlmostEqual(ind["core_pce_a6"]["value"], a6, places=9)
+        self.assertEqual((ind["core_pce_a6"]["asof"], ind["core_pce_a6"]["base_date"]), ("2026-08-01", "2026-02-01"))
+        self.assertAlmostEqual(ind["core_mom"]["value"], a6 - y12, places=9)
+        self.assertEqual(ind["core_mom"]["asof"], "2026-08-01")
+        fl = MOD.flat(ind)
+        self.assertAlmostEqual(fl["core_mom"], a6 - y12, places=9)
+        self.assertTrue(next(s for s in rr.evaluate(fl) if s["key"] == "core_momentum")["fired"])    # 1.24%p
+
+    def test_core_momentum_requires_exact_six_month_base(self):
+        pce = [r for r in monthly(D(2025, 2, 1), [100 + i for i in range(19)]) if r[0] != D(2026, 2, 1)]
+        ind, _, _ = _compute(PCEPILFE=pce)
+        self.assertIsNotNone(ind["core_pce_yoy"]["value"])
+        self.assertIsNone(ind["core_pce_a6"]["value"])                 # 2026-02가 빠졌다 — 2026-01로 대신하지 않는다
+        self.assertIsNone(ind["core_mom"]["value"])
+        self.assertIsNone(next(s for s in rr.evaluate(MOD.flat(ind)) if s["key"] == "core_momentum")["fired"])
+
+    def test_core_momentum_gap_only_for_same_month(self):
+        pce = [r for r in monthly(D(2025, 2, 1), [100 + i for i in range(19)]) if r[0] != D(2025, 8, 1)]
+        ind, _, _ = _compute(PCEPILFE=pce)                             # 1년 전 같은 달(2025-08) 없음 → 전년비 없음
+        self.assertIsNotNone(ind["core_pce_a6"]["value"])
+        self.assertIsNone(ind["core_pce_yoy"]["value"])
+        self.assertIsNone(ind["core_mom"]["value"])
+        orig = ff.yoy                                                  # 두 값의 기준 달이 다르면(가정) 차이를 내지 않는다
+
+        def shifted(series, same_month=False):
+            r = orig(series, same_month)
+            return r and {**r, "asof": D(2026, 7, 1)}
+        ff.yoy = shifted
+        try:
+            ind, _, _ = _compute(PCEPILFE=monthly(D(2025, 2, 1), [100 + i for i in range(19)]))
+        finally:
+            ff.yoy = orig
+        self.assertIsNotNone(ind["core_pce_a6"]["value"])
+        self.assertIsNone(ind["core_mom"]["value"])
+
+    def test_unemployment_rise_from_series_with_hole(self):
+        un = [r for r in monthly(D(2024, 8, 1), [4.0] * 15 + [4.5, 4.7]) if r[0] != D(2025, 10, 1)]
+        ind, _, warns = _compute(UNRATE=un)
+        u = ind["unrate_rise"]
+        self.assertAlmostEqual(u["value"], 0.6)
+        self.assertEqual((u["asof"], u["low_month"], u["n_used"], u["windows"], u["gaps"]),
+                         ("2025-12-01", "2025-10-01", 2, 12, ["2025-10"]))
+        self.assertAlmostEqual(u["u3"], 4.6)
+        self.assertEqual((ind["unrate"]["value"], ind["unrate"]["asof"]), (4.7, "2025-12-01"))
+        self.assertTrue(any(w.startswith("실업률 결측월 2025-10") for w in warns))
+        fl = MOD.flat(ind)
+        self.assertEqual((fl["unrate_n_used"], fl["unrate_low_month"], fl["unrate_low"]), (2, "2025-10-01", 4.0))
+        s = next(s for s in rr.evaluate(fl) if s["key"] == "unemployment_rise")
+        self.assertTrue(s["fired"])
+        self.assertIn("(2개월 평균)", s["text"])
+
+    def test_unemployment_old_hole_not_warned_and_short_history_unknown(self):
+        un = [r for r in monthly(D(2021, 1, 1), [4.0] * 60) if r[0] != D(2022, 5, 1)]   # 2년보다 앞의 결측
+        ind, _, warns = _compute(UNRATE=un)
+        self.assertFalse(any(w.startswith("실업률 결측월") for w in warns))
+        self.assertEqual(ind["unrate_rise"]["value"], 0.0)
+        ind, _, _ = _compute(UNRATE=monthly(D(2025, 11, 1), [4.0] * 10))              # 직전 창 8개
+        self.assertIsNone(ind["unrate_rise"]["value"])
+        self.assertIsNone(next(s for s in rr.evaluate(MOD.flat(ind)) if s["key"] == "unemployment_rise")["fired"])
+        ind, _, _ = _compute()
+        self.assertIsNone(ind["unrate"]["value"])
+        self.assertIsNone(ind["unrate_rise"]["value"])
+        self.assertIsNone(ind["core_mom"]["value"])
+
+
 class BuildTest(unittest.TestCase):
     """regime_check.build: 매일 원본 결과를 <work>/raw/에 기록한다. 수신 실패면 아무것도 쓰지 않는다.
     원본과 캐시는 사이트 폴더(data/) 밖의 작업 폴더에 둔다 — 배포 산출물에 섞이지 않게."""
@@ -411,6 +622,38 @@ class BuildTest(unittest.TestCase):
         self.assertTrue(any("결측" in w for w in js["warnings"]))
         self.assertTrue(any("THREEFYTP10" in w and "경과" in w for w in js["warnings"]))
         self.assertTrue(all(v["age_days"] >= 0 for v in js["sources"].values() if v.get("source")))
+
+    def test_new_neutral_rules_in_raw(self):
+        # make_cache: UNRATE 4.0 + 0.02i(i=0 2023-05 … 39 2026-08, 2025-10 결측), 근원 PCE는 매달 같은 상승률 → 차이 0
+        res = rck.build(self.work, TODAY, offline=True)
+        self.assertEqual((res["status"], res["missing"], res["series"]), ("ok", 0, len(rr.SERIES)))
+        js = self._raw()
+        u = js["indicators"]["unrate_rise"]
+        self.assertAlmostEqual(u["value"], (4.0 + 0.02 * 38) - (4.0 + 0.02 * 26), places=9)   # 2026-06…08 − 2025-06…08
+        self.assertEqual((u["asof"], u["low_month"], u["n_used"], u["windows"], u["gaps"]),
+                         ("2026-08-01", "2025-08-01", 3, 12, ["2025-10"]))
+        self.assertAlmostEqual(js["indicators"]["core_pce_a6"]["value"], (1.0027 ** 12 - 1) * 100, places=6)
+        self.assertAlmostEqual(js["indicators"]["core_mom"]["value"], 0.0, places=9)
+        self.assertTrue(any(w.startswith("실업률 결측월 2025-10") for w in js["warnings"]))
+        sig = {s["key"]: s for s in js["signals"]}
+        self.assertEqual((sig["core_momentum"]["fired"], sig["unemployment_rise"]["fired"]), (False, False))
+        self.assertEqual(res["total"], len(js["signals"]))
+
+    def test_unrate_counts_toward_max_missing(self):
+        # 23개가 되어도 미수신 셈은 같다 — UNRATE만 없으면 그 규칙만 판정 불가, 셋이 없으면 그날을 기록하지 않는다
+        os.remove(os.path.join(self.work, "fred", "UNRATE.csv"))
+        res = rck.build(self.work, TODAY, offline=True)
+        self.assertEqual((res["status"], res["missing"]), ("ok", 1))
+        sig = {s["key"]: s["fired"] for s in self._raw()["signals"]}
+        self.assertIsNone(sig["unemployment_rise"])
+        self.assertFalse(sig["core_momentum"])
+        before = self._raw()
+        for sid in ("SOFR", "DEXKOUS"):
+            os.remove(os.path.join(self.work, "fred", sid + ".csv"))
+        with self.assertRaises(RuntimeError) as cm:
+            rck.build(self.work, TODAY + datetime.timedelta(days=1), offline=True)
+        self.assertIn("미수신 3개", str(cm.exception))
+        self.assertEqual(self._raw(), before)
 
     def test_no_prev_regime_by_default(self):
         # 직전 국면은 사람이 넣는 값(비공개 견해)이라 자동으로 채우지 않는다
@@ -471,7 +714,7 @@ class BuildTest(unittest.TestCase):
         return orig
 
     def test_cache_fallback_counts_as_not_received(self):
-        # FRED가 즉시 실패하고 캐시만 있으면 '수신 22/22'가 아니다 — 새 날짜로 기록하지 않는다
+        # FRED가 즉시 실패하고 캐시만 있으면 '수신 23/23'이 아니다 — 새 날짜로 기록하지 않는다
         rck.build(self.work, TODAY, offline=True)
         before = self._raw()
         orig = self._with_network(set(rr.SERIES))
@@ -565,7 +808,7 @@ class CliTest(unittest.TestCase):
 
     def test_failure_is_one_line_and_exit_1(self):
         p = run_cli("regime_check.py", "--work", self.work, "--offline", "--date", TODAY.isoformat())
-        self.assertEqual(p.returncode, 1)                      # 캐시 없는 빈 폴더 + offline → 22개 미수신
+        self.assertEqual(p.returncode, 1)                      # 캐시 없는 빈 폴더 + offline → 23개 미수신
         err = p.stderr.strip().splitlines()
         self.assertEqual(len(err), 1)
         self.assertNotIn("Traceback", err[0])

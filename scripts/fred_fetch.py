@@ -234,3 +234,72 @@ def weekly_last(series, before=None):
             continue
         out[d.isocalendar()[:2]] = (d, v)
     return [out[k] for k in sorted(out)]
+
+
+# ---------- 달 단위 산술 (결측월 인식) ----------
+# 월간 시계열(관측일 = 달의 1일)을 달 번호로 다룬다. 빠진 달은 그 전 달로 대신하지 않는다 —
+# change_days처럼 'n일 전 이하 최근 관측'으로 내려가면 결측월(UNRATE·CPILFESL 2025-10) 때문에 기간이 몰래 한 달 늘어난다.
+
+def _mnum(d):
+    """달 번호(연 × 12 + 월 − 1) — 달 사이 거리를 뺄셈으로."""
+    return d.year * 12 + d.month - 1
+
+
+def _by_month(series):
+    """{달 번호: (관측일, 값)}. 한 달에 관측이 둘이면 뒤의 것."""
+    return {_mnum(d): (d, v) for d, v in series}
+
+
+def ann_rate_months(series, k):
+    """마지막 관측 달 t의 k개월 연율(%) = ((v_t / v_{t−k}) ** (12 / k) − 1) × 100.
+    기준은 정확히 t−k 달의 관측이어야 한다 — 빠졌으면 그 전 달로 대신하지 않고 None. 둘 중 하나가 0 이하여도 None.
+    k=12면 yoy(same_month=True)와 같다. 반환 {"value", "asof", "base_date", "base_value"}."""
+    if not series or k <= 0:
+        return None
+    d1, v1 = series[-1]
+    base = _by_month(series).get(_mnum(d1) - k)
+    if base is None or base[1] <= 0 or v1 <= 0:
+        return None
+    return {"value": ((v1 / base[1]) ** (12 / k) - 1) * 100, "asof": d1, "base_date": base[0], "base_value": base[1]}
+
+
+def _mavg(bym, end, n, min_n):
+    vals = [bym[i][1] for i in range(end - n + 1, end + 1) if i in bym]
+    return (sum(vals) / len(vals), len(vals)) if len(vals) >= min_n else None
+
+
+def mavg_months(series, end_month, n=3, min_n=2):
+    """end_month(그 달의 아무 날)까지 n개 달 중 관측이 있는 달의 평균. 있는 달이 min_n개 미만이면 None.
+    결측월이 낀 3개월 평균은 남은 2개월로 낸다(n_used=2). end_month 자체가 빠진 달이어도 된다.
+    반환 {"value", "end"(그 달 1일), "n_used"}."""
+    if not series:
+        return None
+    end = _mnum(end_month)
+    r = _mavg(_by_month(series), end, n, min_n)
+    if r is None:
+        return None
+    return {"value": r[0], "end": datetime.date(end // 12, end % 12 + 1, 1), "n_used": r[1]}
+
+
+def sahm_stats(series, n=3, window=12, min_windows=9, min_n=2):
+    """Sahm형 상승 폭(%p): 마지막 관측 달 t의 n개월 평균(u3) − 직전 window개 달(t−window … t−1) 각각의
+    n개월 평균 중 최저. 평균은 mavg_months 규칙(있는 달 min_n개 이상 — 결측월이 낀 창은 2개월 평균).
+    직전 평균이 min_windows개 미만이면 None(최저를 믿을 수 없다). 같은 최저가 여럿이면 가장 늦은 달을 low_month로.
+    값은 FRED 현재 개정치로 다시 계산한 것이라 첫 발표 당시 값과 다를 수 있다.
+    반환 {"value", "asof", "u3", "low", "low_month"(그 창의 끝 달 1일), "n_used"(u3에 쓴 달 수), "windows"}."""
+    if not series:
+        return None
+    bym = _by_month(series)
+    t = _mnum(series[-1][0])
+    cur = _mavg(bym, t, n, min_n)
+    if cur is None:
+        return None
+    prior = [(i, r[0]) for i, r in ((i, _mavg(bym, i, n, min_n)) for i in range(t - window, t)) if r is not None]
+    if len(prior) < min_windows:
+        return None
+    lo_i, lo = prior[0]
+    for i, v in prior[1:]:
+        if v <= lo:
+            lo_i, lo = i, v
+    return {"value": cur[0] - lo, "asof": series[-1][0], "u3": cur[0], "low": lo,
+            "low_month": datetime.date(lo_i // 12, lo_i % 12 + 1, 1), "n_used": cur[1], "windows": len(prior)}

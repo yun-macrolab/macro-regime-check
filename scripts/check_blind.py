@@ -7,7 +7,7 @@
   - 과거 기록: HEAD와 모든 ref(브랜치·태그·노트)에서 닿는 커밋·태그·트리·파일 전부 — 지운 파일, 고친 줄, 옛 이름,
     병합에서만 생긴 파일, 트리 항목 이름, git replace로 가린 원래 커밋까지.
     커밋·태그 머리 전체(작성자·커미터·태거, 서명 태그 병합의 mergetag 등)와 메시지 포함
-  - ref 이름, 커밋·태그 이메일(GitHub noreply만 허용)
+  - ref 이름, 커밋·태그 이메일(GitHub noreply와 noreply@anthropic.com만 허용 — 뒤의 것은 Claude Code가 만든 커밋, 2026-10-14)
 검사어: 로컬은 저장소 루트의 .blind_patterns(git 제외), CI는 환경변수 BLIND_PATTERNS(GitHub Secret).
   검사어를 이 파일에 쓰지 않는다 — 쓰면 이 파일이 공개되면서 그 자체가 노출된다.
   검사어 줄에 보이지 않는 문자(폭 없는 공백·중간 BOM·제어 문자)가 있으면 검사 불가 — 그 검사어가 조용히 죽기 때문.
@@ -29,7 +29,7 @@ MASK = "(이름에 검사어)"
 BS = chr(92)        # 역슬래시
 BOM = chr(0xFEFF)
 LFS_POINTER = "version https://git-lfs.github.com/spec/v1"
-NOREPLY = re.compile(r"(@users\.noreply\.github\.com|^noreply@github\.com)$")
+NOREPLY = re.compile(r"(@users\.noreply\.github\.com|^noreply@github\.com|^noreply@anthropic\.com)$")
 # 커밋·태그 머리: 사람 줄에서 이메일을 뽑고, 해시 줄과 시각은 검사에서 뺀다(숫자 검사어와 우연히 겹치지 않게)
 IDENT = re.compile(r"(?:author|committer|tagger) .*<([^>\n]*)> -?\d+ [+-]\d{4}$")
 HASH_LINE = re.compile(r"(?:mergetag )?(?:tree|parent|object) [0-9a-f]{40,64}$")

@@ -170,6 +170,17 @@ class CheckBlindTest(unittest.TestCase):
         rc, out = self.run_check()
         self.assertEqual(rc, 0, out)
 
+    def test_claude_code_committer_allowed(self):
+        # Claude Code가 만든 커밋(작성자·커미터 Claude <noreply@anthropic.com>) — 그 주소 하나만, 같은 도메인의 다른 주소는 아니다
+        self.commit_file("g.txt", "내용\n", "g", GIT_AUTHOR_NAME="Claude", GIT_AUTHOR_EMAIL="noreply@anthropic.com",
+                         GIT_COMMITTER_NAME="Claude", GIT_COMMITTER_EMAIL="noreply@anthropic.com")
+        rc, out = self.run_check()
+        self.assertEqual(rc, 0, out)
+        self.commit_file("h.txt", "내용\n", "h", GIT_AUTHOR_EMAIL="someone@anthropic.com")
+        rc, out = self.run_check()
+        self.assertEqual(rc, 1, out)
+        self.assertNotIn("someone@anthropic.com", out)
+
     def test_actions_bot_email_allowed(self):
         self.commit_file("f.txt", "내용\n", "data", GIT_AUTHOR_NAME="github-actions[bot]",
                          GIT_AUTHOR_EMAIL="41898282+github-actions[bot]@users.noreply.github.com")
