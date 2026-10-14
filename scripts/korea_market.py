@@ -343,13 +343,24 @@ def offering_pdf_url(raw):
     return BOK_PORTAL + paths.pop()
 
 
+def competitive_section(text):
+    """공백을 뺀 본문에서 경쟁입찰 구역. 보통은 '(1)경쟁입찰 … (2)일반인입찰'이다. 일반인입찰이 없는 공고(50년물 등,
+    2026-10-14 실측: 'ㅇ경쟁입찰(국고…) -입찰일:… -발행예정금액:… -대금납입일:… 4.발행,상환…')는 번호가 없어
+    '경쟁입찰' 뒤부터 다음 구역((n)·번호 항목·※·일반인입찰·비경쟁인수)까지로 본다. 그때는 '경쟁입찰'이 한 번만 있어야 한다."""
+    numbered = re.search(r"\(1\)경쟁입찰(.*?)\(2\)", text)
+    if numbered: return numbered[1]
+    if len(re.findall(r"(?<!비)경쟁입찰", text)) != 1: return None
+    bare = re.search(r"(?<!비)경쟁입찰(.*?)(?=\(\d\)|(?<![\d.])\d{1,2}\.(?=[가-힣])|※|일반인입찰|비경쟁인수|$)", text)
+    return bare[1] if bare else None
+
+
 def parse_offering_text(text, ident, code, today):
     text = re.sub(r"\s+", "", text)
     if "국고" + code not in text: raise ValueError("offering bond mismatch")
-    section = re.search(r"\(1\)경쟁입찰(.*?)\(2\)", text)
+    section = competitive_section(text)
     if not section: raise ValueError("missing competitive section")
-    dates = re.findall(r"입찰일[:：](\d{4})\.(\d{1,2})\.(\d{1,2})\.", section[1])
-    amounts = re.findall(r"발행예정금액[:：]([\d,]+)억원", section[1])
+    dates = re.findall(r"입찰일[:：](\d{4})\.(\d{1,2})\.(\d{1,2})\.", section)
+    amounts = re.findall(r"발행예정금액[:：]([\d,]+)억원", section)
     if len(dates) != 1 or len(amounts) != 1: raise ValueError("ambiguous offering fields")
     date = dt.date(*map(int, dates[0])); amount = int(amounts[0].replace(",", ""))
     if date > today + dt.timedelta(days=90) or not 0 < amount < 1_000_000:

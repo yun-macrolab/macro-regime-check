@@ -56,7 +56,21 @@ class OfferingTests(unittest.TestCase):
     def test_wrong_bond(self):
         with self.assertRaises(ValueError): self.parse(OFFER.replace('03500','04000'))
     def test_missing_section(self):
-        with self.assertRaises(ValueError): self.parse(OFFER.replace('(1)', '(3)'))
+        with self.assertRaises(ValueError): self.parse(OFFER.replace('경쟁입찰', '모집'))
+    def test_unnumbered_section_without_retail_tranche(self):
+        # 2026-10-14 실측(50년물 통합발행 공고): 일반인입찰이 없어 '(1)경쟁입찰 … (2)' 번호가 없다
+        text = ("국고04625-7609-5001 발행공고 국채법 제5조에 의하여 “국고04625-7609-5001” 국고채권을 … 통합발행 함을 공고합니다. "
+                "1. 발 행 일 자 : 2026. 9. 10. 2. 상 환 일 자 : 2076. 9. 10. 3. 발 행 방 법 ㅇ 경쟁입찰(국고04625-7609-5001) "
+                "- 입 찰 일 : 2026.10.16.(금) 10:40~11:00 - 발행예정금액 : 6,000억원 - 대 금 납 입 일 : 2026.10.19.(월) 15:50까지"
+                "4. 발행, 상환 및 등록 업무 : 국채법에 따라 한국은행이 담당 ※ 기타 자세한 사항은 별첨 참조. 발행예정금액 : 9,999억원")
+        r = k.parse_offering_text(text, '9', '04625-7609-5001', TODAY)
+        self.assertEqual((r['date'], r['tenor'], r['offered_100m']), ('2026-10-16', '50년', 6000))   # '4.' 뒤 금액은 구역 밖
+    def test_unnumbered_section_stops_at_other_tranches(self):
+        text = "국고 03500-2906-0310 ㅇ경쟁입찰 - 입찰일 : 2026.10.12.(월) 일반인입찰 - 발행예정금액 : 4,800억원"
+        with self.assertRaises(ValueError): self.parse(text)                                 # 경쟁입찰 구역엔 금액이 없다
+        two = "국고 03500-2906-0310 ㅇ경쟁입찰 - 입찰일 : 2026.10.12. - 발행예정금액 : 1억원 ㅇ경쟁입찰 - 입찰일 : 2026.10.13."
+        with self.assertRaises(ValueError): self.parse(two)                                  # 번호 없이 두 번이면 가르지 않는다
+        self.assertEqual(self.parse(OFFER.replace('(1)', '(3)'))['offered_100m'], 24000)     # 번호가 달라도 다음 구역 '(2)'에서 끊는다
     def test_ambiguous_amount(self):
         with self.assertRaises(ValueError): self.parse(OFFER.replace('(2)', '발행예정금액 : 2,000억원 (2)'))
     def test_future_bound(self):
@@ -126,7 +140,7 @@ class OfferingIsolationTests(unittest.TestCase):
     def test_previous_reading_of_the_same_notice_is_kept(self):
         prev = k.parse_offering_text(offer_text(*NOTICES["2"]), "2", NOTICES["2"][0], TODAY)
         old = {"schema": 1, "feeds": {"offerings": {"data": [prev], "last_success": "previous"}}}
-        bad = offer_text(*NOTICES["2"]).replace("(1)", "(3)").encode()
+        bad = offer_text(*NOTICES["2"]).replace("경쟁입찰", "모집").encode()
         r, _ = self.build(board(pdfs={"2": bad}), old)
         self.assertTrue(r["feeds"]["offerings"]["ok"])
         self.assertEqual([o["id"] for o in r["offerings"]], ["1", "2", "3"])
@@ -135,7 +149,7 @@ class OfferingIsolationTests(unittest.TestCase):
 
     def test_no_readable_notice_fails_only_this_feed(self):
         old = {"schema": 1, "feeds": {"offerings": {"data": [{"id": "old"}], "last_success": "previous"}}}
-        bad = {i: offer_text(*NOTICES[i]).replace("(1)", "(3)").encode() for i in NOTICES}
+        bad = {i: offer_text(*NOTICES[i]).replace("경쟁입찰", "모집").encode() for i in NOTICES}
         r, _ = self.build(board(pdfs=bad), old)
         f = r["feeds"]["offerings"]
         self.assertEqual((f["ok"], f["reason"], f["last_success"]), (False, "unreadable_notices", "previous"))
