@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-14",
-  "generated_at": "2026-10-14T01:15:56+00:00",
+  "generated_at": "2026-10-14T02:46:20+00:00",
   "notice": "공개 통계에 사전에 정한 규칙을 적용한 결과다. 투자 판단이나 권유가 아니다.",
   "attribution": [
     "Source: FRED®, Federal Reserve Bank of St. Louis (https://fred.stlouisfed.org/).",
@@ -10,12 +10,12 @@
     "© 2026 Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org.",
     "전년비·3개월 변화·상관·비율은 이 저장소 코드가 원자료로 계산한 값이다.",
     "macro-regime-check (github.com/yun-macrolab) is not affiliated with the New York Fed. The New York Fed does not sanction, endorse, or recommend any products or services offered by macro-regime-check (github.com/yun-macrolab). It is not sponsored by, affiliated with, or endorsed by the Federal Reserve Bank of St. Louis or FRED®.",
-    "코드는 MIT 라이선스지만 자료(FRED·뉴욕 연은 등)는 그 대상이 아니다 — 각 출처의 이용 조건을 따른다. SOFR은 newyorkfed.org 이용약관, 나머지는 FRED 이용약관과 시리즈별 저작권 표시."
+    "코드는 MIT 라이선스지만 자료(FRED·뉴욕 연은 등)는 그 대상이 아니다 — 각 출처의 이용 조건을 따른다. SOFR·프라이머리 딜러 통계는 newyorkfed.org 이용약관, 나머지는 FRED 이용약관과 시리즈별 저작권 표시."
   ],
   "summary": {
-    "total": 11,
+    "total": 13,
     "met": 1,
-    "not_met": 10,
+    "not_met": 12,
     "unknown": 0
   },
   "rules": [
@@ -371,6 +371,92 @@
       ],
       "restricted_series": [],
       "notices": []
+    },
+    {
+      "key": "core_momentum",
+      "title": "근원 물가의 최근 속도",
+      "rule": "근원 PCE 6개월 연율이 전년비보다 0.5%p 이상 높으면 충족 (기준 달이 빠진 구간은 계산하지 않음)",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "근원 PCE 6개월 연율",
+          "unit": "%",
+          "series": [
+            "PCEPILFE"
+          ],
+          "derived": false,
+          "computed": true,
+          "value": 2.744,
+          "asof": "2026-08-01"
+        },
+        {
+          "label": "근원 PCE 전년비",
+          "unit": "%",
+          "series": [
+            "PCEPILFE"
+          ],
+          "derived": false,
+          "computed": true,
+          "value": 3.008,
+          "asof": "2026-08-01"
+        },
+        {
+          "label": "차이(6개월 연율 − 전년비)",
+          "unit": "%p",
+          "series": [
+            "PCEPILFE"
+          ],
+          "derived": false,
+          "computed": true,
+          "value": -0.263,
+          "asof": "2026-08-01"
+        }
+      ],
+      "restricted_series": [],
+      "notices": []
+    },
+    {
+      "key": "unemployment_rise",
+      "title": "실업률 상승 폭",
+      "rule": "실업률 3개월 평균이 직전 12개월 중 가장 낮은 3개월 평균보다 0.5%p 이상 높으면 충족 (빠진 달이 낀 평균은 2개월로 계산)",
+      "status": "not_met",
+      "observations": [
+        {
+          "label": "상승 폭(3개월 평균 − 직전 12개월 최저)",
+          "unit": "%p",
+          "series": [
+            "UNRATE"
+          ],
+          "derived": false,
+          "computed": true,
+          "value": 0.0,
+          "asof": "2026-09-01"
+        },
+        {
+          "label": "실업률 3개월 평균",
+          "unit": "%",
+          "series": [
+            "UNRATE"
+          ],
+          "derived": false,
+          "computed": true,
+          "value": 4.133,
+          "asof": "2026-09-01"
+        },
+        {
+          "label": "직전 12개월 최저 3개월 평균",
+          "unit": "%",
+          "series": [
+            "UNRATE"
+          ],
+          "derived": false,
+          "computed": true,
+          "value": 4.133,
+          "asof": "2026-08-01"
+        }
+      ],
+      "restricted_series": [],
+      "notices": []
     }
   ],
   "data_health": [
@@ -637,9 +723,22 @@
       "stale": false,
       "display": "value",
       "citation": "U.S. Bureau of Labor Statistics, All Employees, Securities, Commodity Contracts, Funds, Trusts, and Other Financial Vehicles, Investments, and Related Activities [CES5552300001], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/CES5552300001, October 14, 2026."
+    },
+    {
+      "series": "UNRATE",
+      "label": "실업률",
+      "owner": "BLS",
+      "url": "https://fred.stlouisfed.org/series/UNRATE",
+      "last": "2026-09-01",
+      "age_days": 43,
+      "fetched": "net",
+      "stale": false,
+      "display": "value",
+      "citation": "U.S. Bureau of Labor Statistics, Unemployment Rate [UNRATE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/UNRATE, October 14, 2026."
     }
   ],
   "warnings": [
-    "근원 CPI 결측월 2025-10 — 그 달이 기준치가 되는 12개월 뒤 YoY는 산출 불가(None)로 둔다. BLS 대체입력 탓에 결측 이후 값도 편의가 있을 수 있음"
+    "근원 CPI 결측월 2025-10 — 그 달이 기준치가 되는 12개월 뒤 YoY는 산출 불가(None)로 둔다. BLS 대체입력 탓에 결측 이후 값도 편의가 있을 수 있음",
+    "실업률 결측월 2025-10 — 그 달이 낀 3개월 평균은 남은 2개월로 계산한다. 값은 현재 개정치라 첫 발표 당시와 다를 수 있음"
   ]
 }
