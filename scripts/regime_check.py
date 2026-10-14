@@ -26,7 +26,7 @@ import regime_rules as rr
 SCHEMA = 2
 DEFAULT_WORK = os.path.join(os.path.dirname(SCRIPTS), ".work")
 MAX_MISSING = 2                              # 미수신+캐시 대체가 이보다 많으면 그날 결과를 기록하지 않는다(직전 결과 유지)
-BUDGET_SEC = 60                              # 22개 수신 전체 시간 상한 — 느린 날에도 스케줄 작업이 제한 시간 안에 끝나게
+BUDGET_SEC = 60                              # 23개 수신 전체 시간 상한 — 느린 날에도 스케줄 작업이 제한 시간 안에 끝나게
 SINCE_1990 = datetime.date(1990, 1, 1)
 CI_BREAK = datetime.date(2025, 1, 1)         # BUSLOANS 분류 변경: 이 날 이후 기준치만 YoY 유효
 
@@ -50,7 +50,7 @@ def _write_text(path, text):
 
 def load_all(cache_dir, offline, today):
     """모든 시리즈 수신. 미수신이 MAX_MISSING을 넘는 순간 나머지는 시도하지 않는다
-    (FRED가 요청마다 15초씩 멈추는 장애 때 22×15초를 기다리지 않기 위해 — 어차피 그 달은 기록되지 않는다).
+    (FRED가 요청마다 15초씩 멈추는 장애 때 23×15초를 기다리지 않기 위해 — 어차피 그 달은 기록되지 않는다).
     실패 없이 느리기만 한 날을 위해 전체 시간도 BUDGET_SEC로 묶는다: 요청마다 남은 예산을 타임아웃으로 주고,
     예산을 다 쓰면 나머지는 미수신 처리한다.
     온라인 실행에서 FRED 요청이 실패해 캐시로 대신한 시리즈도 '받지 못한 것'으로 센다(값은 캐시로 계산에 쓴다).
@@ -179,7 +179,8 @@ def compute(series, today, prev_regime=None):
 
     # 8. 근원 물가
     pce, cpi = S("PCEPILFE"), S("CPILFESL")
-    put("core_pce_yoy", ff.yoy(pce, same_month=True) if pce else None)
+    py = ff.yoy(pce, same_month=True) if pce else None
+    put("core_pce_yoy", py)
     cy = ff.yoy(cpi, same_month=True) if cpi else None
     gaps = [g for g in ff.missing_months(cpi) if g >= f"{today.year - 2:04d}-01"] if cpi else []
     ind["core_cpi_yoy"] = _ind(cy["value"] if cy else None, cy["asof"] if cy else None, gaps=gaps)
@@ -190,9 +191,30 @@ def compute(series, today, prev_regime=None):
         warns.append("근원 CPI YoY 산출 불가 — 1년 전 같은 달 관측치 없음(결측월). 근원 PCE로 판단")
     a, b = ind["core_pce_yoy"]["value"], ind["core_cpi_yoy"]["value"]
     ind["core_gap"] = _ind(b - a if a is not None and b is not None else None, ind["core_cpi_yoy"]["asof"])
+    # 근원 PCE 모멘텀(2026-10-14): 6개월 연율은 정확히 6개월 전 달이 기준(결측월 대체 없음).
+    # 차이(6개월 연율 − 전년비)는 둘이 같은 마지막 달을 가리킬 때만 — 한쪽이 없으면 None(판정 불가)
+    a6 = ff.ann_rate_months(pce, 6) if pce else None
+    ind["core_pce_a6"] = _ind(a6["value"] if a6 else None, a6["asof"] if a6 else None,
+                              base_date=_iso(a6["base_date"]) if a6 else None)
+    same = bool(a6 and py and a6["asof"] == py["asof"])
+    ind["core_mom"] = _ind(a6["value"] - py["value"] if same else None, a6["asof"] if same else None)
 
     # 14. 고용
     put("emp_yoy", ff.yoy(S("CES5552300001"), same_month=True) if S("CES5552300001") else None)
+
+    # 15. 실업률 3개월 평균 상승 폭(Sahm형, 2026-10-14): 결측월이 낀 3개월 평균은 남은 2개월로,
+    # 직전 12개월 평균이 9개 미만이면 None. FRED 현재 개정치라 첫 발표 당시 값과 다를 수 있다
+    un = S("UNRATE")
+    sh = ff.sahm_stats(un) if un else None
+    ugaps = [g for g in ff.missing_months(un) if g >= f"{today.year - 2:04d}-01"] if un else []
+    ind["unrate"] = _ind(*reversed(_last(un))) if un else _ind(None)
+    ind["unrate_rise"] = _ind(sh["value"] if sh else None, sh["asof"] if sh else None,
+                              u3=sh["u3"] if sh else None, low=sh["low"] if sh else None,
+                              low_month=_iso(sh["low_month"]) if sh else None, n_used=sh["n_used"] if sh else None,
+                              windows=sh["windows"] if sh else None, gaps=ugaps)
+    if ugaps:
+        warns.append("실업률 결측월 " + ", ".join(ugaps) + " — 그 달이 낀 3개월 평균은 남은 2개월로 계산한다."
+                     " 값은 현재 개정치라 첫 발표 당시와 다를 수 있음")
 
     # 국면 판정 재료 — 주가·금리 13주 추세, ρ60, 전환 경계 (공개본에는 싣지 않는다)
     sp13 = ff.pct_change_days(S("SP500"), 91) if S("SP500") else None
@@ -231,7 +253,12 @@ def flat(ind):
             "core_pce_yoy": v("core_pce_yoy"), "core_cpi_yoy": v("core_cpi_yoy"), "core_gap": v("core_gap"),
             "tp": v("tp"), "tp_chg_3m": v("tp_chg_3m"), "sofr": v("sofr"), "sofr_chg_3m": v("sofr_chg_3m"),
             "reserves_gdp": v("reserves_gdp"), "reserves_gdp_chg_3m": v("reserves_gdp_chg_3m"), "mult": v("mult"),
-            "emp_yoy": v("emp_yoy")}
+            "emp_yoy": v("emp_yoy"),
+            "core_pce_a6": v("core_pce_a6"), "core_mom": v("core_mom"),
+            "unrate": v("unrate"), "unrate_rise": v("unrate_rise"), "unrate_u3": ind.get("unrate_rise", {}).get("u3"),
+            "unrate_low": ind.get("unrate_rise", {}).get("low"),
+            "unrate_low_month": ind.get("unrate_rise", {}).get("low_month"),
+            "unrate_n_used": ind.get("unrate_rise", {}).get("n_used")}
 
 
 # ---------- 실행 ----------

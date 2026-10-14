@@ -30,7 +30,9 @@ DEFAULT_WORK = os.path.join(REPO, ".work")
 DEFAULT_OUT = os.path.join(REPO, "data")
 ALLOWED = set(rr.SERIES) - set(rp.RESTRICTED)
 NOTICE_CHARTS = {"sofr"}                      # 참조금리 고지를 함께 싣는 그래프
-LOOKBACK = datetime.timedelta(days=400)       # 전년비·3개월 변화·60영업일 상관이 기간 첫 점에서 보는 과거(1년+여유)
+# 기간 첫 점의 계산이 보는 과거 — 전년비·3개월 변화·60영업일 상관은 1년+여유면 되지만, 실업률 상승 폭은 직전 12개월
+# 각각의 3개월 평균이라 14개월 전 달(최대 428일)까지 본다(2026-10-14, 400일이면 첫 몇 점이 2개월 평균으로 바뀌었다)
+LOOKBACK = datetime.timedelta(days=460)
 
 
 # ---------- 점마다 규칙 함수로 ----------
@@ -73,6 +75,19 @@ def _reserves_gdp(S, d):
     w = upto(S["WRESBAL"], d)
     g = S["GDP"][-1] if w and w[-1][0] == S["WRESBAL"][-1][0] else ff.on_or_before(S["GDP"], d)
     return w[-1][1] / 1000 / g[1] * 100 if w and g and g[1] else None
+
+
+def _core_mom(S, d):
+    """근원 PCE 6개월 연율 − 전년비(%p) — regime_check.compute와 같게: 둘 다 정확한 기준 달이 있고 같은 달을 가리킬 때만."""
+    s = upto(S["PCEPILFE"], d)
+    a6, py = ff.ann_rate_months(s, 6), ff.yoy(s, same_month=True)
+    return a6["value"] - py["value"] if a6 and py and a6["asof"] == py["asof"] else None
+
+
+def _unrate_rise(S, d):
+    """실업률 3개월 평균 − 직전 12개월 최저 3개월 평균(%p) — 카드와 같은 ff.sahm_stats."""
+    r = ff.sahm_stats(upto(S["UNRATE"], d))
+    return r["value"] if r else None
 
 
 def _sampled(base, calc):
@@ -171,6 +186,16 @@ def chart_table():
         "employment": _chart("employment", "미 증권·투자업 고용 전년비", "%", 3, threshold=0.0, lines=[
             _line("emp_yoy", "고용 전년비", "main", ["CES5552300001"],
                   _sampled("CES5552300001", _yoy("CES5552300001")))]),
+        "core_momentum": _chart("core_momentum", "근원 PCE 6개월 연율 − 전년비", "%p", 3, zero=True,
+                                threshold=th["core_mom_gap"],
+                                note="6개월 전이나 1년 전 같은 달 관측치가 없는 달은 비운다", lines=[
+            _line("core_mom", "6개월 연율 − 전년비", "main", ["PCEPILFE"], _sampled("PCEPILFE", _core_mom))]),
+        "unemployment_rise": _chart("unemployment_rise", "실업률 3개월 평균 상승 폭", "%p", 3, zero=True,
+                                    threshold=th["unrate_rise"],
+                                    note="빠진 달이 낀 3개월 평균은 남은 2개월로 계산 — FRED 현재 개정치로 다시 계산한 값이라 "
+                                         "발표 당시와 다를 수 있다", lines=[
+            _line("unrate_rise", "3개월 평균 − 직전 12개월 최저", "main", ["UNRATE"],
+                  _sampled("UNRATE", _unrate_rise))]),
         "sofr": _chart("sofr", "SOFR 3개월 변화", "%p", 3, zero=True, threshold=th["sofr_rise_3m"],
                        note="주마다 마지막 관측일의 91일 전 대비 변화(카드 값과 같은 계산) — 월말·분기말 급등이 섞일 수 있다",
                        lines=[_line("sofr_chg_3m", "SOFR 3개월 변화", "main", ["SOFR"], _sampled("SOFR", _chg3m("SOFR")))]),

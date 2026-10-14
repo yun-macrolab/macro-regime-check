@@ -157,7 +157,8 @@ class RenderPublicTest(unittest.TestCase):
         uses = {"ndfi_credit": ["ndfi_step_bn", "ndfi_two_digit"], "credit_spread": ["spread_widen_pp", "hy_oas_break"],
                 "stock_bond_corr": ["corr_run_days"], "real_rate_bei": ["real_rate_c"],
                 "core_inflation": ["core_pce_split"], "term_premium": ["tp_drop_3m"], "sofr": ["sofr_rise_3m"],
-                "reserves_multiplier": ["reserves_gdp_low", "reserves_gdp_rise_3m", "reserves_pce_floor"]}
+                "reserves_multiplier": ["reserves_gdp_low", "reserves_gdp_rise_3m", "reserves_pce_floor"],
+                "core_momentum": ["core_mom_gap"], "unemployment_rise": ["unrate_rise"]}
         for key, ths in uses.items():
             for th in ths:
                 orig = rr.TH[th]
@@ -167,6 +168,40 @@ class RenderPublicTest(unittest.TestCase):
                 finally:
                     rr.TH[th] = orig
                 self.assertIn("131" if th == "corr_run_days" else "12.345", rule, (key, th))
+
+    def test_new_rule_sentences_and_observations(self):
+        # 2026-10-14 두 규칙 — 문장은 정해 둔 그대로(임계값만 TH), 관측치는 원본 지표의 값·자료일
+        pub = {r["key"]: r for r in self.pubs[0]["rules"]}
+        self.assertEqual(pub["core_momentum"]["rule"], "근원 PCE 6개월 연율이 전년비보다 0.5%p 이상 높으면 충족 "
+                         "(기준 달이 빠진 구간은 계산하지 않음)")
+        self.assertEqual(pub["unemployment_rise"]["rule"], "실업률 3개월 평균이 직전 12개월 중 가장 낮은 3개월 평균보다 "
+                         "0.5%p 이상 높으면 충족 (빠진 달이 낀 평균은 2개월로 계산)")
+        ind = self.raw["indicators"]
+        rnd = lambda v: round(v, 3)
+        got = [(o["label"], o["value"], o["asof"], o["computed"], o["series"]) for o in pub["core_momentum"]["observations"]]
+        self.assertEqual(got, [
+            ("근원 PCE 6개월 연율", rnd(ind["core_pce_a6"]["value"]), ind["core_pce_a6"]["asof"], True, ["PCEPILFE"]),
+            ("근원 PCE 전년비", rnd(ind["core_pce_yoy"]["value"]), ind["core_pce_yoy"]["asof"], True, ["PCEPILFE"]),
+            ("차이(6개월 연율 − 전년비)", rnd(ind["core_mom"]["value"]), ind["core_mom"]["asof"], True, ["PCEPILFE"])])
+        ur = ind["unrate_rise"]
+        got = [(o["label"], o["value"], o["asof"], o["computed"], o["series"])
+               for o in pub["unemployment_rise"]["observations"]]
+        self.assertEqual(got, [
+            ("상승 폭(3개월 평균 − 직전 12개월 최저)", rnd(ur["value"]), ur["asof"], True, ["UNRATE"]),
+            ("실업률 3개월 평균", rnd(ur["u3"]), ur["asof"], True, ["UNRATE"]),
+            ("직전 12개월 최저 3개월 평균", rnd(ur["low"]), ur["low_month"], True, ["UNRATE"])])   # 자료일 = 최저 창의 끝 달
+        self.assertEqual(ur["low_month"], "2025-08-01")               # make_cache의 손 계산(test_regime BuildTest와 같다)
+        self.assertNotEqual(ur["low_month"], ur["asof"])
+        for key in ("core_momentum", "unemployment_rise"):          # 공개본에는 규칙 엔진의 판정 문장이 나가지 않는다
+            text = next(s for s in self.raw["signals"] if s["key"] == key)["text"]
+            self.assertNotIn(text, json.dumps(self.pubs[0], ensure_ascii=False))
+
+    def test_unemployment_missing_month_warning_is_public(self):
+        # 실업률 결측월(make_cache의 2025-10) 경고는 공개 — 빠진 달과 계산 방식·개정치 안내뿐이다
+        warns = [w for w in self.pubs[0]["warnings"] if w.startswith("실업률 결측월")]
+        self.assertEqual(len(warns), 1)
+        self.assertIn("2025-10", warns[0])
+        self.assertIn(warns[0], self.raw["warnings"])
 
     def test_unknown_rule_key_fails_loudly(self):
         raw = {**self.raw, "signals": self.raw["signals"] + [{"key": "new_rule", "fired": True, "text": "?"}]}
@@ -228,6 +263,10 @@ class RenderPublicTest(unittest.TestCase):
                          "retrieved from FRED, Federal Reserve Bank of St. Louis; "
                          "https://fred.stlouisfed.org/series/DGS10, September 22, 2026.")
         self.assertEqual(rows["T10Y2Y"]["citation"].split(",")[0], "Federal Reserve Bank of St. Louis")
+        self.assertEqual(rows["UNRATE"]["citation"], "U.S. Bureau of Labor Statistics, Unemployment Rate [UNRATE], "
+                         "retrieved from FRED, Federal Reserve Bank of St. Louis; "
+                         "https://fred.stlouisfed.org/series/UNRATE, September 22, 2026.")
+        self.assertEqual((rows["UNRATE"]["owner"], rows["UNRATE"]["display"]), ("BLS", "value"))   # 공공 자료 — 제한 아님
         self.assertEqual(set(rp.FRED_SOURCE), set(rr.SERIES))
         self.assertEqual(set(rp.FRED_TITLE), set(rr.SERIES))
 

@@ -46,7 +46,7 @@ NOT_AFFILIATED = (f"{PUBLISHER} is not affiliated with the New York Fed. The New
                   f"or recommend any products or services offered by {PUBLISHER}. It is not sponsored by, affiliated with, "
                   "or endorsed by the Federal Reserve Bank of St. Louis or FRED®.")
 DATA_LICENSE = ("코드는 MIT 라이선스지만 자료(FRED·뉴욕 연은 등)는 그 대상이 아니다 — 각 출처의 이용 조건을 따른다. "
-                "SOFR은 newyorkfed.org 이용약관, 나머지는 FRED 이용약관과 시리즈별 저작권 표시.")
+                "SOFR·프라이머리 딜러 통계는 newyorkfed.org 이용약관, 나머지는 FRED 이용약관과 시리즈별 저작권 표시.")
 
 
 def nyfed_attribution(year):
@@ -75,8 +75,10 @@ OWNER = {"M2SL": "FRB", "BOGMBASE": "FRB", "M2V": "FRB St. Louis", "WRESBAL": "F
          "LNFACBW027SBOG": "FRB", "TOTLL": "FRB", "BUSLOANS": "FRB", "THREEFYTP10": "FRB (Kim-Wright)",
          "DGS10": "FRB", "T10Y2Y": "FRB St. Louis", "DFII10": "FRB", "T10YIE": "FRB St. Louis",
          "PCEPILFE": "BEA", "CPILFESL": "BLS", "SOFR": "FRBNY", "DEXKOUS": "FRB", "CES5552300001": "BLS",
-         **RESTRICTED}
-# FRED 시리즈 페이지가 적은 출처(Source) 그대로 — 인용 문구에 쓴다(2026-09-30 22개 시리즈 페이지에서 확인)
+         "UNRATE": "BLS", **RESTRICTED}
+# FRED 시리즈 페이지가 적은 출처(Source) 그대로 — 인용 문구에 쓴다(2026-09-30 22개 시리즈 페이지에서 확인).
+# UNRATE(2026-10-14 추가, BLS 가계 조사 CPS)는 FRED 권장 인용의 널리 알려진 꼴로 적었다 — 이 변경을 만든 환경에서는
+# FRED에 접속하지 못해 시리즈 페이지와 아직 대조하지 않았다
 _BOARD, _STL = "Board of Governors of the Federal Reserve System (US)", "Federal Reserve Bank of St. Louis"
 FRED_SOURCE = {"M2SL": _BOARD, "BOGMBASE": _BOARD, "M2V": _STL, "WRESBAL": _BOARD,
                "GDP": "U.S. Bureau of Economic Analysis", "LNFACBW027SBOG": _BOARD, "TOTLL": _BOARD, "BUSLOANS": _BOARD,
@@ -84,7 +86,8 @@ FRED_SOURCE = {"M2SL": _BOARD, "BOGMBASE": _BOARD, "M2V": _STL, "WRESBAL": _BOAR
                "BAMLC0A0CM": "Ice Data Indices, LLC", "SP500": "S&P Dow Jones Indices LLC", "DGS10": _BOARD,
                "T10Y2Y": _STL, "DFII10": _BOARD, "T10YIE": _STL, "PCEPILFE": "U.S. Bureau of Economic Analysis",
                "CPILFESL": "U.S. Bureau of Labor Statistics", "SOFR": "Federal Reserve Bank of New York",
-               "DEXKOUS": _BOARD, "CES5552300001": "U.S. Bureau of Labor Statistics"}
+               "DEXKOUS": _BOARD, "CES5552300001": "U.S. Bureau of Labor Statistics",
+               "UNRATE": "U.S. Bureau of Labor Statistics"}
 # FRED 권장 인용의 시리즈 제목(Suggested Citation 그대로, 2026-09-30 확인)
 FRED_TITLE = {
     "M2SL": "M2", "BOGMBASE": "Monetary Base: Total", "M2V": "Velocity of M2 Money Stock",
@@ -111,18 +114,21 @@ FRED_TITLE = {
     "DEXKOUS": "South Korean Won to U.S. Dollar Spot Exchange Rate",
     "CES5552300001": "All Employees, Securities, Commodity Contracts, Funds, Trusts, and Other Financial Vehicles, "
                      "Investments, and Related Activities",
+    "UNRATE": "Unemployment Rate",
 }
 _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
            "November", "December")
 # 공개 가능한 원본 경고 — 이 문구로 시작하는 것만 싣는다(미수신·경로가 섞인 오류 문구는 자료 신선도 표로 대신)
-WARNING_PREFIXES = ("NDFI 계단", "C&I YoY 기준치", "근원 CPI 결측월", "근원 CPI YoY 산출 불가")
+WARNING_PREFIXES = ("NDFI 계단", "C&I YoY 기준치", "근원 CPI 결측월", "근원 CPI YoY 산출 불가",
+                    "실업률 결측월")     # 빠진 달과 계산 방식·개정치 안내뿐(경로·예외 문구 없음, 2026-10-14)
 
 
-def _obs(key, label, unit, series, field="value", derived=False, computed=False):
+def _obs(key, label, unit, series, field="value", derived=False, computed=False, asof_field="asof"):
     """derived: 재배포 제한 시리즈에서 원값을 되살릴 수 없게 계산한 통계(상관)만. computed: 이 저장소가 원자료로
-    계산한 값(전년비·3개월 변화·비율·상관) — 페이지에 '계산값'으로 표시(원 발행처의 값으로 보이지 않게)."""
+    계산한 값(전년비·3개월 변화·비율·상관) — 페이지에 '계산값'으로 표시(원 발행처의 값으로 보이지 않게).
+    asof_field: 자료일을 읽을 필드 — 값이 가리키는 달이 기준일과 다를 때(직전 12개월 최저 → 그 3개월 평균의 끝 달)."""
     return {"key": key, "label": label, "unit": unit, "series": series, "field": field, "derived": derived,
-            "computed": computed or derived}
+            "computed": computed or derived, "asof_field": asof_field}
 
 
 def citation(sid, date):
@@ -195,6 +201,22 @@ def public_rules():
             "title": "미 증권·투자업 고용",
             "rule": "고용 전년비가 0보다 작으면 충족",
             "obs": [_obs("emp_yoy", "고용 전년비", "%", ["CES5552300001"], computed=True)]},
+        # 아래 둘(2026-10-14)은 문턱을 과거 자료로 고정한 중립 규칙 — '충족'은 조건이 성립한다는 사실만 뜻한다
+        "core_momentum": {
+            "title": "근원 물가의 최근 속도",
+            "rule": f"근원 PCE 6개월 연율이 전년비보다 {th['core_mom_gap']:g}%p 이상 높으면 충족 "
+                    "(기준 달이 빠진 구간은 계산하지 않음)",
+            "obs": [_obs("core_pce_a6", "근원 PCE 6개월 연율", "%", ["PCEPILFE"], computed=True),
+                    _obs("core_pce_yoy", "근원 PCE 전년비", "%", ["PCEPILFE"], computed=True),
+                    _obs("core_mom", "차이(6개월 연율 − 전년비)", "%p", ["PCEPILFE"], computed=True)]},
+        "unemployment_rise": {
+            "title": "실업률 상승 폭",
+            "rule": f"실업률 3개월 평균이 직전 12개월 중 가장 낮은 3개월 평균보다 {th['unrate_rise']:g}%p 이상 높으면 "
+                    "충족 (빠진 달이 낀 평균은 2개월로 계산)",
+            "obs": [_obs("unrate_rise", "상승 폭(3개월 평균 − 직전 12개월 최저)", "%p", ["UNRATE"], computed=True),
+                    _obs("unrate_rise", "실업률 3개월 평균", "%", ["UNRATE"], field="u3", computed=True),
+                    _obs("unrate_rise", "직전 12개월 최저 3개월 평균", "%", ["UNRATE"], field="low", computed=True,
+                         asof_field="low_month")]},
     }
 
 
@@ -219,7 +241,8 @@ def render(raw):
         spec = table[s["key"]]
         obs = [{"label": o["label"], "unit": o["unit"], "series": o["series"], "derived": o["derived"],
                 "computed": o["computed"],
-                "value": _round(ind.get(o["key"], {}).get(o["field"])), "asof": ind.get(o["key"], {}).get("asof")}
+                "value": _round(ind.get(o["key"], {}).get(o["field"])),
+                "asof": ind.get(o["key"], {}).get(o["asof_field"])}
                for o in spec["obs"]]
         rules.append({"key": s["key"], "title": spec["title"], "rule": spec["rule"], "status": _status(s["fired"]),
                       "observations": obs,

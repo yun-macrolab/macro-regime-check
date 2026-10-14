@@ -17,7 +17,7 @@ import regime_check as rck
 import render_public as rp
 import render_charts as rc
 from test_regime import make_cache, run_cli, daily, weekly, monthly
-from test_render_public import walk
+from test_render_public import walk, FORBIDDEN_TEXT
 
 TODAY = datetime.date(2026, 9, 22)
 D = datetime.date
@@ -35,6 +35,8 @@ RULE_LINES = {
     "reserves_multiplier": ["reserves_gdp"],
     "employment": ["emp_yoy"],
     "sofr": ["sofr_chg_3m"],
+    "core_momentum": ["core_mom"],                  # 2026-10-14 — 비교하는 양(차이) 하나만
+    "unemployment_rise": ["unrate_rise"],
 }
 OVERVIEW_LINES = {"yield10": ["dgs10", "dfii10", "bei"], "term": ["tp", "t10y2y"]}
 SPEC_KEYS = {"key", "title", "unit", "years", "zero", "threshold", "note", "source_note", "notices", "lines"}
@@ -81,6 +83,9 @@ def long_history(cache_dir, end=D(2026, 9, 18)):
         "CPILFESL": monthly(D(2018, 9, 1), [250 * 1.002 ** i for i in range(96)]),
         "BUSLOANS": monthly(D(2018, 9, 1), [2500 + 5 * i for i in range(96)]),
         "CES5552300001": monthly(D(2018, 9, 1), [1000 + i for i in range(96)]),
+        # 점점 빨리 오르는 실업률 — 직전 12개월 중 가장 이른 창이 최저라, 계산 여유가 모자라 첫 창이 2개월 평균이 되면
+        # 첫 점의 값이 달라진다(LongHistoryTest가 그것을 잡는다). 2025-10은 실제처럼 비운다
+        "UNRATE": [r for r in monthly(D(2018, 9, 1), [3.5 + 0.0003 * i * i for i in range(96)]) if r[0] != D(2025, 10, 1)],
         "GDP": [(q, 20000 * 1.012 ** i) for i, q in enumerate(quarters)],
     }
     for sid, rows in spec.items():
@@ -89,6 +94,14 @@ def long_history(cache_dir, end=D(2026, 9, 18)):
             for d, v in rows:
                 f.write(f"{d.isoformat()},{v}\n")
     return spec
+
+
+def write_csv(cache_dir, sid, rows):
+    """합성 캐시 CSV 하나를 rows로 덮어쓴다."""
+    with open(os.path.join(cache_dir, sid + ".csv"), "w", encoding="utf-8") as f:
+        f.write(f"observation_date,{sid}\n")
+        for d, v in rows:
+            f.write(f"{d.isoformat()},{v}\n")
 
 
 def last_point(line):
@@ -167,12 +180,14 @@ class ChartsTest(unittest.TestCase):
         expect = {"ci_vs_ngdp": None, "ndfi_credit": th["ndfi_two_digit"], "stock_bond_corr": None,
                   "curve_inversion": 0.0, "real_rate_bei": th["real_rate_c"], "core_inflation": th["core_pce_split"],
                   "term_premium": -th["tp_drop_3m"], "reserves_multiplier": th["reserves_gdp_low"], "employment": 0.0,
-                  "sofr": th["sofr_rise_3m"]}
+                  "sofr": th["sofr_rise_3m"], "core_momentum": th["core_mom_gap"], "unemployment_rise": th["unrate_rise"]}
         self.assertEqual({k: s["threshold"] for k, s in self.charts["rules"].items()}, expect)
-        with mock.patch.dict(rr.TH, {"ndfi_two_digit": 12.5, "tp_drop_3m": 0.4}):
+        with mock.patch.dict(rr.TH, {"ndfi_two_digit": 12.5, "tp_drop_3m": 0.4, "core_mom_gap": 0.7, "unrate_rise": 0.6}):
             ch, _ = rc.build(self.work)
         self.assertEqual(ch["rules"]["ndfi_credit"]["threshold"], 12.5)
         self.assertEqual(ch["rules"]["term_premium"]["threshold"], -0.4)
+        self.assertEqual(ch["rules"]["core_momentum"]["threshold"], 0.7)
+        self.assertEqual(ch["rules"]["unemployment_rise"]["threshold"], 0.6)
 
     # ---- 5·6. 기간·순서·기준일 ----
     def test_points_are_in_window_ascending_and_not_after_the_date(self):
@@ -251,6 +266,13 @@ class ChartsTest(unittest.TestCase):
         self.assertTrue(set(keys) <= SPEC_KEYS | LINE_KEYS | {"schema", "date", "generated_at", "attribution", "overview", "rules"}
                         | set(table["rules"]))
 
+    def test_chart_texts_avoid_forbidden_words(self):
+        # 공개 문구 원칙 — 그래프 자료의 글(제목·설명·선 이름·출처 줄)에도 시장 견해·내부 낱말이 없다
+        _, _, strs = walk(self.charts)
+        for s in strs:
+            for word in FORBIDDEN_TEXT:
+                self.assertNotIn(word, s, (word, s))
+
     def test_contract_shape(self):
         self.assertEqual(set(self.charts), {"schema", "date", "generated_at", "attribution", "overview", "rules"})
         self.assertEqual(self.charts["attribution"], rp.attribution(int(self.charts["date"][:4])))   # 파일만 받아 가도 출처가 따라가게
@@ -308,6 +330,76 @@ class ChartsTest(unittest.TestCase):
                                        if l["key"] == "core_cpi_yoy")["points"]))
             self.assertIsNone(cpi["2025-11-01"])
             self.assertIsNotNone(cpi["2025-12-01"])
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_new_rule_lines_use_the_rule_function_at_every_point(self):
+        # 2026-10-14 두 규칙 — 점마다 그 날까지 자른 원자료에 카드와 같은 함수(ann_rate_months·yoy·sahm_stats).
+        # make_cache의 근원 PCE는 일정한 속도라 차이가 늘 0이다 — 가속하는 경로로 바꿔 문턱(0.5%p)을 실제로 넘게 한다
+        tmp = tempfile.mkdtemp()
+        try:
+            work, _ = make_work(tmp)
+            fred = os.path.join(work, "fred")
+            pce = monthly(D(2023, 5, 1), [120 * (1.0015 ** min(i, 33)) * (1.005 ** max(0, i - 33)) for i in range(40)])   # 2026-02부터 가속
+            write_csv(fred, "PCEPILFE", pce)
+            rck.build(work, TODAY, offline=True, prev_regime="A")
+            with open(os.path.join(work, "raw", "latest.json"), encoding="utf-8") as f:
+                raw = json.load(f)
+            ch, _ = rc.build(work)
+            S = {sid: ff.load(sid, fred, offline=True)[0] for sid in ("PCEPILFE", "UNRATE")}
+            cut = lambda s, d: [x for x in s if x[0] <= d]
+
+            def gap(d):
+                s = cut(S["PCEPILFE"], d)
+                a6, py = ff.ann_rate_months(s, 6), ff.yoy(s, same_month=True)
+                return a6["value"] - py["value"] if a6 and py else None
+
+            def rise(d):
+                r = ff.sahm_stats(cut(S["UNRATE"], d))
+                return r["value"] if r else None
+
+            for rule, key, fn in (("core_momentum", "core_mom", gap), ("unemployment_rise", "unrate_rise", rise)):
+                pts = self.line(ch["rules"][rule], key)["points"]
+                self.assertGreater(len(pts), 12, rule)
+                for ds, v in pts:
+                    exp = fn(D.fromisoformat(ds))
+                    self.assertEqual(v, None if exp is None else round(exp, 3) + 0.0, (rule, ds))
+                ind = raw["indicators"][key]
+                self.assertEqual(pts[-1], [ind["asof"], round(ind["value"], 3)], rule)      # 마지막 점 = 카드 값
+            # 문턱을 넘는 구간이 실제로 그려지고, 카드 판정도 같은 쪽이다
+            mom = [v for _, v in self.line(ch["rules"]["core_momentum"], "core_mom")["points"] if v is not None]
+            self.assertGreaterEqual(max(mom), rr.TH["core_mom_gap"])
+            fired = {s["key"]: s["fired"] for s in raw["signals"]}
+            self.assertEqual(fired["core_momentum"], mom[-1] >= rr.TH["core_mom_gap"])
+            self.assertTrue(fired["core_momentum"])
+            # 실업률은 2025-10이 빠졌다 — 그 달의 점은 없고(관측일에만 점), 다음 달은 2개월 평균으로 이어진다
+            un = dict(map(tuple, self.line(ch["rules"]["unemployment_rise"], "unrate_rise")["points"]))
+            self.assertNotIn("2025-10-01", un)
+            self.assertIsNotNone(un["2025-11-01"])
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_core_momentum_missing_base_month_is_a_gap(self):
+        # 6개월 전 달이 빠지면 그 달의 차이는 비운다(null) — 7개월 변화를 6개월 연율이라 부르지 않는다
+        tmp = tempfile.mkdtemp()
+        try:
+            work, _ = make_work(tmp)
+            self._rewrite(work, "PCEPILFE", lambda d: d != D(2025, 10, 1))
+            ch, _ = rc.build(work)
+            mom = dict(map(tuple, self.line(ch["rules"]["core_momentum"], "core_mom")["points"]))
+            self.assertIsNone(mom["2026-04-01"])                      # 6개월 전 = 2025-10(빠짐)
+            self.assertIsNotNone(mom["2026-05-01"])
+            self.assertIsNotNone(mom["2025-11-01"])                   # 6개월 전 2025-05 · 1년 전 2024-11은 있다
+        finally:
+            shutil.rmtree(tmp)
+        tmp = tempfile.mkdtemp()                                      # 1년 전 달이 빠져도 비운다(13개월 변화를 전년비라 부르지 않는다)
+        try:
+            work, _ = make_work(tmp)
+            self._rewrite(work, "PCEPILFE", lambda d: d != D(2025, 3, 1))
+            ch, _ = rc.build(work)
+            mom = dict(map(tuple, self.line(ch["rules"]["core_momentum"], "core_mom")["points"]))
+            self.assertIsNone(mom["2026-03-01"])                      # 1년 전 = 2025-03(빠짐) · 6개월 전 2025-09는 있다
+            self.assertIsNotNone(mom["2026-02-01"])
         finally:
             shutil.rmtree(tmp)
 
@@ -414,6 +506,20 @@ class LongHistoryTest(unittest.TestCase):
             self.assertTrue(start <= first <= start + datetime.timedelta(days=gap), (l["key"], first, start))
             self.assertIsNotNone(l["points"][0][1], l["key"])
 
+    def test_unemployment_rise_sees_the_whole_twelve_month_window_from_the_first_point(self):
+        # 실업률 상승 폭은 직전 12개월 각각의 3개월 평균 — 기간 첫 점도 14개월 전 달까지 봐야 카드와 같은 계산이다
+        full = self.spec["UNRATE"]
+        pts = next(l for _, l in self.lines() if l["key"] == "unrate_rise")["points"]
+        for ds, v in pts:
+            d = D.fromisoformat(ds)
+            self.assertEqual(v, round(ff.sahm_stats([x for x in full if x[0] <= d])["value"], 3), ds)
+        # 위 검사가 헛돌지 않게 — 예전 계산 여유(400일)로 자르면 첫 점의 값이 달라진다
+        start = ff.shift_year(TODAY, -3)
+        d0 = D.fromisoformat(pts[0][0])
+        short = [x for x in full if start - datetime.timedelta(days=400) <= x[0] <= d0]
+        self.assertNotEqual(round(ff.sahm_stats(short)["value"], 3), pts[0][1])
+        self.assertGreaterEqual(rc.LOOKBACK.days, 428)                # 14개월 전 달 1일까지의 최대 일수
+
     def test_daily_lines_have_one_point_per_week_at_its_last_observation(self):
         daily_lines = [(s, l) for s, l in self.lines() if rr.SERIES[l["series"][0]][1] == "D"]
         self.assertGreaterEqual(len(daily_lines), 7)
@@ -499,6 +605,29 @@ class PageStaticTest(unittest.TestCase):
             for tok in self.FORBIDDEN:
                 self.assertNotIn(tok, text, (name, tok))
             self.assertFalse(re.search(r"<script[^>]*\bsrc=[\"']?(https?:)?//", text), name)
+
+    def test_every_rule_has_a_group_a_learn_line_and_the_menu_count(self):
+        # 규칙을 더하면 화면의 묶음(GROUPS)·카드 설명(LEARN)·상단 메뉴의 개수도 함께 고친다 —
+        # 빠지면 카드가 '그 밖의 지표'로 가거나, 자료를 읽기 전에 보이는 메뉴 숫자가 어긋난다(2026-10-14 두 규칙 추가 때)
+        html = self.read("index.html")
+        start = html.index("const GROUPS = [")
+        groups = html[start:html.index("];", start)]
+        keys = {gid: re.findall(r'"(\w+)"', ks) for gid, ks in re.findall(r'id: "(\w+)".*?keys: \[([^\]]*)\]', groups)}
+        rules = set(rp.public_rules())
+        self.assertEqual(sorted(k for ks in keys.values() for k in ks), sorted(rules))
+        self.assertIn("core_momentum", keys["inflation"])
+        self.assertIn("unemployment_rise", keys["credit"])
+        start = html.index("const LEARN = {")
+        learn = html[start:html.index("};", start)]
+        self.assertEqual(set(re.findall(r'^\s+(\w+): "', learn, re.M)), rules)
+        for gid, ks in keys.items():
+            m = re.search(r'data-view="%s"[^>]*>.*?<span>(\d+)</span>' % gid, html)
+            self.assertEqual(int(m.group(1)), len(ks), gid)
+        for key in ("core_momentum", "unemployment_rise"):                 # 새 카드 설명도 공개 문구 원칙대로
+            text = re.search(r'^\s+%s: "([^"]*)"' % key, learn, re.M).group(1)
+            self.assertIn("충족", text)
+            for word in FORBIDDEN_TEXT:
+                self.assertNotIn(word, text, (key, word))
 
     def test_page_loads_charts_script_and_data(self):
         html = self.read("index.html")

@@ -253,6 +253,16 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .tpf .tpf-arrow { fill: var(--black); stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: miter; }
 .tpf .tpf-link { fill: none; stroke: var(--ink); stroke-width: 1; stroke-linecap: square; }
 .tpf .tpf-obs { fill: none; stroke: var(--gold); stroke-width: 1; }   /* TFP → 'TFP를 보는 값' — 영향이 아니라 관측이라 점선과 다르게 */
+/* 수급 참고(읽는 법 안, 흐름도 바로 뒤) — 판정에 쓰지 않는 두 지표의 숫자 두 줄과 작은 그래프. 금색은 흐름도의 것이라 쓰지 않는다.
+   숫자 줄은 좁은 화면에서 아무 데서나 접는다(390px에서 가로로 넘치지 않게). 그래프는 카드의 다른 그래프와 같은 틀(.rule figure.ch) */
+.supply { margin: 14px 0 2px; padding-top: 8px; border-top: 1px solid var(--rule); }
+.rule-guide .supply p { margin: 4px 0 0; line-height: 1.6; overflow-wrap: anywhere; }
+.rule-guide .supply .supply-name { margin-top: 12px; }
+.supply-head { font-size: 13px; }
+.supply-name small { font: 400 11.5px var(--f-mono); }
+.supply-num { color: var(--amber); font-variant-numeric: tabular-nums; }
+.supply-flag { color: var(--key); }
+.supply-late { color: var(--alert); }
 
 /* ── 출처 ── */
 .source-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 10px 0; }
