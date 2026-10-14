@@ -12,7 +12,7 @@ import os, hashlib, unittest
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 FRED_FETCH_SHA256 = "ab9d9a555301a89317f49e474fd01941bf78a072ebcc0671a9009e8980345889"
-REGIME_RULES_BODY_SHA256 = "8e230e7aa6aaa33335cd12392e359a56c1f480c2380340040954552aaf638bd4"    # 8행부터
+REGIME_RULES_BODY_SHA256 = "bf63177017ddffb92bc5f6106512f89d1e08d82938b268025367265c2e055a5c"    # 8행부터
 HEADER_LINES = 7
 FIX = ("두 저장소(이 저장소 scripts/ · 비공개 저장소)의 사본을 함께 고치고, "
        "두 저장소 test_shared_files.py의 상수 둘(FRED_FETCH_SHA256 · REGIME_RULES_BODY_SHA256)을 함께 새 값으로 바꿀 것")
