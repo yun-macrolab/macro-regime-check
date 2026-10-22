@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "checked_at": "2026-10-21T00:41:00+00:00",
-  "ok": true,
-  "stage": "ok",
-  "message": "정상 갱신",
+  "checked_at": "2026-10-22T00:43:44+00:00",
+  "ok": false,
+  "stage": "fetch",
+  "message": "자료 수신 실패 — 직전 공개본을 유지한다",
   "data_date": "2026-10-21",
   "last_success": "2026-10-21T00:41:00+00:00",
-  "run_url": "https://github.com/yun-macrolab/macro-regime-check/actions/runs/39522633898"
+  "run_url": "https://github.com/yun-macrolab/macro-regime-check/actions/runs/39701276914"
 }
