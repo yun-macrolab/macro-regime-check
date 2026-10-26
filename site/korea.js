@@ -128,6 +128,9 @@ window.KoreaMarket = (() => {
     } else schedule.append(node("p","market-warning","일정을 불러오지 못했습니다."));
     const results=node("article","panel",node("h3","","최근 국고채 입찰 결과"));
     if(feedNote("auctions"))results.append(node("p","market-warning",feedNote("auctions")));
+    const shown=new Set((data.auctions||[]).map(a=>a.id)), missed=data.feeds?.auctions?.skipped;
+    const unreadResults=Array.isArray(missed) ? missed.filter(s=>!shown.has(s.id)) : [];   // 전에 읽은 값이 남은 공고는 빼고
+    if(unreadResults.length)results.append(node("p","market-warning","입찰 결과 공고 "+unreadResults.length+"건을 읽지 못했습니다. 원문은 공식 결과 목록에서 확인해 주세요."));
     if(data.auctions?.length) results.append(table(["입찰일","만기","입찰금액","응찰률","평균 낙찰금리","원문"],data.auctions.map(a=>
       [a.date,a.tenor,number(a.offered_100m,"억원"),number(a.bid_cover_pct,"%"),number(a.yield_pct,"%"),sourceLink("결과",a.source_url)]),"최근 국고채 경쟁입찰 결과"));
     else results.append(node("p","market-warning","확인된 입찰 결과가 없습니다."));

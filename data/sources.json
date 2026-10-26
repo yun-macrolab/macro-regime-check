@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "updated": "2026-10-08",
+ "updated": "2026-10-26",
  "groups": [
   {"id": "bond", "label": "채권"},
   {"id": "analyst", "label": "애널"},
@@ -28,7 +28,8 @@
   {"handle": "shStrategy", "label": "신한 리서치본부 주식전략/시황/퀀트", "group": "analyst", "role": "context", "title_sha": "a9951e2f42aabe52"},
   {"handle": "Samsung_Global_AI_SW", "label": "삼성 글로벌 AI/SW", "group": "analyst", "role": "topic", "title_sha": "9d037e32dcac114a"},
   {"handle": "Onionfarmer", "label": "양파농장", "group": "personal", "role": "source", "title_sha": "f9d7c10cf1dd07d9"},
-  {"handle": "haelangdal123", "label": "해랑달의 Moneymoves", "group": "personal", "role": "source", "title_sha": "a93e3e6d654b9c17"},
+  {"handle": "newmoneymovesio", "label": "해랑달의 Moneymoves", "group": "personal", "role": "source", "title_sha": "a93e3e6d654b9c17"},
+  {"handle": "haelangdal123", "label": "해랑달’s Takes & Notes", "group": "personal", "role": "off", "title_sha": null},
   {"handle": "shmstory", "label": "시황맨의 주식이야기", "group": "personal", "role": "source", "title_sha": "f61a9748471390ec"},
   {"handle": "ihresearch", "label": "IH Research", "group": "personal", "role": "source", "title_sha": "9e3f646239c2451a"},
   {"handle": "paranhanl20", "label": "파하의 아카이빙 노트", "group": "personal", "role": "source", "title_sha": "245f845506595a54"},

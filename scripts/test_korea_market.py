@@ -5,6 +5,7 @@ import io
 import json
 import tempfile
 import unittest
+import urllib.error
 import zipfile
 from pathlib import Path
 from xml.sax.saxutils import escape
@@ -219,6 +220,84 @@ class OfferingIsolationTests(unittest.TestCase):
         self.assertEqual(code, 1)                                       # 다른 묶음(빈 응답)은 실패 — 종료코드는 그대로
         self.assertTrue(saved["feeds"]["offerings"]["ok"])
         self.assertIn("::warning::한국은행 발행공고 1건을 읽지 못함 — 2 pdf_link", lines)
+
+
+AUCTION50 = ("□ 입찰개요 ㅇ 입찰일시 : ’26.10.16.(금) 10:40∼11:00 (발행일: ’26.9.10.) ㅇ 입찰금액 : 50년물(국고04625-7609) 6,000억원 "
+             "□ 응찰결과 ㅇ 응찰금액 : 14,760억원 ㅇ 응찰률 : 246.0% ㅇ 응찰금리 : 3.000 ~ 4.330% □ 입찰결과 ㅇ 낙찰금액 : 6,000억원 "
+             "ㅇ 낙찰금리 : 4.195% ㅇ 부분낙찰률 : 12.5%")
+RESULT_TEXT = {"1": (AUCTION.replace("30년물", "5년물").replace("’26.10.7.", "’26.10.6."), 5),
+               "2": (AUCTION50, 50), "3": (AUCTION, 30)}
+
+
+def results_board(texts=None, ids=("1", "2", "3")):
+    """입찰 결과 목록·상세를 돌려주는 가짜 fetch. 값이 예외면 그 요청에서 던진다. 다른 묶음은 빈 응답."""
+    texts = texts or {}
+    def fetch(url, *args):
+        if url == k.RESULTS:
+            return "".join(f'<a href="javascript:fn_egov_updateView(&quot;MOSF_{i}&quot;);">'
+                           f'국고채 {RESULT_TEXT[i][1]}년물 경쟁입찰 결과</a>' for i in ids).encode()
+        if url.startswith(k.DETAIL):
+            i = url.split("searchSn=MOSF_")[1].split("&")[0]
+            v = texts.get(i, RESULT_TEXT[i][0])
+            if isinstance(v, Exception): raise v
+            return notice(v)
+        return b""
+    return fetch
+
+
+class AuctionResultTests(unittest.TestCase):
+    """입찰 결과도 공고마다 따로(2026-10-26 — 10-16 50년물 결과 공고 하나 때문에 10-17부터 결과 묶음 전체가 실패했다)."""
+    def build(self, fetch, old=None):
+        with patch("builtins.print") as out:
+            r = k.build(old or {}, dt.datetime(2026, 10, 26, tzinfo=k.UTC), fetch)
+        return r, "\n".join(str(c.args[0]) for c in out.call_args_list)
+
+    def test_single_award_rate_of_50y(self):
+        r = k.parse_result(notice(AUCTION50), 'MOSF_2', 50, TODAY.replace(day=26))
+        self.assertEqual((r['date'], r['tenor'], r['offered_100m'], r['awarded_100m'], r['bid_cover_pct'], r['yield_pct']),
+                         ('2026-10-16', '50년', 6000, 6000, 246.0, 4.195))
+
+    def test_weighted_rate_still_wins_and_other_labels_rejected(self):
+        both = AUCTION + " 낙찰금리 : 9.999%"
+        self.assertEqual(k.parse_result(notice(both), 'MOSF_1', 30, TODAY)['yield_pct'], 4.495)       # 가중평균이 있으면 그것
+        with self.assertRaises(ValueError):
+            k.parse_result(notice(AUCTION50.replace("낙찰금리", "최저낙찰금리")), 'MOSF_2', 50, TODAY.replace(day=26))
+        with self.assertRaises(ValueError):
+            k.parse_result(notice(AUCTION50 + " ㅇ 낙찰금리 : 4.200%"), 'MOSF_2', 50, TODAY.replace(day=26))  # 두 번이면 가르지 않는다
+
+    def test_one_unreadable_result_keeps_the_others(self):
+        r, log = self.build(results_board(texts={"2": AUCTION50.replace("낙찰금리 : 4.195%", "낙찰금리 : 미정")}))
+        f = r["feeds"]["auctions"]
+        self.assertTrue(f["ok"])
+        self.assertEqual([a["id"] for a in r["auctions"]], ["MOSF_1", "MOSF_3"])
+        self.assertEqual(f["skipped"], [{"id": "MOSF_2", "reason": "field_changed"}])
+        self.assertIn("auctions skip MOSF_2: field_changed", log)
+
+    def test_previous_result_reading_is_kept(self):
+        prev = k.parse_result(notice(AUCTION50), "MOSF_2", 50, TODAY.replace(day=26))
+        old = {"schema": 1, "feeds": {"auctions": {"data": [prev], "last_success": "previous"}}}
+        r, _ = self.build(results_board(texts={"2": urllib.error.URLError("down")}), old)
+        self.assertEqual([a["id"] for a in r["auctions"]], ["MOSF_1", "MOSF_2", "MOSF_3"])
+        self.assertEqual(r["auctions"][1], prev)
+        self.assertEqual(r["feeds"]["auctions"]["skipped"], [{"id": "MOSF_2", "reason": "network"}])
+
+    def test_no_readable_result_fails_only_this_feed(self):
+        bad = {i: RESULT_TEXT[i][0].replace("입찰일시", "일시") for i in RESULT_TEXT}
+        old = {"schema": 1, "feeds": {"auctions": {"data": [{"id": "old"}], "last_success": "previous"}}}
+        r, _ = self.build(results_board(texts=bad), old)
+        f = r["feeds"]["auctions"]
+        self.assertEqual((f["ok"], f["reason"], r["auctions"]), (False, "unreadable_notices", [{"id": "old"}]))
+        self.assertEqual([x["reason"] for x in f["skipped"]], ["no_date"] * 3)
+
+    def test_result_ids_are_ascii(self):
+        raw = ('<a href="javascript:fn_egov_updateView(&quot;MOSF_١٢٣&quot;);">국고채 3년물 경쟁입찰 결과</a>'
+               '<a href="javascript:fn_egov_updateView(&quot;MOSF_77&quot;);">국고채 3년물 경쟁입찰 결과</a>')
+        self.assertEqual(k.result_links(raw.encode()), [("MOSF_77", 3)])
+
+    def test_result_skip_codes(self):
+        for msg, code in (("auction field changed", "field_changed"), ("missing auction date", "no_date"),
+                          ("bid cover mismatch", "bid_cover"), ("missing offering amount", "no_amount")):
+            self.assertEqual(k.skip_reason(ValueError(msg)), code)
 
 
 class ParserTests(unittest.TestCase):

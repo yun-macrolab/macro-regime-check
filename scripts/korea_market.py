@@ -286,7 +286,7 @@ def parse_calendar(raw, today=None):
 def result_links(raw):
     out = []
     for href, title in page(raw).links:
-        m = re.fullmatch(r'javascript:fn_egov_updateView\("(MOSF_\d+)"\);', href)
+        m = re.fullmatch(r'javascript:fn_egov_updateView\("(MOSF_[0-9]{1,15})"\);', href)
         tenor = re.search(r"^국고채\s+(2|3|5|10|20|30|50)년물", title)
         if m and tenor and "경쟁입찰 결과" in title:
             out.append((m[1], int(tenor[1])))
@@ -305,15 +305,18 @@ def parse_result(raw, ident, tenor, today):
     if not d: raise ValueError("missing auction date")
     date = dt.date(2000+int(d[1]), int(d[2]), int(d[3]))
     if date > today: raise ValueError("future auction result")
-    def field(label, suffix):
+    def field(label, suffix, need=True):
         matches = re.findall(label+r"\s*:\s*([\d,]+(?:\.\d+)?)\s*"+suffix, text)
+        if not matches and not need: return None
         if len(matches) != 1: raise ValueError("auction field changed")
         return float(matches[0].replace(",", ""))
     offered = re.search(r"입찰금액\s*:\s*"+str(tenor)+r"년물\([^)]*\)\s*([\d,]+)\s*억원", text)
     if not offered: raise ValueError("missing offering amount")
     offer = int(offered[1].replace(",", ""))
     bids = field("응찰금액", "억원"); ratio = field("응찰률", "%")
-    awarded = field("낙찰금액", "억원"); rate = field("가중평균낙찰금리", "%")
+    awarded = field("낙찰금액", "억원"); rate = field("가중평균낙찰금리", "%", need=False)
+    if rate is None:    # 50년물은 단일 '낙찰금리'(+부분낙찰률)만 싣는다(2026-10-16 결과 공고 실측)
+        rate = field("(?<![가-힣])낙찰금리", "%")
     if not (0 < offer < 1_000_000 and bids > 0 and awarded > 0 and 0 < rate < 20 and 0 < ratio < 5000):
         raise ValueError("auction values outside range")
     if abs(bids/offer*100-ratio) > 0.2: raise ValueError("bid cover mismatch")
@@ -373,7 +376,10 @@ def parse_offering_text(text, ident, code, today):
 SKIP_REASONS = {"ambiguous offering PDF": "pdf_link", "offering bond mismatch": "bond_mismatch",
                 "missing competitive section": "no_competitive_section", "ambiguous offering fields": "ambiguous_fields",
                 "offering outside range": "out_of_range", "unexpected offering PDF": "pdf_shape",
-                "oversized response": "oversized", "invalid notice id": "bad_id"}
+                "oversized response": "oversized", "invalid notice id": "bad_id",
+                "missing auction date": "no_date", "future auction result": "future", "auction field changed": "field_changed",
+                "missing offering amount": "no_amount", "auction values outside range": "out_of_range",
+                "bid cover mismatch": "bid_cover"}
 
 
 def skip_reason(exc):
@@ -435,19 +441,15 @@ def build(old, now, fetch=None):
             "fr_work_dt": (today-dt.timedelta(days=100)).strftime("%Y%m%d"), "to_work_dt": today.strftime("%Y%m%d"),
             "isu_cd": code, "date_sch_type": "dd", "prt_check": "SUN", "prt_type": "VL", "spread_tp": "1"}), today))
     run("calendar", lambda: parse_calendar(fetch(KTB+"/mnbyIsuCldr.do"), today))
-    def auctions():
-        # Re-read recent notices so corrections are picked up. Max eight public pages.
-        return [parse_result(fetch(result_url(ident)), ident, tenor, today) for ident, tenor in result_links(fetch(RESULTS))]
-    run("auctions", auctions)
-    skipped = []
-    def offerings():
-        # 공고마다 따로 읽는다 — 한 건의 양식이 달라도 나머지는 갱신한다. 못 읽은 공고는 고정 사유 코드로 남기고,
-        # 같은 공고를 전에 읽었으면 그 값을 둔다. 한 건도 못 읽으면 이 묶음만 실패(이전 자료 유지).
-        prev = {r.get("id"): r for r in (previous.get("offerings", {}).get("data") or []) if isinstance(r, dict)}
-        links, got = offering_links(fetch(OFFER_LIST)), []
-        for i, (ident, code) in enumerate(links):
+    def notices(name, links, read):
+        """공고마다 따로 읽는다 — 한 건의 양식이 달라도 나머지는 갱신한다(발행공고 2026-10-14, 입찰 결과 2026-10-26).
+        못 읽은 공고는 고정 사유 코드로 남기고, 같은 공고를 전에 읽었으면 그 값을 둔다. 한 건도 새로 못 읽으면
+        이 묶음만 실패(이전 자료 유지). links = [(공고 번호, 읽을 때 넘길 값)], read(번호, 값) → 행."""
+        prev = {r.get("id"): r for r in (previous.get(name, {}).get("data") or []) if isinstance(r, dict)}
+        got, skipped = [], skips[name]
+        for i, (ident, arg) in enumerate(links):
             try:
-                got.append(parse_offering(fetch(offering_pdf_url(fetch(offering_url(ident)))), ident, code, today))
+                got.append(read(ident, arg))
             except Exception as e:
                 skipped.append({"id": ident, "reason": skip_reason(e)})
                 if ident in prev: got.append(prev[ident])
@@ -457,15 +459,22 @@ def build(old, now, fetch=None):
                         if rest in prev: got.append(prev[rest])
                     break
         for s_ in skipped:
-            print(f"[korea_market] offerings skip {s_['id']}: {s_['reason']}")
+            print(f"[korea_market] {name} skip {s_['id']}: {s_['reason']}")
         if not any(r.get("id") not in {s_["id"] for s_ in skipped} for r in got):
             codes = {s_["reason"] for s_ in skipped} - {"not_tried"}     # 한 건도 새로 못 읽음 — 원인에 맞는 코드로
             if "timeout" in codes: raise FeedError("timeout")
             if codes and all(c == "network" or c.startswith("http_") for c in codes): raise FeedError("unavailable")
             raise FeedError("unreadable_notices")
         return got
-    run("offerings", offerings)
-    feeds["offerings"]["skipped"] = skipped
+    skips = {"auctions": [], "offerings": []}
+    # Re-read recent notices so corrections are picked up. Max eight public pages.
+    run("auctions", lambda: notices("auctions", result_links(fetch(RESULTS)),
+                                    lambda ident, tenor: parse_result(fetch(result_url(ident)), ident, tenor, today)))
+    run("offerings", lambda: notices("offerings", offering_links(fetch(OFFER_LIST)),
+                                     lambda ident, code: parse_offering(fetch(offering_pdf_url(fetch(offering_url(ident)))),
+                                                                        ident, code, today)))
+    for name, skipped in skips.items():
+        feeds[name]["skipped"] = skipped
     cards = []
     for name, (chart_id, _) in CHARTS.items():
         feed = feeds[name]; data = dict(feed["data"] or {})
@@ -517,10 +526,11 @@ def main(argv=None):
         return 1
     failed = [k for k, v in data["feeds"].items() if not v["ok"]]
     print(f"[korea_market] {len(data['cards'])} cards; {len(failed)} failed feeds")
-    skipped = data["feeds"]["offerings"].get("skipped") or []
-    if skipped:     # GitHub Actions 경고(실행을 실패로 만들지 않음) — 공고 번호와 고정 사유 코드만
-        print("::warning::한국은행 발행공고 " + str(len(skipped)) + "건을 읽지 못함 — "
-              + ", ".join(f"{s_['id']} {s_['reason']}" for s_ in skipped))
+    for name, what in (("auctions", "입찰 결과 공고"), ("offerings", "한국은행 발행공고")):
+        skipped = data["feeds"][name].get("skipped") or []
+        if skipped:     # GitHub Actions 경고(실행을 실패로 만들지 않음) — 공고 번호와 고정 사유 코드만
+            print(f"::warning::{what} " + str(len(skipped)) + "건을 읽지 못함 — "
+                  + ", ".join(f"{s_['id']} {s_['reason']}" for s_ in skipped))
     return int(bool(failed))
 
 
