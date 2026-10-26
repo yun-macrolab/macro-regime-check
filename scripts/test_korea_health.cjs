@@ -22,3 +22,7 @@ test('observation age is recalculated using Korean calendar dates',()=>{assert.e
 test('partial run flags only the failed feed, not the whole Korea section',()=>{const {data,run}=fixture();run.state='partial';run.ok=false;data.feeds.offerings={ok:false,reason:'unreadable_notices'};const r=health(data,run,expected,now);assert.equal(r.issue,'');assert.deepEqual([...r.failures],['offerings']);assert.equal(r.warning,true);});
 test('partial status must say ok false',()=>{const {data,run}=fixture();run.state='partial';run.ok=true;assert.match(health(data,run,expected,now).issue,/실패/);});
 test('partial status cannot bless an older snapshot',()=>{const {data,run}=fixture();run.state='partial';run.ok=false;run.started_at='2026-10-08T02:00:00Z';assert.match(health(data,run,expected,now).issue,/시각/);});
+test('unreadable notices are named after the feed that failed',()=>{const {failLabel}=scope.window.KoreaMarket;
+ assert.equal(failLabel('auctions',{ok:false,reason:'unreadable_notices'}),'입찰 결과 공고 형식 확인 실패');
+ assert.equal(failLabel('offerings',{ok:false,reason:'unreadable_notices'}),'발행공고 형식 확인 실패');
+ assert.equal(failLabel('auctions',{ok:false,reason:'timeout'}),'수신 시간 초과');assert.equal(failLabel('rates',{ok:false}),'수신 실패');});

@@ -40,9 +40,12 @@ window.KoreaMarket = (() => {
     const digits = unit === "계약" || unit === "억원" ? 0 : unit === "bp" ? 1 : 3;
     return (signed && v>0 ? "+" : "")+v.toLocaleString("ko-KR",{maximumFractionDigits:digits})+unit;
   }
+  function failLabel(key, f) {      // 같은 코드라도 묶음마다 읽은 공고가 다르다(입찰 결과 = 재정경제부, 예정액 = 한국은행)
+    return (f?.reason==="unreadable_notices" && key==="auctions" ? "입찰 결과 공고 형식 확인 실패" : reasons[f?.reason]) || "수신 실패";
+  }
   function feedNote(key) {
     const f = data?.feeds?.[key];
-    if(f?.ok!==true) return (reasons[f?.reason] || "수신 실패")+" · 마지막 성공 자료";
+    if(f?.ok!==true) return failLabel(key,f)+" · 마지막 성공 자료";
     return healthState?.issue ? healthState.issue+" · 자료일 확인" : "";
   }
   function refreshHealth() {
@@ -173,5 +176,5 @@ window.KoreaMarket = (() => {
   }
   setInterval(refreshHealth,60000);
   document.addEventListener("visibilitychange",refreshHealth);
-  return {render,setView,health,oldObservation};
+  return {render,setView,health,oldObservation,failLabel};
 })();
