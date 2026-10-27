@@ -297,7 +297,7 @@ class MainTest(unittest.TestCase):
             with open(os.path.join(cache, f"{sid}.csv"), "w", encoding="utf-8") as f:
                 f.write("observation_date," + sid + "\n" + "".join(f"{d.isoformat()},{v}\n" for d, v in s))
         buf = io.StringIO()
-        with contextlib.redirect_stdout(buf), mock.patch.object(ff, "urlopen_text", side_effect=AssertionError("요청")):
+        with contextlib.redirect_stdout(buf), mock.patch.object(ai.urllib.request, "urlopen", side_effect=AssertionError("요청")):
             code = ai.main(["--out", self.out, "--work", self.work, "--offline"], now=NOW)
         self.assertEqual(code, 0, buf.getvalue())
         self.assertTrue(all(it["ok"] for it in self.saved()["items"].values()))
@@ -331,6 +331,53 @@ class MainTest(unittest.TestCase):
         for key in ("power", "financing", "curve_30_10"):
             self.assertEqual((items[key]["ok"], items[key]["stale"]), (False, False), key)
             self.assertNotIn("line", items[key])
+
+    def test_a_lagging_series_keeps_its_own_date(self):
+        lag = dict(self.S, SP500=[p for p in self.S["SP500"] if p[0] <= D(2026, 10, 16)],
+                   NASDAQNDXTMC=[p for p in self.S["NASDAQNDXTMC"] if p[0] <= D(2026, 10, 2)])
+        self.run_main(fred=FakeFred(lag))
+        it = self.saved()["items"]["corr60"]
+        self.assertTrue(it["ok"])
+        self.assertEqual((it["date"], it["values"]["sp_date"], it["values"]["ndx_date"]),
+                         ("2026-10-23", "2026-10-16", "2026-10-02"))
+        self.assertIn("S&P 500 ", it["line"])
+        self.assertIn("(2026-10-16 기준)", it["line"])                            # 늦게 끝난 값을 칸 날짜의 값처럼 적지 않는다
+        self.assertIn("(2026-10-02 기준)", it["line"])
+        self.assertIn("(2026-10-02 기준)", self.saved()["items"]["partial60"]["line"])
+
+    def test_one_series_ending_earlier_than_before_is_not_taken(self):
+        self.run_main()
+        short = dict(self.S, WPU0543=[p for p in self.S["WPU0543"] if p[0] <= D(2026, 5, 1)])
+        self.run_main(fred=FakeFred(short), now=NOW + datetime.timedelta(days=1))
+        it = self.saved()["items"]["power"]
+        self.assertEqual((it["ok"], it["stale"], it["error"]), (False, True, ai.REASONS["older"]))
+        self.assertEqual(it["values"]["ppi_date"], "2026-09-01")                 # 칸 날짜(CPI)는 그대로여도
+
+    def test_carried_correlations_must_stay_within_minus_one_to_one(self):
+        self.run_main()
+        js = self.saved()
+        js["items"]["corr60"]["chart"]["lines"][1]["points"][0][1] = 7351.37     # 지수 수준 같은 값이 섞여 들어온 직전 파일
+        js["items"]["corr20"]["values"]["outside"] = 37.5                        # 비율(%)은 범위 밖이어도 된다
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(js, f, ensure_ascii=False)
+        self.run_main(fred=FakeFred(self.S, fail={"SP500", "NASDAQNQINTEL"}), now=NOW + datetime.timedelta(days=1))
+        items = self.saved()["items"]
+        self.assertEqual((items["corr60"]["stale"], "line" in items["corr60"]), (False, False))
+        self.assertTrue(items["corr20"]["stale"])
+        self.assertNotIn("7351.37", json.dumps(self.saved()))
+
+    def test_reference_lines_share_the_main_line_dates(self):
+        self.run_main()
+        for key, main_key, ref in (("corr20", "ai", "band_hi"), ("financing", "ratio", "median")):
+            lines = {ln["key"]: ln["points"] for ln in self.saved()["items"][key]["chart"]["lines"]}
+            self.assertEqual([p[0] for p in lines[ref]], [p[0] for p in lines[main_key]], key)
+
+    def test_a_missing_month_breaks_the_line(self):
+        self.run_main()
+        pts = dict(map(tuple, self.saved()["items"]["power"]["chart"]["lines"][1]["points"]))
+        self.assertIn("2025-10-01", pts)
+        self.assertIsNone(pts["2025-10-01"])                                   # 빈 달을 곧은 선으로 잇지 않는다
+        self.assertIsNotNone(pts["2025-09-01"])
 
     def test_budget_runs_out_without_waiting(self):
         t = [0.0]
@@ -388,6 +435,65 @@ class MainTest(unittest.TestCase):
                 self.assertNotIn(word, t, (word, t))
 
 
+class FetchTest(unittest.TestCase):
+    class Drip:
+        """한 번에 몇 바이트씩만 흘려보내는 응답 — 읽을 때마다 시계가 10초씩 간다."""
+        def __init__(self, clock, n=50):
+            self.clock, self.n = clock, n
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read1(self, size):
+            self.clock.t += 10
+            self.n -= 1
+            return b"x" * 10 if self.n > 0 else b""
+
+    class Clock:
+        def __init__(self):
+            self.t = 0.0
+
+        def __call__(self):
+            return self.t
+
+    def test_a_slow_dripping_response_stops_at_the_deadline(self):
+        clock = self.Clock()
+        opener = lambda url, timeout: self.Drip(clock)
+        with self.assertRaises(TimeoutError):
+            ai.fetch_csv("DGS30", deadline=60, clock=clock, opener=opener)
+        self.assertLessEqual(clock.t, 70)
+
+    def test_online_reads_never_fall_back_to_the_cache(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        with open(os.path.join(tmp, "DGS30.csv"), "w", encoding="utf-8") as f:
+            f.write("observation_date,DGS30\n2020-01-02,2.0\n")
+        def broken(url, timeout):
+            raise OSError("down")
+        with self.assertRaises(OSError):
+            ai.load_series("DGS30", tmp, False, deadline=1e9, opener=broken)
+        series, src = ai.load_series("DGS30", tmp, True, deadline=0)
+        self.assertEqual((series, src), ([(D(2020, 1, 2), 2.0)], "cache"))
+
+    def test_the_fetched_text_is_cached_for_offline_runs(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+
+        class Body(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+        opener = lambda url, timeout: Body(b"observation_date,DGS30\n2026-10-23,4.9\n")
+        series, src = ai.load_series("DGS30", tmp, False, deadline=1e12, opener=opener)
+        self.assertEqual((series, src), ([(D(2026, 10, 23), 4.9)], "net"))
+        self.assertEqual(ai.load_series("DGS30", tmp, True, deadline=0)[0], series)
+
+
 class StaticTest(unittest.TestCase):
     def read(self, *parts):
         with open(os.path.join(REPO, *parts), encoding="utf-8") as f:
@@ -397,12 +503,29 @@ class StaticTest(unittest.TestCase):
         wf = self.read(".github", "workflows", "daily.yml")
         step = wf[wf.index("id: ai_invest"):]
         self.assertIn("continue-on-error: true", step[:200])
-        self.assertIn("timeout-minutes: 3", step[:200])
+        self.assertIn("timeout-minutes: 2", step[:200])
+        job = wf[wf.index("\n  update:"):wf.index("\n  deploy:")]
+        self.assertIn("timeout-minutes: 15", job[:300])                          # 참고 단계 제한의 합이 일을 넘기지 않게
         self.assertIn("python scripts/ai_invest_fetch.py", step[:300])
         self.assertLess(wf.index("id: ai_invest"), wf.index("공개 전 검사(새 산출물 포함)"))
         self.assertLess(wf.index("id: ai_invest"), wf.index("git add data"))
         alert = wf[wf.index("\n  alert:"):]
         self.assertNotIn("ai_invest", alert)                                    # 실패해도 알림을 띄우지 않는다
+
+    def test_ai_alias_matches_only_whole_words(self):
+        page = self.read("site", "index.html")
+        views = page[page.index("const VIEWS = ["):page.index("function go(")]
+        self.assertNotIn('"ai"', views)                                          # 앞부분·포함 검색에 끼지 않는다('a' → 전체)
+        self.assertIn('["ai", "ai 투자", "인공지능", "데이터센터"].includes(q) ? ["ai"]', page)
+
+    def test_teaser_shows_the_first_item_of_each_channel(self):
+        js = self.read("site", "ai_invest.js")
+        teaser = re.findall(r'"(\w+)"', js[js.index("const TEASER = ["):].split("]")[0])
+        firsts = []
+        for spec in ai.ITEMS:
+            if spec["channel"] not in [ai.BY_KEY[k]["channel"] for k in firsts]:
+                firsts.append(spec["key"])
+        self.assertEqual(teaser, firsts)
 
     def test_page_reads_the_file_and_draws_the_block(self):
         page = self.read("site", "index.html")

@@ -71,7 +71,7 @@ jobs:
     # main에서만 — 다른 브랜치에서 수동 실행하면 그 브랜치 커밋이 main으로 밀려 올라간다
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15        # 참고 자료 단계 제한의 합(국고채 2 + 수급 2 + AI 2 + 한국 4)과 수집이 10분에 가깝다 — 넘치면 상태·커밋·배포가 다 빠진다
     permissions:
       contents: write   # 봇이 data/를 커밋한다
     outputs:
@@ -116,11 +116,12 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/supply_fetch.py
-      # 참고 자료 — AI 투자(FRED 공개 통계 + 재배포 제한 지수는 상관만, 요청 15회). 규칙 판정에 쓰지 않고, 실패해도 알림 없음
+      # 참고 자료 — AI 투자(FRED 공개 통계 + 재배포 제한 지수는 상관만, 요청 15회, 전체 60초 상한). 규칙 판정에 쓰지 않고,
+      # 실패해도 알림 없음
       - name: AI 투자 참고 자료 받기
         id: ai_invest
         continue-on-error: true
-        timeout-minutes: 3
+        timeout-minutes: 2
         run: python scripts/ai_invest_fetch.py
       - name: 한국 시장 갱신 시작 기록
         id: korea_start

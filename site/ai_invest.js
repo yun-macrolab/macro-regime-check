@@ -29,13 +29,13 @@ window.AiInvest = (() => {
 
   function item(it, key) {
     const name = isObj(it) && typeof it.name === "string" && it.name ? it.name : key;
-    if (!usable(it, key)) return el("div", { class: "ai-item" }, el("p", { class: "ai-name" }, el("strong", {}, name), " — 자료 없음"));
+    if (!usable(it, key)) return el("div", { class: "ai-item" }, el("h4", { class: "ai-name" }, name), el("p", { class: "muted" }, "자료 없음"));
     const since = typeof it.failed_since === "string" && DAY.test(it.failed_since) ? ` (${it.failed_since}부터)` : "";
     return el("div", { class: "ai-item panel" },
-      el("p", { class: "ai-name" }, el("strong", {}, name)),
+      el("h4", { class: "ai-name" }, name),
       el("p", { class: "ai-num" }, it.line),
       ...texts(it.extra).map(t => el("p", { class: "muted" }, t)),
-      it.stale === true ? el("p", { class: "ai-late" }, "이번 갱신에서 받지 못해 직전에 받은 값을 싣습니다" + since) : null,
+      it.stale === true ? el("p", { class: "ai-late" }, "이번 갱신의 값을 싣지 못해 직전에 받은 값을 싣습니다" + since) : null,
       chartFigure(it.chart, 190, false),
       el("div", { class: "notices" }, ...texts(it.notices).map(t => el("p", {}, t))));
   }

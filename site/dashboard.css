@@ -274,7 +274,7 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .ai-channel > p { margin: 2px 0 8px; font-size: 12px; }
 .ai-item { min-width: 0; }
 .ai-item p { margin: 4px 0 0; line-height: 1.6; font-size: 12.5px; overflow-wrap: anywhere; }
-.ai-item .ai-name { margin-top: 0; }
+.ai-item .ai-name { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
 .ai-num { color: var(--amber); font-variant-numeric: tabular-nums; }
 .ai-late { color: var(--alert); }
 .ai-item figure.ch { margin-top: 8px; }
