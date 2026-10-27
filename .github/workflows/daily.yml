@@ -13,6 +13,8 @@
 #           형식을 확인하지 못한 뉴욕 연은 단일 시계열 주소가 첫 실행부터 맞는다는 보장이 없어 매일 실패 메일이 오지 않게.
 #           한쪽 실패는 그 단계 로그의 경고 줄(::warning:: — 실행 요약에 보이고 단계는 초록)과 페이지의 '받지 못함'·'자료 없음'으로,
 #           두 쪽 다 실패하면 그 단계가 빨간 표시(실행 결과는 성공)로 보인다.
+#           AI 투자 참고 자료(ai_invest.json — FRED 공개 통계, 재배포 제한 지수는 상관만)도 같은 원칙이다: 칸마다 따로,
+#           못 받은 칸은 직전 값을 '받지 못함'과 함께 남기고 경고 줄을 찍는다. 알림에 넣지 않는다.
 #   deploy  data/·site/만 Pages로. 스크립트·원자료(.work/)는 배포하지 않는다.
 #   alert   수집·생성·그래프·국고채 참고 자료가 실패한 날은 마지막에 실행을 실패로 끝내 GitHub 알림 메일을 받는다.
 #
@@ -114,6 +116,12 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/supply_fetch.py
+      # 참고 자료 — AI 투자(FRED 공개 통계 + 재배포 제한 지수는 상관만, 요청 15회). 규칙 판정에 쓰지 않고, 실패해도 알림 없음
+      - name: AI 투자 참고 자료 받기
+        id: ai_invest
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python scripts/ai_invest_fetch.py
       - name: 한국 시장 갱신 시작 기록
         id: korea_start
         run: python scripts/korea_status.py --state started

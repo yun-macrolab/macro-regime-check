@@ -112,8 +112,12 @@
     const d0 = new Date(t0);
     if (t1 - t0 > 400 * DAY) {
       const y0 = d0.getUTCFullYear() + 1, y1 = new Date(t1).getUTCFullYear();
-      const gap = Math.max(1, Math.ceil((y1 - y0 + 1) / 40));      // 해 눈금은 많아야 40개 — 날짜가 깨진 자료에도 화면이 멈추지 않게
-      for (let y = y0; y <= y1; y += gap) xTick(Date.UTC(y, 0, 1), String(y));
+      // 해 눈금은 많아야 40개 — 날짜가 깨진 자료에도 화면이 멈추지 않게. 글자(4자리)가 겹치지 않게 해 사이가 36px 아래면
+      // 1·2·5·10…년 가운데 그만큼 벌어지는 가장 작은 간격으로(긴 기간 그래프 — 1990년 이후 같은)
+      const perYear = (R - L) / Math.max(1, (t1 - t0) / (365.25 * DAY));
+      let gap = Math.max(1, Math.ceil((y1 - y0 + 1) / 40));
+      for (const g of [1, 2, 5, 10, 20, 50]) if (g >= gap && g * perYear >= 36) { gap = g; break; }
+      for (let y = Math.ceil(y0 / gap) * gap; y <= y1; y += gap) xTick(Date.UTC(y, 0, 1), String(y));
     } else {
       const starts = [];
       for (let k = 1; k <= 14 && Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + k, 1) <= t1; k++)
