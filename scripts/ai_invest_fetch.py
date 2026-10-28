@@ -499,9 +499,10 @@ def month_states(S, since):
 
 
 def _at(states, keys, mk):
-    """mk 이하 가장 늦은 달의 상태(아직 발표 전인 달은 마지막 달 것으로). 없으면 None."""
+    """mk 이하 가장 늦은 달의 상태 — 시리즈 안의 빠진 달(UNRATE 2025-10 등)만 그 전 달로 잇는다. 마지막 자료 달 뒤(아직
+    발표 전)는 None: 띠·표 모두 '자료 달 기준'이라 발표되지 않은 달을 조건이 맞은 달로 세지 않는다."""
     i = bisect.bisect_right(keys, mk) - 1
-    return states[keys[i]] if i >= 0 else None
+    return states[keys[i]] if i >= 0 and mk <= keys[-1] else None
 
 
 def _era(d):
@@ -777,7 +778,7 @@ def texts(key, v, date):
         if v["d_e2_I"] == 0 and v["d_e2_B"] == 0:
             extra.append("1998~2020년에는 근원 PCE 전년비가 3%를 넘은 달이 없다 — 칸끼리 견줄 때 시대가 섞여 있다는 점을 함께 본다.")
         extra += ["과거 자료에서 두 조건의 변화가 상관 부호의 변화보다 일정하게 앞서지는 않았다 — 이 그림은 앞날을 가리키지 않는다.",
-                  "긴 기간의 주가는 나스닥 종합(기술주 비중이 크다)을 썼다. S&P 500은 FRED에 2016년 이후만 있어 그 기간만 함께 그렸다."]
+                  "긴 기간의 주가는 나스닥 종합(기술주 비중이 크다)을 썼다. S&P 500은 FRED에 최근 10년만 있어 그 기간만 함께 그렸다."]
         return (f"{date} 나스닥 종합 {_f(v['rho'], sign=True)}{sp} · 근원 PCE 전년비 {_f(v['pce'], unit='%')}"
                 f"({mlabel(v['pce_month'])}) · 실업률 상승 폭 {_f(v['ur'], unit='%p')}({mlabel(v['ur_month'])})", extra)
     raise KeyError(key)

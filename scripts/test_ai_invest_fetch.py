@@ -331,9 +331,10 @@ class NewItemsTest(unittest.TestCase):
         latest = lambda st, mk: st[max(k for k in st if k <= mk)]
         acc = {}
         for d, r in rho:
-            if r is None:
+            mk = ai._mkey(d)
+            if r is None or mk > max(infl) or mk > max(unemp):                 # 발표 전 달은 세지 않는다(자료 달 기준)
                 continue
-            i, u = latest(infl, ai._mkey(d))[1], latest(unemp, ai._mkey(d))[1]
+            i, u = latest(infl, mk)[1], latest(unemp, mk)[1]
             c = "B" if i and u else "I" if i else "U" if u else "N"
             e = "e1" if d.year <= 1997 else "e2" if d.year <= 2020 else "e3"
             for k in (e, "all"):
@@ -341,7 +342,8 @@ class NewItemsTest(unittest.TestCase):
         for (e, c), rs in acc.items():
             self.assertEqual(v[f"d_{e}_{c}"], len(rs), (e, c))
             self.assertAlmostEqual(v[f"m_{e}_{c}"], sum(rs) / len(rs), places=4)
-        self.assertEqual(sum(v[f"d_all_{c}"] for c in "IBUN"), sum(1 for _, r in rho if r is not None))
+        self.assertEqual(sum(v[f"d_all_{c}"] for c in "IBUN"),
+                         sum(1 for d, r in rho if r is not None and ai._mkey(d) <= min(max(infl), max(unemp))))
         self.assertLess(v["m_all_I"], -0.2)                                   # 합성 세계: 물가 달은 음(−)
         self.assertGreater(v["m_all_U"], 0.2)                                 # 실업률이 오르는 달은 양(+)
         self.assertEqual(v["r_e1_I"], 1)                                      # 1990~1994 한 덩어리
@@ -352,6 +354,19 @@ class NewItemsTest(unittest.TestCase):
         self.assertEqual(core["bands"]["infl"][0][1], ai._iso(ai._mday(first_end, True)))   # 성장이 늦춰진 뒤에도 전년비가 남는 달까지
         self.assertEqual(len(core["bands"]["infl"]), 2)                              # 1990년대 초 · 2022~23년
         self.assertEqual(core["lines"]["sp"][0][0][:4], "2017")              # S&P 500은 2016-10부터라 252일 뒤부터
+
+    def test_bands_stop_at_the_last_data_month(self):
+        S = long_world()
+        S["PCEPILFE"] = S["PCEPILFE"][:-2]                                   # PCE가 두 달 늦다(2026-07까지)
+        S["PCEPILFE"][-1] = (S["PCEPILFE"][-1][0], S["PCEPILFE"][-13][1] * 1.05)   # 마지막 달은 조건이 맞는다
+        core = ai.calc_sb_long(S)
+        self.assertEqual(core["bands"]["infl"][-1][1], "2026-07-31")          # 발표 전 8~10월로 늘리지 않는다
+        for rs in core["bands"].values():
+            self.assertTrue(all(r[1] <= "2026-09-30" for r in rs))
+        un = [p for p in S["UNRATE"] if p[0] != D(2015, 6, 1)]                # 시리즈 안의 빠진 달은 잇는다
+        S["UNRATE"] = un
+        v = ai.calc_sb_long(S)["values"]
+        self.assertGreater(v["d_all_N"] + v["d_all_U"] + v["d_all_I"] + v["d_all_B"], 0)
 
     def test_sb_long_table_and_text(self):
         S = long_world()
@@ -561,6 +576,18 @@ class MainTest(unittest.TestCase):
         self.assertIn("2025-10-01", pts)
         self.assertIsNone(pts["2025-10-01"])                                   # 빈 달을 곧은 선으로 잇지 않는다
         self.assertIsNotNone(pts["2025-09-01"])
+
+    def test_new_items_refuse_a_series_that_ends_earlier_than_before(self):
+        self.run_main()
+        for sid, key, field in (("PCEPILFE", "sb_long", "pce_month"), ("UNRATE", "sb_long", "ur_month"),
+                                ("HQMCB10YRP", "hq_spread", "s10_date")):
+            before = self.saved()["items"][key]["values"][field]
+            self.run_main(fred=FakeFred(dict(self.S, **{sid: self.S[sid][:-1]})), now=NOW + datetime.timedelta(days=1))
+            it = self.saved()["items"][key]
+            self.assertEqual((it["ok"], it["stale"], it["error"]), (False, True, ai.REASONS["older"]), sid)
+            self.assertEqual(it["values"][field], before, sid)
+            self.run_main(now=NOW + datetime.timedelta(days=2))                # 다음 날 다시 받으면 돌아온다
+            self.assertTrue(self.saved()["items"][key]["ok"], sid)
 
     def test_budget_runs_out_without_waiting(self):
         t = [0.0]
