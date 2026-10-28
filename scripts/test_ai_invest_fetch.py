@@ -21,7 +21,7 @@ NOW = datetime.datetime(2026, 10, 27, 1, 30, tzinfo=datetime.timezone.utc)
 SPEC_KEYS = {"key", "title", "unit", "years", "zero", "threshold", "note", "source_note", "notices", "lines"}
 LINE_KEYS = {"key", "label", "role", "series", "derived", "points"}
 # 재배포 제한 지수의 지어낸 수준 — 출력 어디에도 이 값이 나오면 안 된다(시작값을 눈에 띄게)
-LEVEL_START = {"SP500": 7351.37, "NASDAQNQINTEL": 1234.56, "NASDAQNDXTMC": 2468.13}
+LEVEL_START = {"SP500": 7351.37, "NASDAQNQINTEL": 1234.56, "NASDAQNDXTMC": 2468.13, "NASDAQCOM": 9876.54}
 
 
 def bdays(start, end):
@@ -49,18 +49,21 @@ def world(end=D(2026, 10, 23), seed=7):
     """{ID: [(date, value)]} — 일간 주가·금리, 월간·분기 통계. 주가 수익률이 금리 변화와 일정 몫 같이 움직인다."""
     rnd = random.Random(seed)
     days = bdays(D(2018, 10, 29), end)
-    S = {k: [] for k in ("SP500", "NASDAQNQINTEL", "NASDAQNDXTMC", "DGS10", "DGS30")}
+    S = {k: [] for k in ("SP500", "NASDAQNQINTEL", "NASDAQNDXTMC", "NASDAQCOM", "DGS10", "DGS30")}
     sp, aiv, ndx, y10, y30 = LEVEL_START["SP500"], LEVEL_START["NASDAQNQINTEL"], LEVEL_START["NASDAQNDXTMC"], 2.5, 3.0
+    com = LEVEL_START["NASDAQCOM"]
     for d in days:
         dy = rnd.gauss(0, 0.05)
         m = rnd.gauss(0, 0.01) + 0.05 * dy
         sp *= 1 + m
         aiv *= 1 + 1.2 * m + rnd.gauss(0, 0.008) + 0.03 * dy
         ndx *= 1 + 1.1 * m + rnd.gauss(0, 0.006) + 0.02 * dy
+        com *= 1 + 1.05 * m + rnd.gauss(0, 0.004)
         y10 += dy
         y30 += dy * 0.8 + rnd.gauss(0, 0.01)
         S["SP500"].append((d, sp))
         S["NASDAQNQINTEL"].append((d, aiv))
+        S["NASDAQCOM"].append((d, com))
         if d >= D(2022, 3, 21):
             S["NASDAQNDXTMC"].append((d, ndx))
         S["DGS10"].append((d, round(y10, 2)))
@@ -84,6 +87,45 @@ def world(end=D(2026, 10, 23), seed=7):
     S["PROFCONS"] = [(m, 60000 * 1.003 ** i) for i, m in enumerate(ms) if m <= D(2026, 8, 1)]
     S["WPU0543"] = [(m, 150 * 1.003 ** i) for i, m in enumerate(ms)]
     S["CUSR0000SEHF01"] = [(m, 200 * 1.0035 ** i) for i, m in enumerate(ms) if m != D(2025, 10, 1)]   # 결측월
+    S["PCEPILFE"] = [(m, 100 * 1.0022 ** i) for i, m in enumerate(ms)]
+    S["UNRATE"] = [(m, round(4.0 + 0.3 * math.sin(i / 11), 1)) for i, m in enumerate(ms) if m != D(2025, 10, 1)]
+    t30, t10 = dict(ai.monthly_mean(S["DGS30"])), dict(ai.monthly_mean(S["DGS10"]))
+    S["HQMCB30YRP"] = [(m, t30[m] + 0.9 + 0.2 * math.sin(i / 7)) for i, m in enumerate(sorted(t30))
+                       if m <= D(2026, 9, 1)]
+    S["HQMCB10YRP"] = [(m, t10[m] + 0.7) for m in sorted(t10) if m <= D(2026, 9, 1)]
+    return S
+
+
+def long_world(seed=11):
+    """1990~2026 — 물가 조건(근원 PCE 연 약 5%)인 달은 주가와 금리가 반대로(음), 실업률이 오르는 달은 같은 방향(양)으로 움직이는 세계."""
+    rnd = random.Random(seed)
+    ms = months(D(1985, 1, 1), D(2026, 9, 1))
+    infl_m = {m for m in ms if D(1990, 1, 1) <= m <= D(1994, 12, 1) or D(2022, 1, 1) <= m <= D(2023, 6, 1)}
+    pce, lvl = [], 100.0
+    for m in ms:
+        lvl *= 1.0042 if m in infl_m else 1.0015
+        pce.append((m, lvl))
+    un, u = [], 5.0
+    for m in ms:
+        if D(2001, 4, 1) <= m <= D(2002, 6, 1) or D(2008, 7, 1) <= m <= D(2009, 10, 1):
+            u += 0.15
+        elif u > 4.0:
+            u -= 0.05
+        un.append((m, round(u, 1)))
+    S = {"PCEPILFE": pce, "UNRATE": un, "NASDAQCOM": [], "DGS10": [], "SP500": []}
+    infl, unemp = ai.month_states(S, D(1985, 1, 1))
+    px, y = 5000.0, 6.0
+    for d in bdays(D(1989, 1, 2), D(2026, 10, 23)):
+        mk = ai._mkey(d)
+        i, u2 = infl.get(mk, (0, False))[1], unemp.get(mk, (0, False))[1]
+        beta = -0.1 if i else 0.1 if u2 else 0.03
+        dy = rnd.gauss(0, 0.05)
+        px *= 1 + rnd.gauss(0, 0.01) + beta * dy
+        y += dy
+        S["NASDAQCOM"].append((d, px))
+        S["DGS10"].append((d, round(y, 2)))
+        if d >= D(2016, 10, 24):
+            S["SP500"].append((d, px * 0.7))
     return S
 
 
@@ -204,6 +246,145 @@ class ArithmeticTest(unittest.TestCase):
             self.assertTrue(line)
 
 
+class NewItemsTest(unittest.TestCase):
+    """고신용 장기 스프레드(hq_spread)와 긴 기간 주가-금리 상관(sb_long) — 2026-10-28."""
+
+    def test_fast_rolling_corr_equals_pearson_everywhere(self):
+        rnd = random.Random(3)
+        days = bdays(D(2020, 1, 1), D(2024, 12, 31))
+        px, y, p, r = [], [], 100.0, 2.0
+        for d in days:
+            dy = rnd.gauss(0, 0.05)
+            p *= 1 + rnd.gauss(0, 0.01) + 0.05 * dy
+            r += dy
+            px.append((d, p))
+            y.append((d, round(r, 2)))
+        px[100] = (px[100][0], 0.0)                                            # 가격 0인 날도 같은 짝으로
+        slow, fast = ai.rolling_corr(px, y, 252), ai.rolling_corr_fast(px, y, 252)
+        self.assertEqual([d for d, _ in slow], [d for d, _ in fast])
+        for (_, a), (_, b) in zip(slow, fast):
+            self.assertAlmostEqual(a, b, places=9)
+
+    def test_flat_window_gives_none_like_pearson(self):
+        days = bdays(D(2020, 1, 1), D(2021, 6, 30))
+        px = [(d, 100.0 + i) for i, d in enumerate(days)]
+        y = [(d, 2.0) for d in days]                                         # 금리가 움직이지 않는다
+        self.assertTrue(all(v is None for _, v in ai.rolling_corr_fast(px, y, 252)))
+
+    def test_monthly_mean_skips_thin_months(self):
+        s = [(D(2026, 1, k), float(k)) for k in range(1, 21)] + [(D(2026, 2, k), 1.0) for k in range(1, 6)]
+        self.assertEqual(ai.monthly_mean(s), [(D(2026, 1, 1), 10.5)])          # 2월은 관측 5일 — 빈 달로 둔다
+
+    def test_hq_spread_is_par_minus_monthly_mean_with_gap_months_blank(self):
+        S = world()
+        S["DGS30"] = [p for p in S["DGS30"] if not D(2020, 3, 1) <= p[0] <= D(2020, 6, 30)]   # 국채 공백 넉 달
+        core = ai.calc_hq_spread(S)
+        v = core["values"]
+        t30 = dict(ai.monthly_mean(S["DGS30"]))
+        hq = dict(S["HQMCB30YRP"])
+        self.assertEqual(v["s30_date"], "2026-09-01")
+        self.assertAlmostEqual(v["s30"], (hq[D(2026, 9, 1)] - t30[D(2026, 9, 1)]) * 100, places=3)
+        self.assertAlmostEqual(v["s30_1y"], (hq[D(2025, 9, 1)] - t30[D(2025, 9, 1)]) * 100, places=3)
+        hist = [(hq[m] - t30[m]) * 100 for m in hq if m in t30 and m >= ai.HQ_PCT_FROM]
+        self.assertEqual(v["n30"], len(hist))
+        self.assertAlmostEqual(v["le30"], sum(x <= v["s30"] + 1e-4 for x in hist) / len(hist) * 100, places=3)   # s30은 소수 넷째 자리
+        pts = dict(map(tuple, core["lines"]["s30"]))
+        self.assertIsNone(pts["2020-04-01"])                                  # 공백 달은 선을 끊는다
+        self.assertIsNotNone(pts["2020-02-01"])
+
+    def test_hq_spread_leaves_out_the_months_dgs30_was_discontinued(self):
+        S = world()
+        ms = months(D(2001, 1, 1), D(2007, 12, 1))
+        S["DGS30"] = [(d, 5.0) for m in ms for d in bdays(m, m + datetime.timedelta(days=27))] + S["DGS30"]
+        S["HQMCB30YRP"] = [(m, 6.0) for m in ms] + S["HQMCB30YRP"]
+        pts = dict(map(tuple, ai.calc_hq_spread(S)["lines"]["s30"]))
+        self.assertEqual(pts["2002-01-01"], 100.0)
+        self.assertIsNone(pts["2002-02-01"])                                  # FRED 주석: 2002-02-18 발표 중단
+        self.assertIsNone(pts["2006-02-01"])                                  # 2006-02-09 재개 — 그 달까지 뺀다
+        self.assertEqual(pts["2006-03-01"], 100.0)
+
+    def test_month_states_use_the_rule_functions_and_comparisons(self):
+        ms = months(D(2020, 1, 1), D(2023, 12, 1))
+        pce = [(m, 100 * 1.0025 ** i) for i, m in enumerate(ms)]
+        pce[-1] = (pce[-1][0], pce[-13][1] * 1.03)                            # 마지막 달 전년비가 정확히 3.0%
+        un = [(m, 4.0) for m in ms[:-3]] + [(m, 4.5) for m in ms[-3:]]       # 마지막 달 상승 폭이 정확히 0.5
+        infl, unemp = ai.month_states({"PCEPILFE": pce, "UNRATE": un}, D(2020, 1, 1))
+        last = ai._mkey(ms[-1])
+        self.assertAlmostEqual(infl[last][0], ff.yoy(pce, same_month=True)["value"])
+        self.assertFalse(infl[last][1])                                       # 3.0%는 '3% 초과'가 아니다(규칙 충족 쪽)
+        self.assertAlmostEqual(unemp[last][0], ff.sahm_stats(un)["value"])
+        self.assertTrue(unemp[last][1])                                       # 0.5는 '0.5 이상'(규칙 충족)
+        self.assertTrue(infl[ai._mkey(ms[-2])][1])                            # 연 3.0% 넘는 증가(0.25%/월)
+
+    def test_ranges_merge_consecutive_months_and_break_on_gaps(self):
+        mk = ai._mkey(D(2020, 1, 1))
+        flags = [(mk, True), (mk + 1, True), (mk + 2, False), (mk + 3, True), (mk + 5, True)]
+        self.assertEqual(ai._ranges(flags), [["2020-01-01", "2020-02-29"], ["2020-04-01", "2020-04-30"],
+                                             ["2020-06-01", "2020-06-30"]])
+
+    def test_sb_long_cells_match_a_brute_force_and_carry_the_signs(self):
+        S = long_world()
+        core = ai.calc_sb_long(S)
+        v = core["values"]
+        infl, unemp = ai.month_states(S, D(1985, 1, 1))
+        rho = ai.rolling_corr(S["NASDAQCOM"], S["DGS10"], 252)                  # 느린 길(ff.pearson)로 따로
+        latest = lambda st, mk: st[max(k for k in st if k <= mk)]
+        acc = {}
+        for d, r in rho:
+            if r is None:
+                continue
+            i, u = latest(infl, ai._mkey(d))[1], latest(unemp, ai._mkey(d))[1]
+            c = "B" if i and u else "I" if i else "U" if u else "N"
+            e = "e1" if d.year <= 1997 else "e2" if d.year <= 2020 else "e3"
+            for k in (e, "all"):
+                acc.setdefault((k, c), []).append(r)
+        for (e, c), rs in acc.items():
+            self.assertEqual(v[f"d_{e}_{c}"], len(rs), (e, c))
+            self.assertAlmostEqual(v[f"m_{e}_{c}"], sum(rs) / len(rs), places=4)
+        self.assertEqual(sum(v[f"d_all_{c}"] for c in "IBUN"), sum(1 for _, r in rho if r is not None))
+        self.assertLess(v["m_all_I"], -0.2)                                   # 합성 세계: 물가 달은 음(−)
+        self.assertGreater(v["m_all_U"], 0.2)                                 # 실업률이 오르는 달은 양(+)
+        self.assertEqual(v["r_e1_I"], 1)                                      # 1990~1994 한 덩어리
+        self.assertEqual(v["first"], rho[next(i for i, (_, r) in enumerate(rho) if r is not None)][0].isoformat())
+        on = sorted(mk for mk, (_, f) in infl.items() if f and mk >= ai._mkey(D(1990, 1, 1)))
+        self.assertEqual(core["bands"]["infl"][0][0], ai._iso(ai._mday(on[0])))      # 전년비가 3%를 넘은 첫 달부터
+        first_end = max(mk for mk in on if mk < ai._mkey(D(2000, 1, 1)))
+        self.assertEqual(core["bands"]["infl"][0][1], ai._iso(ai._mday(first_end, True)))   # 성장이 늦춰진 뒤에도 전년비가 남는 달까지
+        self.assertEqual(len(core["bands"]["infl"]), 2)                              # 1990년대 초 · 2022~23년
+        self.assertEqual(core["lines"]["sp"][0][0][:4], "2017")              # S&P 500은 2016-10부터라 252일 뒤부터
+
+    def test_sb_long_table_and_text(self):
+        S = long_world()
+        core = ai.calc_sb_long(S)
+        t = ai.table_of("sb_long", core["values"])
+        self.assertEqual(t["columns"], ["시대"] + [name for _, name in ai.CELLS])
+        self.assertEqual([r[0] for r in t["rows"]], [f"{core['values']['first'][:4]}~1997", "1998~2020", "2021~", "전체"])
+        self.assertEqual(t["rows"][1][1], "—")                                 # 1998~2020에는 물가 조건인 날이 없다
+        line, extra = ai.texts("sb_long", core["values"], core["date"])
+        self.assertTrue(any("1998~2020년에는 근원 PCE" in e for e in extra))
+        for word in FORBIDDEN_TEXT:
+            for text in [line, *extra, t["caption"], *[c for r in t["rows"] for c in r], *t["columns"]]:
+                self.assertNotIn(word, text, (word, text))
+
+    def test_bands_go_into_the_chart_and_must_be_well_formed_to_carry(self):
+        S = long_world()
+        core = ai.calc_sb_long(S)
+        it = {"ok": True, "stale": False, "error": None, "failed_since": None, **ai.present("sb_long", core, "2026-10-27")}
+        self.assertEqual([b["key"] for b in it["chart"]["bands"]], ["infl", "unemp"])
+        self.assertEqual(it["chart"]["bands"][0]["ranges"], core["bands"]["infl"])
+        back = ai.core_of(json.loads(json.dumps(it)), "sb_long")
+        self.assertEqual(back[0]["bands"], json.loads(json.dumps(core["bands"])))
+        bad = json.loads(json.dumps(it))
+        bad["chart"]["bands"][0]["ranges"][0] = ["2023-01-31", "2023-01-01"]   # 끝이 시작보다 이르다
+        self.assertIsNone(ai.core_of(bad, "sb_long"))
+        bad = json.loads(json.dumps(it))
+        bad["chart"]["lines"][0]["points"][5][1] = 9876.54                      # 지수 수준 같은 값
+        self.assertIsNone(ai.core_of(bad, "sb_long"))
+        ok = json.loads(json.dumps(it))
+        ok["values"]["pce"] = 4.5                                              # 물가 값은 범위 검사 밖(free)
+        self.assertIsNotNone(ai.core_of(ok, "sb_long"))
+
+
 class MainTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -234,7 +415,7 @@ class MainTest(unittest.TestCase):
         for key, it in js["items"].items():
             self.assertTrue(it["ok"], key)
             self.assertEqual(it["retrieved"], "2026-10-27")
-            self.assertEqual(set(it["chart"]), SPEC_KEYS)
+            self.assertEqual(set(it["chart"]), SPEC_KEYS | ({"bands"} if ai.BY_KEY[key].get("bands") else set()))
             for ln in it["chart"]["lines"]:
                 self.assertEqual(set(ln), LINE_KEYS)
                 self.assertTrue(ln["points"], (key, ln["key"]))
@@ -550,6 +731,20 @@ class StaticTest(unittest.TestCase):
 
     def test_screen_script_writes_text_only_and_avoids_banned_words(self):
         js = self.read("site", "ai_invest.js")
+        self.assertIn("function table(t)", js)
+        self.assertIn("table(it.table)", js)
+        charts = self.read("site", "charts.js")
+        self.assertIn("function parseBands(spec)", charts)
+        self.assertIn("tableView(lines, unit, bands)", charts)                   # 띠 기간도 표로 읽힌다
+        page = self.read("site", "index.html")
+        guide = page[page.index("const GUIDE = {"):page.index("function tpFlowFigure()")]
+        self.assertIn("stock_bond_corr: {", guide)
+        self.assertIn('el("a", { href: "#ai" }', guide)
+        for word in FORBIDDEN_TEXT:
+            block = guide[guide.index("stock_bond_corr: {"):]
+        block = block[:block.index("\n};")]
+        for word in FORBIDDEN_TEXT:
+            self.assertNotIn(word, block, word)
         for tok in ("innerHTML", "outerHTML", "insertAdjacentHTML", "createElement", "fetch(", "eval("):
             self.assertNotIn(tok, js)
         body = re.sub(r"/\*.*?\*/|//[^\n]*", "", js, flags=re.S)

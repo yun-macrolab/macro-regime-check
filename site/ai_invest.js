@@ -8,12 +8,14 @@ window.AiInvest = (() => {
   const CHANNELS = [
     ["invest", "실물 투자", "데이터센터에 들어가는 장비·소프트웨어·건물 투자의 크기와 속도입니다.",
       ["ict_share", "tech_orders", "office_cons"]],
-    ["finance", "조달", "기업이 투자를 내부 자금으로 하는지, 바깥에서 빌려서 하는지의 총량입니다.", ["financing"]],
+    ["finance", "조달", "기업이 투자를 내부 자금으로 하는지, 바깥에서 빌려서 하는지의 총량과, 고신용 회사채가 국채보다 얼마나 더 내는지입니다.",
+      ["financing", "hq_spread"]],
     ["power", "전력 가격", "데이터센터 전력 수요가 전기 요금에 실리는지 봅니다.", ["power"]],
     ["rates", "금리 쪽 결과", "장기 금리 쪽에 남는 숫자입니다. 원인을 가리지 않습니다.", ["curve_30_10"]],
     ["corr", "주식과 미 10년 금리의 상관",
       "AI 관련 주식이 금리와 같은 방향으로 움직이는지 봅니다. 양(+)이면 주가와 금리가 같은 방향, 국채 가격으로는 반대 방향입니다. " +
-      "지수 값은 재배포가 제한돼 싣지 않고 상관만 싣습니다.", ["corr60", "corr20", "partial60"]]
+      "지수 값은 재배포가 제한돼 싣지 않고 상관만 싣습니다. 맨 아래는 1972년 이후 긴 기간의 주가-금리 상관과 물가·고용 조건입니다.",
+      ["corr60", "corr20", "partial60", "sb_long"]]
   ];
   const TEASER = ["ict_share", "financing", "power", "curve_30_10", "corr60"];   // 첫 화면에는 채널마다 첫 칸의 숫자 줄만
   const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -27,16 +29,28 @@ window.AiInvest = (() => {
       texts(it.notices).length > 0;
   }
 
+  // 표(있는 칸만 — sb_long의 시대 × 조건 평균). 머리글·칸 글자는 자료 파일에 숫자로 만든 것, 꼴이 어긋나면 표를 빼고 나머지는 그린다
+  function table(t) {
+    const strs = a => Array.isArray(a) && a.every(x => typeof x === "string");
+    if (!isObj(t) || !strs(t.columns) || !t.columns.length || !Array.isArray(t.rows) ||
+        !t.rows.every(r => strs(r) && r.length === t.columns.length)) return null;
+    return el("div", { class: "ai-table-wrap" }, el("table", { class: "ai-table" },
+      typeof t.caption === "string" && t.caption ? el("caption", {}, t.caption) : null,
+      el("thead", {}, el("tr", {}, ...t.columns.map(c => el("th", { scope: "col" }, c)))),
+      el("tbody", {}, ...t.rows.map(r => el("tr", {}, el("th", { scope: "row" }, r[0]), ...r.slice(1).map(c => el("td", {}, c)))))));
+  }
+
   function item(it, key) {
     const name = isObj(it) && typeof it.name === "string" && it.name ? it.name : key;
     if (!usable(it, key)) return el("div", { class: "ai-item" }, el("h4", { class: "ai-name" }, name), el("p", { class: "muted" }, "자료 없음"));
     const since = typeof it.failed_since === "string" && DAY.test(it.failed_since) ? ` (${it.failed_since}부터)` : "";
-    return el("div", { class: "ai-item panel" },
+    return el("div", { class: "ai-item panel" + (it.table ? " ai-wide" : "") },   // 표가 있는 칸은 한 줄을 다 쓴다
       el("h4", { class: "ai-name" }, name),
       el("p", { class: "ai-num" }, it.line),
       ...texts(it.extra).map(t => el("p", { class: "muted" }, t)),
       it.stale === true ? el("p", { class: "ai-late" }, "이번 갱신의 값을 싣지 못해 직전에 받은 값을 싣습니다" + since) : null,
       chartFigure(it.chart, 190, false),
+      table(it.table),
       el("div", { class: "notices" }, ...texts(it.notices).map(t => el("p", {}, t))));
   }
 

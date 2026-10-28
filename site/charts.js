@@ -6,6 +6,8 @@
   const NS = "http://www.w3.org/2000/svg";
   const PAD = { top: 10, right: 68, bottom: 22, left: 40 };   // right: 끝 값 글자 자리, bottom: 연도 눈금
   const SERIES = ["var(--ch-1)", "var(--ch-2)", "var(--ch-3)"];  // 분류색은 이 순서로만(돌려 쓰지 않는다)
+  const BANDS = ["var(--ch-band-1)", "var(--ch-band-2)"];        // 아래 띠(기간 표시) — 많아야 둘, 선 색과 겹치지 않는다
+  const BAND_ROW = 9;                                             // 띠 한 줄의 높이(6) + 사이(3)
   const DAY = 864e5;
 
   function svg(tag, attrs, text) {
@@ -43,6 +45,20 @@
     if (!lines.length) throw new Error("그릴 자료 없음");
     return lines;
   }
+
+  // 아래 띠 — spec.bands = [{key, label, ranges: [["YYYY-MM-DD", "YYYY-MM-DD"], …]}]. 기간을 선 아래 줄로만 보인다
+  // (그래프 위에 겹쳐 칠하지 않는다 — 두 띠가 겹친 기간도 각자 줄에서 읽힌다). 형식이 어긋난 띠·기간은 버린다
+  const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+  function parseBands(spec) {
+    return (Array.isArray(spec.bands) ? spec.bands : []).slice(0, BANDS.length).map((b, i) => ({
+      label: b && typeof b.label === "string" ? b.label : "", color: BANDS[i],
+      ranges: (b && Array.isArray(b.ranges) ? b.ranges : [])
+        .filter(r => Array.isArray(r) && r.length === 2 && r.every(x => typeof x === "string" && DAY_RE.test(x)))
+        .map(r => [Date.parse(r[0] + "T00:00:00Z"), Date.parse(r[1] + "T00:00:00Z")])
+        .filter(r => Number.isFinite(r[0]) && Number.isFinite(r[1]) && r[1] >= r[0])
+    })).filter(b => b.label && b.ranges.length);
+  }
+  const inBand = (b, t) => b.ranges.some(r => t >= r[0] && t <= r[1]);
 
   function lastValid(pts) {
     for (let i = pts.length - 1; i >= 0; i--) if (pts[i][1] !== null) return pts[i];
@@ -89,7 +105,8 @@
   function draw(st) {
     const width = Math.max(240, Math.floor(st.plot.clientWidth || 600)), height = st.height;
     const { lo, hi, t0, t1 } = st.dom;
-    const L = PAD.left, R = width - PAD.right, T = PAD.top, B = height - PAD.bottom;
+    const nb = st.bands.length;
+    const L = PAD.left, R = width - PAD.right, T = PAD.top, B = height - PAD.bottom - (nb ? nb * BAND_ROW + 3 : 0);
     const X = t => L + (t - t0) / (t1 - t0) * (R - L), Y = v => T + (hi - v) / (hi - lo) * (B - T);
     st.X = X; st.Y = Y; st.L = L; st.R = R; st.T = T; st.B = B; st.width = width;
     const el = st.svg;
@@ -130,6 +147,16 @@
       if (!starts.length) el.append(svg("text", { class: "ch-tick", x: L, y: height - 5, "text-anchor": "start" },
         `${d0.getUTCMonth() + 1}/${d0.getUTCDate()}`));
     }
+    st.bands.forEach((b, i) => {                       // 선 아래(눈금 글자 위)에 띠마다 한 줄
+      const y = B + 5 + i * BAND_ROW;
+      for (const [a, z] of b.ranges) {
+        if (z < t0 || a > t1) continue;
+        const x1 = X(Math.max(a, t0)), x2 = X(Math.min(z, t1));
+        const r = svg("rect", { class: "ch-band", x: x1, y, width: Math.max(1.5, x2 - x1), height: 6 });
+        r.style.fill = b.color;
+        el.append(r);
+      }
+    });
     const th = st.spec.threshold;
     if (st.spec.zero && lo < 0 && hi > 0 && th !== 0)
       el.append(svg("line", { class: "ch-zero", x1: L, x2: R, y1: Y(0), y2: Y(0) }));
@@ -200,7 +227,9 @@
       return html("div", { class: "ch-tip-row" }, keyOf(l), html("strong", {}, fmt(p[1], st.unit)), l.label,
         p[0] !== t ? html("span", { class: "ch-tip-asof" }, ` (${iso(p[0])})`) : null);
     });
-    st.tip.replaceChildren(html("div", { class: "ch-tip-date" }, iso(t)), ...rows);
+    const bandRows = st.bands.filter(b => inBand(b, t)).map(b =>
+      html("div", { class: "ch-tip-row" }, keyOf(b), b.label));
+    st.tip.replaceChildren(html("div", { class: "ch-tip-date" }, iso(t)), ...rows, ...bandRows);
     st.tip.hidden = false;
     const w = st.tip.offsetWidth, h = st.tip.offsetHeight;
     let left = x + 12, top = st.T;
@@ -243,7 +272,7 @@
     return list.length ? html("div", { class: "notices" }, ...list.map(n => html("p", {}, n))) : null;
   }
 
-  function tableView(lines, unit) {
+  function tableView(lines, unit, bands) {
     const box = html("div", { class: "ch-scroll" });
     const det = html("details", { class: "ch-table" }, html("summary", {}, "표로 보기"), box);
     det.addEventListener("toggle", () => {            // 열 때 한 번만 만든다
@@ -251,11 +280,12 @@
       const maps = lines.map(l => new Map(l.pts));
       const times = [...new Set(lines.flatMap(l => l.pts.map(p => p[0])))].sort((a, b) => b - a);
       const head = html("tr", {}, html("th", { scope: "col" }, "날짜"),
-        ...lines.map(l => html("th", { scope: "col" }, unit ? `${l.label} (${unit})` : l.label)));
+        ...lines.map(l => html("th", { scope: "col" }, unit ? `${l.label} (${unit})` : l.label)),
+        ...bands.map(b => html("th", { scope: "col" }, b.label)));
       const body = times.map(t => html("tr", {}, html("td", {}, iso(t)), ...maps.map(m => {
         const v = m.get(t);
         return html("td", {}, v === undefined ? "" : v === null ? "—" : v.toFixed(3));
-      })));
+      }), ...bands.map(b => html("td", {}, inBand(b, t) ? "예" : ""))));
       box.append(html("table", {}, html("thead", {}, head), html("tbody", {}, ...body)));
     });
     return det;
@@ -263,7 +293,7 @@
 
   function lineChart(spec, opts) {
     const o = opts || {};
-    const lines = parse(spec);
+    const lines = parse(spec), bands = parseBands(spec);
     const unit = typeof spec.unit === "string" ? spec.unit : "";
     const title = String(spec.title || "");
     const el = svg("svg", { role: "img", tabindex: "0" });
@@ -272,20 +302,22 @@
       return `${l.label} ${fmt(p[1], unit)}(${iso(p[0])})`;
     }).join(", ");
     el.setAttribute("aria-label", `${title}. 최근 ${summary}` +
-      (Number.isFinite(spec.threshold) ? `. 기준 ${short(spec.threshold, unit)}` : ""));
+      (Number.isFinite(spec.threshold) ? `. 기준 ${short(spec.threshold, unit)}` : "") +
+      (bands.length ? `. 아래 띠: ${bands.map(b => b.label).join(", ")}(표로 보기에 기간)` : ""));
     const tip = html("div", { class: "ch-tip", "aria-hidden": "true" });
     tip.hidden = true;
     const plot = html("div", { class: "ch-plot" }, el, tip);
-    const legend = lines.length > 1 ? html("div", { class: "ch-legend" }, ...lines.map(l =>
-      html("span", {}, keyOf(l), l.role === "ref" ? `${l.label} (참고)` : l.label))) : null;
+    const legend = lines.length > 1 || bands.length ? html("div", { class: "ch-legend" }, ...lines.map(l =>
+      html("span", {}, keyOf(l), l.role === "ref" ? `${l.label} (참고)` : l.label)),
+      ...bands.map(b => html("span", { class: "ch-legend-band" }, keyOf(b), `아래 띠: ${b.label}`))) : null;
     const fig = html("figure", { class: "ch" },
       o.caption ? html("figcaption", { class: "ch-title" }, title) : null, legend, plot,
       spec.note ? html("p", { class: "ch-note muted" }, String(spec.note)) : null,
       spec.source_note ? html("p", { class: "ch-note ch-source muted" }, String(spec.source_note)) : null,
       // 참조금리 고지(SOFR) — 카드 안 그래프는 카드가 같은 고지를 싣으므로 opts.notices === false로 생략
-      o.notices !== false ? noticeBlock(spec.notices) : null, tableView(lines, unit));
+      o.notices !== false ? noticeBlock(spec.notices) : null, tableView(lines, unit, bands));
 
-    const st = { spec, unit, lines, svg: el, tip, plot, height: o.height || 150, idx: null, last: null, focus: [],
+    const st = { spec, unit, lines, bands, svg: el, tip, plot, height: o.height || 150, idx: null, last: null, focus: [],
                  fromPointer: false,
                  dom: domain(lines, spec),
                  times: [...new Set(lines.flatMap(l => l.pts.map(p => p[0])))].sort((a, b) => a - b) };

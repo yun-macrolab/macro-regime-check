@@ -41,6 +41,7 @@ import os, sys, re, json, math, time, bisect, argparse, datetime, statistics, ur
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
 import fred_fetch as ff
+import regime_rules as rr
 import render_public as rp
 
 SCHEMA = 1
@@ -62,6 +63,14 @@ CURVE_YEARS = 5
 ICT_SINCE = datetime.date(1990, 1, 1)
 PEAK_FROM, PEAK_TO = datetime.date(1995, 1, 1), datetime.date(2002, 12, 31)
 FIN_SINCE = datetime.date(1985, 1, 1)
+HQ_SINCE = datetime.date(2000, 1, 1)      # 고신용 장기 스프레드 그래프 시작
+HQ_PCT_FROM = datetime.date(2006, 3, 1)   # 분포 표본 시작 — DGS30 공식 발표 중단(2002-02-18~2006-02-09, FRED 주석) 뒤부터
+DGS30_OFF = (datetime.date(2002, 2, 1), datetime.date(2006, 2, 1))   # 그 중단에 걸친 달은 빼고 그린다(FRED에 값이 있어도 출처를 확인 못 함)
+HQ_MIN_DAYS = 10                          # 국채 월평균에 필요한 관측일 수(공백 달은 비운다)
+SB_N = 252                                # 긴 그림의 상관 창(영업일)
+ERAS = [("e1", None, datetime.date(1997, 12, 31)), ("e2", datetime.date(1998, 1, 1), datetime.date(2020, 12, 31)),
+        ("e3", datetime.date(2021, 1, 1), None)]           # 경계는 상관 부호가 바뀐 해(사후에 고른 것 — 문구에 적는다)
+CELLS = [("I", "근원 PCE 3% 초과만"), ("B", "둘 다"), ("U", "실업률 상승 폭 0.5%p 이상만"), ("N", "둘 다 아님")]
 
 _BOARD = "Board of Governors of the Federal Reserve System (US)"
 _BEA, _CENSUS, _BLS = "U.S. Bureau of Economic Analysis", "U.S. Census Bureau", "U.S. Bureau of Labor Statistics"
@@ -84,14 +93,19 @@ SOURCES = {
     "SP500": ("S&P Dow Jones Indices LLC", "S&P 500"),
     "NASDAQNQINTEL": ("Nasdaq, Inc.", "Nasdaq Consumer Technical Association Artificial Intelligence Index"),
     "NASDAQNDXTMC": ("Nasdaq, Inc.", "NASDAQ-100 Technology Sector Market-Cap Weighted Index"),
+    "HQMCB30YRP": ("U.S. Department of the Treasury", "30-Year High Quality Market (HQM) Corporate Bond Par Yield"),
+    "HQMCB10YRP": ("U.S. Department of the Treasury", "10-Year High Quality Market (HQM) Corporate Bond Par Yield"),
+    "NASDAQCOM": ("Nasdaq, Inc.", "NASDAQ Composite"),
+    "PCEPILFE": (rp.FRED_SOURCE["PCEPILFE"], rp.FRED_TITLE["PCEPILFE"]),
+    "UNRATE": (rp.FRED_SOURCE["UNRATE"], rp.FRED_TITLE["UNRATE"]),
 }
 # 재배포 제한 목록 하나 — 공개본의 목록(render_public.RESTRICTED)에 이 화면이 더 쓰는 Nasdaq 지수 둘을 더한다
-RESTRICTED = {**rp.RESTRICTED, "NASDAQNQINTEL": "Nasdaq, Inc.", "NASDAQNDXTMC": "Nasdaq, Inc."}
+RESTRICTED = {**rp.RESTRICTED, "NASDAQNQINTEL": "Nasdaq, Inc.", "NASDAQNDXTMC": "Nasdaq, Inc.", "NASDAQCOM": "Nasdaq, Inc."}
 SERIES = list(SOURCES)
 
 NOTICE = ("이 사이트의 규칙 판정에 쓰지 않는 참고 자료다. 충족·미충족이 없고 상태를 판정하지 않는다. 값의 크기나 방향을 "
           "시장 전망으로 읽지 않는다.")
-RESTRICTED_NOTICE = ("S&P 500·Nasdaq 지수는 재배포가 제한된 자료라 지수 값은 싣지 않는다. 상관·부분상관은 "
+RESTRICTED_NOTICE = ("S&P 500·Nasdaq 지수는 재배포가 제한된 자료라 지수 값은 싣지 않는다. 상관·부분상관과 그 평균은 "
                      "macro-regime-check가 그 자료(FRED 경유)로 계산한 값이다.")
 COMPUTED_NOTICE = "비율·전년비·금리차·분포 숫자는 macro-regime-check가 원자료로 계산한 값이다."
 CHANNELS = [("invest", "실물 투자"), ("finance", "조달"), ("power", "전력 가격"), ("rates", "금리 쪽 결과"),
@@ -408,6 +422,181 @@ def calc_partial60(S):
             "lines": {"ai": _weekly_points(ai, start), "ndx": _weekly_points(ndx, start)}}
 
 
+def monthly_mean(series, min_days=HQ_MIN_DAYS):
+    """일간 → [(그 달 1일, 월평균)] — 관측일이 min_days 미만인 달은 뺀다(국채 공백 달을 0이나 일부 날로 채우지 않게)."""
+    by = {}
+    for d, v in series:
+        by.setdefault((d.year, d.month), []).append(v)
+    return [(datetime.date(y, m, 1), sum(vs) / len(vs)) for (y, m), vs in sorted(by.items()) if len(vs) >= min_days]
+
+
+def _spread_months(hqm, tsy):
+    """HQM par(월간, 그 달 평균) − 같은 달 국채 월평균, bp."""
+    t = dict(monthly_mean(tsy))
+    return [(d, (v - t[d]) * 100) for d, v in hqm if d in t]
+
+
+def calc_hq_spread(S):
+    s30 = [(d, v) for d, v in _spread_months(S["HQMCB30YRP"], S["DGS30"]) if not DGS30_OFF[0] <= d <= DGS30_OFF[1]]
+    s10 = _spread_months(S["HQMCB10YRP"], S["DGS10"])
+    if not s30 or not s10:
+        raise ItemError("format")
+    d30, v30 = s30[-1]
+    hist = [v for d, v in s30 if d >= HQ_PCT_FROM]
+    return {"date": _iso(max(d30, s10[-1][0])),
+            "values": {"s30": _r(v30), "s30_date": _iso(d30), "s30_1y": _r(_year_ago(s30)),
+                       "le30": _r(sum(x <= v30 for x in hist) / len(hist) * 100) if len(hist) >= 24 else None,
+                       "n30": len(hist), "pct_from": _iso(HQ_PCT_FROM),
+                       "s10": _r(s10[-1][1]), "s10_date": _iso(s10[-1][0]), "s10_1y": _r(_year_ago(s10))},
+            "lines": {"s30": _monthly_points(s30, HQ_SINCE), "s10": _monthly_points(s10, HQ_SINCE)}}
+
+
+def rolling_corr_fast(px, y, n):
+    """rolling_corr와 같은 값(공통 날짜·같은 짝)을 합계를 밀어 가며 — 1972년 이후 일간 252영업일 창 수만 개라.
+    부동소수 누적을 막으려고 n번마다 합계를 처음부터 다시 잰다. 분산이 사실상 0이면 None(ff.pearson과 같게)."""
+    pr = pairs(px, y)
+    if len(pr) < n:
+        return []
+    xs, ys = [r for _, r, _ in pr], [dy for _, _, dy in pr]
+    out = []
+    for e in range(n, len(pr) + 1):
+        if (e - n) % n == 0:
+            a, b = xs[e - n:e], ys[e - n:e]
+            sx, sy = sum(a), sum(b)
+            sxx, syy, sxy = sum(v * v for v in a), sum(v * v for v in b), sum(u * v for u, v in zip(a, b))
+        else:
+            xo, yo, xn, yn = xs[e - n - 1], ys[e - n - 1], xs[e - 1], ys[e - 1]
+            sx += xn - xo
+            sy += yn - yo
+            sxx += xn * xn - xo * xo
+            syy += yn * yn - yo * yo
+            sxy += xn * yn - xo * yo
+        vx, vy = sxx - sx * sx / n, syy - sy * sy / n
+        out.append((pr[e - 1][0], (sxy - sx * sy / n) / math.sqrt(vx * vy) if vx > 1e-18 and vy > 1e-18 else None))
+    return out
+
+
+def _upto(series, d):
+    return series[:bisect.bisect_right(series, (d, float("inf")))]
+
+
+def month_states(S, since):
+    """{달 번호: (값, 조건)} 둘 — 근원 PCE 전년비 > 3(규칙 '근원 물가'의 미충족 쪽)과 실업률 상승 폭 ≥ 0.5(규칙 '실업률 상승 폭'
+    충족). 카드와 같은 함수(ff.yoy 같은 달 · ff.sahm_stats)와 같은 비교(소수 6자리 반올림 뒤). 자료 달 기준(발표 시차 없음)."""
+    infl, unemp = {}, {}
+    pce, un = S["PCEPILFE"], S["UNRATE"]
+    for d, _ in pce:
+        if d >= since:
+            r = ff.yoy(_upto(pce, d), same_month=True)
+            if r:
+                infl[_mkey(d)] = (r["value"], round(r["value"], 6) > rr.TH["core_pce_split"])
+    for d, _ in un:
+        if d >= since:
+            r = ff.sahm_stats(_upto(un, d))
+            if r:
+                unemp[_mkey(d)] = (r["value"], round(r["value"], 6) >= rr.TH["unrate_rise"])
+    return infl, unemp
+
+
+def _at(states, keys, mk):
+    """mk 이하 가장 늦은 달의 상태(아직 발표 전인 달은 마지막 달 것으로). 없으면 None."""
+    i = bisect.bisect_right(keys, mk) - 1
+    return states[keys[i]] if i >= 0 else None
+
+
+def _era(d):
+    for e, lo, hi in ERAS:
+        if (lo is None or d >= lo) and (hi is None or d <= hi):
+            return e
+    return None
+
+
+def _cell(i, u):
+    return "B" if i and u else "I" if i else "U" if u else "N"
+
+
+def _mday(mk, last=False):
+    """달 번호 → 그 달 1일(또는 말일)."""
+    if not last:
+        return datetime.date(mk // 12, mk % 12 + 1, 1)
+    return datetime.date((mk + 1) // 12, (mk + 1) % 12 + 1, 1) - datetime.timedelta(days=1)
+
+
+def _ranges(flags):
+    """[(달 번호, 조건)] 차례대로 → 조건이 이어진 달들의 [[첫 달 1일, 끝 달 말일]](달이 건너뛰면 끊는다)."""
+    out, run = [], None
+    for mk, on in flags:
+        if on and run and mk == run[1] + 1:
+            run[1] = mk
+        else:
+            if run:
+                out.append(run)
+            run = [mk, mk] if on else None
+    if run:
+        out.append(run)
+    return [[_iso(_mday(a)), _iso(_mday(b, True))] for a, b in out]
+
+
+def _month_end_points(vals, nd=PT_ND):
+    """일간 [(날짜, 값)] → 달마다 마지막 관측 [[날짜, 값]]."""
+    by = {}
+    for d, v in vals:
+        by[(d.year, d.month)] = (d, v)
+    return [[_iso(d), _r(v, nd)] for d, v in (by[k] for k in sorted(by))]
+
+
+def calc_sb_long(S):
+    rho = rolling_corr_fast(S["NASDAQCOM"], S["DGS10"], SB_N)
+    sp = rolling_corr_fast(S["SP500"], S["DGS10"], SB_N)
+    lr = _last(rho)
+    if not lr:
+        raise ItemError("format")
+    first = next(d for d, v in rho if v is not None)
+    infl, unemp = month_states(S, datetime.date(first.year - 2, 1, 1))
+    ik, uk = sorted(infl), sorted(unemp)
+    if not ik or not uk:
+        raise ItemError("format")
+    acc = {}                                      # (시대, 칸) → [합, 일수]
+    for d, v in rho:
+        if v is None:
+            continue
+        i, u = _at(infl, ik, _mkey(d)), _at(unemp, uk, _mkey(d))
+        if i is None or u is None:
+            continue
+        c = _cell(i[1], u[1])
+        for e in (_era(d), "all"):
+            a = acc.setdefault((e, c), [0.0, 0])
+            a[0] += v
+            a[1] += 1
+    months = range(_mkey(first), _mkey(lr[0]) + 1)
+    seq = []                                      # 달마다 (시대, 칸) — 이어진 구간 수를 센다
+    for mk in months:
+        i, u = _at(infl, ik, mk), _at(unemp, uk, mk)
+        if i is not None and u is not None:
+            seq.append((mk, _era(_mday(mk)), _cell(i[1], u[1])))
+    runs = {}
+    for j, (mk, e, c) in enumerate(seq):
+        if j == 0 or seq[j - 1][1:] != (e, c) or seq[j - 1][0] != mk - 1:
+            runs[(e, c)] = runs.get((e, c), 0) + 1
+        if j == 0 or seq[j - 1][2] != c or seq[j - 1][0] != mk - 1:
+            runs[("all", c)] = runs.get(("all", c), 0) + 1
+    values = {"rho": _r(lr[1]), "first": _iso(first)}
+    ls = _last(sp)
+    values.update(sp=_r(ls and ls[1]), sp_date=ls and _iso(ls[0]))
+    pi, ui = infl[ik[-1]], unemp[uk[-1]]
+    values.update(pce=_r(pi[0]), pce_month=_iso(_mday(ik[-1])), ur=_r(ui[0]), ur_month=_iso(_mday(uk[-1])))
+    for e in [x[0] for x in ERAS] + ["all"]:
+        for c, _ in CELLS:
+            tot, n = acc.get((e, c), [0.0, 0])
+            values.update({f"m_{e}_{c}": _r(tot / n) if n else None, f"d_{e}_{c}": n, f"r_{e}_{c}": runs.get((e, c), 0)})
+    chart_months = list(months)
+    return {"date": _iso(lr[0]), "values": values,
+            "lines": {"nasdaq": _month_end_points([(d, v) for d, v in rho if d >= first]),
+                      "sp": _month_end_points([(d, v) for d, v in sp if v is not None])},
+            "bands": {"infl": _ranges([(mk, bool(_at(infl, ik, mk) and _at(infl, ik, mk)[1])) for mk in chart_months]),
+                      "unemp": _ranges([(mk, bool(_at(unemp, uk, mk) and _at(unemp, uk, mk)[1])) for mk in chart_months])}}
+
+
 # ---------- 칸 정의 (차례 = 화면 차례) ----------
 # values: 이름 → 꼴("num" 숫자 · "num?" 숫자 또는 없음 · "day" 날짜 · "day?" 날짜 또는 없음 · "int" 정수) — 직전 파일 검사에도 쓴다
 # ends: 시리즈마다의 끝 날짜(values의 날짜 칸) — 칸의 date와 함께 하나라도 직전보다 이르면 받지 않는다
@@ -444,6 +633,13 @@ ITEMS = [
      "values": {"ratio": "num", "ratio_1y": "num?", "median": "num", "above100": "num", "n": "int", "from": "day"},
      "lines": [_l("ratio", "설비투자 / 내부자금", "main", ["BOGZ1FA105050005Q", "BOGZ1FA106000135Q"]),
                _l("median", "1985년 이후 중앙값", "ref", ["BOGZ1FA105050005Q", "BOGZ1FA106000135Q"])]},
+    {"key": "hq_spread", "channel": "finance", "title": "고신용 장기 회사채 − 국채 금리차 (par)",
+     "series": ["HQMCB30YRP", "HQMCB10YRP", "DGS30", "DGS10"], "calc": calc_hq_spread, "unit": "bp", "years": 26,
+     "zero": False, "note": "2000년 이후 · 월간 · 재무부 HQM 회사채 par 수익률 − 같은 달 국채 금리 평균",
+     "values": {"s30": "num", "s30_date": "day", "s30_1y": "num?", "le30": "num?", "n30": "int", "pct_from": "day",
+                "s10": "num", "s10_date": "day", "s10_1y": "num?"},
+     "ends": ["s30_date", "s10_date"],
+     "lines": [_l("s30", "30년", "main", ["HQMCB30YRP", "DGS30"]), _l("s10", "10년", "series", ["HQMCB10YRP", "DGS10"])]},
     {"key": "power", "channel": "power", "title": "전력 가격 — 전년 대비",
      "series": ["WPU0543", "CUSR0000SEHF01"], "calc": calc_power, "unit": "%", "years": MONTHLY_YEARS, "zero": True,
      "note": "최근 10년 · 월간",
@@ -477,6 +673,17 @@ ITEMS = [
      "lines": [_l("ai", "AI 지수", "main", ["SP500", "NASDAQNQINTEL", "DGS10"]),
                _l("ndx", "나스닥100 기술", "series", ["SP500", "NASDAQNDXTMC", "DGS10"])]},
 ]
+ITEMS.append(
+    {"key": "sb_long", "channel": "corr", "title": "주가-금리 252영업일 상관과 물가·고용 조건 — 1972년 이후",
+     "series": ["NASDAQCOM", "SP500", "DGS10", "PCEPILFE", "UNRATE"], "calc": calc_sb_long, "unit": "", "years": 54,
+     "zero": True, "note": "월말 값 · 양(+)이면 주가와 금리가 같은 방향 · 아래 띠는 조건이 맞은 달(자료 달 기준)",
+     "values": {"rho": "num", "first": "day", "sp": "num?", "sp_date": "day?", "pce": "num", "pce_month": "day", "ur": "num",
+                "ur_month": "day",
+                **{f"{k}_{e}_{c}": t for e in ("e1", "e2", "e3", "all") for c in "IBUN"
+                   for k, t in (("m", "num?"), ("d", "int"), ("r", "int"))}},
+     "ends": ["sp_date", "pce_month", "ur_month"], "bounded": True, "free": ["pce", "ur"],
+     "lines": [_l("nasdaq", "나스닥 종합", "main", ["NASDAQCOM", "DGS10"]), _l("sp", "S&P 500", "series", ["SP500", "DGS10"])],
+     "bands": [("infl", "근원 PCE 전년비 3% 초과"), ("unemp", "실업률 상승 폭 0.5%p 이상")]})
 BY_KEY = {it["key"]: it for it in ITEMS}
 
 
@@ -547,7 +754,47 @@ def texts(key, v, date):
                 ["S&P 500 수익률로 설명되는 몫을 뺀 뒤 남는 금리 상관이다. 양(+)이면 시장 전체보다 그 지수가 금리와 같은 "
                  "방향으로 더 움직였다는 뜻이다. 나스닥100 기술 선과 나란히 보면 AI 지수의 남는 몫이 대형 기술주 전체에도 "
                  "있는지 견줄 수 있다."])
+    if key == "hq_spread":
+        d10 = "" if v["s10_date"] == v["s30_date"] else f" ({mlabel(v['s10_date'])})"
+        extra = []
+        if v["le30"] is not None:
+            extra.append(f"30년은 {v['pct_from'][:7]} 이후 {v['n30']}개월 가운데 이 값 이하인 달이 {_f(v['le30'], 0, unit='%')}다"
+                         "(낮을수록 금리차가 좁다).")
+        return (f"{mlabel(v['s30_date'])} 30년 {_f(v['s30'], 0, unit='bp')} (1년 전 {_f(v['s30_1y'], 0, unit='bp')}) · "
+                f"10년 {_f(v['s10'], 0, unit='bp')}{d10} (1년 전 {_f(v['s10_1y'], 0, unit='bp')})",
+                extra + ["재무부 HQM 곡선(AAA·AA·A 등급 회사채)의 par 수익률에서 같은 달 국채 금리(일간 값의 월평균)를 뺀 값이다. "
+                         "고신용 회사채 전체의 값이라 대형 기술 기업만의 값이 아니다(BBB 이하 회사채는 들어가지 않는다).",
+                         "par끼리 견준다 — 현물 금리를 쓰면 곡선 모양이 섞인다. 30년 국채 금리는 2002-02-18~2006-02-09에 "
+                         "공식 발표가 중단됐다(FRED 주석) — 30년 선은 그 기간을 빼고 그린다."])
+    if key == "sb_long":
+        sp = (f" · S&P 500 {_f(v['sp'], sign=True)}{_asof(v['sp_date'], date)}" if v["sp"] is not None else "")
+        extra = ["주가 일간 수익률 × 10년 금리 일간 변화의 252영업일 상관이다. 양(+)이면 주가와 금리가 같은 방향(주가와 국채 "
+                 "가격은 반대 — 채권이 주식을 헤지), 음(−)이면 주가와 국채 가격이 같은 방향이다.",
+                 "아래 띠는 이 사이트의 두 규칙 조건이다: 근원 PCE 전년비 3% 초과(규칙 '근원 물가' 미충족 쪽), 실업률 3개월 평균 "
+                 "상승 폭 0.5%p 이상(규칙 '실업률 상승 폭' 충족). 자료 달 기준이고 발표 시차는 넣지 않았다(현재 개정치).",
+                 "표는 두 조건의 조합별 252영업일 상관 평균이다(괄호는 일수 · 이어진 구간 수). 시대 경계(1998·2021년)는 상관의 "
+                 "부호가 바뀐 해를 보고 정했다. 구간 수가 적은 칸의 평균은 몇 번의 시기에 기댄다."]
+        if v["d_e2_I"] == 0 and v["d_e2_B"] == 0:
+            extra.append("1998~2020년에는 근원 PCE 전년비가 3%를 넘은 달이 없다 — 칸끼리 견줄 때 시대가 섞여 있다는 점을 함께 본다.")
+        extra += ["과거 자료에서 두 조건의 변화가 상관 부호의 변화보다 일정하게 앞서지는 않았다 — 이 그림은 앞날을 가리키지 않는다.",
+                  "긴 기간의 주가는 나스닥 종합(기술주 비중이 크다)을 썼다. S&P 500은 FRED에 2016년 이후만 있어 그 기간만 함께 그렸다."]
+        return (f"{date} 나스닥 종합 {_f(v['rho'], sign=True)}{sp} · 근원 PCE 전년비 {_f(v['pce'], unit='%')}"
+                f"({mlabel(v['pce_month'])}) · 실업률 상승 폭 {_f(v['ur'], unit='%p')}({mlabel(v['ur_month'])})", extra)
     raise KeyError(key)
+
+
+def table_of(key, v):
+    """sb_long의 시대 × 조건 표 — 숫자에서 만든다(정해 둔 머리글 + 숫자). 다른 칸은 None."""
+    if key != "sb_long":
+        return None
+    label = {"e1": f"{v['first'][:4]}~1997", "e2": "1998~2020", "e3": "2021~", "all": "전체"}
+
+    def cell(e, c):
+        m, d, r = v[f"m_{e}_{c}"], v[f"d_{e}_{c}"], v[f"r_{e}_{c}"]
+        return "—" if not d or m is None else f"{_f(m, sign=True)} ({d:,}일 · {r}구간)"
+    return {"caption": "조건 조합별 252영업일 상관 평균(시대별)",
+            "columns": ["시대"] + [name for _, name in CELLS],
+            "rows": [[label[e]] + [cell(e, c) for c, _ in CELLS] for e in ("e1", "e2", "e3", "all")]}
 
 
 _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
@@ -590,9 +837,15 @@ def present(key, core, retrieved):
              "zero": spec["zero"], "threshold": None, "note": spec["note"], "source_note": source_note(spec),
              "notices": [],
              "lines": [{**ln, "derived": derived, "points": core["lines"][ln["key"]]} for ln in spec["lines"]]}
-    return {"key": key, "channel": spec["channel"], "name": spec["title"], "date": core["date"],
-            "values": core["values"], "retrieved": retrieved, "line": line, "extra": extra, "chart": chart,
-            "notices": notices(spec), "sources": sources_of(spec, retrieved)}
+    if spec.get("bands"):
+        chart["bands"] = [{"key": k, "label": label, "ranges": core["bands"][k]} for k, label in spec["bands"]]
+    out = {"key": key, "channel": spec["channel"], "name": spec["title"], "date": core["date"],
+           "values": core["values"], "retrieved": retrieved, "line": line, "extra": extra, "chart": chart,
+           "notices": notices(spec), "sources": sources_of(spec, retrieved)}
+    table = table_of(key, core["values"])
+    if table:
+        out["table"] = table
+    return out
 
 
 # ---------- 직전 파일 ----------
@@ -635,12 +888,22 @@ def core_of(item, key):
               and all(isinstance(p, list) and len(p) == 2 and _is_day(p[0]) and (p[1] is None or _is_num(p[1]))
                       for pts in lines.values() for p in (pts if isinstance(pts, list) else [None]))
               and _in_bounds(spec, vals, lines))
-        texts(key, vals, item["date"])                    # 문구를 다시 만들 수 있어야 한다
+        bands = None
+        if spec.get("bands"):
+            bands = {b["key"]: b["ranges"] for b in chart["bands"]}
+            ok = ok and set(bands) == {k for k, _ in spec["bands"]} and all(
+                isinstance(rs, list) and all(isinstance(r, list) and len(r) == 2 and _is_day(r[0]) and _is_day(r[1])
+                                             and r[0] <= r[1] for r in rs) for rs in bands.values())
+        texts(key, vals, item["date"])                    # 문구·표를 다시 만들 수 있어야 한다
+        table_of(key, vals)
     except (KeyError, TypeError, IndexError, AttributeError, ValueError):
         return None
     if not ok:
         return None
-    return {"date": item["date"], "values": dict(vals), "lines": lines}, item["retrieved"]
+    core = {"date": item["date"], "values": dict(vals), "lines": lines}
+    if bands is not None:
+        core["bands"] = bands
+    return core, item["retrieved"]
 
 
 def previous(out):
