@@ -2,7 +2,7 @@
 "use strict";
 window.KoreaMarket = (() => {
   let data = null, attempt = null, healthState = null;
-  const names = {credit:"회사채 스프레드", money:"CD·CP", rates:"한미 국채", foreign3:"외국인 3년 선물", foreign10:"외국인 10년 선물", calendar:"입찰 일정", auctions:"입찰 결과", offerings:"입찰 예정액"};
+  const names = {credit:"회사채 스프레드", money:"CD·CP", rates:"한미 국채", foreign3:"외국인 3년 선물", foreign10:"외국인 10년 선물", calendar:"입찰 일정", auctions:"입찰 결과", offerings:"입찰 예정액", ktb_plans:"국고채 발행계획", ktb_ops:"매입·교환 결과"};
   const groups = {rates:"금리·커브", credit:"신용·단기자금", flows:"수급·입찰"};
   const reasons = {stale:"관측일 지연", regressed:"과거 자료로 되돌아옴", calendar_month:"이번 달 일정 미확인", empty_or_duplicate:"빈 자료·중복 행", timeout:"수신 시간 초과", unavailable:"수신·형식 확인 실패", unreadable_notices:"발행공고 형식 확인 실패"};
   function health(value, run, expectedAfter, now=Date.now()) {
@@ -40,8 +40,9 @@ window.KoreaMarket = (() => {
     const digits = unit === "계약" || unit === "억원" ? 0 : unit === "bp" ? 1 : 3;
     return (signed && v>0 ? "+" : "")+v.toLocaleString("ko-KR",{maximumFractionDigits:digits})+unit;
   }
-  function failLabel(key, f) {      // 같은 코드라도 묶음마다 읽은 공고가 다르다(입찰 결과 = 재정경제부, 예정액 = 한국은행)
-    return (f?.reason==="unreadable_notices" && key==="auctions" ? "입찰 결과 공고 형식 확인 실패" : reasons[f?.reason]) || "수신 실패";
+  const unreadable = {auctions:"입찰 결과 공고 형식 확인 실패", ktb_plans:"발행계획 보도자료 형식 확인 실패", ktb_ops:"매입·교환 결과 공고 형식 확인 실패"};
+  function failLabel(key, f) {      // 같은 코드라도 묶음마다 읽은 공고가 다르다(입찰 결과·발행계획·매입/교환 = 재정경제부, 예정액 = 한국은행)
+    return (f?.reason==="unreadable_notices" && unreadable[key]) || reasons[f?.reason] || "수신 실패";
   }
   function feedNote(key) {
     const f = data?.feeds?.[key];
@@ -141,6 +142,82 @@ window.KoreaMarket = (() => {
       node("p","market-source",sourceLink("자료: 공식 국채시장 입찰 결과","https://ktb.mofe.go.kr/bidResult.do")));
     wrap.append(schedule,results);return wrap;
   }
+  // 국고채 발행계획·매입(바이백)·교환 — 재정경제부 보도자료와 입찰 결과 공고의 숫자. 화면 글은 아래 고정 문구뿐이다(방향·평가 낱말 없음)
+  const MOFE_PLANS="https://mofe.go.kr/nw/nes/nesdta.do?searchBbsId1=MOSFBBS_000000000028&menuNo=4010100";
+  const MOFE_RESULTS="https://mofe.go.kr/st/fnancstats/ktb50201.do?bbsId=MOSFBBS_000000000049&menuNo=6050300";
+  function jo(v, signed=false) {     // 억원 → 조원(소수 한 자리)
+    if(!Number.isFinite(v)) return "자료 없음";
+    const x=v/10000;
+    return (signed && x>0 ? "+" : "")+x.toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:1})+"조원";
+  }
+  const pct = v => Number.isFinite(v) ? v.toLocaleString("ko-KR",{maximumFractionDigits:1})+"%" : "자료 없음";
+  const monthLabel = m => typeof m==="string" && /^\d{4}-\d{2}$/.test(m) ? m.slice(0,4)+"년 "+(+m.slice(5))+"월" : "달 미상";
+  function shareChart(plans) {
+    if(!window.MacroCharts || plans.length<2) return null;
+    const pts=k=>plans.filter(p=>Number.isFinite(p[k])).map(p=>[p.month+"-01",p[k]]);
+    const spec={key:"ktb_long_share",title:"월별 경쟁입찰 계획 중 장기물 비중",unit:"%",zero:true,threshold:null,years:1,
+      source_note:"자료: 재정경제부 월별 국고채 발행계획 보도자료 · 비중은 이 사이트의 계산값",note:null,notices:[],
+      lines:[{key:"long",label:"20·30·50년 비중",role:"series",points:pts("long_share_pct"),series:[],derived:true},
+             {key:"y30",label:"30년 비중",role:"series",points:pts("y30_share_pct"),series:[],derived:true}]};
+    try { return node("div","",node("p","reading-note",spec.title),window.MacroCharts.lineChart(spec,{height:170,caption:false})); }
+    catch { return node("p","muted","차트를 표시하지 못했습니다. 표의 수치를 확인해 주세요."); }
+  }
+  function opPlan(label, item) {
+    const dates=Array.isArray(item?.dates) ? item.dates.filter(d=>typeof d==="string") : [];
+    return item ? label+" "+jo(item.amount_100m)+(dates.length ? " ("+dates.join(", ")+")" : "") : label+": 보도자료에 계획 없음";
+  }
+  function issuancePanel() {
+    const plans=(Array.isArray(data.ktb_plans)?data.ktb_plans:[]).filter(p=>p && typeof p.month==="string");
+    const ops=(Array.isArray(data.ktb_ops)?data.ktb_ops:[]).filter(o=>o && typeof o.date==="string");
+    const sum=data.ktb_summary && typeof data.ktb_summary==="object" ? data.ktb_summary : {}, latest=plans[plans.length-1];
+    const panel=node("article","panel",node("h3","","국고채 발행계획·바이백"));
+    panel.dataset.ktbIssuance="";
+    for(const key of ["ktb_plans","ktb_ops"]) if(feedNote(key)) panel.append(node("p","market-warning",names[key]+": "+feedNote(key)));
+    if(latest) {
+      panel.append(node("p","muted",monthLabel(latest.month)+" 계획 · 보도자료 "+(latest.published||"날짜 미상")));
+      panel.append(node("div","market-value",node("strong","",jo(latest.competitive_100m)),node("span","muted","경쟁입찰 발행 계획")));
+      const stated=Number.isFinite(latest.stated_plan_change_100m) ? jo(latest.stated_plan_change_100m,true) : "보도자료에 언급 없음";
+      const prev=Number.isFinite(sum.prev_month_change_100m) ? jo(sum.prev_month_change_100m,true)+" (계산값)"
+        : Number.isFinite(latest.stated_prev_change_100m) ? jo(latest.stated_prev_change_100m,true)+" (보도자료)" : "전월 계획 없음";
+      panel.append(node("div","market-deltas",
+        node("div","",node("span","","전월 계획 대비"),node("strong","",prev)),
+        node("div","",node("span","","당초 계획 대비(보도자료)"),node("strong","",stated)),
+        node("div","",node("span","","20·30·50년 비중 · 30년"),node("strong","",pct(latest.long_share_pct)+" · "+pct(latest.y30_share_pct)))));
+      const tenors=(Array.isArray(latest.tenors)?latest.tenors:[]).filter(t=>t && typeof t.tenor==="string");
+      if(tenors.length) panel.append(table(["만기","경쟁입찰 계획","비중"],tenors.map(t=>[t.tenor,jo(t.amount_100m),
+        pct(Number.isFinite(t.amount_100m) && latest.competitive_100m>0 ? Math.round(t.amount_100m/latest.competitive_100m*1000)/10 : NaN)]),
+        monthLabel(latest.month)+" 만기별 경쟁입찰 계획"));
+      panel.append(node("p","reading-note","이달 "+opPlan("매입(바이백) 계획",latest.buyback_plan)+" · "+opPlan("교환 계획",latest.exchange_plan)));
+      panel.append(shareChart(plans) || node("p","muted","장기물 비중 그래프는 두 달 이상 자료가 모이면 표시합니다."));
+    } else panel.append(node("p","market-warning","확인된 발행계획이 없습니다."));
+    const p=sum.progress, progress=node("div","market-range");
+    if(p && Array.isArray(p.months) && Array.isArray(p.missing)) {
+      const head=p.year+"년 발행 실적 누계 "+jo(p.actual_100m)+" ("+p.months.length+"개월, "+monthLabel(p.through)+"까지)";
+      if(!Number.isFinite(p.limit_100m)) progress.append(node("p","",head+" · 연간 한도 미등록"));
+      else {
+        progress.append(node("p","",head+" · 연간 한도 "+jo(p.limit_100m)+(Number.isFinite(p.pct) ? " 대비 "+pct(p.pct)+" (계산값)" : "")));
+        if(Number.isFinite(p.pct)) {
+          const track=node("div","range-track"), dot=node("span","range-dot");
+          dot.style.left=Math.min(100,Math.max(0,p.pct))+"%"; track.append(dot);
+          track.setAttribute("role","img"); track.setAttribute("aria-label","연간 한도 대비 발행 실적 누계 "+p.pct+"%"); progress.append(track);
+        } else progress.append(node("small","","실적이 확인되지 않은 달("+p.missing.map(monthLabel).join(", ")+")이 있어 한도 대비 비율은 표시하지 않습니다."));
+        progress.append(node("small",""," 연간 한도: ",sourceLink(p.year+"년 국고채 발행계획 보도자료("+p.limit_published+")",p.limit_source_url)));
+      }
+    } else progress.append(node("p","muted","발행 실적이 적힌 보도자료를 아직 확인하지 못했습니다."));
+    panel.append(progress);
+    const kept=new Set(ops.map(o=>o.id)), missed=data.feeds?.ktb_ops?.skipped;
+    const unread=Array.isArray(missed) ? missed.filter(s=>!kept.has(s.id) && s.reason!=="not_tried") : [];
+    if(unread.length) panel.append(node("p","market-warning","매입·교환 결과 공고 "+unread.length+"건을 읽지 못했습니다. 원문은 공식 결과 목록에서 확인해 주세요."));
+    if(ops.length) panel.append(table(["입찰일","구분","입찰금액","응찰률","낙찰금액","원문"],ops.map(o=>
+      [o.date,o.kind==="exchange"?"교환":o.kind==="buyback"?"매입":"기타",jo(o.offered_100m),number(o.bid_cover_pct,"%"),jo(o.awarded_100m),sourceLink("결과",o.source_url)]),
+      "최근 국고채 매입·교환 입찰 결과"));
+    else panel.append(node("p","market-warning","확인된 매입·교환 결과가 없습니다."));
+    panel.append(node("p","reading-note","경쟁입찰 계획은 비경쟁인수·교환을 뺀 금액이고, 발행 실적은 다음 달 보도자료에 적힌 전체 발행 규모입니다. 매입은 만기 전 국고채를 정부가 사들이는 입찰, 교환은 경과 종목을 지표 종목으로 바꾸는 입찰입니다. 응찰률은 응찰금액÷입찰금액입니다."),
+      node("p","reading-note","이 사이트의 규칙 판정에 쓰지 않는 참고 자료입니다. 숫자는 보도자료·결과 공고에서 옮긴 값이며, 비중·전월 대비·누계는 이 사이트의 계산값입니다."),
+      node("p","market-source","자료: 재정경제부 ",sourceLink("보도자료(국고채 발행 계획)",MOFE_PLANS)," · ",sourceLink("국채 입찰 결과 공고",MOFE_RESULTS),
+        latest ? node("span",""," · ",sourceLink(monthLabel(latest.month)+" 계획 원문",latest.source_url)) : null));
+    return panel;
+  }
   function setView(view) {
     const on=view==="korea" || view.startsWith("korea-");
     document.getElementById("korea-market").hidden=!on;
@@ -159,7 +236,7 @@ window.KoreaMarket = (() => {
       const section=node("section","market-group");section.dataset.group=id;
       section.append(node("h2","",title),node("div","market-grid",...data.cards.filter(c=>c.group===id).map(metricCard)));
       if(!data.cards.some(c=>c.group===id))section.append(node("p","market-warning","이 영역의 자료를 불러오지 못했습니다."));
-      if(id==="flows")section.append(auctionPanels());
+      if(id==="flows")section.append(auctionPanels(),node("div","auction-grid",issuancePanel()));
       content.append(section);
     }
     const teaser=document.getElementById("korea-teaser-values");teaser.replaceChildren();

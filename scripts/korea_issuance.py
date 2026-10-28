@@ -1,0 +1,343 @@
+#!/usr/bin/env python3
+"""국고채 발행계획·바이백·교환 — 재정경제부 공개 보도자료와 국채 입찰 결과 공고에서 숫자·날짜·고정 낱말만 꺼낸다.
+
+korea_market.build가 두 자료 묶음으로 부른다(각자 상태·마지막 성공 자료를 갖는다).
+  ktb_plans  월별 '국고채 … 발행 계획' 보도자료 PDF(첨부): 경쟁입찰 총액·만기별 금액·전월 실적·보도자료에 적힌
+             전월/당초 대비 변화(숫자만)·그달 매입(바이백)·교환 계획 금액과 날짜
+  ktb_ops    입찰 결과 게시판의 '국고채 매입 입찰 결과'·'국고채 교환 입찰 결과' 첨부 PDF: 입찰일·입찰금액·응찰금액·응찰률·낙찰금액
+원격 문구(제목·본문·종목명·담당자)는 내보내지 않는다. 형식이 다르면 고정 문구의 ValueError를 낸다 —
+korea_market.skip_reason이 SKIP_REASONS로 공개 사유 코드로 바꾼다.
+연간 발행 한도는 표(ANNUAL_LIMITS)로 둔다 — 연간 계획 보도자료에서 사람이 옮기고 출처 주소·날짜를 함께 적는다.
+그해 한도가 표에 없거나 1월부터 빠진 달이 있으면 한도 대비 비율을 내지 않는다(추정하지 않음).
+"""
+import datetime as dt
+import io
+import re
+import urllib.parse
+from html.parser import HTMLParser
+
+MOFE = "https://mofe.go.kr"
+PRESS_BBS, PRESS_MENU = "MOSFBBS_000000000028", "4010100"
+# 보도자료 게시판 제목 검색. '외평채 발행 계획'이면 월별 발행계획만 한 쪽에 모인다(2026-10-28 실측: 10건 중 9건).
+PLAN_LIST = MOFE + "/nw/nes/nesdta.do?" + urllib.parse.urlencode(
+    {"searchBbsId1": PRESS_BBS, "menuNo": PRESS_MENU, "searchCondition": "1", "searchKeyword": "외평채 발행 계획"})
+PRESS_DETAIL = MOFE + "/nw/nes/detailNesDtaView.do"
+FILE_DOWN = MOFE + "/com/cmm/fms/FileDown.do"
+# 입찰 결과 게시판(korea_market.RESULTS와 같은 곳)의 제목 검색 — 매입·교환 결과만
+RESULTS = "https://mofe.go.kr/st/fnancstats/ktb50201.do?bbsId=MOSFBBS_000000000049&menuNo=6050300"
+RESULT_DETAIL = "https://mofe.go.kr/st/fnancstats/updateTbFnancstatsView.do"
+OPS = {"buyback": "국고채 매입 입찰 결과", "exchange": "국고채 교환 입찰 결과"}
+OPS_LABEL = {"buyback": "매입", "exchange": "교환"}
+
+MAX_PLANS = 12           # 화면에 두는 달 수(지난 달은 전에 읽은 값을 둔다)
+MAX_OPS = 12             # 매입·교환 결과 행 수
+READ_PLANS = 6           # 한 번 실행에서 새로 읽는 보도자료 수(가장 새 것 + 아직 없는 것) — 시간 예산 안에서
+READ_OPS = 3             # 종류별로 새로 읽는 결과 공고 수
+TENORS = ("2", "3", "5", "10", "20", "30", "50")
+LONG = ("20", "30", "50")
+LINKER = "물가채"
+
+# 연간 국고채 발행 한도(억원) — 그해 '국고채 발행계획' 보도자료에서 옮긴다. 추경 등으로 수정 계획이 나오면 그 보도자료로 바꾼다.
+ANNUAL_LIMITS = {
+    2026: {"limit_100m": 2_257_000, "published": "2025-12-26",
+           "source_url": PRESS_DETAIL + "?" + urllib.parse.urlencode(
+               {"searchBbsId1": PRESS_BBS, "searchNttId1": "MOSF_000000000076306", "menuNo": PRESS_MENU})},
+}
+
+# 공개 사유 코드(korea_market.SKIP_REASONS에 합쳐진다)
+SKIP_REASONS = {"ambiguous attachment": "attachment", "unexpected attachment": "pdf_shape",
+                "missing plan total": "no_total", "plan month mismatch": "month_mismatch",
+                "plan field changed": "field_changed", "ambiguous plan fields": "ambiguous_fields",
+                "plan sum mismatch": "sum_mismatch", "plan outside range": "out_of_range",
+                "missing release date": "no_date", "op kind mismatch": "kind_mismatch",
+                "op field changed": "field_changed", "op date mismatch": "date_mismatch",
+                "op outside range": "out_of_range", "future operation": "future"}
+
+
+class Anchors(HTMLParser):
+    """<a>의 href·title·글자만 모은다(스크립트는 실행하지 않음)."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links, self.cur = [], None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            a = dict(attrs); self.cur = [a.get("href") or "", a.get("title") or "", []]
+
+    def handle_data(self, data):
+        if self.cur is not None: self.cur[2].append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self.cur is not None:
+            self.links.append((self.cur[0], self.cur[1], " ".join("".join(self.cur[2]).split()))); self.cur = None
+
+
+def anchors(raw):
+    p = Anchors(); p.feed(raw.decode("utf-8")); return p.links
+
+
+def press_url(ident):
+    if not re.fullmatch(r"MOSF_[0-9]{1,15}", ident): raise ValueError("invalid notice id")
+    return PRESS_DETAIL + "?" + urllib.parse.urlencode({"searchBbsId1": PRESS_BBS, "searchNttId1": ident, "menuNo": PRESS_MENU})
+
+
+def result_url(ident):
+    if not re.fullmatch(r"MOSF_[0-9]{1,15}", ident): raise ValueError("invalid notice id")
+    return RESULT_DETAIL + "?" + urllib.parse.urlencode({"searchSn": ident, "type": "ktb50201", "bbsId": "MOSFBBS_000000000049", "menuNo": "6050300"})
+
+
+def ops_list_url(kind):
+    return RESULTS + "&" + urllib.parse.urlencode({"searchCondition": "1", "searchKeyword": OPS[kind]})
+
+
+def plan_links(raw):
+    """보도자료 목록 → [(번호, (연도 두 자리, 월))]. 월별 국고채 발행계획만(경과물 모집·개인투자용·외평채 단독 계획은 뺀다)."""
+    out = []
+    for href, _, title in anchors(raw):
+        m = re.fullmatch(r"javascript:fn_egov_select\('(MOSF_[0-9]{1,15})'\);", href)
+        t = re.match(r"[‘'’]?(\d{2})\.(\d{1,2})월\s*국고채\s*,", title)
+        if m and t and re.search(r"발행\s*계획", title) and not re.search(r"모집|경과물|개인투자용", title) \
+                and 1 <= int(t[2]) <= 12 and m[1] not in [o[0] for o in out]:
+            out.append((m[1], (int(t[1]), int(t[2]))))
+    if not out: raise ValueError("no plan notices")
+    return out[:MAX_PLANS]
+
+
+def op_links(raw, kind):
+    """입찰 결과 목록 → [(번호, 입찰일 ISO)]. 제목이 '…년도 제n차 국고채 매입(교환) 입찰 결과('yy.m.d.)'인 것만(외평채 매입은 뺀다)."""
+    word = {"buyback": "매입", "exchange": "교환"}[kind]
+    out = []
+    for href, _, title in anchors(raw):
+        m = re.fullmatch(r'javascript:fn_egov_updateView\("(MOSF_[0-9]{1,15})"\);', href)
+        t = re.fullmatch(r"\d{4}년도\s*제\d{1,3}차\s*국고채\s*" + word + r"\s*입찰\s*결과\s*\([‘'’]?(\d{2})\.(\d{1,2})\.(\d{1,2})\.?\)", title)
+        if m and t and m[1] not in [o[0] for o in out]:
+            try: day = dt.date(2000 + int(t[1]), int(t[2]), int(t[3]))
+            except ValueError: continue
+            out.append((m[1], day.isoformat()))
+    return out[:6]
+
+
+def attachment_pdf_url(raw):
+    """상세 화면의 첨부 중 PDF 하나의 내려받기 주소. 첨부 순서(fileSn)는 글마다 다르다 — 미리보기 링크의 제목(…pdf 파일 새 창 열림)으로 고른다."""
+    found = set()
+    for href, title, _ in anchors(raw):
+        m = re.fullmatch(r"/com/synap/synapView\.do(?:;jsessionid=[\w.\-]{1,120})?\?atchFileId=(ATCH_[0-9]{1,20})&fileSn=([0-9]{1,3})", href)
+        if m and title.strip().lower().endswith(".pdf 파일 새 창 열림"):
+            found.add((m[1], m[2]))
+    if len(found) != 1: raise ValueError("ambiguous attachment")
+    atch, sn = found.pop()
+    return FILE_DOWN + "?" + urllib.parse.urlencode({"atchFileId": atch, "fileSn": sn})
+
+
+def pdf_text(raw, max_pages=12):
+    if not raw.startswith(b"%PDF-"): raise ValueError("unexpected attachment")
+    from pypdf import PdfReader
+    pdf = PdfReader(io.BytesIO(raw))
+    if pdf.is_encrypted or not 1 <= len(pdf.pages) <= max_pages: raise ValueError("unexpected attachment")
+    return "\n".join(p.extract_text() or "" for p in pdf.pages)
+
+
+def won(value, unit):
+    """'1.5','조' → 15000(억원). '106,000','억' → 106000."""
+    v = float(value.replace(",", ""))
+    out = v * 10000 if unit == "조" else v
+    if abs(out - round(out)) > 1e-6: raise ValueError("plan field changed")
+    return int(round(out))
+
+
+def near(year, month, m, d):
+    """계획 달(year, month) 가까이의 m월 d일(연말·연초를 넘는 날짜도)."""
+    base = dt.date(year, month, 15)
+    cands = []
+    for y in (year - 1, year, year + 1):
+        try: cands.append(dt.date(y, m, d))
+        except ValueError: pass
+    if not cands: raise ValueError("plan field changed")
+    best = min(cands, key=lambda c: abs((c - base).days))
+    if abs((best - base).days) > 75: raise ValueError("plan outside range")
+    return best.isoformat()
+
+
+AMT = r"([\d,]+(?:\.\d+)?)(조|억)원"
+DOWN, UP = ("축소", "감소", "감축"), ("확대", "증가", "증액")
+
+
+def stated(matches):
+    """[(금액, 단위, 낱말)] → 부호 붙은 억원 하나. 없으면 None, 값이 갈리면 거부."""
+    values = {won(a, u) * (-1 if w in DOWN else 1) for a, u, w in matches}
+    if len(values) > 1: raise ValueError("ambiguous plan fields")
+    return values.pop() if values else None
+
+
+def plan_section(s, word):
+    """'N월국고채매입계획'·'N월국고채교환계획' 참고 절(다음 '참고n' 앞까지). 없으면 None."""
+    m = re.search(r"참고\d{1,2}(?:참고\d{1,2})?\d{4}년\d{1,2}월국고채" + word + r"계획(.*?)(?=참고\d{1,2}|$)", s)
+    return m[1] if m else None
+
+
+def parse_plan_text(text, ident, ym, today):
+    s = re.sub(r"\s+", "", text)
+    yy, mm = ym
+    heads = set(re.findall(r"□[’'‘]?(\d{2})년(\d{1,2})월([\d,]+)억원국고채경쟁입찰발행", s))
+    if len(heads) != 1: raise ValueError("missing plan total")
+    y2, m2, total = heads.pop()
+    if (int(y2), int(m2)) != (yy, mm): raise ValueError("plan month mismatch")
+    year, month, total = 2000 + yy, mm, int(total.replace(",", ""))
+    if not 0 < total < 1_000_000: raise ValueError("plan outside range")
+    sec = re.search(r"□[’'‘]?\d{2}년\d{1,2}월[\d,]+억원국고채경쟁입찰발행(.*?)(?=□|참고\d|$)", s)[1]
+    amounts = {}
+    for tenor, linker, amount in re.findall(r"매출되는(?:국고채(\d{1,2})년물|(물가연동국고채))([\d,]+)억", sec):
+        key = LINKER if linker else tenor
+        if key != LINKER and key not in TENORS: raise ValueError("plan field changed")
+        if key in amounts: raise ValueError("ambiguous plan fields")
+        amounts[key] = int(amount.replace(",", ""))
+    if not amounts: raise ValueError("plan field changed")
+    if sum(amounts.values()) != total: raise ValueError("plan sum mismatch")
+    rel = re.search(r"배포(\d{4})\.(\d{1,2})\.(\d{1,2})\.", s)
+    if not rel: raise ValueError("missing release date")
+    published = dt.date(int(rel[1]), int(rel[2]), int(rel[3]))
+    first = dt.date(year, month, 1)
+    if published > today or not first - dt.timedelta(days=75) <= published <= first + dt.timedelta(days=31):
+        raise ValueError("plan outside range")
+    cut = s.find("연물별로는")
+    if cut < 0: raise ValueError("plan field changed")
+    lead = s[:cut]                         # 제목과 국고채 첫 문단(외평채·재정증권 문단은 그 뒤에 나온다)
+    prev_month = 12 if month == 1 else month - 1
+    found = []
+    for n, a, u, w in re.findall(r"(?:전월보다|전월대비|(\d{1,2})월에비해)" + AMT + "(" + "|".join(DOWN + UP) + ")", lead):
+        if n and int(n) != prev_month: raise ValueError("plan field changed")
+        found.append((a, u, w))
+    prev_change = stated(found)
+    if prev_change is None and "전월과동일" in lead: prev_change = 0
+    plan_change = stated(re.findall(r"당초(?:계획)?(?:대비)?" + AMT + "(" + "|".join(DOWN + UP) + ")", lead))
+    actual = None
+    pm_year = year - 1 if month == 1 else year
+    hits = set()
+    for y, m, jo, eok in re.findall(r"(?:(\d{4})년)?(\d{1,2})월국고채발행규모는(?:(\d{1,3})조)?([\d,]+)억원", s):
+        if int(m) != prev_month or (y and int(y) != pm_year): continue
+        hits.add(int(jo or 0) * 10000 + int(eok.replace(",", "")))
+    if len(hits) > 1: raise ValueError("ambiguous plan fields")
+    if hits:
+        value = hits.pop()
+        if not 0 < value < 1_000_000: raise ValueError("plan outside range")
+        actual = {"month": f"{pm_year:04d}-{prev_month:02d}", "amount_100m": value}
+    def dates(sec_text):
+        return sorted({near(year, month, int(m), int(d))
+                       for m, d in re.findall(r"(?<![\d.])(\d{1,2})\.(\d{1,2})\.\([월화수목금토일]\)", sec_text)})
+    buyback = None
+    sec_bb = plan_section(s, "매입")
+    if sec_bb is not None:
+        amt = re.findall(r"□총([\d,]+)억원규모국고채매입계획", sec_bb)
+        if len(amt) != 1: raise ValueError("plan field changed")
+        buyback = {"amount_100m": int(amt[0].replace(",", "")), "dates": dates(sec_bb)}
+    elif "국고채매입계획" in s:
+        raise ValueError("plan field changed")
+    exchange = None
+    sec_ex = plan_section(s, "교환")
+    if sec_ex is not None:
+        body = re.search(r"□(.*?)교환을실시할계획(.*)", sec_ex)
+        parts = re.findall(r"간([\d,]+)억원", body[1]) if body else []
+        if not parts: raise ValueError("plan field changed")
+        exchange = {"amount_100m": sum(int(p.replace(",", "")) for p in parts), "dates": dates(body[2])}
+    elif "국고채교환계획" in s:
+        raise ValueError("plan field changed")
+    for item in (buyback, exchange):
+        if item and not 0 < item["amount_100m"] < 1_000_000: raise ValueError("plan outside range")
+    order = list(TENORS) + [LINKER]
+    tenors = [{"tenor": k if k == LINKER else k + "년", "amount_100m": amounts[k]} for k in order if k in amounts]
+    share = lambda keys: round(sum(amounts.get(k, 0) for k in keys) / total * 100, 1)
+    return {"id": ident, "month": f"{year:04d}-{month:02d}", "published": published.isoformat(),
+            "competitive_100m": total, "tenors": tenors, "long_share_pct": share(LONG), "y30_share_pct": share(("30",)),
+            "stated_prev_change_100m": prev_change, "stated_plan_change_100m": plan_change,
+            "buyback_plan": buyback, "exchange_plan": exchange, "prev_actual": actual, "source_url": press_url(ident)}
+
+
+def parse_plan(raw, ident, ym, today):
+    return parse_plan_text(pdf_text(raw), ident, ym, today)
+
+
+def parse_op_text(text, ident, kind, date, today):
+    s = re.sub(r"\s+", "", text)
+    if {"buyback": "국고채매입입찰결과", "exchange": "국고채교환입찰결과"}[kind] not in s: raise ValueError("op kind mismatch")
+    cut = s.find("2.입찰결과")
+    if cut < 0: raise ValueError("op field changed")
+    over, res = s[:cut], s[cut:]
+    d = re.search(r"입찰일시.*?[’'‘](\d{2})\.(\d{1,2})\.(\d{1,2})\.", over)
+    if not d: raise ValueError("op field changed")
+    day = dt.date(2000 + int(d[1]), int(d[2]), int(d[3]))
+    if day.isoformat() != date: raise ValueError("op date mismatch")
+    if day > today: raise ValueError("future operation")
+    # 입찰(교환예정)금액은 공백을 남긴 글에서 — 공백을 지우면 앞 종목 번호 끝자리('…-3007 5,000억원')와 붙는다(2026-10-20 교환 결과 실측)
+    spaced = " ".join(text.split())
+    head = re.split(r"2\s*\.\s*입\s*찰\s*결\s*과", spaced, maxsplit=1)[0]
+    offered = re.findall(r"(?<![\d,.\-])(\d[\d,]*(?:\.\d+)?)\s*(조|억)\s*원", head)
+    bids = re.findall(r"응찰금액:([\d,]+)억원\(응찰률([\d.]+)%\)", res)
+    awarded = re.findall(r"낙찰금액:([\d,]+)억원", res)
+    if len(offered) != 1 or len(bids) != 1 or len(awarded) != 1: raise ValueError("op field changed")
+    offer = won(*offered[0]); bid = int(bids[0][0].replace(",", "")); ratio = float(bids[0][1])
+    award = int(awarded[0].replace(",", ""))
+    if not (0 < offer < 1_000_000 and 0 < bid < 5_000_000 and 0 < award <= offer and award <= bid and 0 < ratio < 5000):
+        raise ValueError("op outside range")
+    if abs(bid / offer * 100 - ratio) > 0.2: raise ValueError("op outside range")
+    return {"id": ident, "kind": kind, "date": date, "offered_100m": offer, "bids_100m": bid,
+            "bid_cover_pct": ratio, "awarded_100m": award, "source_url": result_url(ident)}
+
+
+def parse_op(raw, ident, kind, date, today):
+    return parse_op_text(pdf_text(raw, max_pages=4), ident, kind, date, today)
+
+
+def to_read(links, prev_ids, cap):
+    """가장 새 공고는 늘 다시 읽고(정정 확인), 나머지는 아직 없는 것만 cap개까지."""
+    if not links: return []
+    rest = [l for l in links[1:] if l[0] not in prev_ids]
+    return [links[0]] + rest[:cap - 1]
+
+
+def merge_plans(got, previous):
+    """새로 읽은 달 + 전에 읽은 달(같은 달이면 새로 읽은 것). 달 순서, 최근 MAX_PLANS달."""
+    by_month = {}
+    for r in list(previous or []) + list(got):
+        if isinstance(r, dict) and isinstance(r.get("month"), str):
+            by_month[r["month"]] = r
+    return [by_month[m] for m in sorted(by_month)][-MAX_PLANS:]
+
+
+def merge_ops(got, previous):
+    by_id = {}
+    for r in list(previous or []) + list(got):
+        if isinstance(r, dict) and isinstance(r.get("id"), str) and isinstance(r.get("date"), str):
+            by_id[r["id"]] = r
+    return sorted(by_id.values(), key=lambda r: (r["date"], r["id"]), reverse=True)[:MAX_OPS]
+
+
+def summary(plans):
+    """화면용 계산값: 최신 달과 전월 계획 대비(목록에 두 달이 다 있을 때만), 연간 한도 대비 발행 실적 누계."""
+    def good(p):          # 전에 저장된 행이 깨져 있어도 스냅샷 전체를 멈추지 않게 — 모양이 맞는 행만 센다
+        return (isinstance(p, dict) and isinstance(p.get("month"), str) and re.fullmatch(r"\d{4}-\d{2}", p["month"])
+                and type(p.get("competitive_100m")) is int)
+    plans = sorted((p for p in plans or [] if good(p)), key=lambda p: p["month"])
+    out = {"latest_month": None, "prev_month_change_100m": None, "progress": None}
+    if not plans: return out
+    latest = plans[-1]; out["latest_month"] = latest["month"]
+    y, m = map(int, latest["month"].split("-"))
+    pm = f"{y - 1:04d}-12" if m == 1 else f"{y:04d}-{m - 1:02d}"
+    prev = next((p for p in plans if p["month"] == pm), None)
+    if prev: out["prev_month_change_100m"] = latest["competitive_100m"] - prev["competitive_100m"]
+    actuals = {a["month"]: a["amount_100m"] for a in (p.get("prev_actual") for p in plans)
+               if isinstance(a, dict) and isinstance(a.get("month"), str) and re.fullmatch(r"\d{4}-\d{2}", a["month"])
+               and type(a.get("amount_100m")) is int}
+    if not actuals: return out
+    last = max(actuals); year = int(last[:4])
+    months = sorted(k for k in actuals if k.startswith(f"{year:04d}-"))
+    total = sum(actuals[k] for k in months)
+    limit = ANNUAL_LIMITS.get(year)
+    upto = int(last[5:])
+    missing = [f"{year:04d}-{i:02d}" for i in range(1, upto + 1) if f"{year:04d}-{i:02d}" not in actuals]
+    # 한도 대비 비율은 1월부터 빠진 달 없이 실적이 다 있을 때만 — 일부 달의 합을 한 해 진도처럼 보이지 않게
+    out["progress"] = {"year": year, "months": months, "through": last, "missing": missing,
+                       "actual_100m": total, "limit_100m": limit["limit_100m"] if limit else None,
+                       "limit_published": limit["published"] if limit else None,
+                       "limit_source_url": limit["source_url"] if limit else None,
+                       "pct": round(total / limit["limit_100m"] * 100, 1) if limit and not missing else None}
+    return out

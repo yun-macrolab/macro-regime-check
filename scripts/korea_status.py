@@ -8,7 +8,7 @@ from pathlib import Path
 from korea_market import UTC, atomic_json
 from write_status import run_url
 
-FEEDS = {"credit", "money", "rates", "foreign3", "foreign10", "calendar", "auctions", "offerings"}
+FEEDS = {"credit", "money", "rates", "foreign3", "foreign10", "calendar", "auctions", "offerings", "ktb_plans", "ktb_ops"}
 
 
 def read(path):
@@ -36,7 +36,7 @@ def update(out, state, now=None, env=None):
     ok, failed = False, None
     if state in ("success", "failure"):
         # 수집기 종료코드는 묶음 하나만 실패해도 1이다. 이번 실행이 새 스냅샷을 썼는지는 자료로 판정한다:
-        # 새 스냅샷 + 8개 묶음 모두 성공 = success, 새 스냅샷 + 일부 실패 = partial(ok는 False — 실패 묶음만 표시),
+        # 새 스냅샷 + 10개 묶음 모두 성공 = success, 새 스냅샷 + 일부 실패 = partial(ok는 False — 실패 묶음만 표시),
         # 새 스냅샷이 아니거나(시간 초과·스냅샷 미교체) 모든 묶음이 실패하면 failure.
         data = read(out/"korea.json"); checked = timestamp(data.get("checked_at"))
         feeds = data.get("feeds")

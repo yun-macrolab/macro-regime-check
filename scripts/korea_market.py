@@ -2,7 +2,8 @@
 """Korean market learning data. Public downloads only; no credentials or personal files.
 
 BOK snapshot XLSX (3 charts), KRX public KTB statistics (3y/10y foreign net
-contracts, spread trades included), Treasury auction calendar/results.
+contracts, spread trades included), Treasury auction calendar/results, and the
+monthly KTB issuance plans / buyback·exchange results (korea_issuance.py).
 Only allowlisted numeric fields, dates and fixed labels leave the parsers.
 Independent feeds retain their last successful values on failure and expose status.
 pypdf reads official offering PDFs; other parsers use the standard library.
@@ -24,6 +25,8 @@ import xml.etree.ElementTree as ET
 import zipfile
 from html.parser import HTMLParser
 from pathlib import Path
+
+import korea_issuance as ki
 
 UTC = dt.timezone.utc
 KST = dt.timezone(dt.timedelta(hours=9))
@@ -379,7 +382,7 @@ SKIP_REASONS = {"ambiguous offering PDF": "pdf_link", "offering bond mismatch": 
                 "oversized response": "oversized", "invalid notice id": "bad_id",
                 "missing auction date": "no_date", "future auction result": "future", "auction field changed": "field_changed",
                 "missing offering amount": "no_amount", "auction values outside range": "out_of_range",
-                "bid cover mismatch": "bid_cover"}
+                "bid cover mismatch": "bid_cover", **ki.SKIP_REASONS}
 
 
 def skip_reason(exc):
@@ -409,6 +412,18 @@ def card(key, points, source, today):
 
 
 def validate_freshness(name, payload, previous, today):
+    if name == "ktb_plans":
+        # 발행계획은 전달 말(대개 마지막 목요일)에 나온다 — 최신 계획 달이 지난달보다 앞이면 묵은 것
+        if not payload: raise FeedError("empty_or_duplicate")
+        latest = max(r["month"] for r in payload)
+        floor = (today.replace(day=1) - dt.timedelta(days=1)).strftime("%Y-%m")
+        if latest < floor: raise FeedError("stale")
+        if previous and latest < max(((r.get("month") or "") for r in previous if isinstance(r, dict)), default=""):
+            raise FeedError("regressed")
+        return
+    if name == "ktb_ops":
+        if not payload: raise FeedError("empty_or_duplicate")     # 매입·교환은 달마다 있지 않다 — 날짜로 묵음을 따지지 않는다
+        return
     series = payload if name in CHARTS else {name: payload} if name in ("foreign3", "foreign10") else {}
     old_series = (previous or {}) if name in CHARTS else {name: previous or []}
     for key, points in series.items():
@@ -466,13 +481,32 @@ def build(old, now, fetch=None):
             if codes and all(c == "network" or c.startswith("http_") for c in codes): raise FeedError("unavailable")
             raise FeedError("unreadable_notices")
         return got
-    skips = {"auctions": [], "offerings": []}
+    skips = {"auctions": [], "offerings": [], "ktb_plans": [], "ktb_ops": []}
     # Re-read recent notices so corrections are picked up. Max eight public pages.
     run("auctions", lambda: notices("auctions", result_links(fetch(RESULTS)),
                                     lambda ident, tenor: parse_result(fetch(result_url(ident)), ident, tenor, today)))
     run("offerings", lambda: notices("offerings", offering_links(fetch(OFFER_LIST)),
                                      lambda ident, code: parse_offering(fetch(offering_pdf_url(fetch(offering_url(ident)))),
                                                                         ident, code, today)))
+    # 재정경제부 발행계획 보도자료·매입/교환 결과 — 시간 예산을 다른 묶음에 먼저 쓰도록 맨 뒤에. 지난 달·지난 결과는 전에 읽은 값을 둔다
+    def plan_feed():
+        prev = previous.get("ktb_plans", {}).get("data") or []
+        links = ki.to_read(ki.plan_links(fetch(ki.PLAN_LIST)), {r.get("id") for r in prev if isinstance(r, dict)}, ki.READ_PLANS)
+        got = notices("ktb_plans", links, lambda ident, ym: ki.parse_plan(
+            fetch(ki.attachment_pdf_url(fetch(ki.press_url(ident)))), ident, ym, today))
+        return ki.merge_plans(got, prev)
+    def ops_feed():
+        prev = previous.get("ktb_ops", {}).get("data") or []
+        seen = {r.get("id") for r in prev if isinstance(r, dict)}
+        links = []
+        for kind in ki.OPS:
+            links += [(ident, (kind, date)) for ident, date in ki.to_read(ki.op_links(fetch(ki.ops_list_url(kind)), kind), seen, ki.READ_OPS)]
+        if not links: raise ValueError("no operation notices")       # 목록 형식이 바뀜 — 공고 하나의 문제가 아니다
+        got = notices("ktb_ops", links, lambda ident, arg: ki.parse_op(
+            fetch(ki.attachment_pdf_url(fetch(ki.result_url(ident)))), ident, arg[0], arg[1], today))
+        return ki.merge_ops(got, prev)
+    run("ktb_plans", plan_feed)
+    run("ktb_ops", ops_feed)
     for name, skipped in skips.items():
         feeds[name]["skipped"] = skipped
     cards = []
@@ -494,6 +528,8 @@ def build(old, now, fetch=None):
     return {"schema": 1, "checked_at": stamp, "feeds": feeds, "cards": cards,
             "calendar": feeds["calendar"]["data"], "auctions": feeds["auctions"]["data"] or [],
             "offerings": feeds["offerings"]["data"] or [],
+            "ktb_plans": feeds["ktb_plans"]["data"] or [], "ktb_ops": feeds["ktb_ops"]["data"] or [],
+            "ktb_summary": ki.summary(feeds["ktb_plans"]["data"] or []),
             "notices": ["학습용 참고 자료이며 기존 13개 규칙 판정에는 쓰지 않습니다.",
                 "한국은행 스냅샷 자료는 출처를 명시하여 비상업적 학습 목적으로 이용합니다. 원자료 저작권은 각 제공기관에 있습니다.",
                 "금리차·기간 변화·누적 순매수·분포는 이 사이트의 계산값입니다. 분포는 최근 관측일 기준 365일이며 저평가·고평가 판정이 아닙니다."]}
@@ -526,7 +562,8 @@ def main(argv=None):
         return 1
     failed = [k for k, v in data["feeds"].items() if not v["ok"]]
     print(f"[korea_market] {len(data['cards'])} cards; {len(failed)} failed feeds")
-    for name, what in (("auctions", "입찰 결과 공고"), ("offerings", "한국은행 발행공고")):
+    for name, what in (("auctions", "입찰 결과 공고"), ("offerings", "한국은행 발행공고"),
+                       ("ktb_plans", "국고채 발행계획 보도자료"), ("ktb_ops", "국고채 매입·교환 결과 공고")):
         skipped = data["feeds"][name].get("skipped") or []
         if skipped:     # GitHub Actions 경고(실행을 실패로 만들지 않음) — 공고 번호와 고정 사유 코드만
             print(f"::warning::{what} " + str(len(skipped)) + "건을 읽지 못함 — "
