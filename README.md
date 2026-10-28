@@ -149,8 +149,8 @@ python -X utf8 scripts/korea_market.py --out .work/public
 - **새 노트 쓰기** — `notes/YYYY-MM-DD-영문-소문자.md`를 쓰고 `python -X utf8 scripts/notes_build.py`를 돌려 `data/notes.json`을 함께 커밋합니다(`--check`는 쓰지 않고 비교만 합니다). 둘이 어긋난 채 올리면 테스트가 막습니다. 그 테스트는 아침 워크플로의 앞 단계라, 배포뿐 아니라 다음 날의 FRED 갱신도 함께 멈춥니다.
 - **받는 문법** — 머리말(제목 · 날짜 · 출처 · 원문 제목 · 원문 주소 · 저자 · 발행일 · 읽는 시간 · 난이도 · 한 줄 결론), `##`·`###` 제목, 문단, 목록, 표, `**굵게**`, `[글](https://…)`, `::질문` 아래 번호 목록 3개. 그 밖의 것(원시 HTML, 인용문, 코드, 그림 `![]`, 맨 주소, https가 아닌 링크, 보이지 않는 글자)은 파일 이름과 줄 번호를 찍고 멈춥니다.
 - **그림 세 종류** — ① `::사이트그래프 <규칙 키> | 캡션`: 사이트가 평일 아침마다 받는 규칙 그래프를 그대로 싣습니다. ② 펜스 `도식` 안의 JSON: 직접 그리는 개념도입니다(수치 축 없음, 화면 읽기용 설명 `alt` 필수). ③ `::정적그래프 <그래프 키> | 캡션`: `scripts/notes_charts.py`로 받아 둔 공개 통계(`data/notes_charts.json`)를 연 단위로 그립니다.
-- **정적 그래프의 자료 조건** — FRED 계열 쪽의 저작권 표시가 "Public Domain: Citation Requested"나 "Copyrighted: Citation Required"이고 마지막 값이 2025년 이후일 때만 싣습니다. "Pre-approval Required"이거나 표시를 읽지 못하면 스크립트가 파일을 쓰지 않습니다. 그래프 아래에 출처(FRED 경유)·계산한 선 표시·받은 날을 적습니다. 이 스크립트는 손으로 돌리며 아침 워크플로에서는 돌지 않습니다.
-- **테스트** — 아침 테스트에 함께 돕니다: `test_notes_build.py` 50개 · `test_notes_charts.py` 21개 · `test_notes_site.py` 22개, 그리고 가짜 DOM 위에서 실제 노트를 그려 보는 `node --test scripts/test_notes_render.cjs` 21개.
+- **정적 그래프의 자료 조건** — FRED 계열 쪽의 저작권 표시가 "Public Domain: Citation Requested"나 "Copyrighted: Citation Required"이고 마지막 값이 2025년 이후일 때만 싣습니다. "Pre-approval Required"이거나 표시를 읽지 못하면 스크립트가 파일을 쓰지 않습니다. 표시가 "Citation Required"여도 규칙 카드가 값을 싣지 않는 계열(`render_public.RESTRICTED`)과 Moody's 자료(`AAA`·`BAA`·`BAA10Y` 등 — 고지가 Moody's의 사전 서면 동의 없는 재배포를 막습니다)는 받기 전에 거절합니다. 그래프 아래에 출처(FRED 경유)·계산한 선 표시·받은 날을 적습니다. 이 스크립트는 손으로 돌리며 아침 워크플로에서는 돌지 않습니다.
+- **테스트** — 아침 테스트에 함께 돕니다: `test_notes_build.py` 51개 · `test_notes_charts.py` 30개 · `test_notes_site.py` 22개, 그리고 가짜 DOM 위에서 실제 노트를 그려 보는 `node --test scripts/test_notes_render.cjs` 21개.
 
 ## 저녁판(시범)
 
@@ -277,7 +277,7 @@ python -X utf8 scripts/test_study_site.py   # 공부 화면(그 안에서 node �
 python -X utf8 -m unittest discover -s scripts/evening   # 저녁판(아침 테스트와 따로)
 ```
 
-**아침 쪽 Python 테스트 513개 + node 테스트 33개**(공개 전 검사 53 · 판정 67 · 공유 파일 대조 3 · 공개본 20 · 상태 기록 12 · 그래프 32 · 국고채 참고 48 · 수급 참고 50 · 한국 시장 54 · 갱신 신뢰성 28 · 화면 정적 검사 8 · 화면 폴더 검사 17 · 공부 화면 28(그 안에서 node 묶음 9개) · 읽기 노트 93 / node: 상태 로직 12 · 노트 그리기 21)와 **저녁판 테스트 729개**(네트워크 불필요, Python 3.13 표준 라이브러리만 — 공개 전 검사와 그 테스트는 git 명령이 필요합니다).
+**아침 쪽 Python 테스트 523개 + node 테스트 33개**(공개 전 검사 53 · 판정 67 · 공유 파일 대조 3 · 공개본 20 · 상태 기록 12 · 그래프 32 · 국고채 참고 48 · 수급 참고 50 · 한국 시장 54 · 갱신 신뢰성 28 · 화면 정적 검사 8 · 화면 폴더 검사 17 · 공부 화면 28(그 안에서 node 묶음 9개) · 읽기 노트 103 / node: 상태 로직 12 · 노트 그리기 21)와 **저녁판 테스트 729개**(네트워크 불필요, Python 3.13 표준 라이브러리만 — 공개 전 검사와 그 테스트는 git 명령이 필요합니다).
 
 - 공개 전 검사는 보호 장치를 하나씩 꺼 본 변이 검사 27건을 테스트가 모두 잡는 것까지 확인했습니다(변이 검사 스크립트는 저장소에 넣지 않았습니다).
 - 여러 AI 검토자에게 서로 다른 관점으로 결함을 찾게 하고, **다른 검토자가 재현한 것만** 고쳤습니다.

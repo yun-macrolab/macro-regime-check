@@ -6,10 +6,12 @@
 끝의 RepoTest는 저장소에 실린 data/notes_charts.json(손으로 돌려 받아 둔 값)의 꼴을 본다.
 """
 import os, sys, io, json, math, shutil, datetime, tempfile, unittest, contextlib, urllib.error
+from unittest import mock
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
 import notes_charts as nc
+import render_public as rp
 
 REPO = os.path.dirname(SCRIPTS)
 D = datetime.date
@@ -108,6 +110,40 @@ class RefusalTest(unittest.TestCase):
         self.assertIn("2025", nc.refusal("X", FREE, 2024))
         self.assertIsNotNone(nc.refusal("X", FREE, None))
         self.assertIsNotNone(nc.refusal("X", "Some New Label", 2026))
+
+
+class RestrictedTest(unittest.TestCase):
+    """표시가 'Citation Required'여도 싣지 않는 계열 — 규칙 카드의 재배포 제한 목록과 Moody's 자료."""
+
+    def test_baa_and_aaa_are_refused_whatever_their_mark(self):
+        for sid in ("BAA", "AAA"):
+            self.assertIn("Moody's", nc.denied(sid))
+            for mark in (CITED, FREE):                                     # FRED가 붙인 표시는 지나가는 쪽이다
+                self.assertIn("Moody's", nc.refusal(sid, mark, 2026))
+
+    def test_every_listed_moodys_series_is_refused(self):
+        self.assertLessEqual({"DAAA", "DBAA", "WAAA", "WBAA", "BAA10Y", "AAA10Y", "BAAFF", "AAAFF"}, nc.MOODYS)
+        for sid in nc.MOODYS:
+            self.assertIsNotNone(nc.denied(sid), sid)
+
+    def test_rule_card_restricted_series_are_refused(self):
+        self.assertTrue(rp.RESTRICTED)
+        for sid in rp.RESTRICTED:
+            self.assertIn("render_public.RESTRICTED", nc.denied(sid))
+            self.assertIsNotNone(nc.refusal(sid, FREE, 2026), sid)
+
+    def test_a_moodys_source_tag_is_refused_off_the_list(self):
+        tagged = page("aaa", "moody's", CITED.lower(), "monthly")
+        self.assertEqual(nc.copyright_mark(tagged), CITED)                 # 표시만 보면 지나간다 — 태그가 막는다
+        self.assertTrue(nc.moodys_tagged(tagged))
+        self.assertIsNone(nc.denied("NOTLISTED"))
+        self.assertIn("Moody's", nc.refusal("NOTLISTED", CITED, 2026, moodys=True))
+        self.assertFalse(nc.moodys_tagged(page(CITED.lower(), "monthly", body="Moody's")))   # 본문 글은 태그가 아니다
+
+    def test_public_domain_series_still_pass(self):
+        for sid in (nc.JP, nc.US, nc.US_CHECK):
+            self.assertIsNone(nc.denied(sid), sid)
+            self.assertIsNone(nc.refusal(sid, FREE, 2026, moodys=False), sid)
 
 
 class CrossCheckTest(unittest.TestCase):
@@ -232,6 +268,46 @@ class MainTest(unittest.TestCase):
         pages[nc.FRED_PAGE.format(nc.JP)] = "x" * (nc.MAX_BYTES + 10)
         self.assertEqual(self.run_main(FakeOpener(pages))[0], 1)
 
+    def chart_asking_for(self, sid, *tags):
+        """미국 선의 계열을 sid로 바꿔 돌린다 — 노트 그래프가 그 계열을 그려 달라고 한 것과 같다. 계열 쪽 태그는 tags."""
+        pages = site()
+        pages[nc.FRED_PAGE.format(sid)] = page(*tags)
+        pages[nc.FRED_CSV.format(sid=sid)] = csv_of(monthly(1990, 2026, skip={(2025, 10)}, until=8), sid)
+        op = FakeOpener(pages)
+        with mock.patch.object(nc, "US", sid), mock.patch.dict(nc.SOURCE, {sid: ("Somebody", "Some series")}):
+            rc, err = self.run_main(op)
+        return rc, err, op
+
+    def test_a_chart_asking_for_baa_or_aaa_is_refused_before_any_request(self):
+        for sid in ("BAA", "AAA"):
+            rc, err, op = self.chart_asking_for(sid, CITED.lower(), "moody's", "monthly")
+            self.assertEqual(rc, 1, sid)
+            self.assertIn(f"{sid}: Moody's", err)
+            self.assertEqual(op.calls, [])                                 # 계열 쪽도 CSV도 받지 않았다
+            self.assertFalse(os.path.exists(self.path))
+
+    def test_a_chart_asking_for_a_rule_card_restricted_series_is_refused(self):
+        for sid in rp.RESTRICTED:
+            rc, err, op = self.chart_asking_for(sid, CITED.lower(), "daily")
+            self.assertEqual((rc, op.calls), (1, []), sid)
+            self.assertIn("render_public.RESTRICTED", err)
+            self.assertFalse(os.path.exists(self.path))
+
+    def test_an_unlisted_series_with_a_moodys_source_tag_is_refused(self):
+        rc, err, _ = self.chart_asking_for("NOTLISTED", CITED.lower(), "moody's", "monthly")
+        self.assertEqual(rc, 1)
+        self.assertIn("NOTLISTED: 계열 쪽 출처 태그가 Moody's", err)
+        self.assertFalse(os.path.exists(self.path))
+
+    def test_an_allowed_public_domain_series_still_works(self):
+        # 위 셋과 같은 길 — 제한 목록에 없고 Moody's 태그도 없으면 그래프가 써진다
+        rc, err, _ = self.chart_asking_for("NOTLISTED", FREE.lower(), "monthly")
+        self.assertEqual((rc, err), (0, ""))
+        with open(self.path, encoding="utf-8") as f:
+            chart = json.load(f)["charts"]["cpi_jp_us"]
+        self.assertEqual([(s["id"], s["mark"]) for s in chart["series"]], [(nc.JP, FREE), ("NOTLISTED", FREE)])
+        self.assertEqual(chart["lines"][1]["series"], ["NOTLISTED"])
+
 
 class RepoTest(unittest.TestCase):
     """저장소에 실린 받아 둔 값 — 조건을 통과한 계열만, 출처·받은 날과 함께."""
@@ -251,6 +327,7 @@ class RepoTest(unittest.TestCase):
             ids = {s["id"] for s in c["series"]}
             for s in c["series"]:
                 self.assertIn(s["mark"], nc.USABLE)                          # 사전 허락이 필요한 계열은 없다
+                self.assertIsNone(nc.denied(s["id"]))                         # 재배포 제한 목록·Moody's 자료도 없다
                 self.assertEqual(s["url"], "https://fred.stlouisfed.org/series/" + s["id"])
                 self.assertIn("retrieved from FRED", s["citation"])
             for ln in c["lines"]:

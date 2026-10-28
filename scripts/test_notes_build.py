@@ -10,6 +10,7 @@ import os, re, sys, io, json, shutil, tempfile, unittest, contextlib, subprocess
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
 import notes_build as nb
+import notes_charts as nc
 
 REPO = os.path.dirname(SCRIPTS)
 SLUG = "2026-01-05-made-up-note"
@@ -514,6 +515,16 @@ class RepoTest(unittest.TestCase):
         with open(os.path.join(REPO, "data", "notes_charts.json"), encoding="utf-8") as f:
             charts = json.load(f)["charts"]
         self.assertLessEqual(wanted, set(charts))
+
+    def test_static_charts_plot_no_restricted_series(self):
+        # 노트가 부르는 정적 그래프의 선마다 — 규칙 카드의 재배포 제한 계열·Moody's 자료가 없다(notes_charts.denied)
+        wanted = {d["chart"] for d in walk(self.built) if d.get("kind") == "static_chart"}
+        with open(os.path.join(REPO, "data", "notes_charts.json"), encoding="utf-8") as f:
+            charts = json.load(f)["charts"]
+        for key in wanted & set(charts):
+            for ln in charts[key]["lines"]:
+                for sid in ln["series"]:
+                    self.assertIsNone(nc.denied(sid), f"{key}: {sid}")
 
 
 if __name__ == "__main__":

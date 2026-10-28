@@ -10,9 +10,12 @@
         CHECK_TOL(%p)을 넘거나 겹치는 해가 모자라면 멈춘다. 2026-10-08 실행에서 1995~2024년 최대 차이 0.04%p.
 
 자료 조건(닫힌 쪽으로) — 하나라도 어긋나면 파일을 쓰지 않고 종료코드 1 (test_notes_charts.py가 강제):
+  - 재배포가 제한된 계열이 아닐 것(denied — 받기 전에 ID로 거르므로 주소도 두드리지 않는다): 규칙 카드가 값을 싣지 않는
+    계열(render_public.RESTRICTED)과 Moody's 자료(MOODYS). Moody's 계열은 표시가 'Copyrighted: Citation Required'라
+    다음 조건을 지나가지만, 고지가 Moody's의 사전 서면 동의 없는 재배포를 막는다. 목록에 없는 계열도 계열 쪽에 출처 태그
+    'moody's'가 있으면 쓰지 않는다.
   - 계열 쪽(fred.stlouisfed.org/series/<ID>)의 저작권 표시가 'Public Domain: Citation Requested'나
-    'Copyrighted: Citation Required'일 것. 'Copyrighted: Pre-approval Required'이거나 표시를 읽지 못하면 쓰지 않는다
-    (저장소가 재배포 제한 계열을 다루는 기준 — render_public.RESTRICTED — 과 같다).
+    'Copyrighted: Citation Required'일 것. 'Copyrighted: Pre-approval Required'이거나 표시를 읽지 못하면 쓰지 않는다.
   - 마지막 값이 MIN_LAST_YEAR년 이후일 것.
   일본의 OECD 경유 월별 계열(CPALTT01JPM659N · JPNCPIALLMINMEI, 표시는 Copyrighted: Citation Required)은
   2021-06에서 멈춰 있어 쓰지 않았다(2026-10-08 확인).
@@ -29,6 +32,7 @@ from html.parser import HTMLParser
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
 import fred_fetch as ff
+import render_public as rp
 
 SCHEMA = 1
 REPO = os.path.dirname(SCRIPTS)
@@ -52,6 +56,17 @@ MARKS = {"public domain: citation requested": "Public Domain: Citation Requested
          "copyrighted: citation required": "Copyrighted: Citation Required",
          "copyrighted: pre-approval required": "Copyrighted: Pre-approval Required"}
 USABLE = ("Public Domain: Citation Requested", "Copyrighted: Citation Required")
+# 표시와 상관없이 싣지 않는 Moody's 자료 — FRED에서 'Moody's'로 찾은 22개(2026-10-28 계열 쪽에서 확인). 표시는
+# 'Copyrighted: Citation Required'(H.15에서 온 RIMLP…는 'Public Domain: Citation Requested')라 USABLE을 지나가지만, 고지가
+# "MAY NOT BE COPIED … REDISTRIBUTED … IN WHOLE OR IN PART … WITHOUT MOODY'S PRIOR WRITTEN CONSENT"다. 금리차(…10Y·…10YM·
+# …FF·…FFM)는 출처가 세인트루이스 연은으로 적혀 'moody's' 태그가 없으므로 이 목록으로만 막힌다. 같은 날 본 S&P·ICE·Nasdaq
+# 계열은 표시가 'Pre-approval Required'라 표시 검사가 막는다.
+MOODYS = frozenset({
+    "AAA", "BAA", "DAAA", "DBAA", "WAAA", "WBAA",                                    # 수익률(출처 Moody's)
+    "AAA10Y", "BAA10Y", "AAA10YM", "BAA10YM", "AAAFF", "BAAFF", "AAAFFM", "BAAFFM",   # 금리차(세인트루이스 연은 계산)
+    "RIMLPAAARNA", "RIMLPAAARNB", "RIMLPAAARNM", "RIMLPAAARNWF",                      # H.15 경유(중단된 계열)
+    "RIMLPBAARNA", "RIMLPBAARNB", "RIMLPBAARNM", "RIMLPBAARNWF"})
+MOODYS_TAG = "moody's"            # 계열 쪽 출처 태그 — 목록에 없는 Moody's 계열은 받은 계열 쪽에서 막는다
 _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
            "November", "December")
 TITLE = "일본·미국 소비자물가 상승률"
@@ -76,13 +91,32 @@ class _Tags(HTMLParser):
             self.tags.append(" ".join(a["content"].lower().split()))
 
 
-def copyright_mark(page):
-    """계열 쪽의 저작권 표시(MARKS의 값). 표시가 없거나 서로 다른 표시가 함께 있으면 None — 확인하지 못한 것으로 친다."""
+def page_tags(page):
+    """계열 쪽의 series-tag 값들(소문자, 공백 하나로). 본문에 적힌 글은 태그가 아니다."""
     p = _Tags()
     p.feed(page)
     p.close()
-    found = {MARKS[t] for t in p.tags if t in MARKS}
+    return p.tags
+
+
+def copyright_mark(page):
+    """계열 쪽의 저작권 표시(MARKS의 값). 표시가 없거나 서로 다른 표시가 함께 있으면 None — 확인하지 못한 것으로 친다."""
+    found = {MARKS[t] for t in page_tags(page) if t in MARKS}
     return found.pop() if len(found) == 1 else None
+
+
+def moodys_tagged(page):
+    """계열 쪽에 출처 태그 'moody's'가 있는가."""
+    return MOODYS_TAG in page_tags(page)
+
+
+def denied(sid):
+    """ID만으로 거절하는 이유(재배포 제한 계열) — 받기 전에 본다. 아니면 None."""
+    if sid in rp.RESTRICTED:
+        return f"{sid}: 재배포 제한 계열({rp.RESTRICTED[sid]} — render_public.RESTRICTED) — 싣지 않는다"
+    if sid in MOODYS:
+        return f"{sid}: Moody's 자료(재배포에 Moody's의 사전 서면 동의가 필요) — 싣지 않는다"
+    return None
 
 
 def fetch(url, opener=None):
@@ -93,8 +127,13 @@ def fetch(url, opener=None):
     return body.decode("utf-8", "replace")
 
 
-def refusal(sid, mark, last_year):
-    """이 계열을 쓰면 안 되는 이유. 써도 되면 None."""
+def refusal(sid, mark, last_year, moodys=False):
+    """이 계열을 쓰면 안 되는 이유. 써도 되면 None. moodys: 계열 쪽에 출처 태그 'moody's'가 있었는가."""
+    reason = denied(sid)
+    if reason:
+        return reason
+    if moodys:
+        return f"{sid}: 계열 쪽 출처 태그가 Moody's — 싣지 않는다"
     if mark is None:
         return f"{sid}: 저작권 표시를 확인하지 못함"
     if mark not in USABLE:
@@ -175,6 +214,14 @@ def write(out, data):
     os.replace(tmp, path)
 
 
+def _refused(reasons):
+    """거절 이유(None은 건너뜀)를 알리고, 하나라도 있었으면 True."""
+    reasons = [r for r in reasons if r]
+    for reason in reasons:
+        print(f"[notes_charts] {reason}", file=sys.stderr)
+    return bool(reasons)
+
+
 def main(argv=None, opener=None, today=None):
     for stream in (sys.stdout, sys.stderr):       # cp949 콘솔에서도 안내 문구(긴 줄표)가 죽지 않게 — notes_build와 같은 처리
         if hasattr(stream, "reconfigure"):
@@ -183,16 +230,17 @@ def main(argv=None, opener=None, today=None):
     ap.add_argument("--out", default=DEFAULT_OUT, help="사이트 데이터 폴더 (기본: 저장소의 data/)")
     a = ap.parse_args(argv)
     day = today or datetime.date.today()
+    if _refused(map(denied, (JP, US))):           # 재배포 제한 계열은 받기 전에 — 주소도 두드리지 않는다
+        return 1
     try:
-        marks = {sid: copyright_mark(fetch(FRED_PAGE.format(sid), opener)) for sid in (JP, US)}
+        pages = {sid: fetch(FRED_PAGE.format(sid), opener) for sid in (JP, US)}
+        marks = {sid: copyright_mark(pages[sid]) for sid in (JP, US)}
+        moodys = {sid: moodys_tagged(pages[sid]) for sid in (JP, US)}
         raw = {sid: ff.parse_csv(fetch(FRED_CSV.format(sid=sid), opener)) for sid in (JP, US, US_CHECK)}
     except Exception as e:                        # 수신 어디서 실패해도 받아 둔 파일은 그대로
         print(f"[notes_charts] 수신 실패: {type(e).__name__}", file=sys.stderr)
         return 1
-    bad = [r for r in (refusal(sid, marks[sid], raw[sid][-1][0].year if raw[sid] else None) for sid in (JP, US)) if r]
-    for reason in bad:
-        print(f"[notes_charts] {reason}", file=sys.stderr)
-    if bad:
+    if _refused(refusal(sid, marks[sid], raw[sid][-1][0].year if raw[sid] else None, moodys[sid]) for sid in (JP, US)):
         return 1
     us = annual_change(raw[US])
     check = crosscheck(us, yearly(raw[US_CHECK]))
