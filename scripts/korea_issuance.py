@@ -18,9 +18,18 @@ from html.parser import HTMLParser
 
 MOFE = "https://mofe.go.kr"
 PRESS_BBS, PRESS_MENU = "MOSFBBS_000000000028", "4010100"
-# 보도자료 게시판 제목 검색. '외평채 발행 계획'이면 월별 발행계획만 한 쪽에 모인다(2026-10-28 실측: 10건 중 9건).
+# 보도자료 게시판 제목 검색. '발행 계획' — 서버가 띄어쓰기를 지우고 맞추므로 '발행계획'도 걸리고, 2022년 이후 월별 계획의
+# 제목 꼴(… 외평채 발행 계획 / … 경쟁입찰 n조원 … 발행 계획 / 'yyyy년 m월 국고채 발행계획 및 …')이 다 온다. 월별 계획이 아닌 것은 plan_links가 거른다.
 PLAN_LIST = MOFE + "/nw/nes/nesdta.do?" + urllib.parse.urlencode(
-    {"searchBbsId1": PRESS_BBS, "menuNo": PRESS_MENU, "searchCondition": "1", "searchKeyword": "외평채 발행 계획"})
+    {"searchBbsId1": PRESS_BBS, "menuNo": PRESS_MENU, "searchCondition": "1", "searchKeyword": "발행 계획"})
+# 목록은 쪽마다 10건 — 둘째 쪽부터는 pageIndex를 붙인다(목록의 쪽 링크 '?pageIndex=2'·fn_egov_link_page와 같은 칸, 2026-10-28 실측)
+
+
+def plan_list_url(page=1):
+    if type(page) is not int or not 1 <= page <= 9: raise ValueError("invalid page")
+    return PLAN_LIST if page == 1 else PLAN_LIST + "&" + urllib.parse.urlencode({"pageIndex": page})
+
+
 PRESS_DETAIL = MOFE + "/nw/nes/detailNesDtaView.do"
 FILE_DOWN = MOFE + "/com/cmm/fms/FileDown.do"
 # 입찰 결과 게시판(korea_market.RESULTS와 같은 곳)의 제목 검색 — 매입·교환 결과만
@@ -37,7 +46,8 @@ TENORS = ("2", "3", "5", "10", "20", "30", "50")
 LONG = ("20", "30", "50")
 LINKER = "물가채"
 
-# 연간 국고채 발행 한도(억원) — 그해 '국고채 발행계획' 보도자료에서 옮긴다. 추경 등으로 수정 계획이 나오면 그 보도자료로 바꾼다.
+# 연간 국고채 발행 한도(억원) — 그해 '국고채 발행계획' 보도자료에서 옮긴다. 추경 등으로 수정 계획('…국고채 발행계획 수정')이
+# 나오면 그 보도자료로 바꾼다 — 코드는 수정 계획을 찾지 않는다(README 한국 시장 절의 손볼 일).
 ANNUAL_LIMITS = {
     2026: {"limit_100m": 2_257_000, "published": "2025-12-26",
            "source_url": PRESS_DETAIL + "?" + urllib.parse.urlencode(
@@ -52,6 +62,8 @@ SKIP_REASONS = {"ambiguous attachment": "attachment", "unexpected attachment": "
                 "missing release date": "no_date", "op kind mismatch": "kind_mismatch",
                 "op field changed": "field_changed", "op date mismatch": "date_mismatch",
                 "op outside range": "out_of_range", "future operation": "future"}
+# 매입·교환 결과 목록 한 종류에서 공고를 하나도 못 찾았을 때(목록 형식 변경 등) — 공고 번호 대신 종류 이름과 함께 남긴다
+NO_NOTICES = "no_notices"
 
 
 class Anchors(HTMLParser):
@@ -91,16 +103,43 @@ def ops_list_url(kind):
 
 
 def plan_links(raw):
-    """보도자료 목록 → [(번호, (연도 두 자리, 월))]. 월별 국고채 발행계획만(경과물 모집·개인투자용·외평채 단독 계획은 뺀다)."""
+    """보도자료 목록 → [(번호, (연도 두 자리, 월))]. 월별 국고채 발행계획만(경과물 모집·개인투자용·외평채 단독 계획은 뺀다).
+    제목 꼴: 'yy.m월 국고채, …', 'yy.m월 국고채 경쟁입찰 n조원, … 발행 계획', 'yyyy년 m월 국고채 발행계획 및 …'.
+    같은 달이 둘이면(정정 보도) 목록에서 먼저 나온(새) 것 하나만 — 다른 꼴의 PDF는 월 대조(month_mismatch)·양식 검사가 거른다.
+    (새 것이 정정 사항만 적은 한 장이면 원래 보도자료를 가리게 되지만, 그 PDF는 총액·만기 합 검사에서 소리 나게 실패한다 — 드물어 그대로 둔다)"""
     out = []
     for href, _, title in anchors(raw):
         m = re.fullmatch(r"javascript:fn_egov_select\('(MOSF_[0-9]{1,15})'\);", href)
-        t = re.match(r"[‘'’]?(\d{2})\.(\d{1,2})월\s*국고채\s*,", title)
+        t = re.match(r"[‘'’]?(?:20)?(\d{2})(?:\.|년\s*)(\d{1,2})월\s*국고채", title)
         if m and t and re.search(r"발행\s*계획", title) and not re.search(r"모집|경과물|개인투자용", title) \
-                and 1 <= int(t[2]) <= 12 and m[1] not in [o[0] for o in out]:
+                and 1 <= int(t[2]) <= 12 and m[1] not in [o[0] for o in out] \
+                and (int(t[1]), int(t[2])) not in [o[1] for o in out]:
             out.append((m[1], (int(t[1]), int(t[2]))))
     if not out: raise ValueError("no plan notices")
     return out[:MAX_PLANS]
+
+
+def page2_target(links, stored_months):
+    """첫 쪽만으로 모자라 둘째 쪽을 읽어야 하면 그 이유가 된 달 (연도 두 자리, 2), 아니면 None.
+    보고 연도 = (첫 쪽 가장 새 계획 달 − 한 달)의 해(1월 계획은 전년 12월 실적을 적으므로 전년). 그해 2월 계획만
+    1월 실적(prev_actual)을 적는다 — 그 달이 첫 쪽에도 저장된 달에도 없고, 첫 쪽 가장 오래된 달이 그보다 늦을 때만.
+    평소(2월부터 최근 달까지 저장됨)에는 None — 둘째 쪽을 읽지 않는다."""
+    if not links: return None
+    months = {ym for _, ym in links}
+    yy, mm = max(months)
+    target = (yy - 1 if mm == 1 else yy, 2)
+    # 그 달이 첫 쪽에 있으면 가장 오래된 달이 그보다 늦지 않다 — 마지막 조건이 함께 거른다
+    if f"{2000 + target[0]:04d}-02" in stored_months or min(months) <= target: return None
+    return target
+
+
+def join_links(first, second, oldest=None):
+    """첫 쪽 링크 + 둘째 쪽 링크 중 번호도 달도 새 것만(같은 달이면 첫 쪽 — 새 보도). 최근 MAX_PLANS개.
+    oldest(page2_target의 달)를 주면 둘째 쪽은 그 달부터만 — 더 오래된 계획은 보고 연도 합계에 쓰이지 않고
+    처음 몇 번의 실행에서 시간 예산만 쓴다(실측: 한 건 7~8초, 묶음 45초)."""
+    ids, months = {i for i, _ in first}, {ym for _, ym in first}
+    return (list(first) + [l for l in second if l[0] not in ids and l[1] not in months
+                           and (oldest is None or l[1] >= oldest)])[:MAX_PLANS]
 
 
 def op_links(raw, kind):
@@ -159,7 +198,7 @@ def near(year, month, m, d):
 
 
 AMT = r"([\d,]+(?:\.\d+)?)(조|억)원"
-DOWN, UP = ("축소", "감소", "감축"), ("확대", "증가", "증액")
+DOWN, UP = ("축소", "감소", "감축", "감액"), ("확대", "증가", "증액")
 
 
 def stated(matches):
@@ -208,8 +247,13 @@ def parse_plan_text(text, ident, ym, today):
         if n and int(n) != prev_month: raise ValueError("plan field changed")
         found.append((a, u, w))
     prev_change = stated(found)
-    if prev_change is None and "전월과동일" in lead: prev_change = 0
-    plan_change = stated(re.findall(r"당초(?:계획)?(?:대비)?" + AMT + "(" + "|".join(DOWN + UP) + ")", lead))
+    # '전월과 동일' 또는 'N월과 동일'(N = 전달, 2025-09 꼴) → 0. 다른 달이면 읽지 않는다
+    if prev_change is None and ("전월과동일" in lead or str(prev_month) in re.findall(r"(?<!\d)(\d{1,2})월과동일", lead)):
+        prev_change = 0
+    # '당초(발행)(계획)((n조원))(대비|보다|에비해) n조원(을) 축소…' — 꼴이 달라 못 읽으면 None + unread 표시(멈추지 않는다)
+    plan_change = stated(re.findall(r"당초(?:발행)?(?:계획)?(?:\([^()]{0,20}\))?(?:대비|보다|에비해)?" + AMT + "(?:을|를)?("
+                                    + "|".join(DOWN + UP) + ")", lead))
+    plan_change_unread = plan_change is None and "당초" in lead
     actual = None
     pm_year = year - 1 if month == 1 else year
     hits = set()
@@ -230,7 +274,8 @@ def parse_plan_text(text, ident, ym, today):
         amt = re.findall(r"□총([\d,]+)억원규모국고채매입계획", sec_bb)
         if len(amt) != 1: raise ValueError("plan field changed")
         buyback = {"amount_100m": int(amt[0].replace(",", "")), "dates": dates(sec_bb)}
-    elif "국고채매입계획" in s:
+    elif "국고채매입계획" in s or "매입(바이백)" in s:       # 본문에 매입이 적혔는데 참고 절이 없다 — '계획 없음'으로 두지 않는다
+        # 본문 어디에든 '매입(바이백)'이 있으면 멈춘다(일부러 — 틀린 숫자보다 보이는 실패가 낫다)
         raise ValueError("plan field changed")
     exchange = None
     sec_ex = plan_section(s, "교환")
@@ -249,6 +294,7 @@ def parse_plan_text(text, ident, ym, today):
     return {"id": ident, "month": f"{year:04d}-{month:02d}", "published": published.isoformat(),
             "competitive_100m": total, "tenors": tenors, "long_share_pct": share(LONG), "y30_share_pct": share(("30",)),
             "stated_prev_change_100m": prev_change, "stated_plan_change_100m": plan_change,
+            "stated_plan_change_unread": plan_change_unread,
             "buyback_plan": buyback, "exchange_plan": exchange, "prev_actual": actual, "source_url": press_url(ident)}
 
 
@@ -312,7 +358,9 @@ def merge_ops(got, previous):
 
 
 def summary(plans):
-    """화면용 계산값: 최신 달과 전월 계획 대비(목록에 두 달이 다 있을 때만), 연간 한도 대비 발행 실적 누계."""
+    """화면용 계산값: 최신 달과 전월 계획 대비(목록에 두 달이 다 있을 때만), 연간 한도 대비 보도자료 발행 규모 합계.
+    달마다 다음 달 보도자료에 적힌 보도 시점 값을 더한다 — 뒤에 확정되는 20년물 비경쟁인수·모집분은 빠져 있어
+    재정경제부가 밝힌 누계보다 작을 수 있다(2026년 상반기: 이 합 123.1조원, 7월 보도자료의 누적 124.1조원)."""
     def good(p):          # 전에 저장된 행이 깨져 있어도 스냅샷 전체를 멈추지 않게 — 모양이 맞는 행만 센다
         return (isinstance(p, dict) and isinstance(p.get("month"), str) and re.fullmatch(r"\d{4}-\d{2}", p["month"])
                 and type(p.get("competitive_100m")) is int)

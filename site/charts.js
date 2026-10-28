@@ -185,7 +185,7 @@
       if (placed.some(py => Math.abs(py - y) < 17)) continue;
       placed.push(y);
       // 최근 값 — 선 색으로 칠한 상자에 검은 글자(단말기 방식). 참고 선은 테두리만
-      const label = fmt(e.p[1], st.unit), ref = e.l.role === "ref" ? " ref" : "";
+      const label = st.fmt(e.p[1]), ref = e.l.role === "ref" ? " ref" : "";
       const box = svg("rect", { class: "ch-end-box" + ref, x: R + 5, y: y - 8, width: label.length * 7 + 8, height: 16 });
       box.style.fill = e.l.color;
       el.append(box, svg("text", { class: "ch-end" + ref, x: R + 9, y: y + 4 }, label));
@@ -224,7 +224,7 @@
       dot.setAttribute("cy", st.Y(p[1]));
       dot.setAttribute("visibility", "visible");
       dotYs.push(st.Y(p[1]));
-      return html("div", { class: "ch-tip-row" }, keyOf(l), html("strong", {}, fmt(p[1], st.unit)), l.label,
+      return html("div", { class: "ch-tip-row" }, keyOf(l), html("strong", {}, st.fmt(p[1])), l.label,
         p[0] !== t ? html("span", { class: "ch-tip-asof" }, ` (${iso(p[0])})`) : null);
     });
     const bandRows = st.bands.filter(b => inBand(b, t)).map(b =>
@@ -296,10 +296,12 @@
     const lines = parse(spec), bands = parseBands(spec);
     const unit = typeof spec.unit === "string" ? spec.unit : "";
     const title = String(spec.title || "");
+    // 값 글자(끝 값·풍선·읽기 글) — 칸이 자기 표와 같은 꼴을 쓰려면 opts.format(값 → 글자). 없으면 기본 fmt
+    const valueText = typeof o.format === "function" ? v => (v === null || v === undefined ? "—" : String(o.format(v))) : v => fmt(v, unit);
     const el = svg("svg", { role: "img", tabindex: "0" });
     const summary = lines.map(l => {
       const p = lastValid(l.pts);
-      return `${l.label} ${fmt(p[1], unit)}(${iso(p[0])})`;
+      return `${l.label} ${valueText(p[1])}(${iso(p[0])})`;
     }).join(", ");
     el.setAttribute("aria-label", `${title}. 최근 ${summary}` +
       (Number.isFinite(spec.threshold) ? `. 기준 ${short(spec.threshold, unit)}` : "") +
@@ -317,7 +319,7 @@
       // 참조금리 고지(SOFR) — 카드 안 그래프는 카드가 같은 고지를 싣으므로 opts.notices === false로 생략
       o.notices !== false ? noticeBlock(spec.notices) : null, tableView(lines, unit, bands));
 
-    const st = { spec, unit, lines, bands, svg: el, tip, plot, height: o.height || 150, idx: null, last: null, focus: [],
+    const st = { spec, unit, fmt: valueText, lines, bands, svg: el, tip, plot, height: o.height || 150, idx: null, last: null, focus: [],
                  fromPointer: false,
                  dom: domain(lines, spec),
                  times: [...new Set(lines.flatMap(l => l.pts.map(p => p[0])))].sort((a, b) => a - b) };

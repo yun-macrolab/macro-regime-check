@@ -145,21 +145,21 @@ window.KoreaMarket = (() => {
   // 국고채 발행계획·매입(바이백)·교환 — 재정경제부 보도자료와 입찰 결과 공고의 숫자. 화면 글은 아래 고정 문구뿐이다(방향·평가 낱말 없음)
   const MOFE_PLANS="https://mofe.go.kr/nw/nes/nesdta.do?searchBbsId1=MOSFBBS_000000000028&menuNo=4010100";
   const MOFE_RESULTS="https://mofe.go.kr/st/fnancstats/ktb50201.do?bbsId=MOSFBBS_000000000049&menuNo=6050300";
-  function jo(v, signed=false) {     // 억원 → 조원(소수 한 자리)
+  function jo(v, signed=false) {     // 억원 → 조원(소수 한 자리 이상, 억 단위까지 그대로 — 1,450억 = 0.145조원)
     if(!Number.isFinite(v)) return "자료 없음";
     const x=v/10000;
-    return (signed && x>0 ? "+" : "")+x.toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:1})+"조원";
+    return (signed && x>0 ? "+" : "")+x.toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:4})+"조원";
   }
-  const pct = v => Number.isFinite(v) ? v.toLocaleString("ko-KR",{maximumFractionDigits:1})+"%" : "자료 없음";
+  const pct = v => Number.isFinite(v) ? v.toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%" : "자료 없음";
   const monthLabel = m => typeof m==="string" && /^\d{4}-\d{2}$/.test(m) ? m.slice(0,4)+"년 "+(+m.slice(5))+"월" : "달 미상";
   function shareChart(plans) {
-    if(!window.MacroCharts || plans.length<2) return null;
+    if(!window.MacroCharts) return null;
     const pts=k=>plans.filter(p=>Number.isFinite(p[k])).map(p=>[p.month+"-01",p[k]]);
     const spec={key:"ktb_long_share",title:"월별 경쟁입찰 계획 중 장기물 비중",unit:"%",zero:true,threshold:null,years:1,
       source_note:"자료: 재정경제부 월별 국고채 발행계획 보도자료 · 비중은 이 사이트의 계산값",note:null,notices:[],
       lines:[{key:"long",label:"20·30·50년 비중",role:"series",points:pts("long_share_pct"),series:[],derived:true},
              {key:"y30",label:"30년 비중",role:"series",points:pts("y30_share_pct"),series:[],derived:true}]};
-    try { return node("div","",node("p","reading-note",spec.title),window.MacroCharts.lineChart(spec,{height:170,caption:false})); }
+    try { return node("div","",node("p","reading-note",spec.title),window.MacroCharts.lineChart(spec,{height:170,caption:false,format:pct})); }   // 칸의 비중과 같은 소수 한 자리
     catch { return node("p","muted","차트를 표시하지 못했습니다. 표의 수치를 확인해 주세요."); }
   }
   function opPlan(label, item) {
@@ -172,48 +172,62 @@ window.KoreaMarket = (() => {
     const sum=data.ktb_summary && typeof data.ktb_summary==="object" ? data.ktb_summary : {}, latest=plans[plans.length-1];
     const panel=node("article","panel",node("h3","","국고채 발행계획·바이백"));
     panel.dataset.ktbIssuance="";
+    let statedPrevShown=false;     // '전월 대비(보도자료 문구)' 줄을 썼는가 — 끝의 계산값 안내 글이 따른다
     for(const key of ["ktb_plans","ktb_ops"]) if(feedNote(key)) panel.append(node("p","market-warning",names[key]+": "+feedNote(key)));
+    const keptPlans=new Set(plans.map(p=>p.id)), missedPlans=data.feeds?.ktb_plans?.skipped;
+    const unreadPlans=Array.isArray(missedPlans) ? missedPlans.filter(s=>s && !keptPlans.has(s.id) && s.reason!=="not_tried") : [];   // 전에 읽은 값이 남은 보도자료는 빼고
+    if(unreadPlans.length) panel.append(node("p","market-warning","발행계획 보도자료 "+unreadPlans.length+"건을 읽지 못했습니다. 원문은 보도자료 목록에서 확인해 주세요."));
     if(latest) {
       panel.append(node("p","muted",monthLabel(latest.month)+" 계획 · 보도자료 "+(latest.published||"날짜 미상")));
       panel.append(node("div","market-value",node("strong","",jo(latest.competitive_100m)),node("span","muted","경쟁입찰 발행 계획")));
-      const stated=Number.isFinite(latest.stated_plan_change_100m) ? jo(latest.stated_plan_change_100m,true) : "보도자료에 언급 없음";
-      const prev=Number.isFinite(sum.prev_month_change_100m) ? jo(sum.prev_month_change_100m,true)+" (계산값)"
-        : Number.isFinite(latest.stated_prev_change_100m) ? jo(latest.stated_prev_change_100m,true)+" (보도자료)" : "전월 계획 없음";
+      // 당초 대비: 숫자 / '당초' 문구는 있는데 꼴이 달라 못 읽음 / 문구를 찾지 못함(없거나 못 읽음 — '언급 없음'이라 단정하지 않는다)
+      const stated=Number.isFinite(latest.stated_plan_change_100m) ? jo(latest.stated_plan_change_100m,true)
+        : latest.stated_plan_change_unread===true ? node("span","","문구를 읽지 못함 — ",sourceLink("원문 확인",latest.source_url)) : "보도자료에서 확인되지 않음";
+      // 전월 대비: 두 달 계획이 다 있으면 계산값(계획 대 계획). 없으면 보도자료 문구 — 실적 대비일 수 있어 이름을 달리 붙인다
+      const computed=Number.isFinite(sum.prev_month_change_100m), statedPrev=Number.isFinite(latest.stated_prev_change_100m);
+      const prev=computed ? jo(sum.prev_month_change_100m,true)+" (계산값)" : statedPrev ? jo(latest.stated_prev_change_100m,true) : "전월 계획 없음";
+      statedPrevShown=!computed && statedPrev;
+      const prevLabel=statedPrevShown ? "전월 대비(보도자료 문구)" : "전월 계획 대비";
       panel.append(node("div","market-deltas",
-        node("div","",node("span","","전월 계획 대비"),node("strong","",prev)),
+        node("div","",node("span","",prevLabel),node("strong","",prev)),
         node("div","",node("span","","당초 계획 대비(보도자료)"),node("strong","",stated)),
         node("div","",node("span","","20·30·50년 비중 · 30년"),node("strong","",pct(latest.long_share_pct)+" · "+pct(latest.y30_share_pct)))));
       const tenors=(Array.isArray(latest.tenors)?latest.tenors:[]).filter(t=>t && typeof t.tenor==="string");
       if(tenors.length) panel.append(table(["만기","경쟁입찰 계획","비중"],tenors.map(t=>[t.tenor,jo(t.amount_100m),
         pct(Number.isFinite(t.amount_100m) && latest.competitive_100m>0 ? Math.round(t.amount_100m/latest.competitive_100m*1000)/10 : NaN)]),
         monthLabel(latest.month)+" 만기별 경쟁입찰 계획"));
-      panel.append(node("p","reading-note","이달 "+opPlan("매입(바이백) 계획",latest.buyback_plan)+" · "+opPlan("교환 계획",latest.exchange_plan)));
-      panel.append(shareChart(plans) || node("p","muted","장기물 비중 그래프는 두 달 이상 자료가 모이면 표시합니다."));
+      panel.append(node("p","reading-note",monthLabel(latest.month)+" "+opPlan("매입(바이백) 계획",latest.buyback_plan)+" · "+opPlan("교환 계획",latest.exchange_plan)));
+      const chart=plans.length<2 ? node("p","muted","장기물 비중 그래프는 두 달 이상 자료가 모이면 표시합니다.") : shareChart(plans);
+      if(chart) panel.append(chart);       // 차트 도구가 없으면 그래프만 빠진다(표·수치는 그대로)
     } else panel.append(node("p","market-warning","확인된 발행계획이 없습니다."));
     const p=sum.progress, progress=node("div","market-range");
     if(p && Array.isArray(p.months) && Array.isArray(p.missing)) {
-      const head=p.year+"년 발행 실적 누계 "+jo(p.actual_100m)+" ("+p.months.length+"개월, "+monthLabel(p.through)+"까지)";
+      const head=p.year+"년 보도자료 발행 규모 합계 "+jo(p.actual_100m)+" ("+p.months.length+"개월, "+monthLabel(p.through)+"까지)";
       if(!Number.isFinite(p.limit_100m)) progress.append(node("p","",head+" · 연간 한도 미등록"));
       else {
         progress.append(node("p","",head+" · 연간 한도 "+jo(p.limit_100m)+(Number.isFinite(p.pct) ? " 대비 "+pct(p.pct)+" (계산값)" : "")));
         if(Number.isFinite(p.pct)) {
           const track=node("div","range-track"), dot=node("span","range-dot");
           dot.style.left=Math.min(100,Math.max(0,p.pct))+"%"; track.append(dot);
-          track.setAttribute("role","img"); track.setAttribute("aria-label","연간 한도 대비 발행 실적 누계 "+p.pct+"%"); progress.append(track);
+          track.setAttribute("role","img"); track.setAttribute("aria-label","연간 한도 대비 보도자료 발행 규모 합계 "+pct(p.pct)); progress.append(track);
         } else progress.append(node("small","","실적이 확인되지 않은 달("+p.missing.map(monthLabel).join(", ")+")이 있어 한도 대비 비율은 표시하지 않습니다."));
         progress.append(node("small",""," 연간 한도: ",sourceLink(p.year+"년 국고채 발행계획 보도자료("+p.limit_published+")",p.limit_source_url)));
       }
     } else progress.append(node("p","muted","발행 실적이 적힌 보도자료를 아직 확인하지 못했습니다."));
     panel.append(progress);
     const kept=new Set(ops.map(o=>o.id)), missed=data.feeds?.ktb_ops?.skipped;
-    const unread=Array.isArray(missed) ? missed.filter(s=>!kept.has(s.id) && s.reason!=="not_tried") : [];
+    // 종류 하나의 결과 목록에서 공고를 하나도 못 찾음(id = 종류 이름, no_notices) — 공고 건수와 따로 적는다
+    const emptyKinds=Array.isArray(missed) ? ["exchange","buyback"].filter(k=>missed.some(s=>s && s.id===k && s.reason==="no_notices")) : [];
+    const unread=Array.isArray(missed) ? missed.filter(s=>s && !kept.has(s.id) && s.reason!=="not_tried" && s.reason!=="no_notices") : [];
     if(unread.length) panel.append(node("p","market-warning","매입·교환 결과 공고 "+unread.length+"건을 읽지 못했습니다. 원문은 공식 결과 목록에서 확인해 주세요."));
+    for(const k of emptyKinds) panel.append(node("p","market-warning",(k==="exchange"?"교환":"매입")+" 입찰 결과 목록에서 공고를 찾지 못했습니다(목록 형식 확인 필요)."));
     if(ops.length) panel.append(table(["입찰일","구분","입찰금액","응찰률","낙찰금액","원문"],ops.map(o=>
-      [o.date,o.kind==="exchange"?"교환":o.kind==="buyback"?"매입":"기타",jo(o.offered_100m),number(o.bid_cover_pct,"%"),jo(o.awarded_100m),sourceLink("결과",o.source_url)]),
+      [o.date,o.kind==="exchange"?"교환":o.kind==="buyback"?"매입":"기타",jo(o.offered_100m),pct(o.bid_cover_pct),jo(o.awarded_100m),sourceLink("결과",o.source_url)]),
       "최근 국고채 매입·교환 입찰 결과"));
     else panel.append(node("p","market-warning","확인된 매입·교환 결과가 없습니다."));
-    panel.append(node("p","reading-note","경쟁입찰 계획은 비경쟁인수·교환을 뺀 금액이고, 발행 실적은 다음 달 보도자료에 적힌 전체 발행 규모입니다. 매입은 만기 전 국고채를 정부가 사들이는 입찰, 교환은 경과 종목을 지표 종목으로 바꾸는 입찰입니다. 응찰률은 응찰금액÷입찰금액입니다."),
-      node("p","reading-note","이 사이트의 규칙 판정에 쓰지 않는 참고 자료입니다. 숫자는 보도자료·결과 공고에서 옮긴 값이며, 비중·전월 대비·누계는 이 사이트의 계산값입니다."),
+    panel.append(node("p","reading-note","경쟁입찰 계획은 비경쟁인수·교환을 뺀 금액입니다. 발행 규모는 다음 달 보도자료 참고표에 적힌 보도 시점 값입니다(뒤에 확정되는 20년물 비경쟁인수와 모집분은 빠져 있어 재정경제부가 밝힌 누계와 다를 수 있습니다). 매입은 만기 전 국고채를 정부가 사들이는 입찰, 교환은 경과 종목을 지표 종목으로 바꾸는 입찰입니다. 응찰률은 응찰금액÷입찰금액입니다."),
+      node("p","reading-note","이 사이트의 규칙 판정에 쓰지 않는 참고 자료입니다. 숫자는 보도자료·결과 공고에서 옮긴 값이며, "
+        +(statedPrevShown ? "비중·합계는 이 사이트의 계산값이고, 전월 대비(보도자료 문구)는 보도자료에 적힌 숫자입니다." : "비중·전월 대비·합계는 이 사이트의 계산값입니다.")),
       node("p","market-source","자료: 재정경제부 ",sourceLink("보도자료(국고채 발행 계획)",MOFE_PLANS)," · ",sourceLink("국채 입찰 결과 공고",MOFE_RESULTS),
         latest ? node("span",""," · ",sourceLink(monthLabel(latest.month)+" 계획 원문",latest.source_url)) : null));
     return panel;

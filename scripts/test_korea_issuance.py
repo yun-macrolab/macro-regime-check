@@ -171,8 +171,9 @@ class PlanTextTests(unittest.TestCase):
     def test_only_allowlisted_fields_leave_the_parser(self):
         r = parse()
         self.assertEqual(set(r), {"id", "month", "published", "competitive_100m", "tenors", "long_share_pct", "y30_share_pct",
-                                  "stated_prev_change_100m", "stated_plan_change_100m", "buyback_plan", "exchange_plan",
-                                  "prev_actual", "source_url"})
+                                  "stated_prev_change_100m", "stated_plan_change_100m", "stated_plan_change_unread",
+                                  "buyback_plan", "exchange_plan", "prev_actual", "source_url"})
+        self.assertIs(r["stated_plan_change_unread"], False)
         dump = json.dumps(r, ensure_ascii=False)
         for secret in ("가나다", "라마바", "연락처", "contact-token", "국고03000", "통합", "재정경제부"):
             self.assertNotIn(secret, dump)
@@ -189,9 +190,27 @@ class PlanTextTests(unittest.TestCase):
     def test_stated_previous_month_words(self):
         for phrase, want in (("4월 전월보다 1조원 축소한 14조원 규모의", -10000), ("전월보다 0.5조원 확대한", 5000),
                              ("전월보다 2조원 증가한", 20000), ("전월보다 1조원 감소한", -10000),
-                             ("4월에 비해 30,000억원 증가한", 30000), ("전월과 동일한 14조원", 0)):
+                             ("4월에 비해 30,000억원 증가한", 30000), ("전월과 동일한 14조원", 0),
+                             ("5월 국고채 경쟁입찰 발행규모는 4월과 동일한 금액이다.", 0),      # 2025-09 꼴: 'N월과 동일'(N = 전달)
+                             ("5월 국고채 경쟁입찰 발행규모는 3월과 동일한 금액이다.", None)):  # 전달이 아니면 읽지 않는다
             text = PLAN.replace("국고채는 전문딜러(PD)가", phrase + " 국고채는 전문딜러(PD)가")
             self.assertEqual(parse(text)["stated_prev_change_100m"], want, phrase)
+
+    def test_stated_original_plan_wordings(self):
+        for phrase, want in (("당초계획(16조원) 대비 2조원 축소", -20000), ("당초 발행계획 대비 2조원 축소", -20000),
+                             ("당초계획보다 2조원 축소", -20000), ("당초계획대비 2조원 감액", -20000),
+                             ("당초계획대비 2조원을 축소", -20000), ("당초계획에 비해 2조원 축소", -20000),
+                             ("당초대비 0.5조원 증액", 5000), ("당초계획 대비 5,000억원 확대", 5000)):
+            text = PLAN.replace("당초계획대비\n2조원 축소", phrase).replace("당초계획대비 2조원 축소하고", phrase + "하고")
+            r = parse(text)
+            self.assertEqual((r["stated_plan_change_100m"], r["stated_plan_change_unread"]), (want, False), phrase)
+
+    def test_unreadable_original_plan_wording_is_flagged_not_refused(self):
+        text = PLAN.replace("당초계획대비\n2조원 축소", "당초계획대비 2.0조원 줄인").replace("당초계획대비 2조원 축소하고", "당초계획대비 2.0조원 줄이고")
+        r = parse(text)
+        self.assertEqual((r["stated_plan_change_100m"], r["stated_plan_change_unread"]), (None, True))
+        r = parse(JAN, (31, 1), dt.date(2031, 1, 5))                     # '당초'가 없으면 표시도 없다
+        self.assertEqual((r["stated_plan_change_100m"], r["stated_plan_change_unread"]), (None, False))
 
     def test_stated_values_must_agree(self):
         with self.assertRaisesRegex(ValueError, "^ambiguous plan fields$"):
@@ -239,6 +258,10 @@ class PlanTextTests(unittest.TestCase):
         self.assertEqual((r["buyback_plan"], r["exchange_plan"]), (None, None))
         with self.assertRaisesRegex(ValueError, "^plan outside range$"):     # 계획 달에서 먼 날짜
             parse(PLAN.replace("5.15.(수)", "9.15.(수)"))
+        # 본문에 매입(바이백)이 적혔는데 참고 매입 계획 절이 없다 — '계획 없음'으로 두지 않고 건너뛴다
+        body_only = no_ops.replace("국고채는 전문딜러(PD)가", "국고채 매입(바이백)을 총 2.2조원 수준으로 실시할 예정이며, 국고채는 전문딜러(PD)가")
+        with self.assertRaisesRegex(ValueError, "^plan field changed$"):
+            parse(body_only)
 
     def test_previous_actual_is_only_the_month_before(self):
         r = parse(PLAN.replace("□ 4월 국고채 발행규모는", "□ 3월 국고채 발행규모는"))
@@ -310,6 +333,67 @@ class LinkTests(unittest.TestCase):
         self.assertEqual(ki.plan_links(raw), [("MOSF_5", (30, 5)), ("MOSF_2", (30, 1))])
         with self.assertRaisesRegex(ValueError, "^no plan notices$"):
             ki.plan_links(plan_list([("MOSF_4", "'30.4월 국고채 경과물 0.5조원 모집 발행 계획")]))
+
+    def test_other_monthly_title_shapes(self):
+        raw = plan_list([("MOSF_6", "2030년 6월 국고채 발행계획 및 국채시장 동향"),                       # 머리기사 꼴
+                         ("MOSF_5", "30.5월 국고채 경쟁입찰 14.0조원, 원화표시 외평채 1.0조원 발행 계획"),   # 2025년 꼴
+                         ("MOSF_4", "30.4월 국고채 발행 계획"),
+                         ("MOSF_3", "2030년도 국고채 발행계획 및 국채시장 정책방향"),                     # 연간 계획 — 달 없음
+                         ("MOSF_2", "2030년 2월 국고채 개인투자용 발행 계획"),
+                         ("MOSF_1", "30.1월 국고채 발행 실적")])                                         # '발행 계획'이 없다
+        self.assertEqual(ki.plan_links(raw), [("MOSF_6", (30, 6)), ("MOSF_5", (30, 5)), ("MOSF_4", (30, 4))])
+        self.assertEqual(urllib.parse.parse_qs(urllib.parse.urlsplit(ki.PLAN_LIST).query)["searchKeyword"], ["발행 계획"])
+
+    def test_correction_wins_over_the_original_month(self):
+        raw = plan_list([("MOSF_51", "30.5월 국고채, 재정증권, 원화표시 외평채 발행 계획(정정)"),
+                         ("MOSF_50", "30.5월 국고채, 재정증권, 원화표시 외평채 발행 계획"),
+                         ("MOSF_40", "30.4월 국고채, 재정증권, 원화표시 외평채 발행 계획")])
+        links = ki.plan_links(raw)
+        self.assertEqual(links, [("MOSF_51", (30, 5)), ("MOSF_40", (30, 4))])     # 같은 달은 목록 위(새) 것 하나만
+        stored = []
+        for _ in range(2):                                                        # 두 번 연달아 돌아도 정정 값이 남는다
+            got = [{"id": i, "month": f"2030-{ym[1]:02d}", "competitive_100m": 110000 if i == "MOSF_51" else 100000}
+                   for i, ym in ki.to_read(links, {r["id"] for r in stored}, ki.READ_PLANS)]
+            stored = ki.merge_plans(got, stored)
+            self.assertEqual([(r["month"], r["id"], r["competitive_100m"]) for r in stored],
+                             [("2030-04", "MOSF_40", 100000), ("2030-05", "MOSF_51", 110000)])
+
+    def test_second_list_page_url(self):
+        self.assertEqual(ki.plan_list_url(1), ki.PLAN_LIST)
+        self.assertEqual(ki.plan_list_url(2), ki.PLAN_LIST + "&pageIndex=2")
+        q = urllib.parse.parse_qs(urllib.parse.urlsplit(ki.plan_list_url(2)).query)
+        self.assertEqual((q["searchKeyword"], q["pageIndex"]), (["발행 계획"], ["2"]))
+        for bad in (0, "2", 2.0, 10):
+            with self.assertRaises(ValueError): ki.plan_list_url(bad)
+
+    def test_page2_only_when_the_reporting_february_is_missing(self):
+        L = lambda *yms: [(f"MOSF_{y}{m:02d}", (y, m)) for y, m in yms]
+        live = L(*[(26, m) for m in range(10, 2, -1)])                         # 2026-10-28 첫 쪽: 10월~3월
+        self.assertEqual(ki.page2_target(live, set()), (26, 2))
+        self.assertEqual(ki.page2_target(live, {"2026-05", "2026-10"}), (26, 2))
+        self.assertIsNone(ki.page2_target(live, {"2026-02"}))                  # 평소: 2월이 저장돼 있다
+        self.assertIsNone(ki.page2_target(live + L((26, 2)), set()))           # 2월이 첫 쪽에 있다
+        jan = L((27, 1), *[(26, m) for m in range(12, 4, -1)])                 # 1월 계획 → 보고 연도는 전년
+        self.assertEqual(ki.page2_target(jan, set()), (26, 2))
+        self.assertIsNone(ki.page2_target(jan, {"2026-02"}))
+        self.assertIsNone(ki.page2_target(L((27, 2), (27, 1), (26, 12)), set()))  # 2월 계획이 가장 새 것
+        self.assertEqual(ki.page2_target(L((27, 3)), set()), (27, 2))
+        self.assertIsNone(ki.page2_target(L((26, 10), (26, 1)), set()))        # 가장 오래된 달이 2월보다 앞 — 둘째 쪽에 2월은 없다
+        self.assertIsNone(ki.page2_target([], set()))
+
+    def test_join_links_keeps_page1_and_new_ids_and_months_only(self):
+        first = [("MOSF_10", (26, 10)), ("MOSF_9", (26, 9)), ("MOSF_3", (26, 3))]
+        second = [("MOSF_3", (26, 3)), ("MOSF_31", (26, 3)), ("MOSF_9", (26, 1)), ("MOSF_2", (26, 2)), ("MOSF_1", (26, 1))]
+        self.assertEqual(ki.join_links(first, second), first + [("MOSF_2", (26, 2)), ("MOSF_1", (26, 1))])
+        many = [(f"MOSF_5{i:02d}", (25, i)) for i in range(12, 0, -1)]
+        out = ki.join_links(first, many)
+        self.assertEqual(len(out), ki.MAX_PLANS)
+        self.assertEqual(out[:3], first)
+        self.assertEqual(out[3:], many[:ki.MAX_PLANS - 3])
+        # oldest를 주면 둘째 쪽은 그 달부터만(첫 쪽은 그대로)
+        self.assertEqual(ki.join_links(first, second, (26, 2)), first + [("MOSF_2", (26, 2))])
+        self.assertEqual(ki.join_links(first, many, (25, 11)), first + many[:2])
+        self.assertEqual(ki.join_links([("MOSF_1", (26, 1))], [("MOSF_2", (25, 2))], (25, 2)), [("MOSF_1", (26, 1)), ("MOSF_2", (25, 2))])
 
     def test_operation_results_only(self):
         raw = ops_list([("MOSF_9", "2030년도 제3차 국고채 매입 입찰 결과('30.5.15.)"),
@@ -391,6 +475,8 @@ def board(plans=None, pdfs=None, views=None, lists=None, ids=None, op_ids=None):
         if url == ki.PLAN_LIST:
             return give(lists.get("plans", plan_list([(i, f"{plans[i][0][0]}.{plans[i][0][1]}월 국고채, 재정증권, 원화표시 외평채 발행 계획")
                                                       for i in ids])))
+        if url == ki.plan_list_url(2):
+            return give(lists.get("plans2", b""))
         for kind in ki.OPS:
             if url == ki.ops_list_url(kind):
                 word = ki.OPS_LABEL[kind]
@@ -461,7 +547,8 @@ class BuildTests(unittest.TestCase):
         prev = ki.parse_plan_text(plan_text(*BOARD_PLANS["MOSF_29"]), "MOSF_29", (30, 4), TODAY)
         old = {"schema": 1, "feeds": {"ktb_plans": {"data": [prev], "last_success": "previous"}}}
         bad["MOSF_30"] = urllib.error.URLError("secret host")      # 최신도 못 읽음 — 남은 하나(3월)만 새로
-        r, _ = run_build(board(pdfs=bad, ids=["MOSF_30", "MOSF_29", "MOSF_28"]), old)
+        r, _ = run_build(board(pdfs=bad, ids=["MOSF_30", "MOSF_29", "MOSF_28"]), old,
+                         now=dt.datetime(2030, 5, 2, 3, tzinfo=k.UTC))    # 5월 2일 — 4월 계획까지면 아직 묵지 않음
         self.assertEqual([p["month"] for p in r["ktb_plans"]], ["2030-03", "2030-04"])
         self.assertEqual(r["ktb_plans"][1], prev)
 
@@ -482,9 +569,18 @@ class BuildTests(unittest.TestCase):
         r, _ = run_build(board(lists={"plans": urllib.error.URLError("secret"), "buyback": b"<p>changed</p>", "exchange": b"<p>x</p>"}))
         self.assertEqual((r["feeds"]["ktb_plans"]["reason"], r["feeds"]["ktb_ops"]["reason"]), ("unavailable", "unavailable"))
         self.assertEqual(r["ktb_summary"], {"latest_month": None, "prev_month_change_100m": None, "progress": None})
-        r, _ = run_build(board(lists={"exchange": b"<p>changed</p>"}))      # 한 종류 목록만 비면 다른 종류로 갱신
+        r, log = run_build(board(lists={"exchange": b"<p>changed</p>"}))  # 한 종류 목록만 비면 다른 종류로 갱신하되 사유 코드로 남긴다
         self.assertTrue(r["feeds"]["ktb_ops"]["ok"])
         self.assertEqual([o["kind"] for o in r["ktb_ops"]], ["buyback"])
+        self.assertEqual(r["feeds"]["ktb_ops"]["skipped"], [{"id": "exchange", "reason": "no_notices"}])
+        self.assertRegex(ki.NO_NOTICES, r"^[a-z_]+$")
+
+    def test_empty_kind_list_is_warned_in_actions(self):
+        fetch, build = board(lists={"buyback": b"<p>changed</p>"}), k.build
+        with tempfile.TemporaryDirectory() as folder, patch.object(k, "build", lambda old, now: build(old, NOW, fetch)), \
+                patch.object(ki, "pdf_text", fake_pdf), patch("builtins.print") as out:
+            k.main(["--out", folder])
+        self.assertIn("::warning::국고채 매입·교환 결과 공고 1건을 읽지 못함 — buyback no_notices", [str(c.args[0]) for c in out.call_args_list])
 
     def test_timeout_marks_the_rest(self):
         r, _ = run_build(board(views={"MOSF_29": k.FeedError("timeout")}))
@@ -499,13 +595,68 @@ class BuildTests(unittest.TestCase):
         r, _ = run_build(board(), now=late)
         self.assertEqual((r["feeds"]["ktb_plans"]["ok"], r["feeds"]["ktb_plans"]["reason"]), (False, "stale"))
         self.assertTrue(r["feeds"]["ktb_ops"]["ok"])                       # 매입·교환은 날짜로 묵음을 따지지 않는다
-        r, _ = run_build(board(), now=NOW + dt.timedelta(days=20))       # 6월 9일: 5월 계획이면 아직 지난달
+        r, _ = run_build(board(), now=NOW + dt.timedelta(days=16))       # 6월 5일: 5월 계획이면 아직 7일 여유 안
         self.assertTrue(r["feeds"]["ktb_plans"]["ok"])
+        r, _ = run_build(board(), now=NOW + dt.timedelta(days=20))       # 6월 9일: 8일부터는 6월 계획이 있어야 한다
+        self.assertEqual((r["feeds"]["ktb_plans"]["ok"], r["feeds"]["ktb_plans"]["reason"]), (False, "stale"))
+        for day, want in ((7, None), (8, "stale")):                       # 경계: 7일까지 지난달, 8일부터 그달
+            try:
+                k.validate_freshness("ktb_plans", [{"month": "2030-05"}], None, dt.date(2030, 6, day)); got = None
+            except k.FeedError as e:
+                got = str(e)
+            self.assertEqual(got, want, day)
         with self.assertRaises(k.FeedError) as e:
-            k.validate_freshness("ktb_plans", [{"month": "2030-04"}], [{"month": "2030-05"}], TODAY)
+            k.validate_freshness("ktb_plans", [{"month": "2030-04"}], [{"month": "2030-05"}], dt.date(2030, 5, 3))
         self.assertEqual(str(e.exception), "regressed")
         for name in ("ktb_plans", "ktb_ops"):
             with self.assertRaises(k.FeedError): k.validate_freshness(name, [], None, TODAY)
+
+    def steady(self):
+        """모든 달·결과를 이미 읽은 뒤의 이전 자료(평소엔 가장 새 공고 하나씩만 다시 읽는다)."""
+        r, _ = run_build(board())
+        return {"schema": 1, "feeds": {n: dict(r["feeds"][n], last_success="previous") for n in ("ktb_plans", "ktb_ops")}}
+
+    def test_transient_failure_of_a_kept_notice_keeps_the_feed_green(self):
+        old = self.steady()
+        for err, code in ((urllib.error.URLError("secret host"), "network"), (k.FeedError("timeout"), "timeout"),
+                          (urllib.error.HTTPError("https://x.invalid", 503, "x", None, None), "http_503")):
+            r, log = run_build(board(views={"MOSF_30": err, "MOSF_90": err, "MOSF_70": err}), old)
+            for name, ident in (("ktb_plans", "MOSF_30"), ("ktb_ops", "MOSF_90")):
+                f = r["feeds"][name]
+                self.assertTrue(f["ok"], (name, code))
+                self.assertEqual(f["data"], old["feeds"][name]["data"], (name, code))       # 전에 읽은 값 그대로
+                self.assertIn({"id": ident, "reason": code}, f["skipped"], (name, code))     # 사유 코드는 남는다
+            self.assertNotIn("secret", json.dumps(r, ensure_ascii=False))
+
+    def test_lasting_or_new_failures_still_fail(self):
+        old = self.steady()
+        r, _ = run_build(board(views={"MOSF_30": urllib.error.HTTPError("https://x.invalid", 404, "x", None, None)}), old)
+        self.assertEqual((r["feeds"]["ktb_plans"]["ok"], r["feeds"]["ktb_plans"]["reason"]), (False, "unavailable"))   # 404는 덮지 않는다
+        r, _ = run_build(board(pdfs={"MOSF_30": b"<html>"}), old)                         # 양식 문제도 그대로 실패
+        self.assertEqual((r["feeds"]["ktb_plans"]["ok"], r["feeds"]["ktb_plans"]["reason"]), (False, "unreadable_notices"))
+        plans = dict(BOARD_PLANS, MOSF_31=((30, 6), 150000, 40000, 140000))
+        r, _ = run_build(board(plans=plans, ids=["MOSF_31", "MOSF_30", "MOSF_29", "MOSF_28"],
+                               views={"MOSF_31": urllib.error.URLError("x")}), old)       # 새 달 공고는 일시 오류여도 실패
+        self.assertEqual((r["feeds"]["ktb_plans"]["ok"], r["feeds"]["ktb_plans"]["reason"]), (False, "unavailable"))
+        self.assertEqual(r["ktb_plans"], old["feeds"]["ktb_plans"]["data"])
+
+    def test_an_older_never_read_plan_is_not_hidden_by_the_kept_newest(self):
+        old = self.steady()
+        old["feeds"]["ktb_plans"]["data"] = [r for r in old["feeds"]["ktb_plans"]["data"] if r["id"] != "MOSF_28"]
+        r, _ = run_build(board(views={"MOSF_30": urllib.error.URLError("x"), "MOSF_28": urllib.error.URLError("x")}), old)
+        f = r["feeds"]["ktb_plans"]
+        self.assertEqual((f["ok"], f["reason"]), (False, "unavailable"))      # 3월은 한 번도 읽지 못했다 — 덮지 않는다
+        self.assertEqual({s_["id"] for s_ in f["skipped"]}, {"MOSF_30", "MOSF_28"})
+
+    def test_auctions_keep_their_old_semantics(self):
+        old = {"schema": 1, "feeds": {"auctions": {"data": [{"id": "MOSF_1", "date": "2030-05-01"}], "last_success": "p"}}}
+        def fetch(url, *a):
+            if url == k.RESULTS:
+                return ops_list([("MOSF_1", "국고채 10년물 “국고03000-4003” 통합발행 경쟁입찰 결과('30.5.13.)")])
+            raise urllib.error.URLError("x")
+        with patch.object(k, "result_links", lambda raw: [("MOSF_1", "10")]):
+            r, _ = run_build(fetch, old)
+        self.assertEqual((r["feeds"]["auctions"]["ok"], r["feeds"]["auctions"]["reason"]), (False, "unavailable"))
 
     def test_status_knows_the_new_feeds_and_actions_warning(self):
         self.assertTrue({"ktb_plans", "ktb_ops"} <= status.FEEDS)
@@ -519,6 +670,75 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(code, 1)                                         # 다른 묶음(빈 응답)은 실패
         self.assertTrue(saved["feeds"]["ktb_plans"]["ok"])
         self.assertIn("::warning::국고채 발행계획 보도자료 1건을 읽지 못함 — MOSF_29 pdf_shape", lines)
+
+
+# 2026-10-28 실제 목록의 꼴: 첫 쪽(10건) = 10월~3월 계획 8건 + 경과물 모집 2건, 둘째 쪽 = 2026년 2·1월, 2025년 12~10월. 숫자는 지어냄
+LIVE_NOW = dt.datetime(2026, 10, 28, 3, tzinfo=k.UTC)
+LIVE_ACTUAL = {m: 198000 for m in range(1, 10)} | {9: 196730}                  # 1~9월 합 178.073조원
+LIVE_PLANS = {f"MOSF_{y}{m:02d}": ((y, m), 150000, 40000, LIVE_ACTUAL.get(m - 1, 180000) if y == 26 else 170000)
+              for y, ms in ((26, range(1, 11)), (25, range(10, 13))) for m in ms}
+LIVE_PAGE1 = [f"MOSF_26{m:02d}" for m in range(10, 2, -1)]
+LIVE_PAGE2 = ["MOSF_2602", "MOSF_2601", "MOSF_2512", "MOSF_2511", "MOSF_2510"]
+
+
+def live_lists(page1=LIVE_PAGE1, page2=LIVE_PAGE2):
+    title = lambda i: f"{LIVE_PLANS[i][0][0]}.{LIVE_PLANS[i][0][1]}월 국고채, 재정증권, 원화표시 외평채 발행 계획"
+    p1 = [(i, title(i)) for i in page1]
+    p1[3:3] = [("MOSF_901", "'26.7월 국고채 경과물 0.5조원 모집 발행 계획"), ("MOSF_900", "'26.5월 국고채 경과물 0.5조원 모집 발행 계획")]
+    return {"plans": plan_list(p1), "plans2": plan_list([(i, title(i)) for i in page2])}
+
+
+class SecondPageTests(unittest.TestCase):
+    def run_live(self, old=None, lists=None):
+        seen, inner = [], board(plans=LIVE_PLANS, lists=lists or live_lists())
+        def fetch(url, *a):
+            seen.append(url); return inner(url, *a)
+        r, log = run_build(fetch, old, now=LIVE_NOW)
+        return r, log, seen.count(ki.plan_list_url(2)), {"schema": 1, "feeds": {"ktb_plans": r["feeds"]["ktb_plans"]}}
+
+    def test_two_runs_reach_january_and_the_ratio_then_page2_stops(self):
+        self.assertEqual(ki.READ_PLANS, 6)
+        r, _, p2, old = self.run_live()
+        self.assertEqual(p2, 1)
+        self.assertEqual([p["month"] for p in r["ktb_plans"]], [f"2026-{m:02d}" for m in range(5, 11)])
+        self.assertEqual(r["ktb_summary"]["progress"]["missing"], ["2026-01", "2026-02", "2026-03"])
+        r, _, p2, old = self.run_live(old)
+        self.assertEqual(p2, 1)                                                # 2월이 아직 없다 — 한 번 더
+        self.assertTrue(r["feeds"]["ktb_plans"]["ok"])
+        months = [p["month"] for p in r["ktb_plans"]]
+        self.assertTrue({f"2026-{m:02d}" for m in range(2, 11)} <= set(months), months)
+        p = r["ktb_summary"]["progress"]
+        self.assertEqual((p["year"], p["missing"], p["actual_100m"], p["pct"]), (2026, [], 1780730, 78.9))
+        self.assertEqual(min(months), "2026-02")                              # 둘째 쪽의 2월보다 오래된 계획은 읽지 않는다
+        self.assertEqual(r["feeds"]["ktb_plans"]["skipped"], [])
+        r, _, p2, _ = self.run_live(old)
+        self.assertEqual(p2, 0)                                                # 평소: 2월이 저장돼 있으면 둘째 쪽을 읽지 않는다
+        self.assertEqual(r["ktb_summary"]["progress"]["pct"], 78.9)
+
+    def test_odd_saved_rows_do_not_break_the_page2_rule(self):
+        junk = [None, 5, {"month": ["2026-02"], "id": ["MOSF_2602"]}, {"month": {"m": 1}, "id": {"i": 1}}, {"id": "MOSF_2610"}]
+        old = {"schema": 1, "feeds": {"ktb_plans": {"data": junk, "last_success": "p"},
+                                      "ktb_ops": {"data": [{"id": ["x"], "date": "2026-10-01"}], "last_success": "p"}}}
+        r, _, p2, _ = self.run_live(old)
+        self.assertTrue(r["feeds"]["ktb_plans"]["ok"])
+        self.assertEqual(p2, 1)                                                # 깨진 행의 2월은 저장된 달로 치지 않는다
+        self.assertEqual([p["month"] for p in r["ktb_plans"]], [f"2026-{m:02d}" for m in range(5, 11)])
+
+    def test_page2_is_not_read_when_february_is_on_page1(self):
+        _, _, p2, _ = self.run_live(lists=live_lists(page1=[f"MOSF_26{m:02d}" for m in range(10, 1, -1)]))
+        self.assertEqual(p2, 0)
+
+    def test_page2_problems_keep_the_feed(self):
+        for bad, name in ((urllib.error.URLError("secret"), "URLError"), (k.FeedError("timeout"), "FeedError"),
+                          (b"<p>changed</p>", "ValueError"), (urllib.error.HTTPError("https://x.invalid", 500, "x", None, None), "HTTPError")):
+            r, log, p2, _ = self.run_live(lists=dict(live_lists(), plans2=bad))
+            f = r["feeds"]["ktb_plans"]
+            self.assertEqual(p2, 1, name)
+            self.assertTrue(f["ok"], name)
+            self.assertEqual(f["skipped"], [], name)
+            self.assertEqual([p["month"] for p in r["ktb_plans"]], [f"2026-{m:02d}" for m in range(5, 11)], name)
+            self.assertIn(f"[korea_market] ktb_plans page2: {name}", log.splitlines(), name)
+            self.assertNotIn("secret", json.dumps(r, ensure_ascii=False) + log)
 
 
 class SummaryTests(unittest.TestCase):
@@ -599,6 +819,15 @@ class SiteTextTests(unittest.TestCase):
             self.assertNotIn(tok, body)
         self.assertIn("sourceLink(", body)
         self.assertIn("연간 한도 미등록", body)                                # 한도가 표에 없으면 추정하지 않고 이렇게만
+
+    def test_sum_is_named_as_release_figures_with_its_caveat(self):
+        body = self.block()
+        self.assertIn("보도자료 발행 규모 합계", body)
+        self.assertNotIn("발행 실적 누계", body)
+        self.assertIn("뒤에 확정되는 20년물 비경쟁인수와 모집분은 빠져 있어 재정경제부가 밝힌 누계와 다를 수 있습니다", body)
+        readme = (REPO / "README.md").read_text(encoding="utf-8")
+        self.assertIn("보도자료 발행 규모 합계", readme)
+        self.assertIn("국고채 발행계획 수정", readme)                       # 연간 한도 표를 사람이 고치는 손볼 일
 
     def test_feed_names_match_the_status_list(self):
         js = (REPO / "site" / "korea.js").read_text(encoding="utf-8")

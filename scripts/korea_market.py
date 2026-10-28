@@ -413,12 +413,13 @@ def card(key, points, source, today):
 
 def validate_freshness(name, payload, previous, today):
     if name == "ktb_plans":
-        # 발행계획은 전달 말(대개 마지막 목요일)에 나온다 — 최신 계획 달이 지난달보다 앞이면 묵은 것
+        # 발행계획은 전달 말(대개 마지막 목요일, 늦으면 그달 1~3일)에 나온다 — 그달 8일부터는 그달 계획이 있어야 하고,
+        # 7일까지는 지난달 계획까지 둔다(공휴일 달력 없이 7일 여유). 제목·검색어·목록이 바뀌어 새 달을 못 찾아도 여기서 잡힌다
         if not payload: raise FeedError("empty_or_duplicate")
         latest = max(r["month"] for r in payload)
-        floor = (today.replace(day=1) - dt.timedelta(days=1)).strftime("%Y-%m")
+        floor = (today if today.day > 7 else today.replace(day=1) - dt.timedelta(days=1)).strftime("%Y-%m")
         if latest < floor: raise FeedError("stale")
-        if previous and latest < max(((r.get("month") or "") for r in previous if isinstance(r, dict)), default=""):
+        if previous and latest < max((r["month"] for r in previous if isinstance(r, dict) and isinstance(r.get("month"), str)), default=""):
             raise FeedError("regressed")
         return
     if name == "ktb_ops":
@@ -456,11 +457,13 @@ def build(old, now, fetch=None):
             "fr_work_dt": (today-dt.timedelta(days=100)).strftime("%Y%m%d"), "to_work_dt": today.strftime("%Y%m%d"),
             "isu_cd": code, "date_sch_type": "dd", "prt_check": "SUN", "prt_type": "VL", "spread_tp": "1"}), today))
     run("calendar", lambda: parse_calendar(fetch(KTB+"/mnbyIsuCldr.do"), today))
-    def notices(name, links, read):
+    def notices(name, links, read, retain_transient=False):
         """공고마다 따로 읽는다 — 한 건의 양식이 달라도 나머지는 갱신한다(발행공고 2026-10-14, 입찰 결과 2026-10-26).
         못 읽은 공고는 고정 사유 코드로 남기고, 같은 공고를 전에 읽었으면 그 값을 둔다. 한 건도 새로 못 읽으면
-        이 묶음만 실패(이전 자료 유지). links = [(공고 번호, 읽을 때 넘길 값)], read(번호, 값) → 행."""
-        prev = {r.get("id"): r for r in (previous.get(name, {}).get("data") or []) if isinstance(r, dict)}
+        이 묶음만 실패(이전 자료 유지). links = [(공고 번호, 읽을 때 넘길 값)], read(번호, 값) → 행.
+        retain_transient(발행계획·매입/교환만): 평소엔 가장 새 공고 하나만 다시 읽으므로, 못 읽은 공고가 모두 전에 읽은
+        것이고 사유가 모두 일시 오류(접속·시간 초과·408·429·5xx)면 실패로 두지 않고 전에 읽은 값으로 둔다(사유 코드·경고는 남음)."""
+        prev = {r["id"]: r for r in (previous.get(name, {}).get("data") or []) if isinstance(r, dict) and isinstance(r.get("id"), str)}
         got, skipped = [], skips[name]
         for i, (ident, arg) in enumerate(links):
             try:
@@ -477,6 +480,9 @@ def build(old, now, fetch=None):
             print(f"[korea_market] {name} skip {s_['id']}: {s_['reason']}")
         if not any(r.get("id") not in {s_["id"] for s_ in skipped} for r in got):
             codes = {s_["reason"] for s_ in skipped} - {"not_tried"}     # 한 건도 새로 못 읽음 — 원인에 맞는 코드로
+            transient = lambda c: c in ("network", "timeout", "http_408", "http_429") or c.startswith("http_5")
+            if retain_transient and got and codes and all(map(transient, codes)) and all(s_["id"] in prev for s_ in skipped):
+                return got
             if "timeout" in codes: raise FeedError("timeout")
             if codes and all(c == "network" or c.startswith("http_") for c in codes): raise FeedError("unavailable")
             raise FeedError("unreadable_notices")
@@ -490,20 +496,35 @@ def build(old, now, fetch=None):
                                                                         ident, code, today)))
     # 재정경제부 발행계획 보도자료·매입/교환 결과 — 시간 예산을 다른 묶음에 먼저 쓰도록 맨 뒤에. 지난 달·지난 결과는 전에 읽은 값을 둔다
     def plan_feed():
-        prev = previous.get("ktb_plans", {}).get("data") or []
-        links = ki.to_read(ki.plan_links(fetch(ki.PLAN_LIST)), {r.get("id") for r in prev if isinstance(r, dict)}, ki.READ_PLANS)
+        prev = [r for r in previous.get("ktb_plans", {}).get("data") or [] if isinstance(r, dict)]
+        links = ki.plan_links(fetch(ki.plan_list_url(1)))
+        # 첫 쪽(10건)에 경과물 모집 공고가 끼면 보고 연도 2월 계획(1월 실적의 유일한 출처)이 둘째 쪽으로 밀린다(2026-10-28 실측).
+        # 그 달이 첫 쪽에도 저장된 달에도 없을 때만 둘째 쪽을 한 번 더 읽는다 — 그 계획을 못 읽으면 다음 해 2월 계획이
+        # 나올 때까지 실행마다 다시 읽지만 목록 요청 하나뿐이다. 둘째 쪽의 어떤 문제도 이 묶음을 실패로 만들지 않는다
+        target = ki.page2_target(links, {r.get("month") for r in prev if isinstance(r.get("month"), str)})
+        if target:
+            try:
+                links = ki.join_links(links, ki.plan_links(fetch(ki.plan_list_url(2))), target)
+            except Exception as e:
+                print(f"[korea_market] ktb_plans page2: {type(e).__name__}")
+        links = ki.to_read(links, {r.get("id") for r in prev if isinstance(r.get("id"), str)}, ki.READ_PLANS)
         got = notices("ktb_plans", links, lambda ident, ym: ki.parse_plan(
-            fetch(ki.attachment_pdf_url(fetch(ki.press_url(ident)))), ident, ym, today))
+            fetch(ki.attachment_pdf_url(fetch(ki.press_url(ident)))), ident, ym, today), retain_transient=True)
         return ki.merge_plans(got, prev)
     def ops_feed():
         prev = previous.get("ktb_ops", {}).get("data") or []
-        seen = {r.get("id") for r in prev if isinstance(r, dict)}
-        links = []
+        seen = {r.get("id") for r in prev if isinstance(r, dict) and isinstance(r.get("id"), str)}
+        links, empty = [], []
         for kind in ki.OPS:
-            links += [(ident, (kind, date)) for ident, date in ki.to_read(ki.op_links(fetch(ki.ops_list_url(kind)), kind), seen, ki.READ_OPS)]
-        if not links: raise ValueError("no operation notices")       # 목록 형식이 바뀜 — 공고 하나의 문제가 아니다
-        got = notices("ktb_ops", links, lambda ident, arg: ki.parse_op(
-            fetch(ki.attachment_pdf_url(fetch(ki.result_url(ident)))), ident, arg[0], arg[1], today))
+            found = ki.op_links(fetch(ki.ops_list_url(kind)), kind)
+            if not found: empty.append(kind)          # 한 종류 목록만 비었다 — 다른 종류로 갱신하되 사유 코드로 남긴다
+            links += [(ident, (kind, date)) for ident, date in ki.to_read(found, seen, ki.READ_OPS)]
+        try:
+            if not links: raise ValueError("no operation notices")       # 목록 형식이 바뀜 — 공고 하나의 문제가 아니다
+            got = notices("ktb_ops", links, lambda ident, arg: ki.parse_op(
+                fetch(ki.attachment_pdf_url(fetch(ki.result_url(ident)))), ident, arg[0], arg[1], today), retain_transient=True)
+        finally:                                       # 종류별 빈 목록은 공고 읽기가 끝난 뒤에 더한다(묶음 실패 사유 판단과 섞지 않게)
+            skips["ktb_ops"] += [{"id": kind, "reason": ki.NO_NOTICES} for kind in empty]
         return ki.merge_ops(got, prev)
     run("ktb_plans", plan_feed)
     run("ktb_ops", ops_feed)
