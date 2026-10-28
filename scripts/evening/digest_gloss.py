@@ -135,6 +135,7 @@ GLOSS = {
     # --- 수급 / 글로벌
     "미 국채 입찰": ("미 재무부의 국채 경쟁입찰. 응찰률과 낙찰금리로 수요를 본다", _TD + "upcoming/"),
     "미 국채 발행계획": ("미 재무부의 분기 리펀딩 발표. 만기별 발행 규모를 밝힌다", _UST + "policy-issues/financing-the-government/quarterly-refunding"),
+    "미 국채 바이백": ("미 재무부가 만기 전 국채를 되사는 일. 규모는 분기 리펀딩 때 밝힌다", None),
     "국채 입찰": ("나라를 밝히지 않은 국채 입찰 글. 응찰률은 발행액에 견준 응찰액의 비율", None),
     "기간 프리미엄": ("장기채를 들고 가는 대가로 요구하는 추가 보상. 모형 추정값이다", _NYFED + "research/data_indicators/term-premia-tabs"),
     "미 재정": ("미국 연방 재정. 적자·부채 한도·예산 처리 일정을 본다", "https://fiscaldata.treasury.gov/americas-finance-guide/national-deficit/"),

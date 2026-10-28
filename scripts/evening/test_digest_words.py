@@ -161,6 +161,24 @@ class NewTermsTest(unittest.TestCase):
         self.assertEqual(R.TERMS["ETF"]["factor"], "기타")                          # 주식 ETF 글이 채권 수급 칸으로 가지 않게
         self.assertNotIn("위험 선호", R.TERMS)                                      # 안전자산 선호도 걸리는 낱말이라 이름을 두 방향으로
 
+    def test_us_buyback_is_not_the_korean_buyback(self):
+        """미 재무부 바이백(2026-10-28) — 전엔 '미 재무부, 장기물 국채 바이백 확대'가 국내 칸의 국고채 바이백으로 갔다. 지어낸 문장."""
+        for text in ("미 재무부가 장기물 국채 바이백을 늘렸다는 지어낸 말", "美 재무부 20~30년물 바이백을 지어낸 예문",
+                     "미국 국채 바이백 일정을 지어낸 글", "재무부 바이백 규모를 지어낸 숫자"):
+            with self.subTest(text):
+                self.assertIn("미 국채 바이백", terms(text))
+                self.assertNotIn("국고채 바이백", terms(text))
+        self.assertEqual((R.TERMS["미 국채 바이백"]["factor"], R.TERMS["미 국채 바이백"]["region"]), ("수급", "글로벌"))
+        for text in ("국고채 바이백을 지어낸 예문", "기재부가 바이백을 한다는 지어낸 말", "국고채 교환을 지어낸 글"):
+            with self.subTest(text):
+                self.assertIn("국고채 바이백", terms(text))
+                self.assertNotIn("미 국채 바이백", terms(text))
+        both = terms("美 재무부 바이백 확대에 국고채 바이백도 관심이라는 지어낸 말")       # 한 줄에 둘 다 — 둘 다 센다
+        self.assertIn("미 국채 바이백", both)
+        self.assertIn("국고채 바이백", both)
+        for text in ("자사주 바이백을 지어낸 예문", "미래에셋 자사주 바이백을 지어낸 글"):
+            self.assertEqual([t for t in terms(text) if "바이백" in t], [], text)
+
     def test_wide_words_stand_behind_the_narrow_ones(self):
         """다른 낱말의 이름에 토막째 든 넓은 낱말(연준 ⊂ 연준 의사록)은 같은 등급 안에서 뒤로 가고, 좁은 낱말이 곁에 있으면 빠진다."""
         self.assertEqual(R.WIDE, frozenset({"연준", "한은", "AI", "금리", "커브", "국채 입찰", "실적"}))
