@@ -11,6 +11,7 @@ from unittest import mock
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
 import ai_invest_fetch as ai
+import render_public as rp
 import fred_fetch as ff
 from test_render_public import FORBIDDEN_TEXT
 
@@ -263,7 +264,8 @@ class MainTest(unittest.TestCase):
                     self.assertLessEqual(abs(x), 1, (key, name))
             self.assertEqual(it["notices"], [ai.RESTRICTED_NOTICE])
         restricted = {s["series"] for it in js["items"].values() for s in it["sources"] if s["restricted"]}
-        self.assertEqual(restricted, set(ai.RESTRICTED))
+        self.assertEqual(restricted, set(ai.RESTRICTED) & set(ai.SERIES))
+        self.assertLessEqual(set(rp.RESTRICTED), set(ai.RESTRICTED))                # 공개본의 목록을 그대로 품는다
 
     def test_one_missing_series_only_stales_its_items(self):
         self.run_main()

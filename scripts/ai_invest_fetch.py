@@ -85,7 +85,8 @@ SOURCES = {
     "NASDAQNQINTEL": ("Nasdaq, Inc.", "Nasdaq Consumer Technical Association Artificial Intelligence Index"),
     "NASDAQNDXTMC": ("Nasdaq, Inc.", "NASDAQ-100 Technology Sector Market-Cap Weighted Index"),
 }
-RESTRICTED = {"SP500": "S&P Dow Jones Indices", "NASDAQNQINTEL": "Nasdaq, Inc.", "NASDAQNDXTMC": "Nasdaq, Inc."}
+# 재배포 제한 목록 하나 — 공개본의 목록(render_public.RESTRICTED)에 이 화면이 더 쓰는 Nasdaq 지수 둘을 더한다
+RESTRICTED = {**rp.RESTRICTED, "NASDAQNQINTEL": "Nasdaq, Inc.", "NASDAQNDXTMC": "Nasdaq, Inc."}
 SERIES = list(SOURCES)
 
 NOTICE = ("이 사이트의 규칙 판정에 쓰지 않는 참고 자료다. 충족·미충족이 없고 상태를 판정하지 않는다. 값의 크기나 방향을 "
