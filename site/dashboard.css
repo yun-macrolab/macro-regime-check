@@ -263,6 +263,22 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .supply-num { color: var(--amber); font-variant-numeric: tabular-nums; }
 .supply-flag { color: var(--key); }
 .supply-late { color: var(--alert); }
+/* AI 투자 참고(판정 제외) — 첫 화면 요약 줄과 'AI 투자' 화면의 채널별 칸. 칸은 넓은 화면에서 둘씩, 숫자 줄은 좁은 화면에서 아무 데서나 접는다 */
+.ai-teaser { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.ai-teaser li { padding: 6px 10px; background: var(--panel); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.ai-teaser span { color: var(--dim); }
+.ai-teaser strong { color: var(--amber); font-weight: 500; font-variant-numeric: tabular-nums; }
+.ai-channel { margin: 0 0 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.ai-channel > h3, .ai-channel > p { grid-column: 1 / -1; }
+.ai-channel > h3 { margin: 6px 0 0; font-size: 13.5px; color: var(--key); }
+.ai-channel > p { margin: 2px 0 8px; font-size: 12px; }
+.ai-item { min-width: 0; }
+.ai-item p { margin: 4px 0 0; line-height: 1.6; font-size: 12.5px; overflow-wrap: anywhere; }
+.ai-item .ai-name { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
+.ai-num { color: var(--amber); font-variant-numeric: tabular-nums; }
+.ai-late { color: var(--alert); }
+.ai-item figure.ch { margin-top: 8px; }
+@media (max-width: 900px) { .ai-channel { grid-template-columns: minmax(0, 1fr); } }
 
 /* ── 출처 ── */
 .source-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 10px 0; }

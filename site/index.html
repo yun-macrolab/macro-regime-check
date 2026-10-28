@@ -31,8 +31,8 @@
     <form id="cmd-form" class="cmd" autocomplete="off">
       <label for="cmd" aria-hidden="true">&gt;</label>
       <input id="cmd" name="cmd" list="cmd-list" spellcheck="false" aria-label="화면 이동 명령"
-             placeholder="화면 이름을 치고 Enter — 금리, 물가, 신용, 유동성, 국고채, 출처">
-      <datalist id="cmd-list"><option value="저녁판"><option value="읽기 노트"><option value="전체"><option value="금리·커브"><option value="물가"><option value="신용·경기"><option value="유동성"><option value="한국 시장"><option value="한국 신용"><option value="수급·입찰"><option value="출처·갱신"></datalist>
+             placeholder="화면 이름을 치고 Enter — 금리, 물가, 신용, 유동성, 국고채, AI, 출처">
+      <datalist id="cmd-list"><option value="저녁판"><option value="읽기 노트"><option value="전체"><option value="금리·커브"><option value="물가"><option value="신용·경기"><option value="유동성"><option value="한국 시장"><option value="한국 신용"><option value="수급·입찰"><option value="AI 투자"><option value="출처·갱신"></datalist>
       <button type="submit">이동</button>
       <span id="cmd-msg" class="cmd-msg" role="status"></span>
     </form>
@@ -48,6 +48,7 @@
     <a href="#sources" data-view="sources" aria-keyshortcuts="7"><kbd aria-hidden="true">7</kbd>출처·갱신<span>자료실</span></a>
     <a href="#evening" data-view="evening" aria-keyshortcuts="8"><kbd aria-hidden="true">8</kbd>저녁판<span>시범</span></a>
     <a href="#notes" data-view="notes" aria-keyshortcuts="9"><kbd aria-hidden="true">9</kbd>읽기 노트<span>공부</span></a>
+    <a href="#ai" data-view="ai">AI 투자<span>참고</span></a>
   </nav>
   <div id="tape" class="tape" hidden role="group" tabindex="0" aria-label="주요 수치 띠 — 초점을 두거나 마우스를 올리면 멈춘다"><div id="tape-track" class="tape-track"></div></div>
 </header>
@@ -88,6 +89,11 @@
     <p id="korea-teaser-status" class="market-warning" role="status" hidden></p>
     <div id="korea-teaser-values" class="snapshot market-summary"><p class="muted">한국 시장 자료를 불러오는 중…</p></div>
   </section>
+  <section id="ai-teaser" hidden aria-labelledby="ai-teaser-title">
+    <div class="section-heading"><h2 id="ai-teaser-title">AI 투자 참고</h2><a href="#ai">AI 투자 전체 보기 →</a></div>
+    <p class="reading-note">공개 통계의 숫자와, 재배포가 제한된 지수(S&amp;P 500·Nasdaq)로 계산한 상관만 싣습니다(지수 값은 싣지 않습니다). 이 사이트의 규칙 판정에 쓰지 않고, 상태를 판정하지 않습니다.</p>
+    <ul id="ai-teaser-values" class="ai-teaser"></ul>
+  </section>
   <section id="korea-market" hidden>
     <nav id="korea-tabs" class="market-tabs" aria-label="한국 시장 분류">
       <a href="#korea" data-group="rates">금리·커브</a>
@@ -110,6 +116,12 @@
     <div id="ktb-charts"></div>
     <div id="ktb-notices" class="notices"></div>
   </section>
+  <section id="ai-wrap" hidden aria-labelledby="ai-title">
+    <div class="section-heading"><h2 id="ai-title">갈래별 숫자와 그래프</h2><span class="reference-label">공개 통계 · 규칙 판정 제외</span></div>
+    <p id="ai-head" class="muted"></p>
+    <div id="ai-body"></div>
+  </section>
+  <p id="ai-empty" class="empty-state" hidden>AI 투자 참고 자료를 불러오지 못했습니다. 자료가 갱신된 뒤 다시 확인해 주세요.</p>
 
   <section id="rules-wrap" aria-labelledby="summary">
     <div class="section-heading"><h2 id="summary">주제별 점검</h2><p id="rule-count" class="muted" aria-live="polite"></p></div>
@@ -124,7 +136,7 @@
   <h2>출처와 자료 상태</h2>
   <p class="sub">공식 통계, 참고 자료, 이 사이트의 계산값을 구분합니다.</p>
   <div class="source-guide">
-    <article><h3>미국 공개 자료 (FRED 경유)</h3><p>FRED를 통해 연방준비제도·뉴욕 연은·BEA·BLS 등의 자료를 받습니다. FRED는 자료를 제공하는 창구이며, 원 발행기관은 지표마다 다릅니다. 민간 지수 4개(S&amp;P·ICE·Moody's 계열)는 재배포가 제한돼 값은 싣지 않고 판정과 자료 상태만 보여 줍니다. 기간 프리미엄 카드의 수급 참고(판정 제외)는 FRED의 WMTSECL1과, 뉴욕 연은에서 직접 받는 프라이머리 딜러 통계를 씁니다.</p></article>
+    <article><h3>미국 공개 자료 (FRED 경유)</h3><p>FRED를 통해 연방준비제도·뉴욕 연은·BEA·BLS 등의 자료를 받습니다. FRED는 자료를 제공하는 창구이며, 원 발행기관은 지표마다 다릅니다. 민간 지수 4개(S&amp;P·ICE·Moody's 계열)는 재배포가 제한돼 값은 싣지 않고 판정과 자료 상태만 보여 줍니다. 기간 프리미엄 카드의 수급 참고(판정 제외)는 FRED의 WMTSECL1과, 뉴욕 연은에서 직접 받는 프라이머리 딜러 통계를 씁니다. AI 투자 참고(판정 제외)는 BEA·Census·BLS·연준의 공개 통계(FRED 경유)와, 재배포가 제한된 Nasdaq·S&amp;P 지수로 계산한 상관만 씁니다(지수 값은 싣지 않습니다).</p></article>
     <article><h3>한국 금리 참고 자료</h3><p>KB증권 리서치본부 채권크레딧팀이 공개 텔레그램 채널에 올리는 일일동향 글에서 옮긴 금리입니다(기준: 민평3사 — 민간 채권평가사 세 곳 평균). 공개 통계가 아니며 규칙 판정에는 쓰지 않습니다. 게시일과 금리 기준일을 구분해 읽습니다.</p></article>
     <article><h3>이 사이트의 계산값</h3><p>증가율·3개월 변화·상관·비율·국고채 금리차와 규칙 판정은 원자료를 바탕으로 계산합니다. 원 발행기관의 시장 전망을 뜻하지 않습니다.</p></article>
   </div>
@@ -139,13 +151,14 @@
   <footer>
     <div id="attribution"></div>
     <p>계산 코드: <a href="https://github.com/yun-macrolab/macro-regime-check">github.com/yun-macrolab/macro-regime-check</a></p>
-    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · <a href="data/supply.json">supply.json</a>(수급 참고) ·<a href="data/korea.json">korea.json</a>(한국 시장) · <a href="data/digest.json">digest.json</a>(저녁판) · <a href="data/sources.json">sources.json</a>(저녁판 출처) · <a href="data/digest_picks.json">digest_picks.json</a>(저녁판 AI 요약) · <a href="data/notes.json">notes.json</a>(읽기 노트) · 날짜별 기록은 저장소의 data/history/</p>
+    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · <a href="data/supply.json">supply.json</a>(수급 참고) · <a href="data/ai_invest.json">ai_invest.json</a>(AI 투자 참고) · <a href="data/korea.json">korea.json</a>(한국 시장) · <a href="data/digest.json">digest.json</a>(저녁판) · <a href="data/sources.json">sources.json</a>(저녁판 출처) · <a href="data/digest_picks.json">digest_picks.json</a>(저녁판 AI 요약) · <a href="data/notes.json">notes.json</a>(읽기 노트) · 날짜별 기록은 저장소의 data/history/</p>
   </footer>
 </main>
 <script src="charts.js"></script>
 <script src="korea.js"></script>
 <script src="evening.js"></script>
 <script src="notes.js"></script>
+<script src="ai_invest.js"></script>
 <script>
 "use strict";
 // 예약 실행: UTC 월~금 22:17(.github/workflows/daily.yml). 실제로는 3~4시간 뒤에 끝난다(2026-09-29~10-07 일곱 번 모두) —
@@ -458,7 +471,7 @@ function supplyPanel(d) {
     ...SUPPLY_SIDES.flatMap(([key, name, attributed]) => supplySide(d[key], name, attributed)));
 }
 let activeView = "all", ruleState = "all", publicData = null;
-const available = { overview: false, korea: false, snapshot: false, loaded: false, monitor: false };
+const available = { overview: false, korea: false, snapshot: false, loaded: false, monitor: false, ai: false };
 
 function renderRule(r, chart, health) {
   const obs = el("dl", { class: "observations" });
@@ -508,15 +521,15 @@ function renderSnapshot(p, charts) {
 }
 
 function applyView() {
-  const known = ["all", ...GROUPS.map(g=>g.id), "korea", "korea-credit", "korea-flows", "sources"];
+  const known = ["all", ...GROUPS.map(g=>g.id), "korea", "korea-credit", "korea-flows", "sources", "ai"];
   // 저녁판·읽기 노트는 "#evening/2026-10-08", "#notes/<글 이름>"처럼 뒤에 붙는 값(viewArg)을 받는다
   const raw = location.hash.slice(1), base = raw.split("/")[0], paged = ["evening", "notes"].includes(base);
   activeView = known.includes(raw) ? raw : paged ? base : "all";
   const viewArg = paged && raw.length > base.length ? raw.slice(base.length + 1) : "";
   document.getElementById("main").dataset.view = activeView;   // 저녁판·읽기 노트에서는 아침 갱신 상태 줄을 감춘다(dashboard.css)
   const group = GROUPS.find(g => g.id === activeView);
-  const titles = {all:"시장의 큰 흐름, 한눈에", korea:"한국 시장 · 금리·커브", "korea-credit":"한국 시장 · 신용·단기자금", "korea-flows":"한국 시장 · 수급·입찰", sources:"출처와 갱신 현황", evening:"저녁판 · 오늘 여러 곳이 함께 다룬 것", notes:"읽기 노트"};
-  const descriptions = {all:"금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.", korea:"한국과 미국 금리의 수준·차이·변화를 비교합니다.", "korea-credit":"기업과 은행의 자금조달 여건을 비교합니다.", "korea-flows":"누가 거래했고, 국채 공급을 어떻게 소화했는지 살펴봅니다.", sources:"어디에서 왔고, 언제 관측됐는지 확인하세요.", evening:"텔레그램 공개 채널들이 오늘 함께 다룬 주제를 규칙으로 골라 원문 링크로 잇습니다. 채널 글의 문장은 싣지 않습니다. 'AI 요약' 표시가 붙은 문장은 AI가 쓴 것입니다.", notes:"읽은 글을 내 말로 옮기고, 내 틀과 잇고, 질문을 남깁니다. 원문은 링크로만 잇습니다."};
+  const titles = {all:"시장의 큰 흐름, 한눈에", korea:"한국 시장 · 금리·커브", "korea-credit":"한국 시장 · 신용·단기자금", "korea-flows":"한국 시장 · 수급·입찰", sources:"출처와 갱신 현황", ai:"AI 투자 참고", evening:"저녁판 · 오늘 여러 곳이 함께 다룬 것", notes:"읽기 노트"};
+  const descriptions = {all:"금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.", korea:"한국과 미국 금리의 수준·차이·변화를 비교합니다.", "korea-credit":"기업과 은행의 자금조달 여건을 비교합니다.", "korea-flows":"누가 거래했고, 국채 공급을 어떻게 소화했는지 살펴봅니다.", sources:"어디에서 왔고, 언제 관측됐는지 확인하세요.", ai:"AI 투자를 실물 투자·조달·전력 가격·금리·주식과의 상관으로 나눠 공개 통계만 봅니다. 규칙 판정에 쓰지 않습니다.", evening:"텔레그램 공개 채널들이 오늘 함께 다룬 주제를 규칙으로 골라 원문 링크로 잇습니다. 채널 글의 문장은 싣지 않습니다. 'AI 요약' 표시가 붙은 문장은 AI가 쓴 것입니다.", notes:"읽은 글을 내 말로 옮기고, 내 틀과 잇고, 질문을 남깁니다. 원문은 링크로만 잇습니다."};
   document.getElementById("view-title").textContent = group?.title || titles[activeView];
   document.getElementById("view-description").textContent = group?.description || descriptions[activeView];
   document.querySelectorAll("#category-nav a").forEach(a => {
@@ -535,6 +548,9 @@ function applyView() {
   document.getElementById("overview-wrap").hidden = !(available.overview && ["all","rates"].includes(activeView));
   document.getElementById("ktb-wrap").hidden = !(available.korea && ["all","korea"].includes(activeView));
   document.getElementById("korea-empty").hidden = activeView !== "korea" || available.korea || !available.loaded;
+  document.getElementById("ai-teaser").hidden = !(available.ai && activeView === "all");
+  document.getElementById("ai-wrap").hidden = !(available.ai && activeView === "ai");
+  document.getElementById("ai-empty").hidden = activeView !== "ai" || available.ai || !available.loaded;
   document.getElementById("rules-wrap").hidden = !showRules;
   document.getElementById("sources-wrap").hidden = activeView !== "sources";
   document.getElementById("evening-wrap").hidden = activeView !== "evening";
@@ -579,7 +595,9 @@ function go(text) {
   const q = String(text).trim().toLowerCase();
   if (!q) return false;
   const byNumber = /^[1-9]$/.test(q) ? VIEWS[Number(q) - 1] : null;
-  const detail = q === "한국 신용" ? ["korea-credit"] : ["수급", "입찰", "수급·입찰"].includes(q) ? ["korea-flows"] : null;
+  // AI 투자 화면은 이 낱말들과 똑같을 때만 — 'ai'가 'a'·'main'·'daily' 같은 입력을 가로채지 않게(숫자 키도 없다)
+  const detail = q === "한국 신용" ? ["korea-credit"] : ["수급", "입찰", "수급·입찰"].includes(q) ? ["korea-flows"]
+    : ["ai", "ai 투자", "인공지능", "데이터센터"].includes(q) ? ["ai"] : null;
   // 똑같은 낱말 → 입력으로 시작하는 낱말 → 입력에 든 낱말 순으로 찾고, 여러 화면에 걸리면 뒤쪽(더 좁은) 화면이 먼저다
   // ("국고채 금리"는 금리·커브가 아니라 한국 시장으로)
   const pick = test => VIEWS.slice().reverse().find(([id, words]) => [id, ...words].some(test));
@@ -601,7 +619,7 @@ document.getElementById("cmd-form").addEventListener("submit", ev => {
       title.focus({ preventScroll: true });
     }, 60);
   }
-  else { input.select(); msg.textContent = input.value.trim() ? "없는 화면 — 금리, 물가, 신용, 유동성, 한국, 출처, 저녁판, 노트" : ""; }
+  else { input.select(); msg.textContent = input.value.trim() ? "없는 화면 — 금리, 물가, 신용, 유동성, 한국, AI, 출처, 저녁판, 노트" : ""; }
 });
 // 숫자 키 단축은 머리의 '단축키' 버튼으로 끌 수 있다(고른 값은 브라우저에 기억)
 let keysOn = true;
@@ -800,9 +818,9 @@ function renderPublic(p, charts) {
 tick();
 applyView();
 (async () => {
-  const [st, pub, ch, kt, kr, ks, sp] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json"),
+  const [st, pub, ch, kt, kr, ks, sp, ai] = await Promise.allSettled([getJson("data/status.json"), getJson("data/public.json"),
     getJson("data/charts.json"), getJson("data/ktb.json"), getJson("data/korea.json"), getJson("data/korea-status.json"),
-    getJson("data/supply.json")]);
+    getJson("data/supply.json"), getJson("data/ai_invest.json")]);
   // 그래프 자료가 없거나 깨졌으면 그래프 없이 지금 화면 그대로
   const charts = ch.status === "fulfilled" && ch.value && typeof ch.value === "object" ? ch.value : null;
   const isObj = x => x.status === "fulfilled" && x.value && typeof x.value === "object";
@@ -826,6 +844,8 @@ applyView();
   if (kt.status === "fulfilled") {
     try { renderKtb(kt.value); } catch (e) { /* 참고 절이 깨져도 규칙 점검 화면은 그대로 */ }
   }
+  try { if (isObj(ai) && window.AiInvest) available.ai = window.AiInvest.render(ai.value); }
+  catch (e) { available.ai = false; /* 참고 묶음이 깨져도 규칙 점검 화면은 그대로 */ }
   try { renderTape(pub.status === "fulfilled" ? pub.value : null, charts); }
   catch (e) { /* 시세 띠가 없어도 화면은 그대로 */ }
   available.loaded = true;
