@@ -60,20 +60,24 @@ META = {
 }
 
 
+KTB_FEED = 60     # 재정경제부는 쪽마다 3.5~4초, 목록 검색은 재시도로 12초쯤 — 다른 묶음(합 40~55초)보다 창을 넓게
+
+
 class FeedError(ValueError):
     """Fixed public reason codes; never publish remote exception text."""
 
 
 class PublicFetcher:
-    """One retry for transient failures; budgets leave time to publish failure status."""
-    def __init__(self, budget=150, per_feed=45, clock=time.monotonic, sleep=time.sleep, opener=urllib.request.urlopen):
+    """One retry for transient failures; budgets leave time to publish failure status.
+    전체 180초 + 마지막 요청(10초 안) + 쓰기 — Actions 단계 4분 안. 묶음당 45초, 국고채 발행계획·매입/교환은 각 60초(KTB_FEED)."""
+    def __init__(self, budget=180, per_feed=45, clock=time.monotonic, sleep=time.sleep, opener=urllib.request.urlopen):
         self.clock, self.sleep, self.opener = clock, sleep, opener
         self.deadline = clock() + budget
         self.per_feed = per_feed
         self.feed_deadline = self.deadline
 
-    def start_feed(self):
-        self.feed_deadline = min(self.deadline, self.clock() + self.per_feed)
+    def start_feed(self, seconds=None):
+        self.feed_deadline = min(self.deadline, self.clock() + (self.per_feed if seconds is None else seconds))
 
     def remaining(self):
         remaining = min(self.deadline, self.feed_deadline) - self.clock()
@@ -439,10 +443,10 @@ def build(old, now, fetch=None):
     fetch = PublicFetcher() if fetch is None else fetch
     today = now.astimezone(KST).date(); stamp = now.isoformat(timespec="seconds")
     feeds = {}; previous = old.get("feeds", {}) if old.get("schema") == 1 else {}
-    def run(name, fn):
+    def run(name, fn, seconds=None):
         prev = previous.get(name, {})
         try:
-            if isinstance(fetch, PublicFetcher): fetch.start_feed()
+            if isinstance(fetch, PublicFetcher): fetch.start_feed(seconds)
             payload = fn()
             validate_freshness(name, payload, prev.get("data"), today)
             feeds[name] = {"ok": True, "checked_at": stamp, "last_success": stamp, "data": payload}
@@ -514,11 +518,11 @@ def build(old, now, fetch=None):
     def ops_feed():
         prev = previous.get("ktb_ops", {}).get("data") or []
         seen = {r.get("id") for r in prev if isinstance(r, dict) and isinstance(r.get("id"), str)}
-        links, empty = [], []
+        per_kind, empty = {}, []
         for kind in ki.OPS:
-            found = ki.op_links(fetch(ki.ops_list_url(kind)), kind)
+            per_kind[kind] = found = ki.op_links(fetch(ki.ops_list_url(kind)), kind)
             if not found: empty.append(kind)          # 한 종류 목록만 비었다 — 다른 종류로 갱신하되 사유 코드로 남긴다
-            links += [(ident, (kind, date)) for ident, date in ki.to_read(found, seen, ki.READ_OPS)]
+        links = ki.ops_queue(per_kind, seen, ki.READ_OPS)   # 새 공고를 매입·교환 번갈아 먼저, 다시 읽기는 끝에
         try:
             if not links: raise ValueError("no operation notices")       # 목록 형식이 바뀜 — 공고 하나의 문제가 아니다
             got = notices("ktb_ops", links, lambda ident, arg: ki.parse_op(
@@ -526,8 +530,8 @@ def build(old, now, fetch=None):
         finally:                                       # 종류별 빈 목록은 공고 읽기가 끝난 뒤에 더한다(묶음 실패 사유 판단과 섞지 않게)
             skips["ktb_ops"] += [{"id": kind, "reason": ki.NO_NOTICES} for kind in empty]
         return ki.merge_ops(got, prev)
-    run("ktb_plans", plan_feed)
-    run("ktb_ops", ops_feed)
+    run("ktb_plans", plan_feed, KTB_FEED)
+    run("ktb_ops", ops_feed, KTB_FEED)
     for name, skipped in skips.items():
         feeds[name]["skipped"] = skipped
     cards = []

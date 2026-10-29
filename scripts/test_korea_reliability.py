@@ -47,6 +47,25 @@ class NetworkTests(unittest.TestCase):
         clock[0]=11;fetch.start_feed()
         with self.assertRaises(k.FeedError): fetch.remaining()
 
+    def test_ktb_feeds_get_a_wider_window_inside_the_total(self):
+        clock=[0];fetch=k.PublicFetcher(clock=lambda:clock[0])
+        self.assertEqual((fetch.deadline,fetch.per_feed,k.KTB_FEED),(180,45,60))
+        fetch.start_feed();self.assertEqual(fetch.remaining(),45)
+        fetch.start_feed(k.KTB_FEED);self.assertEqual(fetch.remaining(),60)
+        clock[0]=150;fetch.start_feed(k.KTB_FEED);self.assertEqual(fetch.remaining(),30)   # 전체 180초가 묶음 창을 자른다
+        clock[0]=170;fetch.start_feed();self.assertEqual(fetch.remaining(),10)
+        clock[0]=180;fetch.start_feed(k.KTB_FEED)
+        with self.assertRaises(k.FeedError): fetch.remaining()
+
+    def test_build_gives_the_window_only_to_ktb_feeds(self):
+        windows=[];fetch=k.PublicFetcher(opener=lambda *a,**kw:io.BytesIO(b''))
+        start=fetch.start_feed
+        def spy(seconds=None):
+            windows.append(seconds);start(seconds)
+        fetch.start_feed=spy
+        with patch('builtins.print'): k.build({},NOW,fetch)
+        self.assertEqual(windows,[None]*8+[k.KTB_FEED]*2)          # 앞 여덟 묶음은 45초, 발행계획·매입/교환은 60초
+
     def test_slow_body_is_not_accepted_after_budget(self):
         clock=[0]
         class Slow(io.BytesIO):

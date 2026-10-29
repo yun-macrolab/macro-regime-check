@@ -129,7 +129,7 @@ jobs:
       - name: 한국 시장 학습 자료 받기
         id: korea
         continue-on-error: true
-        timeout-minutes: 4
+        timeout-minutes: 4         # 수신 예산 180초(korea_market.PublicFetcher) + 마지막 요청 10초 + PDF·쓰기 — 4분 안
         run: python scripts/korea_market.py
       - name: 한국 시장 갱신 종료 기록
         id: korea_finish

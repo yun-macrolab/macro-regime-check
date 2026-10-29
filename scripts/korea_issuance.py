@@ -136,7 +136,7 @@ def page2_target(links, stored_months):
 def join_links(first, second, oldest=None):
     """첫 쪽 링크 + 둘째 쪽 링크 중 번호도 달도 새 것만(같은 달이면 첫 쪽 — 새 보도). 최근 MAX_PLANS개.
     oldest(page2_target의 달)를 주면 둘째 쪽은 그 달부터만 — 더 오래된 계획은 보고 연도 합계에 쓰이지 않고
-    처음 몇 번의 실행에서 시간 예산만 쓴다(실측: 한 건 7~8초, 묶음 45초)."""
+    처음 몇 번의 실행에서 시간 예산만 쓴다(실측: 한 건 7~8초, 묶음 60초)."""
     ids, months = {i for i, _ in first}, {ym for _, ym in first}
     return (list(first) + [l for l in second if l[0] not in ids and l[1] not in months
                            and (oldest is None or l[1] >= oldest)])[:MAX_PLANS]
@@ -334,10 +334,27 @@ def parse_op(raw, ident, kind, date, today):
 
 
 def to_read(links, prev_ids, cap):
-    """가장 새 공고는 늘 다시 읽고(정정 확인), 나머지는 아직 없는 것만 cap개까지."""
+    """가장 새 공고는 늘 다시 읽고(정정 확인), 나머지는 아직 없는 것만 cap개까지.
+    순서: 아직 없는 것(새 것부터) 먼저, 이미 읽은 가장 새 공고 다시 읽기는 맨 끝 — 묶음 시간이 모자라면
+    다시 읽기가 not_tried로 빠지고 전에 읽은 값이 남는다(2026-10-29 실측: 다시 읽기 한 건 약 8초가 앞에서 2월 계획을 밀어냈다)."""
     if not links: return []
-    rest = [l for l in links[1:] if l[0] not in prev_ids]
-    return [links[0]] + rest[:cap - 1]
+    rest = [l for l in links[1:] if l[0] not in prev_ids][:cap - 1]
+    return rest + [links[0]] if links[0][0] in prev_ids else [links[0]] + rest
+
+
+def ops_queue(per_kind, prev_ids, cap):
+    """매입·교환 결과 읽을 순서. per_kind = {종류: [(번호, 입찰일)]}(목록 순서), 종류마다 to_read와 같은 집합(cap개).
+    아직 없는 공고를 종류끼리 번갈아(종류 안에서는 새 것부터), 이미 읽은 가장 새 공고 다시 읽기는 종류 순서로 맨 끝.
+    → [(번호, (종류, 입찰일))]. 전에는 매입을 다 읽은 뒤 교환이라 교환이 늘 시간 예산에 밀렸다(2026-10-29 실측)."""
+    new, again = [], []
+    for kind, found in per_kind.items():
+        picked = [(ident, (kind, date)) for ident, date in to_read(found, prev_ids, cap)]
+        new.append([l for l in picked if l[0] not in prev_ids])
+        again += [l for l in picked if l[0] in prev_ids]
+    turns = []
+    for i in range(max(map(len, new), default=0)):
+        turns += [q[i] for q in new if i < len(q)]
+    return turns + again
 
 
 def merge_plans(got, previous):

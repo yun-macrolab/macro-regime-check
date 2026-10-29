@@ -3,6 +3,7 @@
 모양은 2026-10-28에 재정경제부 보도자료·결과 공고 PDF의 글 층을 읽어 본 것을 따랐고, 숫자·종목·사람 이름은 모두 지어냈다."""
 import datetime as dt
 import html
+import io
 import json
 import os
 import re
@@ -462,12 +463,12 @@ BOARD_PLANS = {"MOSF_30": ((30, 5), 140000, 30000, 151230), "MOSF_29": ((30, 4),
 BOARD_OPS = {"MOSF_90": ("buyback", "2030-05-15", BUYBACK), "MOSF_70": ("exchange", "2030-05-14", EXCHANGE)}
 
 
-def board(plans=None, pdfs=None, views=None, lists=None, ids=None, op_ids=None):
+def board(plans=None, pdfs=None, views=None, lists=None, ids=None, op_ids=None, ops=None):
     """보도자료 목록·상세·첨부, 입찰 결과 목록(매입·교환)·상세·첨부를 돌려주는 가짜 fetch.
     값이 예외면 그 요청에서 던진다. 다른 묶음은 빈 응답(실패)."""
-    plans, pdfs, views, lists = plans or BOARD_PLANS, pdfs or {}, views or {}, lists or {}
+    plans, pdfs, views, lists, ops = plans or BOARD_PLANS, pdfs or {}, views or {}, lists or {}, ops or BOARD_OPS
     ids = list(plans) if ids is None else ids
-    op_ids = list(BOARD_OPS) if op_ids is None else op_ids
+    op_ids = list(ops) if op_ids is None else op_ids
     def fetch(url, *args):
         def give(v):
             if isinstance(v, Exception): raise v
@@ -480,8 +481,8 @@ def board(plans=None, pdfs=None, views=None, lists=None, ids=None, op_ids=None):
         for kind in ki.OPS:
             if url == ki.ops_list_url(kind):
                 word = ki.OPS_LABEL[kind]
-                return give(lists.get(kind, ops_list([(i, f"2030년도 제1차 국고채 {word} 입찰 결과('{BOARD_OPS[i][1][2:].replace('-', '.')}.)")
-                                                      for i in op_ids if BOARD_OPS[i][0] == kind])))
+                return give(lists.get(kind, ops_list([(i, f"2030년도 제1차 국고채 {word} 입찰 결과('{ops[i][1][2:].replace('-', '.')}.)")
+                                                      for i in op_ids if ops[i][0] == kind])))
         q = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
         if url.startswith(ki.PRESS_DETAIL) or url.startswith(ki.RESULT_DETAIL):
             i = (q.get("searchNttId1") or q.get("searchSn"))[0]
@@ -491,7 +492,7 @@ def board(plans=None, pdfs=None, views=None, lists=None, ids=None, op_ids=None):
         if url.startswith(ki.FILE_DOWN):
             i = "MOSF_" + q["atchFileId"][0].split("_")[1]
             if i in pdfs: return give(pdfs[i])
-            text = plan_text(*plans[i]) if i in plans else BOARD_OPS[i][2]
+            text = plan_text(*plans[i]) if i in plans else ops[i][2]
             return b"%PDF-" + text.encode()
         return b""
     return fetch
@@ -741,6 +742,129 @@ class SecondPageTests(unittest.TestCase):
             self.assertNotIn("secret", json.dumps(r, ensure_ascii=False) + log)
 
 
+class ReadOrderTests(unittest.TestCase):
+    """읽을 순서 — 새 공고 먼저, 매입·교환 번갈아, 이미 읽은 가장 새 공고 다시 읽기는 끝에(2026-10-29 실측 뒤)."""
+    L = staticmethod(lambda *ids: [(i, 0) for i in ids])
+
+    def test_to_read_puts_the_stored_newest_last_and_keeps_the_set(self):
+        links = self.L("1", "2", "3", "4", "5")
+        self.assertEqual(ki.to_read(links, {"1", "3"}, 3), self.L("2", "4", "1"))          # 가장 새 것(저장됨)은 끝
+        self.assertEqual(ki.to_read(links, {"2"}, 3), self.L("1", "3", "4"))               # 가장 새 것이 새 공고면 맨 앞
+        self.assertEqual(ki.to_read(links, {"1", "2", "3", "4", "5"}, 3), self.L("1"))   # 다 읽었으면 다시 읽기 하나
+        self.assertEqual(ki.to_read(links, {"1"}, 1), self.L("1"))                         # cap 1 — 다시 읽기만
+        self.assertEqual(ki.to_read(links, set(), 2), self.L("1", "2"))
+        for prev in (set(), {"1"}, {"2", "4"}, {"1", "2", "3"}, {"9"}):                    # 집합은 전과 같다: 가장 새 것 + 새 것 cap−1개
+            for cap in (1, 2, 3, 6):
+                got = ki.to_read(links, prev, cap)
+                want = {"1"} | {i for i, _ in links[1:] if i not in prev}
+                self.assertEqual(len(got), min(cap, len(want)), (prev, cap))
+                self.assertEqual({i for i, _ in got}, {"1"} | {i for i, _ in [l for l in links[1:] if l[0] not in prev][:cap - 1]})
+                self.assertEqual([i for i, _ in got if i in prev], ["1"] if "1" in prev else [])   # 다시 읽기는 가장 새 것 하나뿐
+                if "1" in prev: self.assertEqual(got[-1][0], "1")
+
+    def test_ops_queue_alternates_kinds_and_rereads_last(self):
+        B = [("B1", "2030-05-15"), ("B2", "2030-04-15"), ("B3", "2030-03-15"), ("B4", "2030-02-15")]
+        E = [("E1", "2030-05-14"), ("E2", "2030-04-14")]
+        ids = lambda q: [(i, kind) for i, (kind, _) in q]
+        q = ki.ops_queue({"buyback": B, "exchange": E}, {"B1"}, 3)                 # 매입 밀림 많음, 교환은 모두 새것
+        self.assertEqual(ids(q), [("B2", "buyback"), ("E1", "exchange"), ("B3", "buyback"), ("E2", "exchange"), ("B1", "buyback")])
+        self.assertEqual(q[0], ("B2", ("buyback", "2030-04-15")))                  # 읽을 때 넘길 값(종류, 입찰일)
+        q = ki.ops_queue({"buyback": B, "exchange": E}, {"B1", "E1"}, 3)
+        self.assertEqual(ids(q), [("B2", "buyback"), ("E2", "exchange"), ("B3", "buyback"), ("B1", "buyback"), ("E1", "exchange")])
+        q = ki.ops_queue({"buyback": B, "exchange": []}, {"B1"}, 3)                # 한 종류가 비어도 다른 종류는 그대로
+        self.assertEqual(ids(q), [("B2", "buyback"), ("B3", "buyback"), ("B1", "buyback")])
+        q = ki.ops_queue({"buyback": B, "exchange": E}, {i for i, _ in B + E}, 3)  # 모두 읽었으면 종류마다 다시 읽기 하나씩만
+        self.assertEqual(ids(q), [("B1", "buyback"), ("E1", "exchange")])
+        self.assertEqual(ki.ops_queue({"buyback": [], "exchange": []}, set(), 3), [])
+        q = ki.ops_queue({"buyback": B, "exchange": E}, set(), ki.READ_OPS)         # 종류별 cap은 전과 같다
+        self.assertEqual(sorted(ids(q)), sorted([(i, "buyback") for i, _ in B[:ki.READ_OPS]] + [(i, "exchange") for i, _ in E]))
+
+
+def op_text(kind, date):
+    """BUYBACK·EXCHANGE의 입찰일만 바꾼 지어낸 결과 PDF 글."""
+    d = dt.date.fromisoformat(date)
+    mark = f"’{d.year % 100}.{d.month}.{d.day}."
+    return BUYBACK.replace("’30.5.15.", mark) if kind == "buyback" else EXCHANGE.replace("’30.5.14.", mark)
+
+
+# 2026-10-29 실행의 꼴: 발행계획은 3~10월이 저장돼 있고 2월(1월 실적)이 둘째 쪽, 매입은 가장 새 것만 저장, 교환은 한 번도 못 읽음
+SLOW_OPS = {i: (kind, day, op_text(kind, day)) for i, kind, day in (
+    ("MOSF_83", "buyback", "2026-10-21"), ("MOSF_82", "buyback", "2026-09-16"), ("MOSF_81", "buyback", "2026-08-20"),
+    ("MOSF_73", "exchange", "2026-10-14"), ("MOSF_72", "exchange", "2026-09-09"), ("MOSF_71", "exchange", "2026-08-12"))}
+
+
+def old_to_read(links, prev_ids, cap):          # 고치기 전 순서(비교용): 가장 새 것 다시 읽기가 맨 앞
+    rest = [l for l in links[1:] if l[0] not in prev_ids]
+    return [links[0]] + rest[:cap - 1] if links else []
+
+
+def old_ops_queue(per_kind, prev_ids, cap):     # 고치기 전 순서(비교용): 매입을 다 읽고 교환
+    return [(i, (kind, d)) for kind, found in per_kind.items() for i, d in old_to_read(found, prev_ids, cap)]
+
+
+class SlowBoardTests(unittest.TestCase):
+    """재정경제부 요청 하나에 cost초가 걸리는 가짜 시계·opener로 PublicFetcher를 그대로 돌린다(전체 180초, 국고채 묶음 각 60초)."""
+    def slow_run(self, cost, old_order=False, fail=None):
+        stored = [ki.parse_plan_text(plan_text(*LIVE_PLANS[f"MOSF_26{m:02d}"]), f"MOSF_26{m:02d}", (26, m), LIVE_NOW.date())
+                  for m in range(3, 11)]
+        old = {"schema": 1, "feeds": {"ktb_plans": {"data": stored, "last_success": "p"},
+                                      "ktb_ops": {"data": [ki.parse_op_text(SLOW_OPS["MOSF_83"][2], "MOSF_83", "buyback", "2026-10-21",
+                                                                            LIVE_NOW.date())], "last_success": "p"}}}
+        clock, seen, inner = [0.0], [], board(plans=LIVE_PLANS, lists=live_lists(), ops=SLOW_OPS)
+        def opener(url, data=None, timeout=None):
+            seen.append(url)
+            if fail and fail(url):                                      # 이 요청은 매번 시간 초과(요청 상한을 다 쓴다)
+                clock[0] += timeout; raise TimeoutError()
+            if url.startswith("https://mofe.go.kr"): clock[0] += cost
+            return io.BytesIO(inner(url))
+        fetch = k.PublicFetcher(clock=lambda: clock[0], sleep=lambda n: None, opener=opener)
+        with patch.object(ki, "to_read", old_to_read if old_order else ki.to_read), \
+                patch.object(ki, "ops_queue", old_ops_queue if old_order else ki.ops_queue):
+            r, _ = run_build(fetch, old, now=LIVE_NOW)
+        files = [u for u in seen if u.startswith(ki.PRESS_DETAIL) or u.startswith(ki.RESULT_DETAIL)]
+        return r, [urllib.parse.parse_qs(urllib.parse.urlsplit(u).query) for u in files]
+
+    def skips(self, r, name):
+        return {s_["id"]: s_["reason"] for s_ in r["feeds"][name]["skipped"]}
+
+    def test_february_plan_is_read_before_the_newest_is_reread(self):
+        r, _ = self.slow_run(10, old_order=True)                     # 목록 두 쪽 20초 + 다시 읽기 20초 → 2월은 창 끝에 걸린다
+        self.assertEqual(self.skips(r, "ktb_plans"), {"MOSF_2602": "timeout"})
+        self.assertEqual(r["ktb_summary"]["progress"]["missing"], ["2026-01"])
+        r, opened = self.slow_run(10)
+        self.assertEqual([q["searchNttId1"][0] for q in opened if "searchNttId1" in q], ["MOSF_2602", "MOSF_2610"])
+        self.assertEqual(self.skips(r, "ktb_plans"), {"MOSF_2610": "timeout"})        # 다시 읽기만 빠지고 전에 읽은 값이 남는다
+        self.assertTrue(r["feeds"]["ktb_plans"]["ok"])
+        p = r["ktb_summary"]["progress"]
+        self.assertEqual((p["missing"], p["pct"]), ([], 78.9))
+        self.assertEqual(r["ktb_plans"][-1]["id"], "MOSF_2610")
+
+    def test_no_new_notice_read_in_the_window_is_a_timeout_with_old_data_kept(self):
+        # 새 공고(2월)가 창을 다 쓰면 다시 읽기는 시도도 못 한다 — 새로 읽은 것이 없으니 묶음은 timeout 실패, 저장된 값은 그대로
+        feb = lambda url: "MOSF_2602" in url
+        r, _ = self.slow_run(10, old_order=True, fail=feb)            # 고치기 전: 다시 읽기가 앞에서 성공해 ok였다
+        self.assertTrue(r["feeds"]["ktb_plans"]["ok"])
+        r, _ = self.slow_run(10, fail=feb)
+        f = r["feeds"]["ktb_plans"]
+        self.assertEqual((f["ok"], f["reason"]), (False, "timeout"))
+        self.assertEqual(self.skips(r, "ktb_plans"), {"MOSF_2602": "network", "MOSF_2610": "timeout"})   # 요청 시간 초과는 network, 창 끝은 timeout
+        self.assertEqual([p["month"] for p in r["ktb_plans"]], [f"2026-{m:02d}" for m in range(3, 11)])
+        self.assertEqual(f["last_success"], "p")
+
+    def test_exchange_is_not_starved_behind_buybacks(self):
+        r, _ = self.slow_run(8, old_order=True)                      # 고치기 전: 매입 셋 뒤의 교환은 시도도 못 함
+        sk = self.skips(r, "ktb_ops")
+        self.assertEqual({sk[i] for i in ("MOSF_73", "MOSF_72", "MOSF_71")}, {"not_tried"})
+        self.assertEqual({o["kind"] for o in r["ktb_ops"]}, {"buyback"})
+        r, opened = self.slow_run(8)
+        self.assertEqual([q["searchSn"][0] for q in opened if "searchSn" in q][:3], ["MOSF_82", "MOSF_73", "MOSF_81"])
+        sk = self.skips(r, "ktb_ops")
+        self.assertEqual(sk, {"MOSF_81": "timeout", "MOSF_72": "not_tried", "MOSF_71": "not_tried", "MOSF_83": "not_tried"})
+        self.assertTrue(r["feeds"]["ktb_ops"]["ok"])
+        self.assertEqual([(o["id"], o["kind"]) for o in r["ktb_ops"]],      # 새 매입 하나 + 교환 하나(60초 창 — 45초면 교환이 끝에 걸린다)
+                         [("MOSF_83", "buyback"), ("MOSF_73", "exchange"), ("MOSF_82", "buyback")])
+
+
 class SummaryTests(unittest.TestCase):
     def plans(self, months, actual=True):
         out = []
@@ -791,7 +915,7 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual((merged[0]["month"], merged[-2]["id"], merged[-1]["id"]), ("2029-02", "R", "N"))
         ops = ki.merge_ops([{"id": "a", "date": "2030-01-02"}], [{"id": "a", "date": "2030-01-01"}, {"id": "b", "date": "2030-01-03"}, 5])
         self.assertEqual([(o["id"], o["date"]) for o in ops], [("b", "2030-01-03"), ("a", "2030-01-02")])
-        self.assertEqual(ki.to_read([("1", 0), ("2", 0), ("3", 0), ("4", 0)], {"1", "2"}, 2), [("1", 0), ("3", 0)])
+        self.assertEqual(ki.to_read([("1", 0), ("2", 0), ("3", 0), ("4", 0)], {"1", "2"}, 2), [("3", 0), ("1", 0)])
         self.assertEqual(ki.to_read([], set(), 3), [])
 
 
