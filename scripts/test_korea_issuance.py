@@ -426,6 +426,23 @@ class OperationTests(unittest.TestCase):
         r = ki.parse_op_text(EXCHANGE, "MOSF_7", "exchange", "2030-05-14", TODAY)
         self.assertEqual((r["offered_100m"], r["bids_100m"], r["bid_cover_pct"], r["awarded_100m"]), (3000, 7500, 250.0, 3000))
 
+    def test_exchange_amount_glued_to_the_code_is_picked_by_the_bid_ratio(self):
+        # pypdf 6.10.2(requirements.txt, Actions)는 표 칸 사이에 공백을 넣지 않아 '…-3008' + '3,000억원'이 붙는다(2026-10-29:
+        # 이 꼴로 교환 결과 전부가 field_changed). 붙은 숫자의 끝에서 쓸 수 있는 꼴 중 응찰금액 ÷ 금액 = 응찰률인 것 하나만
+        glued = EXCHANGE.replace("-3008\n3,000억원", "-30083,000억원")
+        head, rest = EXCHANGE.split("2.입찰결과", 1)
+        flat = re.sub(r"\s+", "", head) + "2.입찰결과" + rest                    # 머리 전체가 공백 없이
+        for text in (glued, flat):
+            r = ki.parse_op_text(text, "MOSF_7", "exchange", "2030-05-14", TODAY)
+            self.assertEqual((r["offered_100m"], r["bids_100m"], r["bid_cover_pct"], r["awarded_100m"]), (3000, 7500, 250.0, 3000))
+        for bad in (glued.replace("응찰률 250.0%", "응찰률 25.0%"),           # 어느 후보도 응찰률과 맞지 않는다
+                    glued.replace("-30083,000억원", "X30083,000억원")):         # 종목 번호('-…')에 붙은 꼴이 아니다
+            with self.assertRaisesRegex(ValueError, "^op (field changed|outside range)$"):
+                ki.parse_op_text(bad, "MOSF_7", "exchange", "2030-05-14", TODAY)
+        self.assertEqual(ki.glued_offer("국고03000-6003-30083,000억원", 7500, 250.0), [("3,000", "억")])
+        self.assertEqual(ki.glued_offer("국고03000-6003-30081.5조원", 37500, 250.0), [("1.5", "조")])
+        self.assertEqual(ki.glued_offer("국고03000-6003-30083,000억원", 7500, 25.0), [])
+
     def test_refusals(self):
         cases = [(BUYBACK, "exchange", "2030-05-15", "op kind mismatch"),
                  (BUYBACK, "buyback", "2030-05-16", "op date mismatch"),

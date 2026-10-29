@@ -319,14 +319,31 @@ def parse_op_text(text, ident, kind, date, today):
     offered = re.findall(r"(?<![\d,.\-])(\d[\d,]*(?:\.\d+)?)\s*(조|억)\s*원", head)
     bids = re.findall(r"응찰금액:([\d,]+)억원\(응찰률([\d.]+)%\)", res)
     awarded = re.findall(r"낙찰금액:([\d,]+)억원", res)
-    if len(offered) != 1 or len(bids) != 1 or len(awarded) != 1: raise ValueError("op field changed")
-    offer = won(*offered[0]); bid = int(bids[0][0].replace(",", "")); ratio = float(bids[0][1])
-    award = int(awarded[0].replace(",", ""))
+    if len(bids) != 1 or len(awarded) != 1: raise ValueError("op field changed")
+    bid = int(bids[0][0].replace(",", "")); ratio = float(bids[0][1]); award = int(awarded[0].replace(",", ""))
+    if not offered and ratio > 0: offered = glued_offer(head, bid, ratio)
+    if len(offered) != 1: raise ValueError("op field changed")
+    offer = won(*offered[0])
     if not (0 < offer < 1_000_000 and 0 < bid < 5_000_000 and 0 < award <= offer and award <= bid and 0 < ratio < 5000):
         raise ValueError("op outside range")
     if abs(bid / offer * 100 - ratio) > 0.2: raise ValueError("op outside range")
     return {"id": ident, "kind": kind, "date": date, "offered_100m": offer, "bids_100m": bid,
             "bid_cover_pct": ratio, "awarded_100m": award, "source_url": result_url(ident)}
+
+
+def glued_offer(head, bid, ratio):
+    """금액이 앞 종목 번호에 붙어 나온 글('…-3007' + '5,000억원' → '…-30075,000억원' — pypdf 6.10.2가 표 칸 사이
+    공백을 넣지 않는다, 2026-10-29 실측)에서 입찰금액 하나를 고른다. 붙은 숫자 묶음의 끝에서 쓸 수 있는 꼴
+    (첫 자리 1~9, 세 자리마다 쉼표)을 모두 후보로 두고, 응찰금액 ÷ 후보 = 응찰률(±0.2%p)인 것이 꼭 하나일 때만.
+    종목 번호에 붙은 경우만 본다(앞이 '-'로 시작하는 숫자 묶음) — 그 밖의 꼴은 고르지 않는다."""
+    picks = []
+    for run, unit in re.findall(r"-(\d[\d,]*(?:\.\d+)?)\s*(조|억)\s*원", head):
+        for i in range(1, len(run)):
+            cand = run[i:]
+            if not re.fullmatch(r"[1-9]\d{0,2}(?:,\d{3})*(?:\.\d+)?", cand): continue
+            v = float(cand.replace(",", "")) * (10000 if unit == "조" else 1)
+            if v > 0 and abs(bid / v * 100 - ratio) <= 0.2: picks.append((cand, unit))
+    return picks if len(picks) == 1 else []
 
 
 def parse_op(raw, ident, kind, date, today):
