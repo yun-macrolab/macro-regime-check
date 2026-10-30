@@ -20,16 +20,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import digest_schema as S
 
-CHECKED = "2026-10-08"                           # 아래 출처를 읽은 날 = calendar.json의 updated
-OFFICIAL = ("federalreserve.gov", "bls.gov", "bea.gov", "bok.or.kr", "kostat.go.kr", "mods.go.kr")
+CHECKED = "2026-10-29"                           # 마지막으로 출처를 읽은 날 = calendar.json의 updated(재무부 줄. 나머지는 2026-10-08)
+OFFICIAL = ("federalreserve.gov", "bls.gov", "bea.gov", "treasury.gov", "bok.or.kr", "kostat.go.kr", "mods.go.kr")
 SRC = {
     "fed": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",       # 회의 날짜. 성명 14:00(미 동부)은 같은 곳의 행사 달력
     "bea": "https://www.bea.gov/news/schedule",                                     # 개인소득·지출(PCE 물가가 여기 실린다)
+    # 분기 리펀딩 — 다음 발표일은 직전(2026-08) 리펀딩 성명 끝에 적힌다. 08:30(미 동부)은 재무부의 정해진 발표 시각
+    "treasury": "https://home.treasury.gov/policy-issues/financing-the-government/quarterly-refunding",
     "bok_mpc": "https://www.bok.or.kr/portal/singl/crncyPolicyDrcMtg/listYear.do?mtgSe=A&menuNo=200755",     # 통화정책방향 결정회의
     "bok_stat": "https://www.bok.or.kr/portal/stats/statsPublictSchdul/listCldr.do?menuNo=200775",           # 통계공표일정
     "mods": "https://mods.go.kr/newsPln.es?mid=a10305000000",                       # 국가데이터처 보도계획(kostat.go.kr이 이리로 넘어온다)
 }
-US = ("fed", "bea", "bls")                       # 현지 시각이 미 동부인 출처
+US = ("fed", "bea", "bls", "treasury")                       # 현지 시각이 미 동부인 출처
 # (KST 날짜, KST 시각 또는 None, 사전 낱말, 출처, 미 동부 현지 시각 또는 None) — 시각순
 LEDGER = (
     ("2026-10-22", None, "금통위", "bok_mpc", None),
@@ -37,6 +39,7 @@ LEDGER = (
     ("2026-10-29", "03:00", "FOMC", "fed", "2026-10-28 14:00"),          # 10월 27~28일 회의
     ("2026-10-29", "21:30", "미 PCE", "bea", "2026-10-29 08:30"),        # 9월분
     ("2026-11-03", "08:00", "한국 CPI", "mods", None),                    # 10월 소비자물가동향
+    ("2026-11-04", "22:30", "미 국채 발행계획", "treasury", "2026-11-04 08:30"),   # 분기 리펀딩 — 서머타임이 11-01에 끝나 22:30
     ("2026-11-25", "22:30", "미 PCE", "bea", "2026-11-25 08:30"),        # 10월분
     ("2026-11-26", None, "금통위", "bok_mpc", None),
     ("2026-12-02", "08:00", "한국 CPI", "mods", None),                    # 11월 소비자물가동향

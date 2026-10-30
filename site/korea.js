@@ -145,11 +145,11 @@ window.KoreaMarket = (() => {
   // 국고채 발행계획·매입(바이백)·교환 — 재정경제부 보도자료와 입찰 결과 공고의 숫자. 화면 글은 아래 고정 문구뿐이다(방향·평가 낱말 없음)
   const MOFE_PLANS="https://mofe.go.kr/nw/nes/nesdta.do?searchBbsId1=MOSFBBS_000000000028&menuNo=4010100";
   const MOFE_RESULTS="https://mofe.go.kr/st/fnancstats/ktb50201.do?bbsId=MOSFBBS_000000000049&menuNo=6050300";
-  function jo(v, signed=false) {     // 억원 → 조원(소수 한 자리 이상, 억 단위까지 그대로 — 1,450억 = 0.145조원)
-    if(!Number.isFinite(v)) return "자료 없음";
+  function joNum(v, signed=false) {  // 억원 → 조원 숫자만(소수 한 자리 이상, 억 단위까지 그대로 — 1,450억 = 0.145)
     const x=v/10000;
-    return (signed && x>0 ? "+" : "")+x.toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:4})+"조원";
+    return (signed && x>0 ? "+" : "")+x.toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:4});
   }
+  const jo = (v, signed=false) => Number.isFinite(v) ? joNum(v,signed)+"조원" : "자료 없음";
   const pct = v => Number.isFinite(v) ? v.toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%" : "자료 없음";
   const monthLabel = m => typeof m==="string" && /^\d{4}-\d{2}$/.test(m) ? m.slice(0,4)+"년 "+(+m.slice(5))+"월" : "달 미상";
   function shareChart(plans) {
@@ -161,6 +161,18 @@ window.KoreaMarket = (() => {
              {key:"y30",label:"30년 비중",role:"series",points:pts("y30_share_pct"),series:[],derived:true}]};
     try { return node("div","",node("p","reading-note",spec.title),window.MacroCharts.lineChart(spec,{height:170,caption:false,format:pct})); }   // 칸의 비중과 같은 소수 한 자리
     catch { return node("p","muted","차트를 표시하지 못했습니다. 표의 수치를 확인해 주세요."); }
+  }
+  // 월별 표 — 그래프의 '표로 보기'와 같이 최근 달이 위. 숫자는 보도자료 값 그대로(당초 대비는 보도자료 문구, 없으면 —)
+  function monthTable(plans) {
+    const rows=plans.slice().reverse().map(p=>{
+      const stated=Number.isFinite(p.stated_plan_change_100m) ? joNum(p.stated_plan_change_100m,true)
+        : p.stated_plan_change_unread===true ? sourceLink("원문 확인",p.source_url) : "—";
+      const bb=p.buyback_plan, dates=Array.isArray(bb?.dates) ? bb.dates.filter(d=>typeof d==="string").map(d=>d.slice(5)) : [];
+      const buyback=!bb ? "—" : (Number.isFinite(bb.amount_100m) ? joNum(bb.amount_100m) : "자료 없음")+(dates.length ? " ("+dates.join(", ")+")" : "");
+      return [p.month,Number.isFinite(p.competitive_100m) ? joNum(p.competitive_100m) : "—",stated,
+        Number.isFinite(p.long_share_pct) ? pct(p.long_share_pct) : "—",buyback];
+    });
+    return table(["월","경쟁입찰 계획(조원)","당초 대비(보도자료)","20·30·50년 비중","매입 계획(조원, 날짜)"],rows,"월별 경쟁입찰 계획·장기물 비중·매입 계획");
   }
   function opPlan(label, item) {
     const dates=Array.isArray(item?.dates) ? item.dates.filter(d=>typeof d==="string") : [];
@@ -199,6 +211,7 @@ window.KoreaMarket = (() => {
       panel.append(node("p","reading-note",monthLabel(latest.month)+" "+opPlan("매입(바이백) 계획",latest.buyback_plan)+" · "+opPlan("교환 계획",latest.exchange_plan)));
       const chart=plans.length<2 ? node("p","muted","장기물 비중 그래프는 두 달 이상 자료가 모이면 표시합니다.") : shareChart(plans);
       if(chart) panel.append(chart);       // 차트 도구가 없으면 그래프만 빠진다(표·수치는 그대로)
+      panel.append(monthTable(plans));
     } else panel.append(node("p","market-warning","확인된 발행계획이 없습니다."));
     const p=sum.progress, progress=node("div","market-range");
     if(p && Array.isArray(p.months) && Array.isArray(p.missing)) {

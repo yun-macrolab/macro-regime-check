@@ -935,6 +935,16 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(ki.to_read([("1", 0), ("2", 0), ("3", 0), ("4", 0)], {"1", "2"}, 2), [("3", 0), ("1", 0)])
         self.assertEqual(ki.to_read([], set(), 3), [])
 
+    def test_ops_keep_a_year_of_buybacks_with_exchanges(self):
+        """매입·교환이 한 목록이라 12행이면 달마다 둘씩 반년 치뿐 — 24행(2026-10-29)이면 한 해의 매입이 다 남는다."""
+        self.assertEqual(ki.MAX_OPS, 24)
+        year = [{"id": f"{k}{m}", "kind": k, "date": f"2030-{m:02d}-{d}"} for m in range(1, 13) for k, d in (("buyback", 20), ("exchange", 10))]
+        ops = ki.merge_ops(year[12:], year[:12] + [{"id": "old", "kind": "exchange", "date": "2029-12-10"}])
+        self.assertEqual(len(ops), 24)
+        self.assertEqual(sorted(o["date"][:7] for o in ops if o["kind"] == "buyback"), [f"2030-{m:02d}" for m in range(1, 13)])
+        self.assertNotIn("old", [o["id"] for o in ops])
+        self.assertEqual((ops[0]["id"], ops[-1]["id"]), ("buyback12", "exchange1"))
+
 
 class SiteTextTests(unittest.TestCase):
     """화면 글(korea.js의 발행계획 칸)은 고정 문구뿐 — 판정·방향 낱말 없이, 링크는 sourceLink로만."""

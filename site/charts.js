@@ -272,7 +272,7 @@
     return list.length ? html("div", { class: "notices" }, ...list.map(n => html("p", {}, n))) : null;
   }
 
-  function tableView(lines, unit, bands) {
+  function tableView(lines, unit, bands, cell) {      // cell: 값 → 글자(opts.format을 준 그래프만 — 단위가 값에 붙어 머리에서 뺀다)
     const box = html("div", { class: "ch-scroll" });
     const det = html("details", { class: "ch-table" }, html("summary", {}, "표로 보기"), box);
     det.addEventListener("toggle", () => {            // 열 때 한 번만 만든다
@@ -280,11 +280,11 @@
       const maps = lines.map(l => new Map(l.pts));
       const times = [...new Set(lines.flatMap(l => l.pts.map(p => p[0])))].sort((a, b) => b - a);
       const head = html("tr", {}, html("th", { scope: "col" }, "날짜"),
-        ...lines.map(l => html("th", { scope: "col" }, unit ? `${l.label} (${unit})` : l.label)),
+        ...lines.map(l => html("th", { scope: "col" }, unit && !cell ? `${l.label} (${unit})` : l.label)),
         ...bands.map(b => html("th", { scope: "col" }, b.label)));
       const body = times.map(t => html("tr", {}, html("td", {}, iso(t)), ...maps.map(m => {
         const v = m.get(t);
-        return html("td", {}, v === undefined ? "" : v === null ? "—" : v.toFixed(3));
+        return html("td", {}, v === undefined ? "" : v === null ? "—" : cell ? cell(v) : v.toFixed(3));
       }), ...bands.map(b => html("td", {}, inBand(b, t) ? "예" : ""))));
       box.append(html("table", {}, html("thead", {}, head), html("tbody", {}, ...body)));
     });
@@ -317,7 +317,7 @@
       spec.note ? html("p", { class: "ch-note muted" }, String(spec.note)) : null,
       spec.source_note ? html("p", { class: "ch-note ch-source muted" }, String(spec.source_note)) : null,
       // 참조금리 고지(SOFR) — 카드 안 그래프는 카드가 같은 고지를 싣으므로 opts.notices === false로 생략
-      o.notices !== false ? noticeBlock(spec.notices) : null, tableView(lines, unit, bands));
+      o.notices !== false ? noticeBlock(spec.notices) : null, tableView(lines, unit, bands, typeof o.format === "function" ? valueText : null));
 
     const st = { spec, unit, fmt: valueText, lines, bands, svg: el, tip, plot, height: o.height || 150, idx: null, last: null, focus: [],
                  fromPointer: false,

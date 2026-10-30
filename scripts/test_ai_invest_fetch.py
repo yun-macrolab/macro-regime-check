@@ -762,7 +762,7 @@ class StaticTest(unittest.TestCase):
         self.assertIn("table(it.table)", js)
         charts = self.read("site", "charts.js")
         self.assertIn("function parseBands(spec)", charts)
-        self.assertIn("tableView(lines, unit, bands)", charts)                   # 띠 기간도 표로 읽힌다
+        self.assertIn("tableView(lines, unit, bands,", charts)                    # 띠 기간도 표로 읽힌다(넷째 = 값 글자, format을 준 그래프만)
         page = self.read("site", "index.html")
         guide = page[page.index("const GUIDE = {"):page.index("function tpFlowFigure()")]
         self.assertIn("stock_bond_corr: {", guide)

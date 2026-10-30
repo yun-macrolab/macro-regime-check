@@ -174,7 +174,8 @@ test('issuance panel: the unread 당초 row links its own 원문 확인',()=>{
  const d=issuance();d.ktb_plans[1].stated_plan_change_100m=null;d.ktb_plans[1].stated_plan_change_unread=true;
  d.ktb_plans[1].source_url='https://mofe.go.kr/nw/nes/detailNesDtaView.do?searchNttId1=Y';
  const r=renderWith(d);
- assert.deepEqual(r.anchors.filter(a=>a[0]==='원문 확인'),[['원문 확인','https://mofe.go.kr/nw/nes/detailNesDtaView.do?searchNttId1=Y']]);
+ assert.deepEqual(r.anchors.filter(a=>a[0]==='원문 확인'),[['원문 확인','https://mofe.go.kr/nw/nes/detailNesDtaView.do?searchNttId1=Y']].concat(  // 칸 + 월별 표의 그 달
+  [['원문 확인','https://mofe.go.kr/nw/nes/detailNesDtaView.do?searchNttId1=Y']]));
  const row=walk(r.panel,n=>n.className==='market-deltas')[0].kids[1];
  assert.deepEqual(walk(row,n=>n.tag==='a').map(a=>a.href),['https://mofe.go.kr/nw/nes/detailNesDtaView.do?searchNttId1=Y']);
 });
@@ -210,4 +211,39 @@ test('issuance panel: chart values use the same one-decimal percent as the panel
  assert.ok(aria.includes('a 25.8%(2030-05-01)'),aria);assert.deepEqual(ends,['25.8%']);
  [aria,ends]=draw(null);
  assert.ok(aria.includes('a 25.80%(2030-05-01)'),aria);assert.deepEqual(ends,['25.80%']);
+});
+const MONTHS='월별 경쟁입찰 계획·장기물 비중·매입 계획';
+test('issuance panel: month table, newest first, with 당초 and buyback plan',()=>{
+ const r=renderWith(issuance());
+ assert.deepEqual(r.rows(MONTHS),[['2030-05','14.0','-2.0','21.4%','2.2 (05-15)'],['2030-04','15.0','—','26.7%','—']]);
+ const t=walk(r.panel,n=>n.tag==='table'&&n.attrs['aria-label']===MONTHS)[0];
+ assert.deepEqual(walk(t,n=>n.tag==='th').map(n=>n.textContent),['월','경쟁입찰 계획(조원)','당초 대비(보도자료)','20·30·50년 비중','매입 계획(조원, 날짜)']);
+ assert.equal(walk(r.panel,n=>n.className==='market-scroll'&&n.kids[0]===t).length,1);     // 좁은 화면에서 옆으로 밀리는 틀 안
+ const d=issuance();d.ktb_plans[0].stated_plan_change_100m=1450;d.ktb_plans[0].long_share_pct=26;
+ d.ktb_plans[0].buyback_plan={amount_100m:5000,dates:['2030-04-08','2030-04-22']};d.ktb_plans[1].competitive_100m=null;d.ktb_plans[1].long_share_pct=null;
+ assert.deepEqual(renderWith(d).rows(MONTHS),[['2030-05','—','-2.0','—','2.2 (05-15)'],['2030-04','15.0','+0.145','26.0%','0.5 (04-08, 04-22)']]);
+ assert.ok(!/undefined|NaN|null/.test(renderWith(d).text));
+});
+test('issuance panel: month table — unread 당초 links its own release, anything else is a dash',()=>{
+ const d=issuance();d.ktb_plans[0].stated_plan_change_unread=true;d.ktb_plans[0].source_url='https://mofe.go.kr/nw/nes/detailNesDtaView.do?searchNttId1=APR';
+ let r=renderWith(d);
+ assert.deepEqual(r.rows(MONTHS).map(row=>row[2]),['-2.0','원문 확인']);
+ const t=walk(r.panel,n=>n.tag==='table'&&n.attrs['aria-label']===MONTHS)[0];
+ assert.deepEqual(walk(t,n=>n.tag==='a').map(a=>a.href),['https://mofe.go.kr/nw/nes/detailNesDtaView.do?searchNttId1=APR']);
+ for(const v of ['true',1,{},false]){d.ktb_plans[0].stated_plan_change_unread=v;assert.equal(renderWith(d).rows(MONTHS)[1][2],'—',String(v));}
+});
+test('chart table view: one-decimal percent only for a chart given opts.format',()=>{
+ const r=renderWith(issuance());
+ const open=format=>{
+  const mk=tag=>{const e=new El(tag);e.on={};e.addEventListener=(k,f)=>{e.on[k]=f;};e.clientWidth=600;e.classList={add(){},remove(){}};return e;};
+  const doc={createElement:mk,createElementNS:(ns,t)=>mk(t),documentElement:{dataset:{motion:'off'}}};
+  const sc={document:doc,requestAnimationFrame:f=>f(),addEventListener(){}};sc.window=sc;vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../site/charts.js'),'utf8'),sc);
+  const spec={key:'k',title:'t',unit:'%',zero:true,threshold:null,years:1,lines:[{key:'a',label:'a',role:'series',points:[['2030-04-01',26.7],['2030-05-01',25.8]],series:[]}]};
+  const fig=sc.MacroCharts.lineChart(spec,format?{height:170,format}:{height:170});
+  const det=walk(fig,n=>n.tag==='details')[0];det.open=true;det.on.toggle();
+  const tb=walk(det,n=>n.tag==='table')[0];
+  return [walk(tb,n=>n.tag==='th').map(n=>n.textContent),walk(tb,n=>n.tag==='td').map(n=>n.textContent)];
+ };
+ assert.deepEqual(open(r.chartOpts[0].format),[['날짜','a'],['2030-05-01','25.8%','2030-04-01','26.7%']]);
+ assert.deepEqual(open(null),[['날짜','a (%)'],['2030-05-01','25.800','2030-04-01','26.700']]);    // 다른 그래프는 그대로
 });
