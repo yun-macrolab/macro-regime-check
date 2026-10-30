@@ -287,6 +287,22 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .ai-table th, .ai-table td { padding: 4px 6px; border-bottom: 1px solid var(--rule); text-align: right; white-space: nowrap; }
 .ai-table th[scope="row"], .ai-table thead th:first-child { text-align: left; }
 .ai-table thead th { color: var(--dim); font-weight: 500; }
+/* 유가·에너지 참고(site/oil.js) — 물가 묶음의 규칙 카드 아래 한 장(규칙 카드와 같은 틀, 판정 칸 없음)과 한국 시장 화면의 한 줄.
+   숫자 줄은 좁은 화면에서 아무 데서나 접는다(390px에서 가로로 넘치지 않게) */
+.oil-slot:empty { display: none; }
+.oil-card { margin-top: 12px; padding: 0 12px 10px; border: 1px solid var(--rule); background: var(--panel); min-width: 0; }
+.oil-card > h3 { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 8px; margin: 0 -12px 8px;
+  padding: 4px 10px; background: var(--bar); font-size: 13.5px; color: var(--ink); }
+.oil-card > h3 .reference-label { font-size: 11.5px; font-weight: 500; }
+.oil-card p, .korea-oil p { margin: 4px 0 0; line-height: 1.6; font-size: 12.5px; overflow-wrap: anywhere; }
+.oil-row { padding: 8px 0 0; border-top: 1px solid var(--rule); margin-top: 8px; min-width: 0; }
+.oil-card > .muted + .oil-row { border-top: 0; }
+.oil-name small { font: 400 11.5px var(--f-mono); color: #8a8a8a; }
+.oil-num { color: var(--amber); font-variant-numeric: tabular-nums; }
+.oil-note { color: var(--key); }
+.oil-late { color: var(--alert); }
+.oil-row figure.ch { margin-top: 8px; }
+.korea-oil { margin-top: 12px; }
 
 /* ── 출처 ── */
 .source-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 10px 0; }

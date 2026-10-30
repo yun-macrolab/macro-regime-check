@@ -15,6 +15,7 @@
 #           두 쪽 다 실패하면 그 단계가 빨간 표시(실행 결과는 성공)로 보인다.
 #           AI 투자 참고 자료(ai_invest.json — FRED 공개 통계, 재배포 제한 지수는 상관만)도 같은 원칙이다: 칸마다 따로,
 #           못 받은 칸은 직전 값을 '받지 못함'과 함께 남기고 경고 줄을 찍는다. 알림에 넣지 않는다.
+#           유가·에너지 참고 자료(oil.json — FRED 공개 통계, 물가 묶음의 참고 카드와 한국 시장의 한 줄)도 같은 원칙이다.
 #   deploy  data/·site/만 Pages로. 스크립트·원자료(.work/)는 배포하지 않는다.
 #   alert   수집·생성·그래프·국고채 참고 자료가 실패한 날은 마지막에 실행을 실패로 끝내 GitHub 알림 메일을 받는다.
 #
@@ -65,13 +66,14 @@ jobs:
           python -m unittest discover -s scripts
           node --test scripts/test_korea_health.cjs
           node --test scripts/test_notes_render.cjs
+          node --test scripts/test_oil_render.cjs
 
   update:
     needs: check
     # main에서만 — 다른 브랜치에서 수동 실행하면 그 브랜치 커밋이 main으로 밀려 올라간다
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15        # 참고 자료 단계 제한의 합(국고채 2 + 수급 2 + AI 2 + 한국 4)과 수집이 10분에 가깝다 — 넘치면 상태·커밋·배포가 다 빠진다
+    timeout-minutes: 17        # 참고 자료 단계 제한의 합(국고채 2 + 수급 2 + AI 2 + 유가 2 + 한국 4 = 12분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다
     permissions:
       contents: write   # 봇이 data/를 커밋한다
     outputs:
@@ -123,6 +125,12 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/ai_invest_fetch.py
+      # 참고 자료 — 유가·에너지(FRED 공개 통계, 요청 12회, 전체 60초 상한). 규칙 판정에 쓰지 않고, 실패해도 알림 없음
+      - name: 유가·에너지 참고 자료 받기
+        id: oil
+        continue-on-error: true
+        timeout-minutes: 2
+        run: python scripts/oil_fetch.py
       - name: 한국 시장 갱신 시작 기록
         id: korea_start
         run: python scripts/korea_status.py --state started
