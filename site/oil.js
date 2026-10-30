@@ -9,7 +9,7 @@ window.OilEnergy = (() => {
   // 카드의 칸 차례 — 자료 파일의 order에서 korea(한국 시장 화면)를 뺀 것과 같다(scripts/test_oil_fetch.py가 견준다)
   const CARD = ["crude", "base", "products", "cracks", "spread", "cpi", "bei", "state"];
   // 자료 파일의 실패 사유 — 이 목록의 글만 싣는다(scripts/oil_fetch.py의 REASONS와 같다 — 테스트가 견준다)
-  const REASONS = ["수신 실패", "수신 실패(묵은 캐시는 싣지 않음)", "계산할 자료가 모자람", "받은 자료가 직전 자료보다 오래됨"];
+  const REASONS = ["수신 실패", "수신 실패 · 묵은 캐시는 싣지 않음", "계산할 자료가 모자람", "받은 자료가 직전 자료보다 오래됨"];
   const LABEL = "참고 — 유가·금리 예측 아님";
   const ABOUT = "유가가 물가로 실리는 길목(원유 · 소매 휘발유·경유 · 정제 마진 · CPI 에너지 · 기대인플레이션)의 공개 통계와 그 산술입니다. " +
     "규칙 수에 들지 않는 참고 숫자입니다.";
@@ -22,10 +22,12 @@ window.OilEnergy = (() => {
       "낮아지는 첫 달을 '기저 절벽'으로 적습니다."],
     ["정제 마진", "3-2-1은 원유 3배럴로 휘발유 2배럴과 경유 1배럴을 만든다고 본 마진입니다: (뉴욕항 휘발유 × 2 + 뉴욕항 초저유황 경유) ÷ 3 − WTI. " +
       "제품 값은 갤런당 달러 × 42(배럴). 제품 쪽이 빠듯하면 원유 값이 멈춰도 CPI·PPI로 실릴 수 있습니다."],
-    ["Brent − WTI", "북해(해상 운송) 원유와 미국 내륙 원유의 차입니다. 미국 밖 원유 값이 더 오르면 벌어집니다. 원인은 가리지 않습니다."],
+    ["Brent − WTI", "북해(해상 운송) 원유와 미국 내륙 원유의 차입니다. 벌어지면 미국 밖 원유가 미국 원유보다 상대적으로 비싸졌다는 뜻이고, " +
+      "좁혀지면 그 반대입니다. 원인은 가리지 않습니다."],
     ["5년 뒤 5년", "5년·10년 명목 국채와 TIPS 금리로 계산한, 5년 뒤부터 5년 동안의 기대인플레이션입니다. 유가가 앞쪽 5년에만 실리는지, 먼 쪽까지 " +
       "움직이는지 나란히 봅니다."],
     ["유가 방향 상태", "Brent 현물 월평균의 3개월 로그 변화가 +10%를 넘으면 오름, −10%보다 낮으면 내림, 그 사이면 보합입니다(경계값은 보합). " +
+      "상태·전년비는 관측 10일 이상인 마지막 달, 기저 절벽은 마지막 관측의 달부터 잽니다(달 초에는 두 달이 다를 수 있어 줄에 둘 다 적습니다). " +
       "지난 석 달을 적은 설명일 뿐이고, 운영자가 1990년 이후 자료로 재 본 바로는 유가의 3개월 추세가 다음 3개월로 이어지지 않았습니다."],
     ["Brent × 원/달러", "한국 시장 화면에 한 줄로 싣습니다. Brent 월평균 × 원/달러 월평균의 전년비를 달러 유가 몫과 환율 몫으로 나눕니다(두 로그 " +
       "변화의 비율로 나눠 합이 전년비와 같습니다)."]
@@ -96,13 +98,21 @@ window.OilEnergy = (() => {
       sourceLine(items));
   }
 
-  // 한국 시장 화면의 한 줄 — Brent × 원/달러 전년비와 그 나눔. 자료가 없거나 어긋나면 감춘 채 둔다
+  // 한국 시장 화면의 한 줄 — Brent × 원/달러 전년비와 그 나눔. 칸이 없으면 감춘 채 두고, 숫자를 싣지 못하는 칸은
+  // 카드 줄처럼 '미수신(까닭)' 또는 '자료 없음' 한 줄로 둔다(직전 값이 없는 첫 실패도 보이게)
   function korea(it) {
     const box = document.getElementById("korea-oil");
     if (!box) return false;
-    if (!usable(it, "korea")) { box.hidden = true; return false; }
+    if (!isObj(it)) { box.hidden = true; return false; }
+    const name = () => el("strong", {}, "Brent × 원/달러");
+    if (!usable(it, "korea")) {
+      box.replaceChildren(el("p", { class: "oil-name" }, name(), " ", el("span", { class: "reference-label" }, LABEL),
+        " — ", missing(it)));
+      box.hidden = false;
+      return false;
+    }
     box.replaceChildren(...[                          // replaceChildren은 null을 글자로 넣는다 — 빈 칸은 걸러 낸다
-      el("p", { class: "oil-name" }, el("strong", {}, "Brent × 원/달러"), " ", el("span", { class: "reference-label" }, LABEL)),
+      el("p", { class: "oil-name" }, name(), " ", el("span", { class: "reference-label" }, LABEL)),
       el("p", { class: "oil-num" }, it.line),
       ...texts(it.extra).map(t => el("p", { class: "muted" }, t)),
       stale(it),

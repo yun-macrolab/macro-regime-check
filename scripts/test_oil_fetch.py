@@ -103,6 +103,17 @@ class ArithmeticTest(unittest.TestCase):
             self.assertAlmostEqual(got, w)
         self.assertEqual(oil._mday(cliff), D(2027, 3, 1))                          # 100 → 25: 75%p 낮아지는 첫 달
 
+    def test_base_flat_is_the_twenty_day_mean(self):
+        days = bdays(D(2025, 1, 1), D(2026, 10, 23))
+        s = [(d, 50.0 + i * 0.1) for i, d in enumerate(days)]                  # 날마다 오른다 — 평균 ≠ 마지막 값
+        flat, f0, f1, m0, path, _ = oil.base_path(s)
+        want = sum(v for _, v in s[-20:]) / 20
+        self.assertAlmostEqual(flat, want)
+        self.assertAlmostEqual(s[-1][1] - flat, 0.95)                              # 0.1 × 9.5
+        self.assertEqual((f0, f1), (s[-20][0], s[-1][0]))
+        oct25 = [v for d, v in s if (d.year, d.month) == (2025, 10)]
+        self.assertAlmostEqual(path[0], (want / (sum(oct25) / len(oct25)) - 1) * 100)
+
     def test_cliff_needs_more_than_30pp(self):
         s = [(d, 130.0 if d >= D(2026, 9, 1) else 100.0) for d in bdays(D(2025, 1, 1), D(2026, 10, 23))]
         *_, path, cliff = oil.base_path(s)
@@ -137,6 +148,35 @@ class ArithmeticTest(unittest.TestCase):
         self.assertEqual((v["state"], v["cliff"]), ("flat", "2027-03-01"))
         self.assertAlmostEqual(v["yoy"], 100.0)
 
+    def test_state_window_is_three_months(self):
+        lvl = {(2026, 8): 120.0, (2026, 9): 120.0, (2026, 10): 130.0}           # 7월까지 100
+        s = [(d, lvl.get((d.year, d.month), 100.0)) for d in bdays(D(2025, 1, 1), D(2026, 10, 23))]
+        v = oil.calc_state({"DCOILBRENTEU": s})["values"]
+        self.assertAlmostEqual(v["d3"], math.log(1.3) * 100, places=4)             # 10월 대 7월(2개월 전 8월이면 +8%·보합)
+        self.assertEqual(v["state"], "up")
+
+    def test_state_skips_a_month_whose_three_months_ago_is_thin(self):
+        s = [(d, 100.0 if d.month < 9 or d.year < 2026 else 130.0) for d in bdays(D(2025, 1, 1), D(2026, 10, 23))
+             if not (d.year == 2026 and d.month == 7 and d.day > 5)]                # 7월은 3일뿐 — 10월은 잴 수 없다
+        v = oil.calc_state({"DCOILBRENTEU": s})["values"]
+        self.assertEqual(v["month"], "2026-09-01")                                 # 9월 대 6월
+        self.assertAlmostEqual(v["d3"], math.log(1.3) * 100, places=4)
+
+    def test_state_and_path_months_differ_early_in_a_month(self):
+        S = world(end=D(2026, 10, 7))                                             # 10월은 5일뿐 — 상태는 9월, 경로는 10월부터
+        v = oil.calc_state(S)["values"]
+        self.assertEqual((v["month"], v["path_month"]), ("2026-09-01", "2026-10-01"))
+        line, extra = oil.texts("state", v, oil.calc_state(S)["date"])
+        self.assertTrue(line.startswith("2026-09 "), line)
+        self.assertIn("기저 절벽 2027-03(2026-10부터 앞 6개월, 가격이 그대로일 때)", line)
+        self.assertIn("두 달이 다를 수 있어", " ".join(extra))
+        self.assertIn("기저 절벽 없음(", oil.texts("state", dict(v, cliff=None), "2026-09-01")[0])
+
+    def test_state_line_year_on_year_sign(self):
+        v = oil.calc_state(world(end=D(2026, 10, 7)))["values"]
+        for yoy, mark in ((12.3, "+"), (-0.4, "−"), (0.0, "0"), (None, "—")):
+            self.assertIn(f" · 전년비 {mark} · ", oil.texts("state", dict(v, yoy=yoy), "2026-09-01")[0])
+
     def test_state_uses_only_months_with_ten_days(self):
         s = [(d, 100.0 if d < D(2026, 10, 1) else 200.0) for d in bdays(D(2025, 1, 1), D(2026, 10, 7))]
         v = oil.calc_state({"DCOILBRENTEU": s})["values"]
@@ -147,6 +187,11 @@ class ArithmeticTest(unittest.TestCase):
             y, d, f = oil.krw_split(b1, b0, k1, k0)
             self.assertAlmostEqual(y, (b1 * k1 / (b0 * k0) - 1) * 100)
             self.assertAlmostEqual(d + f, y, places=10)
+        y, d, f = oil.krw_split(100, 50, 1400, 1300)                               # 몫 각각 = 전년비 × 로그 변화의 비율
+        lb, lk = math.log(2), math.log(1400 / 1300)
+        self.assertAlmostEqual(d, y * lb / (lb + lk))
+        self.assertAlmostEqual(f, y * lk / (lb + lk))
+        self.assertNotAlmostEqual(d, 100.0, places=1)                              # '달러 전년비 + 나머지'가 아니다
         y, d, f = oil.krw_split(110, 100, 1000, 1100)                              # 두 로그 변화가 지운다
         self.assertAlmostEqual(y, 0.0, places=10)
         self.assertAlmostEqual(d, math.log(1.1) * 100)
@@ -159,6 +204,9 @@ class ArithmeticTest(unittest.TestCase):
         self.assertAlmostEqual(v["krw"], 100 * 1400 / 10000)
         self.assertAlmostEqual(v["yoy"], (100 * 1400 / (50 * 1300) - 1) * 100, places=3)
         self.assertAlmostEqual(v["usd_pp"] + v["fx_pp"], v["yoy"], places=3)
+        lb, lk = math.log(100 / 50), math.log(1400 / 1300)
+        self.assertAlmostEqual(v["usd_pp"], v["yoy"] * lb / (lb + lk), places=3)
+        self.assertAlmostEqual(v["fx_pp"], v["yoy"] * lk / (lb + lk), places=3)
         line, _ = oil.texts("korea", v, "2026-10-01")
         nums = [float(x) for x in re.findall(r"[+-]\d+\.\d", line.split("전년비 ")[1])]
         self.assertEqual(len(nums), 3)
@@ -189,11 +237,12 @@ class ArithmeticTest(unittest.TestCase):
         self.assertIsNone(oil.avg_ending(s, D(2026, 5, 1)))                        # 끝 관측이 너무 이르다
 
     def test_spread(self):
-        S = dict(self.S, DCOILWTICO=[(d, v - (5 if d < D(2026, 10, 1) else 8)) for d, v in self.S["DCOILBRENTEU"]])
+        gap = lambda d: 3 if d < D(2026, 8, 1) else 5 if d < D(2026, 10, 1) else 8
+        S = dict(self.S, DCOILWTICO=[(d, v - gap(d)) for d, v in self.S["DCOILBRENTEU"]])
         v = oil.calc_spread(S)["values"]
         self.assertAlmostEqual(v["last"], 8)
         self.assertAlmostEqual(v["avg"], (17 * 8 + 3 * 5) / 20)                   # 10월 평일 17일 + 9월 끝 3일
-        self.assertAlmostEqual(v["avg_13w"], 5)
+        self.assertAlmostEqual(v["avg_13w"], 3)                                    # 91일 전 07-24까지 — 8월이 섞이면 3이 아니다
 
     def test_cpi_same_month_and_last_month_both_exist(self):
         v = oil.calc_cpi(self.S)["values"]
@@ -217,6 +266,19 @@ class ArithmeticTest(unittest.TestCase):
         self.assertEqual(v["gas_date"], "2026-10-19")
         self.assertAlmostEqual(v["gas_yoy"], (4 / 3 - 1) * 100, places=3)
         self.assertAlmostEqual(v["diesel_13w"], 0.0)
+
+    def test_observations_after_today_are_dropped(self):
+        S = dict(self.S, DCOILBRENTEU=self.S["DCOILBRENTEU"] + [(D(2026, 11, 2), 999.0)])
+        v = oil.compute(S, {}, NOW.date())["crude"]
+        self.assertEqual((v["date"], v["values"]["brent"]), ("2026-10-23", 100.0))
+
+    def test_wording(self):
+        self.assertFalse([r for r in oil.REASONS.values() if "(" in r or ")" in r])   # '미수신(까닭)'이 겹 괄호가 되지 않게
+        _, spread = oil.texts("spread", {"last": 1.0, "avg": 1.0, "avg_13w": 1.0}, "2026-10-23")
+        self.assertIn("미국 밖 원유가 미국 원유보다 상대적으로 비싸졌다는 뜻이고, 좁혀지면 그 반대다", spread[0])
+        v = oil.calc_bei(self.S)["values"]
+        _, bei = oil.texts("bei", v, "2026-10-23")
+        self.assertIn("5년 뒤 5년은 5년·10년 명목 국채와 TIPS 금리로 계산한", bei[0])
 
     def test_every_item_computes_and_texts_have_no_verdict_words(self):
         core = oil.compute(self.S, {}, NOW.date())
@@ -359,6 +421,22 @@ class MainTest(unittest.TestCase):
         self.assertTrue(items["crude"]["stale"])
         self.assertNotIn("매수", json.dumps(self.saved(), ensure_ascii=False))
 
+    def test_previous_checks_the_schema(self):
+        good = {"crude": {"key": "crude"}, "base": {"key": "base"}}
+        os.makedirs(self.out)
+        for js, want in (({"schema": oil.SCHEMA, "items": good}, good),
+                         ({"schema": oil.SCHEMA + 1, "items": good}, {}),
+                         ({"items": good}, {}),
+                         ({"schema": oil.SCHEMA, "items": [good]}, {}),
+                         ([good], {}),
+                         ({"schema": oil.SCHEMA, "items": dict(good, zzz={"key": "zzz"}, cpi="x")}, good)):
+            with open(self.path, "w", encoding="utf-8") as f:
+                json.dump(js, f)
+            self.assertEqual(oil.previous(self.out), want, js)
+        with open(self.path, "w", encoding="utf-8") as f:
+            f.write("{깨진")
+        self.assertEqual(oil.previous(self.out), {})
+
     def test_budget_runs_out_without_waiting(self):
         t = [0.0]
 
@@ -400,6 +478,9 @@ class MainTest(unittest.TestCase):
         self.assertNotIn("bad.invalid", dump)
         errors = {it["error"] for it in self.saved()["items"].values()} - {None}
         self.assertLessEqual(errors, set(oil.REASONS.values()))
+        nested = re.compile(r"\([^()]*\(")
+        for t in re.findall(r'"((?:[^"\\]|\\.)*)"', dump):
+            self.assertIsNone(nested.search(t), t)
 
 
 class StaticTest(unittest.TestCase):
@@ -427,6 +508,18 @@ class StaticTest(unittest.TestCase):
         self.assertEqual(sorted(named), sorted(steps))                             # 주석의 항목 = 실제 단계 제한
         self.assertEqual(sum(steps), summed)
         self.assertGreaterEqual(total - sum(steps), 5)                             # 수집·생성 몫이 남는다
+
+    def test_readme_counts(self):
+        readme = self.read("README.md")
+        m = re.search(r"\*\*아침 쪽 Python 테스트 (\d+)개 \+ node 테스트 (\d+)개\*\*\((.*?)\)와 \*\*저녁판", readme)
+        py_part, node_part = m.group(3).split(" / node: ")
+        nums = lambda part: [int(x) for x in re.findall(r" (\d+)(?= · |$)", re.sub(r"\([^()]*\)", "", part))]
+        self.assertEqual(sum(nums(py_part)), int(m.group(1)))
+        self.assertEqual(sum(nums(node_part)), int(m.group(2)))
+        mine = unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__]).countTestCases()
+        self.assertIn(f" · 유가·에너지 참고 {mine} · ", py_part)
+        cjs = len(re.findall(r"^test\(", self.read("scripts", "test_oil_render.cjs"), flags=re.M))
+        self.assertTrue(node_part.endswith(f" · 유가 카드 그리기 {cjs}"), node_part)
 
     def test_page_wires_the_card_and_the_korea_line(self):
         page = self.read("site", "index.html")

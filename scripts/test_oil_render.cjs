@@ -47,7 +47,8 @@ test('card draws every row in order and the korea line, with no stray words',()=
  const card=ids['oil-slot'].kids[0], text=card.textContent;
  const rows=cls(card,'oil-row').map(r=>cls(r,'oil-name')[0].textContent.split(' 이름')[0]);
  assert.deepEqual(rows,[...api.CARD]);
- assert.ok(text.includes(api.LABEL));
+ assert.equal(api.LABEL,'참고 — 유가·금리 예측 아님');                                              // 이름표 글을 고정한다
+ assert.ok(text.includes('참고 — 유가·금리 예측 아님'));
  assert.ok(!/undefined|NaN|null/.test(text));
  assert.deepEqual(cls(card,'notices')[0].kids.map(k=>k.textContent),['계산값 고지','인용 고지']);   // 겹치는 고지는 한 번
  assert.equal(walk(card,n=>n.tag==='a').length,2);                                                   // FRED 링크, 시리즈마다 한 번
@@ -74,6 +75,16 @@ test('state row always carries the fixed definition note',()=>{
  assert.ok(api.STATE_NOTE.includes('예측하지 않습니다'));
 });
 
+test('each row draws its explanation lines, so the state definition from the data is shown',()=>{
+ const {api,ids}=load();
+ const d=data();d.items.state.extra=['정의(고정): 지어낸 정의 글','둘째 줄'];
+ api.render(d);
+ const st=cls(ids['oil-slot'],'oil-state')[0];
+ assert.ok(st.textContent.includes('정의(고정): 지어낸 정의 글'));
+ assert.ok(st.textContent.includes('둘째 줄'));
+ assert.ok(ids['oil-slot'].textContent.includes('crude 덧붙임'));
+});
+
 test('failed rows show a fixed reason only, never remote text',()=>{
  const {api,ids}=load();
  const d=data();
@@ -98,12 +109,32 @@ test('stale rows say since when and keep their numbers',()=>{
  assert.ok(ids['oil-slot'].textContent.includes('crude 숫자 줄'));
 });
 
-test('a broken korea item hides the line but the card stays',()=>{
+test('a broken korea item shows one fixed line, a missing one hides it, and the card stays',()=>{
  const {api,ids}=load();
  const d=data();d.items.korea={key:'korea',date:'어제',line:'x',notices:['n']};
  assert.equal(api.render(d),true);
- assert.equal(ids['korea-oil'].hidden,true);
+ const k=ids['korea-oil'];
+ assert.equal(k.hidden,false);
+ assert.ok(k.textContent.endsWith('Brent × 원/달러 참고 — 유가·금리 예측 아님 — 자료 없음'),k.textContent);
+ assert.ok(!k.textContent.includes('어제'));
  assert.equal(cls(ids['oil-slot'],'oil-row').length,8);
+ const t=load();const e=data();delete e.items.korea;
+ assert.equal(t.api.render(e),true);
+ assert.equal(t.ids['korea-oil'].hidden,true);
+});
+
+test('a first korea failure without a previous value shows the reason',()=>{
+ for(const why of ['수신 실패','수신 실패 · 묵은 캐시는 싣지 않음']){
+  const {api,ids}=load();
+  const d=data();d.items.korea={key:'korea',ok:false,stale:false,error:why,failed_since:'2026-10-30',name:'Brent × 원/달러',
+   sources:[src('DEXKOUS')]};
+  api.render(d);
+  const k=ids['korea-oil'];
+  assert.equal(k.hidden,false);
+  assert.equal(k.kids.length,1);                                                                       // 한 줄
+  assert.equal(k.textContent,`Brent × 원/달러 참고 — 유가·금리 예측 아님 — 미수신(${why})`);
+  assert.ok(!/undefined|NaN|null/.test(k.textContent));
+ }
 });
 
 test('chart uses one-decimal values and failures only drop the chart',()=>{

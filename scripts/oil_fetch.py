@@ -15,7 +15,8 @@
   korea     Brent × 원/달러(월평균끼리 곱, 달마다 둘 다 관측된 날 10일 이상) 전년비와 그 나눔(달러 유가 몫 + 환율 몫 —
             두 로그 변화의 비율로 나눠 합이 전년비와 같다). 화면은 한국 시장 화면의 한 줄
   state     유가 방향 상태 — 정해 둔 정의(STATE_DEF)로 적은 설명: Brent 월평균 3개월 로그 변화 > +10% 오름, < −10% 내림,
-            그 밖 보합. 전년비 부호·기저 절벽을 덧붙인다. 지난 석 달을 적은 것이고 유가·금리를 예측하지 않는다(문구에 적는다)
+            그 밖 보합. 전년비 부호·기저 절벽(base의 달부터 — 달 초엔 상태의 달보다 한 달 늦어 그 달도 적는다)을 덧붙인다.
+            지난 석 달을 적은 것이고 유가·금리를 예측하지 않는다(문구에 적는다)
 
 자료 이용 조건(2026-10-30 시리즈 쪽 JSON-LD의 license에서 확인 — LICENCE): EIA·BLS·연준 시리즈는 'Public Domain: Citation
 Requested', T5YIE·T5YIFR은 'Copyrighted: Citation Required'(공개 사이트에 이미 있는 T10YIE와 같은 표시 — 같은 방식으로
@@ -87,11 +88,12 @@ CITATION_NOTICE = ("T5YIE·T5YIFR은 FRED에서 'Copyrighted: Citation Required'
                    "FRED 권장 인용을 함께 싣는다(10년 BEI와 같은 방식).")
 STATE_DEF = ("정의(고정): Brent 현물 월평균(관측 10일 이상인 달)의 이번 달 대 3개월 전 로그 변화가 +10%를 넘으면 '오름', "
              "−10%보다 낮으면 '내림', 그 사이면 '보합'이다. 전년비 부호는 1년 전 같은 달 월평균 대비, 기저 절벽은 "
-             "'가격이 그대로일 때' 줄의 정의를 따른다.")
+             "'가격이 그대로일 때' 줄의 정의를 따른다. 상태·전년비는 관측 10일 이상인 마지막 달, 기저 절벽은 마지막 관측의 "
+             "달부터 잰다 — 달 초에는 두 달이 다를 수 있어 줄에 둘 다 적는다.")
 STATE_NAME = {"up": "오름", "flat": "보합", "down": "내림"}
 REASONS = {
     "fetch": "수신 실패",
-    "cache": "수신 실패(묵은 캐시는 싣지 않음)",
+    "cache": "수신 실패 · 묵은 캐시는 싣지 않음",
     "format": "계산할 자료가 모자람",
     "older": "받은 자료가 직전 자료보다 오래됨",
 }
@@ -345,10 +347,10 @@ def calc_state(S):
         raise ItemError("format")
     m = months[-1]
     d3 = math.log(avgs[m] / avgs[m - 3]) * 100
-    *_, cliff = base_path(b)
+    _, _, _, m0, _, cliff = base_path(b)                # 기저 경로의 달(마지막 관측의 달) — 달 초엔 상태의 달보다 늦다
     return {"date": _iso(_mday(m)),
             "values": {"month": _iso(_mday(m)), "d3": _r(d3), "state": state_of(d3),
-                       "yoy": _r(pct(avgs[m], avgs.get(m - 12))),
+                       "yoy": _r(pct(avgs[m], avgs.get(m - 12))), "path_month": _iso(_mday(m0)),
                        "cliff": _iso(_mday(cliff)) if cliff is not None else None},
             "lines": {}}
 
@@ -388,7 +390,7 @@ ITEMS = [
      "values": {"be5": "num", "be5_date": "day", "be5_13w": "num?", "fwd": "num", "fwd_date": "day", "fwd_13w": "num?",
                 "gap": "num", "gap_13w": "num?"}, "ends": ["be5_date", "fwd_date"]},
     {"key": "state", "title": "유가 방향 상태 (정해 둔 정의로 적은 설명)", "series": ["DCOILBRENTEU"], "calc": calc_state,
-     "values": {"month": "day", "d3": "num", "state": "state", "yoy": "num?", "cliff": "day?"}},
+     "values": {"month": "day", "d3": "num", "state": "state", "yoy": "num?", "path_month": "day", "cliff": "day?"}},
     {"key": "korea", "title": "Brent × 원/달러", "series": ["DCOILBRENTEU", "DEXKOUS"], "calc": calc_korea,
      "values": {"month": "day", "krw": "num", "krw_1y": "num", "yoy": "num", "usd_pp": "num", "fx_pp": "num",
                 "usd_yoy": "num", "fx_yoy": "num", "days": "int"}},
@@ -449,8 +451,8 @@ def texts(key, v, date):
                  "미국 정제 마진은 WTI로 잰다 — Brent가 WTI보다 크게 벌어진 때 Brent로 재면 마진이 작아 보인다."])
     if key == "spread":
         return (f"{date} {_usd(v['last'])} · 20영업일 평균 {_usd(v['avg'])} · 13주 전 20영업일 평균 {_usd(v['avg_13w'])}",
-                ["Brent(북해, 해상 운송 원유)와 WTI(미국 내륙) 현물 가격의 차, 배럴당 달러다. 벌어지면 미국 밖 원유 값이 더 "
-                 "올랐다는 뜻이고, 원인은 이 숫자로 가리지 않는다."])
+                ["Brent(북해, 해상 운송 원유)와 WTI(미국 내륙) 현물 가격의 차, 배럴당 달러다. 벌어지면 미국 밖 원유가 미국 "
+                 "원유보다 상대적으로 비싸졌다는 뜻이고, 좁혀지면 그 반대다. 원인은 이 숫자로 가리지 않는다."])
     if key == "cpi":
         h, c = round(v["head"], 1), round(v["core"], 1)
         return (f"CPI 에너지 전년비 {_f(v['energy'], sign=True, unit='%')}({_ml(v['energy_month'])}) · "
@@ -462,14 +464,14 @@ def texts(key, v, date):
                 f"{_f(v['be5_13w'], 0, True, 'bp')}) · 5년 뒤 5년 {_f(v['fwd'], 2, unit='%')}{_asof(v['fwd_date'], date)} "
                 f"(13주 {_f(v['fwd_13w'], 0, True, 'bp')}) · 차 {_f(v['gap'], 0, True, 'bp')} (13주 "
                 f"{_f(v['gap_13w'], 0, True, 'bp')})",
-                ["5년 BEI는 5년 명목 국채와 5년 TIPS 금리의 차, 5년 뒤 5년은 그로부터 계산한 5년 뒤부터 5년 동안의 값이다"
-                 "(세인트루이스 연은). 유가가 앞쪽 5년에만 실리는지, 5년 뒤 5년도 함께 움직이는지 나란히 본다. BEI에는 위험·"
+                ["5년 BEI는 5년 명목 국채와 5년 TIPS 금리의 차, 5년 뒤 5년은 5년·10년 명목 국채와 TIPS 금리로 계산한 5년 뒤부터 "
+                 "5년 동안의 값이다(세인트루이스 연은). 유가가 앞쪽 5년에만 실리는지, 5년 뒤 5년도 함께 움직이는지 나란히 본다. BEI에는 위험·"
                  "유동성 프리미엄도 섞인다."])
     if key == "state":
         sign = "—" if v["yoy"] is None else "+" if round(v["yoy"], 6) > 0 else "−" if round(v["yoy"], 6) < 0 else "0"
-        cliff = _ml(v["cliff"]) if v["cliff"] else "앞 6개월 안에 없음"
+        cliff = _ml(v["cliff"]) if v["cliff"] else "없음"
         return (f"{_ml(v['month'])} {STATE_NAME[v['state']]} (Brent 월평균 3개월 로그 변화 {_f(v['d3'], sign=True, unit='%')}) · "
-                f"전년비 {sign} · 기저 절벽 {cliff}",
+                f"전년비 {sign} · 기저 절벽 {cliff}({_ml(v['path_month'])}부터 앞 6개월, 가격이 그대로일 때)",
                 [STATE_DEF,
                  "지난 석 달을 적은 것이고 유가나 금리를 예측하지 않는다. 운영자가 1990년 이후 자료로 재 본 바로는 유가의 3개월 "
                  "추세가 다음 3개월로 이어지지 않았다. 규칙 수에 들지 않고 다른 칸의 계산에 쓰지 않는다."])
