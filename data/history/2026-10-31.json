@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-31",
-  "generated_at": "2026-10-31T01:38:25+00:00",
+  "generated_at": "2026-10-31T07:49:07+00:00",
   "notice": "공개 통계에 사전에 정한 규칙을 적용한 결과다. 투자 판단이나 권유가 아니다.",
   "attribution": [
     "Source: FRED®, Federal Reserve Bank of St. Louis (https://fred.stlouisfed.org/).",
@@ -10,7 +10,8 @@
     "© 2026 Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org.",
     "전년비·3개월 변화·상관·비율은 이 저장소 코드가 원자료로 계산한 값이다.",
     "macro-regime-check (github.com/yun-macrolab) is not affiliated with the New York Fed. The New York Fed does not sanction, endorse, or recommend any products or services offered by macro-regime-check (github.com/yun-macrolab). It is not sponsored by, affiliated with, or endorsed by the Federal Reserve Bank of St. Louis or FRED®.",
-    "코드는 MIT 라이선스지만 자료(FRED·뉴욕 연은 등)는 그 대상이 아니다 — 각 출처의 이용 조건을 따른다. SOFR·프라이머리 딜러 통계는 newyorkfed.org 이용약관, 나머지는 FRED 이용약관과 시리즈별 저작권 표시."
+    "©2017, Moody's Corporation, Moody's Investors Service, Inc., Moody's Analytics, Inc. and/or their licensors and affiliates (collectively, \"Moody's\"). All rights reserved. Moody's ratings and other information (\"Moody's Information\") are proprietary to Moody's and/or its licensors and are protected by copyright and other intellectual property laws. Moody's Information is licensed to Client by Moody's. MOODY'S INFORMATION MAY NOT BE COPIED OR OTHERWISE REPRODUCED, REPACKAGED, FURTHER TRANSMITTED, TRANSFERRED, DISSEMINATED, REDISTRIBUTED OR RESOLD, OR STORED FOR SUBSEQUENT USE FOR ANY SUCH PURPOSE, IN WHOLE OR IN PART, IN ANY FORM OR MANNER OR BY ANY MEANS WHATSOEVER, BY ANY PERSON WITHOUT MOODY'S PRIOR WRITTEN CONSENT.",
+    "코드는 MIT 라이선스지만 자료와 그것으로 계산한 값은 그 대상이 아니다 — 각 출처의 이용 조건을 따른다. FRED 경유 자료는 FRED 이용약관과 시리즈별 저작권·인용 표시(시카고 연은 NFCI 신용 하위 지수와 세인트루이스 연은이 계산한 시리즈는 인용 필요, IMF 두바이 유가는 © International Monetary Fund), Moody's Baa−10년 스프레드는 FRED 경유 인용 필요 자료(FRED 권장 인용과 Moody's 저작권 고지를 값 곁과 이 꼬리말에 함께), 나스닥100·Nasdaq CTA AI 지수의 고점 대비 낙폭(정수 %)은 FRED 경유 저작권 자료(FRED 페이지의 저작권 표시와 권장 인용을 그 카드에 함께), 연준 이사회 웹 사이트의 초과 채권 프리미엄(EBP)은 미 정부 공개 자료, 뉴욕 연은 자료(SOFR·프라이머리 딜러 통계·ACM 기간 프리미엄·회사채 시장 스트레스 지수 CMDI)는 newyorkfed.org 이용약관, 단일종목 CDS 건수·호가는 DTCC가 SEC 규정 Reg SBSR에 따라 공개 배포한 거래 보고, 하이퍼스케일러 조달 숫자는 미 정부 공개 자료인 SEC EDGAR 공시에서 계산한다. FRED 시리즈의 권장 인용은 공개 JSON 파일의 citation 칸에 싣고, 인용 필요 시리즈는 그 값을 싣는 카드에도 싣는다."
   ],
   "summary": {
     "total": 13,
@@ -24,6 +25,8 @@
       "title": "기업대출 증가율 대 명목 성장률",
       "rule": "C&I 대출 전년비가 명목GDP 전년비보다 낮으면 충족",
       "status": "not_met",
+      "scenario": "A",
+      "reading": "C&I +10.0% vs 명목GDP +5.9% → 상회 = A 진행",
       "observations": [
         {
           "label": "C&I 대출 전년비",
@@ -56,6 +59,8 @@
       "title": "은행의 비은행 금융기관 대출",
       "rule": "전년비(재분류로 보이는 주간 +40십억달러 이상 증가 계단 제외)가 10% 미만이면 충족",
       "status": "not_met",
+      "scenario": "A, D",
+      "reading": "NDFI 대출 YoY +20.3%(계단 제외), 총대출의 14.9% → 두 자릿수 유지 = A 진행",
       "observations": [
         {
           "label": "NDFI 대출 전년비(계단 제외)",
@@ -89,26 +94,63 @@
       "title": "신용 스프레드",
       "rule": "Baa−10년 스프레드가 12개월 저점보다 0.4%p 이상 넓어지거나 HY OAS가 4.61%p를 넘으면 충족",
       "status": "not_met",
-      "observations": [],
-      "restricted_series": [
+      "scenario": "D",
+      "reading": "Baa−10Y 값은 그날 공개본에만(날짜별 기록에는 싣지 않음) · HY OAS 값 비공개(문턱은 규칙 문장) → 확대 없음(A 유지)",
+      "observations": [
         {
-          "series": "BAA10Y",
-          "owner": "Moody's",
-          "url": "https://fred.stlouisfed.org/series/BAA10Y"
+          "label": "Baa−10년 스프레드",
+          "unit": "%p",
+          "series": [
+            "BAA10Y"
+          ],
+          "derived": false,
+          "computed": false,
+          "value": null,
+          "asof": "2026-10-29"
         },
+        {
+          "label": "12개월 저점 대비",
+          "unit": "%p",
+          "series": [
+            "BAA10Y"
+          ],
+          "derived": false,
+          "computed": true,
+          "value": null,
+          "asof": "2026-10-29"
+        },
+        {
+          "label": "1990년 이후 분위(이 값 이하 비율)",
+          "unit": "%",
+          "series": [
+            "BAA10Y"
+          ],
+          "derived": false,
+          "computed": true,
+          "value": null,
+          "asof": "2026-10-29"
+        }
+      ],
+      "restricted_series": [
         {
           "series": "BAMLH0A0HYM2",
           "owner": "ICE Data Indices",
           "url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2"
         }
       ],
-      "notices": []
+      "notices": [
+        "Baa−10년 스프레드의 12개월 저점 대비와 1990년 이후 분위는 macro-regime-check가 FRED의 BAA10Y로 계산한 값입니다. Moody's가 발표한 값이 아닙니다.",
+        "Federal Reserve Bank of St. Louis, Moody's Seasoned Baa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity [BAA10Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAA10Y, October 31, 2026.",
+        "©2017, Moody's Corporation, Moody's Investors Service, Inc., Moody's Analytics, Inc. and/or their licensors and affiliates (collectively, \"Moody's\"). All rights reserved. Moody's ratings and other information (\"Moody's Information\") are proprietary to Moody's and/or its licensors and are protected by copyright and other intellectual property laws. Moody's Information is licensed to Client by Moody's. MOODY'S INFORMATION MAY NOT BE COPIED OR OTHERWISE REPRODUCED, REPACKAGED, FURTHER TRANSMITTED, TRANSFERRED, DISSEMINATED, REDISTRIBUTED OR RESOLD, OR STORED FOR SUBSEQUENT USE FOR ANY SUCH PURPOSE, IN WHOLE OR IN PART, IN ANY FORM OR MANNER OR BY ANY MEANS WHATSOEVER, BY ANY PERSON WITHOUT MOODY'S PRIOR WRITTEN CONSENT."
+      ]
     },
     {
       "key": "stock_bond_corr",
       "title": "주가-금리 60영업일 상관",
       "rule": "S&P500 일간 수익률과 미 10년 금리 일간 변화의 60영업일 상관이 126영업일 이상 계속 양(+)이면 충족",
       "status": "not_met",
+      "scenario": "B",
+      "reading": "ρ60 -0.18, 음(−) 156영업일 지속 = 분산 붕괴·전사 위험 한도 압박",
       "observations": [
         {
           "label": "60영업일 상관",
@@ -143,6 +185,8 @@
       "title": "10년−2년 금리차",
       "rule": "10년−2년 금리차가 0보다 작으면 충족",
       "status": "not_met",
+      "scenario": "D",
+      "reading": "2s10s +0.38%p → 정상(역전 없음)",
       "observations": [
         {
           "label": "10년−2년",
@@ -164,6 +208,8 @@
       "title": "실질금리와 기대인플레이션",
       "rule": "10년 실질금리가 2% 미만이고 10년 BEI가 3개월 전보다 높으면 충족",
       "status": "not_met",
+      "scenario": "C",
+      "reading": "10년 실질 2.63% · BEI 2.34%(3개월 +0.06) → 실질 2% 위 = C 반증",
       "observations": [
         {
           "label": "10년 실질금리",
@@ -207,6 +253,8 @@
       "title": "근원 물가",
       "rule": "근원 PCE 전년비가 3% 이하이면 충족 (근원 CPI는 참고)",
       "status": "not_met",
+      "scenario": "B, D",
+      "reading": "근원 PCE 3.12% (근원 CPI 2.57%, 괴리 -0.56%p) → 3% 초과 = D2 쪽(붕괴 시 채권 방어 불완전)",
       "observations": [
         {
           "label": "근원 PCE 전년비",
@@ -239,6 +287,8 @@
       "title": "10년 기간 프리미엄",
       "rule": "10년 기간 프리미엄(Kim-Wright)이 3개월 전보다 0.25%p 이상 낮아지면 충족",
       "status": "not_met",
+      "scenario": "A",
+      "reading": "TP(Kim-Wright) 0.94% (3개월 +0.10) → 하락 없음(A 진행)",
       "observations": [
         {
           "label": "기간 프리미엄",
@@ -271,6 +321,8 @@
       "title": "단기 조달금리 SOFR",
       "rule": "SOFR이 3개월 전보다 0.25%p 이상 높아지면 충족",
       "status": "met",
+      "scenario": "A, D",
+      "reading": "SOFR 3.94% (3개월 +0.29) → 재상승 = 2021 빈티지 이자보상 재악화·PIK 증가",
       "observations": [
         {
           "label": "SOFR",
@@ -310,6 +362,8 @@
       "title": "지준과 통화승수",
       "rule": "지준/명목GDP가 9% 미만이거나, 3개월 새 0.3%p 이상 늘고 근원 PCE 전년비가 2%를 넘으면 충족",
       "status": "met",
+      "scenario": "A, C",
+      "reading": "승수 4.30 · 지준/명목GDP 8.8% (3개월 -0.28%p) → 8%대 = 대차대조표 임대료 상승(A)",
       "observations": [
         {
           "label": "지준/명목GDP",
@@ -356,6 +410,8 @@
       "title": "미 증권·투자업 고용",
       "rule": "고용 전년비가 0보다 작으면 충족",
       "status": "not_met",
+      "scenario": "공통",
+      "reading": "증권·투자업 고용 YoY +2.4% → 증가 유지(강세장 코호트)",
       "observations": [
         {
           "label": "고용 전년비",
@@ -377,6 +433,8 @@
       "title": "근원 물가의 최근 속도",
       "rule": "근원 PCE 6개월 연율이 전년비보다 0.5%p 이상 높으면 충족 (기준 달이 빠진 구간은 계산하지 않음)",
       "status": "not_met",
+      "scenario": "—",
+      "reading": "근원 PCE 6개월 연율 2.92% − 전년비 3.12% = -0.20%p → 0.5%p 미만",
       "observations": [
         {
           "label": "근원 PCE 6개월 연율",
@@ -420,6 +478,8 @@
       "title": "실업률 상승 폭",
       "rule": "실업률 3개월 평균이 직전 12개월 중 가장 낮은 3개월 평균보다 0.5%p 이상 높으면 충족 (빠진 달이 낀 평균은 2개월로 계산)",
       "status": "not_met",
+      "scenario": "—",
+      "reading": "실업률 3개월 평균 4.13% − 직전 12개월 최저 4.13%(2026-08) = +0.00%p → 0.5%p 미만",
       "observations": [
         {
           "label": "상승 폭(3개월 평균 − 직전 12개월 최저)",
@@ -459,6 +519,192 @@
       "notices": []
     }
   ],
+  "regime": {
+    "notice": "시나리오 이름표(A~D)·해석 구절·국면 참고값은 운영자가 개인 월간 점검에 적어 둔 메모를 옮긴 참고다 — 예측이 아니라 그날 규칙을 잰 측정 기록이다. 이름표와 구절의 예측력은 검증하지 않았고, 규칙의 충족 여부는 규칙 문장만으로 정해진다. 투자 판단이나 권유가 아니다.",
+    "headline": "핵심 신호 2/11 발동, 판정불가 0 · 중립 규칙 0/2 충족",
+    "core": {
+      "total": 11,
+      "met": 2,
+      "unknown": 0
+    },
+    "neutral": {
+      "total": 2,
+      "met": 0,
+      "unknown": 0
+    },
+    "reference": {
+      "candidate": "A",
+      "candidate_note": "사분면 판정",
+      "sp_13w": "상승",
+      "sp_asof": "2026-10-29",
+      "y10_13w_bp": 30.0,
+      "y10_asof": "2026-10-29",
+      "rho60": -0.182,
+      "rho60_run_days": 156,
+      "rho60_alert": true,
+      "core_cpi_lt3": "Y",
+      "core_cpi_yoy": 2.566,
+      "core_pce_yoy": 3.121,
+      "transition": {
+        "t2": "OFF",
+        "t4": "OFF",
+        "auto_on": 0
+      },
+      "lines": [
+        "국면 후보 A (사분면 판정) · S&P 500 13주 상승 · 미 10년 13주 +30bp",
+        "ρ60 -0.18 (156일 연속) ⚠ A 국면에서 음(−) = A′ 경보",
+        "근원 CPI<3% Y (근원 CPI 2.57% · 근원 PCE 3.12% — D1/D2 갈림은 근원 PCE 기준)",
+        "전환 경계 자동 트리거 0/2 (t2 OFF · t4 OFF; t1·t3 수동, 넷 중 둘 이상이면 ON)"
+      ]
+    },
+    "manual_checks": [
+      {
+        "cadence": "분기",
+        "item": "비상장 BDC 환매 요청률(한도 5%) · bad PIK 비중 · 직접대출 디폴트율"
+      },
+      {
+        "cadence": "분기",
+        "item": "하이퍼스케일러 capex 가이던스 · capex/OCF · 5사 회사채 발행 누계"
+      },
+      {
+        "cadence": "분기",
+        "item": "Z.1 생보 회사채 순취득(FA543063005) · Athene 순스프레드(2분기 연속 1.0% 하회 여부)"
+      },
+      {
+        "cadence": "월",
+        "item": "한국: 국고 10-30 · 3년−기준금리 · CP·전단채 스프레드 · 발행어음 잔액 · 일평균 거래대금 · 국민연금 국내주식 비중 대 목표"
+      },
+      {
+        "cadence": "월",
+        "item": "연준 장기물 매입 재개 여부(지준/GDP 상승과 함께 읽을 것) · 재무부 단기물 편중 발행"
+      },
+      {
+        "cadence": "분기",
+        "item": "하이퍼스케일러 capex 가이던스 상향 지속 여부"
+      }
+    ],
+    "more_values": [
+      {
+        "label": "M2",
+        "unit": "십억 달러",
+        "series": [
+          "M2SL"
+        ],
+        "computed": false,
+        "value": 23413.9,
+        "asof": "2026-09-01"
+      },
+      {
+        "label": "M2 전년비",
+        "unit": "%",
+        "series": [
+          "M2SL"
+        ],
+        "computed": true,
+        "value": 5.71,
+        "asof": "2026-09-01"
+      },
+      {
+        "label": "본원통화",
+        "unit": "십억 달러",
+        "series": [
+          "BOGMBASE"
+        ],
+        "computed": false,
+        "value": 5449.8,
+        "asof": "2026-09-01"
+      },
+      {
+        "label": "본원통화 전년비",
+        "unit": "%",
+        "series": [
+          "BOGMBASE"
+        ],
+        "computed": true,
+        "value": -0.515,
+        "asof": "2026-09-01"
+      },
+      {
+        "label": "M2 유통속도",
+        "unit": "배",
+        "series": [
+          "M2V"
+        ],
+        "computed": false,
+        "value": 1.417,
+        "asof": "2026-07-01",
+        "citation": "Federal Reserve Bank of St. Louis, Velocity of M2 Money Stock [M2V], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/M2V, October 31, 2026."
+      },
+      {
+        "label": "NDFI 대출 잔액",
+        "unit": "십억 달러",
+        "series": [
+          "LNFACBW027SBOG"
+        ],
+        "computed": false,
+        "value": 2118.809,
+        "asof": "2026-10-21"
+      },
+      {
+        "label": "명목GDP(연율)",
+        "unit": "십억 달러",
+        "series": [
+          "GDP"
+        ],
+        "computed": false,
+        "value": 33010.036,
+        "asof": "2026-07-01"
+      },
+      {
+        "label": "원/달러",
+        "unit": "원",
+        "series": [
+          "DEXKOUS"
+        ],
+        "computed": false,
+        "value": 1325.06,
+        "asof": "2026-10-23"
+      },
+      {
+        "label": "미 증권·투자업 고용",
+        "unit": "천 명",
+        "series": [
+          "CES5552300001"
+        ],
+        "computed": false,
+        "value": 1174.0,
+        "asof": "2026-09-01"
+      },
+      {
+        "label": "실업률",
+        "unit": "%",
+        "series": [
+          "UNRATE"
+        ],
+        "computed": false,
+        "value": 4.2,
+        "asof": "2026-09-01"
+      },
+      {
+        "label": "근원 CPI − 근원 PCE 전년비",
+        "unit": "%p",
+        "series": [
+          "CPILFESL",
+          "PCEPILFE"
+        ],
+        "computed": true,
+        "value": -0.555,
+        "asof": "2026-09-01"
+      }
+    ],
+    "legend": [
+      "시나리오 이름표: A~D는 운영자가 미리 정해 둔 네 갈래 시나리오, D1·D2는 D의 두 갈래(근원 PCE 전년비 3% 이하·초과), '공통'은 갈래와 무관, '—'는 이름표 없는 중립 규칙이다. 이름표의 정의는 운영자 메모라 싣지 않는다.",
+      "핵심 신호: 이름표가 있는 규칙 가운데 충족(발동)한 수. 중립 규칙(근원 PCE 모멘텀·실업률 상승 폭)은 '충족'의 방향이 달라 따로 센다.",
+      "국면 A·A′·B·C: S&P 500 13주 방향 × 미 10년 13주 변화의 사분면 — 주가↑금리↑ A · 주가↑금리↓ C · 주가↓금리↑ A′ · 주가↓금리↓ B. 주가 ±2% 또는 금리 ±10bp 안은 완충 구간으로 직전 국면을 따르는데, 직전 국면은 사람이 정하는 값이라 공개 계산에서는 판정불가로 둔다. S&P 500은 재배포가 제한된 지수라 13주 변화의 방향만 싣는다(보합 = ±2% 안).",
+      "ρ60 경보: 국면 후보가 A인데 주가-금리 60영업일 상관이 음(−)이면 'A′ 경보'를 붙인다(운영자 메모의 표시 — 판정 조건 아님).",
+      "전환 경계 트리거 넷: t1 하이퍼스케일러 capex 가이던스(수동) · t2 IG OAS 4주 연속 확대 또는 13주 고점(자동 — ICE 지수라 값은 싣지 않고 ON/OFF만) · t3 반도체 수출(수동) · t4 주가·미 10년 주간 변화 3주 연속 동반 하락(자동, 완성된 주만). 넷 중 둘 이상이면 ON."
+    ]
+  },
   "data_health": [
     {
       "series": "M2SL",
@@ -470,6 +716,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "Board of Governors of the Federal Reserve System (US), M2 [M2SL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/M2SL, October 31, 2026."
     },
     {
@@ -482,6 +729,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "Board of Governors of the Federal Reserve System (US), Monetary Base: Total [BOGMBASE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BOGMBASE, October 31, 2026."
     },
     {
@@ -494,6 +742,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": true,
       "citation": "Federal Reserve Bank of St. Louis, Velocity of M2 Money Stock [M2V], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/M2V, October 31, 2026."
     },
     {
@@ -506,6 +755,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "Board of Governors of the Federal Reserve System (US), Liabilities and Capital: Other Factors Draining Reserve Balances: Reserve Balances with Federal Reserve Banks: Week Average [WRESBAL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/WRESBAL, October 31, 2026."
     },
     {
@@ -518,6 +768,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "U.S. Bureau of Economic Analysis, Gross Domestic Product [GDP], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/GDP, October 31, 2026."
     },
     {
@@ -530,6 +781,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "Board of Governors of the Federal Reserve System (US), Other Loans and Leases: All Other Loans and Leases: Loans to Nondepository Financial Institutions, All Commercial Banks [LNFACBW027SBOG], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/LNFACBW027SBOG, October 31, 2026."
     },
     {
@@ -542,6 +794,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "Board of Governors of the Federal Reserve System (US), Loans and Leases in Bank Credit, All Commercial Banks [TOTLL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/TOTLL, October 31, 2026."
     },
     {
@@ -554,6 +807,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "Board of Governors of the Federal Reserve System (US), Commercial and Industrial Loans, All Commercial Banks [BUSLOANS], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BUSLOANS, October 31, 2026."
     },
     {
@@ -566,6 +820,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "Board of Governors of the Federal Reserve System (US), Term Premium on a 10 Year Zero Coupon Bond [THREEFYTP10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/THREEFYTP10, October 31, 2026."
     },
     {
@@ -577,7 +832,8 @@
       "age_days": 2,
       "fetched": "net",
       "stale": false,
-      "display": "status_only",
+      "display": "value",
+      "citation_required": true,
       "citation": "Federal Reserve Bank of St. Louis, Moody's Seasoned Baa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity [BAA10Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAA10Y, October 31, 2026."
     },
     {
@@ -590,6 +846,7 @@
       "fetched": "net",
       "stale": false,
       "display": "status_only",
+      "citation_required": false,
       "citation": "Ice Data Indices, LLC, ICE BofA US High Yield Index Option-Adjusted Spread [BAMLH0A0HYM2], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAMLH0A0HYM2, October 31, 2026."
     },
     {
@@ -602,6 +859,7 @@
       "fetched": "net",
       "stale": false,
       "display": "status_only",
+      "citation_required": false,
       "citation": "Ice Data Indices, LLC, ICE BofA US Corporate Index Option-Adjusted Spread [BAMLC0A0CM], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAMLC0A0CM, October 31, 2026."
     },
     {
@@ -614,6 +872,7 @@
       "fetched": "net",
       "stale": false,
       "display": "status_only",
+      "citation_required": false,
       "citation": "S&P Dow Jones Indices LLC, S&P 500 [SP500], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/SP500, October 31, 2026."
     },
     {
@@ -626,6 +885,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis [DGS10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DGS10, October 31, 2026."
     },
     {
@@ -638,6 +898,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": true,
       "citation": "Federal Reserve Bank of St. Louis, 10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity [T10Y2Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10Y2Y, October 31, 2026."
     },
     {
@@ -650,6 +911,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed [DFII10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DFII10, October 31, 2026."
     },
     {
@@ -662,6 +924,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": true,
       "citation": "Federal Reserve Bank of St. Louis, 10-Year Breakeven Inflation Rate [T10YIE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10YIE, October 31, 2026."
     },
     {
@@ -674,6 +937,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "U.S. Bureau of Economic Analysis, Personal Consumption Expenditures Excluding Food and Energy (Chain-Type Price Index) [PCEPILFE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/PCEPILFE, October 31, 2026."
     },
     {
@@ -686,6 +950,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "U.S. Bureau of Labor Statistics, Consumer Price Index for All Urban Consumers: All Items Less Food and Energy in U.S. City Average [CPILFESL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/CPILFESL, October 31, 2026."
     },
     {
@@ -698,6 +963,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": true,
       "citation": "Federal Reserve Bank of New York, Secured Overnight Financing Rate [SOFR], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/SOFR, October 31, 2026."
     },
     {
@@ -710,6 +976,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "Board of Governors of the Federal Reserve System (US), South Korean Won to U.S. Dollar Spot Exchange Rate [DEXKOUS], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DEXKOUS, October 31, 2026."
     },
     {
@@ -722,6 +989,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "U.S. Bureau of Labor Statistics, All Employees, Securities, Commodity Contracts, Funds, Trusts, and Other Financial Vehicles, Investments, and Related Activities [CES5552300001], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/CES5552300001, October 31, 2026."
     },
     {
@@ -734,6 +1002,7 @@
       "fetched": "net",
       "stale": false,
       "display": "value",
+      "citation_required": false,
       "citation": "U.S. Bureau of Labor Statistics, Unemployment Rate [UNRATE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/UNRATE, October 31, 2026."
     }
   ],
