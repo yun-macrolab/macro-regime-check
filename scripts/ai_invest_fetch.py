@@ -9,19 +9,29 @@ AI 투자를 채널 다섯으로 나눠 공개 통계의 숫자와 그래프만 
               office_cons   민간 사무실 건설 지출(Census PROFCONS, 데이터센터 포함, 3개월 평균 전년비) — 월간 10년
   조달        financing     비금융기업 설비투자 / 내부자금(연준 Z.1 BOGZ1FA105050005Q / BOGZ1FA106000135Q, 4분기 합의 비율, %)
                             — 분기 1985년~, 1985년 이후 중앙값을 참고선으로
+              private_credit 사모대출(2026-10-30, 비공개 알림에서 옮김) — 연준 Z.1(분기) 잔액·전년비, 비금융기업 부채 중 몫
+                            (BOGZ1FL103167205Q / BCNSDODNS), 부채/금융자산(사모대출펀드 BOGZ1FL444190005Q/…090000Q · BDC
+                            BOGZ1FL454190005Q/…090003Q), 은행이 펀드·BDC에 빌려준 돈(BOGZ1FL443168000Q + BOGZ1FL453168003Q),
+                            미소진 약정(BOGZ1FL442000093Q). 열 줄이 모두 있는 마지막 분기, 1년 전 = 정확히 네 분기 앞
   전력 가격   power         산업용 전력 PPI(BLS WPU0543) · CPI 전기(BLS CUSR0000SEHF01) 전년비 — 월간 10년
   금리 쪽 결과 curve_30_10  미 30년 − 10년 국채 금리차(bp, DGS30 − DGS10) — 주간 5년
   상관        corr60        주식 일간 수익률 × 미 10년 금리 일간 변화의 60영업일 상관 — AI 지수(Nasdaq CTA AI, NASDAQNQINTEL)·
                             S&P 500(SP500 — 규칙 카드 '주가-금리 60영업일 상관'과 같은 계산)·나스닥100 기술(NASDAQNDXTMC), 주간 3년
               corr20        AI 지수 × 10년 금리 20영업일 상관과 우연 범위(±, 상관이 0일 때 95%) — 주간 3년
               partial60     S&P 500을 통제한 60영업일 부분상관(AI 지수·나스닥100 기술) — 주간 3년
-계산은 모두 이 파일이 한다(원본 파이프라인 ai_corr_check.py와 같은 산식 — 코드는 가져오지 않고 여기서 따로 쓴다). 상관은
-fred_fetch.corr_summary와 같은 방식: 두 시계열의 공통 날짜에서 수익률(가격 0인 날은 건너뜀)과 금리 변화를 짝짓는다.
+              ai_b2         AI 고유 몫 b2(2026-10-30, 비공개 알림에서 옮김) — 2025년부터 해마다 따로 Δ10년(bp) = a + b1·S&P(%) +
+                            b2·(AI − S&P)(%), HC1 견고 t. 해·b1·t1·b2·t2·관측일 수·처음·끝 날짜만 싣는다(표 하나, 그래프 없음)
+계산은 모두 이 파일이 한다(원본 파이프라인 ai_corr_check.py·ai_invest_block.py와 같은 산식 — 코드는 가져오지 않고 여기서 따로
+쓴다). 상관은 fred_fetch.corr_summary와 같은 방식: 두 시계열의 공통 날짜에서 수익률(가격 0인 날은 건너뜀)과 금리 변화를 짝짓는다.
+b2의 짝은 ai_corr_check.changes와 같다(S&P·AI·10년 셋의 공통 날짜, 이웃한 두 날 사이 변화, 끝 날짜의 해로 묶는다).
 
-재배포 제한(S&P 500·Nasdaq 지수 — FRED 'copyrighted: pre-approval required'): 원값과 원값을 되살릴 수 있는 파생값은
-싣지 않는다. 싣는 것은 상관·부분상관뿐(규칙 카드의 ρ60과 같은 원칙, render_public.RESTRICTED). 나머지(BEA·Census·BLS·
-연준)는 FRED의 공개 자료(public domain: citation requested)라 값과 FRED 권장 인용을 싣는다. 시리즈 제목·출처는
-2026-10-27 FRED 시리즈 쪽에서 확인했다.
+재배포 제한(S&P 500·Nasdaq 지수 — FRED 'copyrighted: pre-approval required'): 원값과 원값을 되살릴 수 있는 파생값(수익률
+포함)은 싣지 않는다. 싣는 것은 상관·부분상관과 회귀 계수·t값·관측일 수뿐(규칙 카드의 ρ60과 같은 원칙, render_public.RESTRICTED).
+지킴: 상관 칸(bounded)은 값과 점이 모두 −1~1, b2(coef_rows)는 정해 둔 여덟 칸의 해마다 한 줄뿐이고 계수·t값의 크기에 상한을
+둔다 — 새로 계산한 값과 직전 파일 모두. 나머지(BEA·Census·BLS·연준·재무부)는 FRED의 공개 자료(public domain: citation
+requested)라 값과 FRED 권장 인용을 싣는다. 시리즈 제목·출처는 2026-10-27(사모대출 열 줄은 2026-10-30) FRED 시리즈 쪽에서
+확인했다. 이용 조건은 sources[].licence(LICENCE): 사모대출 아홉 줄(BCNSDODNS 밖)은 FRED 시리즈 쪽에 이용 조건 표시가 없어
+'board-public-domain (FRED unlabeled)' — 연준 이사회 자료의 공개 정책에 기대고, 인용에 Z.1 이름을 넣는다(Z1_RELEASE).
 
 실패: 칸마다 따로. 칸의 시리즈 가운데 하나라도 이번에 받지 못하면(온라인에서 캐시로 대신한 것도) 그 칸은 직전 파일의 숫자를
 '받지 못함(stale)'과 그날부터라는 날짜와 함께 이어 싣는다(직전 값이 없으면 오류 문구만). 받은 자료의 기준일이 직전보다
@@ -52,7 +62,7 @@ FILE = "ai_invest.json"
 CACHE = "ai_invest"                       # <work>/ai_invest/<ID>.csv
 
 TIMEOUT = 15                              # 요청 하나(연결·한 번 읽기)
-BUDGET = 60                               # 수신 전체(초) — 읽는 동안에도 본다. 워크플로 단계 제한(2분) 안에서 끝나게
+BUDGET = 80                               # 수신 전체(초, 요청 30회) — 읽는 동안에도 본다. 워크플로 단계 제한(2분) 안에서 끝나게
 MAX_BYTES = 5_000_000                     # 응답 하나의 상한
 NUM_ND = 4                                # 문구로 가는 숫자의 소수 자리(문구에서 한 번만 반올림)
 PT_ND = 2                                 # 그래프 점의 소수 자리(그래프 글자도 소수 둘째 자리)
@@ -71,6 +81,11 @@ SB_N = 252                                # 긴 그림의 상관 창(영업일)
 ERAS = [("e1", None, datetime.date(1997, 12, 31)), ("e2", datetime.date(1998, 1, 1), datetime.date(2020, 12, 31)),
         ("e3", datetime.date(2021, 1, 1), None)]           # 경계는 상관 부호가 바뀐 해(사후에 고른 것 — 문구에 적는다)
 CELLS = [("I", "근원 PCE 3% 초과만"), ("B", "둘 다"), ("U", "실업률 상승 폭 0.5%p 이상만"), ("N", "둘 다 아님")]
+B2_SINCE = datetime.date(2025, 1, 1)      # AI 고유 몫 b2 표본 시작(원본 ai_invest_block.B2_SINCE)
+MIN_OLS = 60                              # 회귀 표본이 이보다 적은 해는 싣지 않는다(원본 ai_corr_check.MIN_OLS)
+COEF_CAP = 20.0                           # b1·b2(bp / 1%)의 크기 상한 — 지수 값 같은 큰 수가 섞이면 싣지 않는다
+T_CAP = 100.0                             # t값의 크기 상한
+B2_KEYS = ("year", "b1", "t1", "b2", "t2", "n", "from", "to")   # b2 한 해에 싣는 칸 — 이것뿐
 
 _BOARD = "Board of Governors of the Federal Reserve System (US)"
 _BEA, _CENSUS, _BLS = "U.S. Bureau of Economic Analysis", "U.S. Census Bureau", "U.S. Bureau of Labor Statistics"
@@ -99,15 +114,41 @@ SOURCES = {
     "PCEPILFE": (rp.FRED_SOURCE["PCEPILFE"], rp.FRED_TITLE["PCEPILFE"]),
     "UNRATE": (rp.FRED_SOURCE["UNRATE"], rp.FRED_TITLE["UNRATE"]),
 }
+# 사모대출 — 연준 Z.1(분기, 백만 달러). 원본 ai_invest_block.PC와 같은 열 줄. 제목은 2026-10-30 FRED 시리즈 쪽 Suggested Citation 그대로
+PC = {"total": "BOGZ1FL893167205Q", "nfc": "BOGZ1FL103167205Q", "nfc_debt": "BCNSDODNS",
+      "pdf_liab": "BOGZ1FL444190005Q", "pdf_fa": "BOGZ1FL444090000Q", "bdc_liab": "BOGZ1FL454190005Q",
+      "bdc_fa": "BOGZ1FL454090003Q", "pdf_bank": "BOGZ1FL443168000Q", "bdc_bank": "BOGZ1FL453168003Q",
+      "dry": "BOGZ1FL442000093Q"}
+SOURCES.update({
+    "BOGZ1FL893167205Q": (_BOARD, "All Sectors; Private Credit Loans; Liability, Level"),
+    "BOGZ1FL103167205Q": (_BOARD, "Nonfinancial Corporate Business; Private Credit Loans; Liability, Level"),
+    "BCNSDODNS": (_BOARD, "Nonfinancial Corporate Business; Debt Securities and Loans; Liability, Level"),
+    "BOGZ1FL444190005Q": (_BOARD, "Private Debt Funds; Total Liabilities, Level"),
+    "BOGZ1FL444090000Q": (_BOARD, "Private Debt Funds; Total Financial Assets, Level"),
+    "BOGZ1FL454190005Q": (_BOARD, "Business Development Companies; Total Liabilities, Level"),
+    "BOGZ1FL454090003Q": (_BOARD, "Business Development Companies; Total Financial Assets (Balance Sheet), Level"),
+    "BOGZ1FL443168000Q": (_BOARD, "Private Debt Funds; Depository Institution Loans N.e.c.; Liability, Level"),
+    "BOGZ1FL453168003Q": (_BOARD, "Business Development Companies; Depository Institution Loans N.e.c.; Liability, Level"),
+    "BOGZ1FL442000093Q": (_BOARD, "Private Debt Funds; Uncalled Capital Commitments (Dry Powder), Level"),
+})
+Z1_RELEASE = "Financial Accounts of the United States (Z.1)"     # 사모대출 열 줄의 인용에 넣는 발표 이름
 # 재배포 제한 목록 하나 — 공개본의 목록(render_public.RESTRICTED)에 이 화면이 더 쓰는 Nasdaq 지수 둘을 더한다
 RESTRICTED = {**rp.RESTRICTED, "NASDAQNQINTEL": "Nasdaq, Inc.", "NASDAQNDXTMC": "Nasdaq, Inc.", "NASDAQCOM": "Nasdaq, Inc."}
-SERIES = list(SOURCES)
+SERIES = list(SOURCES)                    # 사모대출 열 줄은 끝 — 수신 시간이 모자라면 그쪽부터 빠진다
+# 이용 조건(sources[].licence). 사모대출 아홉 줄은 FRED 시리즈 쪽 license가 일반 법적 고지(/legal/)뿐이다(2026-10-30 JSON-LD)
+UNLABELED = "board-public-domain (FRED unlabeled)"
+LICENCE = {sid: "restricted" if sid in RESTRICTED else "public-domain" for sid in SOURCES}
+LICENCE.update({sid: UNLABELED for sid in PC.values() if sid != "BCNSDODNS"})
 
 NOTICE = ("이 사이트의 규칙 판정에 쓰지 않는 참고 자료다. 충족·미충족이 없고 상태를 판정하지 않는다. 값의 크기나 방향을 "
           "시장 전망으로 읽지 않는다.")
 RESTRICTED_NOTICE = ("S&P 500·Nasdaq 지수는 재배포가 제한된 자료라 지수 값은 싣지 않는다. 상관·부분상관과 그 평균은 "
                      "macro-regime-check가 그 자료(FRED 경유)로 계산한 값이다.")
 COMPUTED_NOTICE = "비율·전년비·금리차·분포 숫자는 macro-regime-check가 원자료로 계산한 값이다."
+COEF_NOTICE = ("S&P 500·Nasdaq 지수는 재배포가 제한된 자료라 지수 값과 수익률은 싣지 않는다. 회귀 계수·t값·관측일 수는 "
+               "macro-regime-check가 그 자료(FRED 경유)로 계산한 값이다.")
+Z1_NOTICE = ("사모대출 시리즈는 FRED 시리즈 쪽에 이용 조건 표시가 없다 — 연준 이사회 자료의 공개 정책에 따라 출처(Z.1, FRED 경유)를 "
+             "밝혀 싣는다.")
 CHANNELS = [("invest", "실물 투자"), ("finance", "조달"), ("power", "전력 가격"), ("rates", "금리 쪽 결과"),
             ("corr", "주식과 미 10년 금리의 상관")]
 REASONS = {                                            # 페이지·파일에 나가는 실패 문구는 이것뿐
@@ -349,6 +390,34 @@ def calc_financing(S):
             "lines": {"ratio": [[_iso(d), _r(v, PT_ND)] for d, v in pts], "median": _flat(pts, med)}}
 
 
+def calc_private_credit(S):
+    """연준 Z.1 사모대출 — 열 시리즈가 모두 있는 마지막 분기(Z.1은 한 번에 나온다). 1년 전 = 정확히 네 분기 앞.
+    원본 ai_invest_block.calc_private_credit과 같은 산식. 그래프는 비금융기업 부채 중 몫(두 시리즈가 다 있는 분기, 잔액이 0이
+    아닌 첫 분기부터)."""
+    s = {k: {_qkey(d): (d, v) for d, v in S[sid]} for k, sid in PC.items()}
+    common = sorted(set.intersection(*(set(v) for v in s.values())))
+    if not common:
+        raise ItemError("format")
+    q = common[-1]
+    at = lambda k, qq: s[k][qq][1] if qq in s[k] else None
+    ratio = lambda a, b, qq: (at(a, qq) / at(b, qq) * 100) if at(a, qq) is not None and at(b, qq) else None
+    yoy = lambda v1, v0: (v1 / v0 - 1) * 100 if v1 is not None and v0 else None
+    bank = lambda qq: (at("pdf_bank", qq) + at("bdc_bank", qq)) if at("pdf_bank", qq) is not None \
+        and at("bdc_bank", qq) is not None else None
+    nz = [qq for qq, (_, v) in s["total"].items() if v]
+    first = min(nz) if nz else q
+    share = [(s["nfc"][qq][0], ratio("nfc", "nfc_debt", qq)) for qq in sorted(s["nfc"]) if first <= qq <= q]
+    return {"date": _iso(s["total"][q][0]),
+            "values": {"total_tn": _r(at("total", q) / 1e6), "total_yoy": _r(yoy(at("total", q), at("total", q - 4))),
+                       "share": _r(ratio("nfc", "nfc_debt", q)), "share_1y": _r(ratio("nfc", "nfc_debt", q - 4)),
+                       "pdf_lev": _r(ratio("pdf_liab", "pdf_fa", q)), "pdf_lev_1y": _r(ratio("pdf_liab", "pdf_fa", q - 4)),
+                       "bdc_lev": _r(ratio("bdc_liab", "bdc_fa", q)), "bdc_lev_1y": _r(ratio("bdc_liab", "bdc_fa", q - 4)),
+                       "bank_bn": _r(bank(q) / 1e3), "bank_yoy": _r(yoy(bank(q), bank(q - 4))),
+                       "dry_bn": _r(at("dry", q) / 1e3), "dry_yoy": _r(yoy(at("dry", q), at("dry", q - 4))),
+                       "from": _iso(s["total"][min(nz)][0]) if nz else None},
+            "lines": {"share": [[_iso(d), _r(v, PT_ND)] for d, v in share]}}
+
+
 def calc_power(S):
     ppi, cpi = monthly_yoy(S["WPU0543"]), monthly_yoy(S["CUSR0000SEHF01"])
     if not ppi or not cpi:
@@ -420,6 +489,79 @@ def calc_partial60(S):
     return {"date": _iso(la[0]),
             "values": {"ai": _r(la[1]), "ndx": _r(ln[1]), "ndx_date": _iso(ln[0]), "band": _r(null_band(60, 1))},
             "lines": {"ai": _weekly_points(ai, start), "ndx": _weekly_points(ndx, start)}}
+
+
+def b2_rows(S, since=B2_SINCE):
+    """ai_corr_check.changes와 같은 짝: S&P·AI·10년 셋의 공통 날짜에서 이웃한 두 날 사이 (끝 날짜, S&P %, AI %, Δ10년 bp).
+    앞 날 가격이 0이면 건너뛴다. 끝 날짜가 since 이후인 것만(첫 줄은 그 앞 날에서 시작할 수 있다)."""
+    sp, ax, y = dict(S["SP500"]), dict(S["NASDAQNQINTEL"]), dict(S["DGS10"])
+    days = sorted(set(sp) & set(ax) & set(y))
+    out = []
+    for d0, d1 in zip(days, days[1:]):
+        if sp[d0] == 0 or ax[d0] == 0 or d1 < since:
+            continue
+        out.append((d1, (sp[d1] / sp[d0] - 1) * 100, (ax[d1] / ax[d0] - 1) * 100, (y[d1] - y[d0]) * 100))
+    return out
+
+
+def _inv(m):
+    """작은 정방행렬의 역행렬(가우스-조르단, 원본 ai_corr_check._inv). 특이하면 None."""
+    k = len(m)
+    a = [row[:] + [1.0 if i == j else 0.0 for j in range(k)] for i, row in enumerate(m)]
+    for c in range(k):
+        p = max(range(c, k), key=lambda r: abs(a[r][c]))
+        if abs(a[p][c]) < 1e-12:
+            return None
+        a[c], a[p] = a[p], a[c]
+        piv = a[c][c]
+        a[c] = [v / piv for v in a[c]]
+        for r in range(k):
+            if r != c and a[r][c] != 0:
+                f = a[r][c]
+                a[r] = [v - f * w for v, w in zip(a[r], a[c])]
+    return [row[k:] for row in a]
+
+
+def ols(y, X):
+    """최소제곱 + HC1(화이트) 견고 se(원본 ai_corr_check.ols). X는 상수항을 포함한 행 목록. {b, se, n} 또는 None(표본 부족·특이)."""
+    if not y or not X:
+        return None
+    n, k = len(y), len(X[0])
+    if n < max(MIN_OLS, k + 10):
+        return None
+    xtx = [[sum(r[i] * r[j] for r in X) for j in range(k)] for i in range(k)]
+    inv = _inv(xtx)
+    if inv is None:
+        return None
+    xty = [sum(r[i] * v for r, v in zip(X, y)) for i in range(k)]
+    b = [sum(inv[i][j] * xty[j] for j in range(k)) for i in range(k)]
+    e = [v - sum(bi * xi for bi, xi in zip(b, r)) for r, v in zip(X, y)]
+    meat = [[sum(r[i] * r[j] * ei * ei for r, ei in zip(X, e)) for j in range(k)] for i in range(k)]
+    tmp = [[sum(inv[i][m] * meat[m][j] for m in range(k)) for j in range(k)] for i in range(k)]
+    cov = [[sum(tmp[i][m] * inv[m][j] for m in range(k)) * n / (n - k) for j in range(k)] for i in range(k)]
+    return {"b": b, "se": [math.sqrt(max(cov[i][i], 0.0)) for i in range(k)], "n": n}
+
+
+def calc_ai_b2(S):
+    """원본 ai_invest_block.calc_ai_b2 — B2_SINCE 해부터 해마다 따로 Δ10년(bp) = a + b1·S&P(%) + b2·(AI − S&P)(%), HC1.
+    표본이 MIN_OLS보다 적은 해는 싣지 않는다. 해마다 따로 맞추는 까닭: 묶으면 S&P 기울기를 여러 해에 하나로 강제해 b2가 낮게
+    나온다. 싣는 것은 B2_KEYS뿐(지수 값·수익률은 없다)."""
+    rows = b2_rows(S)
+    by = {}
+    for r in rows:
+        by.setdefault(r[0].year, []).append(r)
+    years = []
+    for yr, sub in sorted(by.items()):
+        fit = ols([dy for _, _, _, dy in sub], [[1.0, sp, a - sp] for _, sp, a, _ in sub])
+        if not fit:
+            continue
+        b, se = fit["b"], fit["se"]
+        years.append({"year": yr, "b1": _r(b[1]), "t1": _r(b[1] / se[1]) if se[1] else None,
+                      "b2": _r(b[2]), "t2": _r(b[2] / se[2]) if se[2] else None, "n": fit["n"],
+                      "from": _iso(sub[0][0]), "to": _iso(sub[-1][0])})
+    if not years:
+        raise ItemError("format")
+    return {"date": _iso(rows[-1][0]), "values": {"years": years}, "lines": {}}
 
 
 def monthly_mean(series, min_days=HQ_MIN_DAYS):
@@ -641,6 +783,13 @@ ITEMS = [
                 "s10": "num", "s10_date": "day", "s10_1y": "num?"},
      "ends": ["s30_date", "s10_date"],
      "lines": [_l("s30", "30년", "main", ["HQMCB30YRP", "DGS30"]), _l("s10", "10년", "series", ["HQMCB10YRP", "DGS10"])]},
+    {"key": "private_credit", "channel": "finance", "title": "사모대출 — 잔액·비금융기업 부채 중 몫·레버리지 (연준 Z.1)",
+     "series": list(PC.values()), "calc": calc_private_credit, "unit": "%", "years": 14, "zero": False,
+     "note": "분기 · 그래프는 비금융기업 부채(부채증권+대출) 중 사모대출 몫",
+     "values": {"total_tn": "num", "total_yoy": "num?", "share": "num", "share_1y": "num?", "pdf_lev": "num",
+                "pdf_lev_1y": "num?", "bdc_lev": "num", "bdc_lev_1y": "num?", "bank_bn": "num", "bank_yoy": "num?",
+                "dry_bn": "num", "dry_yoy": "num?", "from": "day?"},
+     "lines": [_l("share", "비금융기업 부채 중 사모대출", "main", ["BOGZ1FL103167205Q", "BCNSDODNS"])]},
     {"key": "power", "channel": "power", "title": "전력 가격 — 전년 대비",
      "series": ["WPU0543", "CUSR0000SEHF01"], "calc": calc_power, "unit": "%", "years": MONTHLY_YEARS, "zero": True,
      "note": "최근 10년 · 월간",
@@ -673,6 +822,10 @@ ITEMS = [
      "values": {"ai": "num", "ndx": "num", "ndx_date": "day", "band": "num"}, "ends": ["ndx_date"], "bounded": True,
      "lines": [_l("ai", "AI 지수", "main", ["SP500", "NASDAQNQINTEL", "DGS10"]),
                _l("ndx", "나스닥100 기술", "series", ["SP500", "NASDAQNDXTMC", "DGS10"])]},
+    {"key": "ai_b2", "channel": "corr", "title": "AI 고유 몫 b2 — 해마다 회귀 (측정 기록, 예측 아님)",
+     "series": ["SP500", "NASDAQNQINTEL", "DGS10"], "calc": calc_ai_b2, "unit": "bp", "years": 2, "zero": True,
+     "note": "2025년부터 해마다 · 일간 · Δ10년(bp) = a + b1·S&P 500(%) + b2·(AI − S&P 500)(%) · HC1",
+     "values": {"years": "coef_rows"}, "bounded": True, "notice": COEF_NOTICE, "lines": []},
 ]
 ITEMS.append(
     {"key": "sb_long", "channel": "corr", "title": "주가-금리 252영업일 상관과 물가·고용 조건 — 1972년 이후",
@@ -697,6 +850,13 @@ def _f(v, nd=2, sign=False, unit=""):
     if float(s) == 0:
         s = f"{0:.{nd}f}"
     return s + unit
+
+
+def _eok(bn):
+    """10억 달러 단위 → '3,251억 달러' · 1조 이상이면 '1.20조 달러'(원본 ai_invest_block._eok — 반올림한 값으로 가른다)."""
+    if bn is None:
+        return "—"
+    return f"{bn / 1000:.2f}조 달러" if round(bn * 10) >= 10000 else f"{bn * 10:,.0f}억 달러"
 
 
 def _asof(day, date):
@@ -727,6 +887,20 @@ def texts(key, v, date):
                 [f"100%를 넘으면 설비투자가 내부자금보다 많다(모자란 몫은 외부 조달). {v['from'][:4]}년 이후 분기의 "
                  f"{_f(v['above100'], 0, unit='%')}가 100%를 넘었다 — 100% 자체는 드문 일이 아니다.",
                  "비금융기업 전체의 합계라 대형 기술 기업의 조달 방식은 따로 보이지 않는다."])
+    if key == "private_credit":
+        start = qlabel(v["from"]) if v["from"] else "—"
+        return (f"{qlabel(date)} 잔액 {_f(v['total_tn'], 2)}조 달러 (전년비 {_f(v['total_yoy'], 1, True, '%')}) · "
+                f"비금융기업 부채 중 {_f(v['share'], 1, unit='%')} (1년 전 {_f(v['share_1y'], 1, unit='%')}) · "
+                f"부채/금융자산 사모대출펀드 {_f(v['pdf_lev'], 0, unit='%')} (1년 전 {_f(v['pdf_lev_1y'], 0, unit='%')}) · "
+                f"BDC {_f(v['bdc_lev'], 0, unit='%')} (1년 전 {_f(v['bdc_lev_1y'], 0, unit='%')}) · "
+                f"은행이 펀드·BDC에 빌려준 돈 {_eok(v['bank_bn'])} (전년비 {_f(v['bank_yoy'], 1, True, '%')}) · "
+                f"미소진 약정 {_eok(v['dry_bn'])} (전년비 {_f(v['dry_yoy'], 1, True, '%')})",
+                [f"연준 Z.1의 사모대출 추정({start}부터) — 분기마다 과거 값이 고쳐진다. 비금융기업 몫 = 비금융기업의 사모대출 ÷ "
+                 "비금융기업 부채(부채증권+대출).",
+                 "부채/금융자산은 Z.1 대차대조표의 총부채 ÷ 금융자산 — 펀드 레버리지의 대략이다(총부채의 구성은 나눠 보지 않았다).",
+                 "은행이 펀드·BDC에 빌려준 돈 = 예금기관 대출(사모대출펀드 + BDC) — 은행과의 연결 정도. 미소진 약정 = 투자자가 "
+                 "약정했지만 아직 부르지 않은 자본(앞으로 나갈 수 있는 대출 여력).",
+                 "사모대출 전체라 AI·데이터센터 금융만 따로 보이지 않는다. 1년 전은 정확히 네 분기 앞이다."])
     if key == "power":
         return (f"산업용 전력 PPI {_f(v['ppi'], 1, True, '%')} ({mlabel(v['ppi_date'])}) · "
                 f"CPI 전기 {_f(v['cpi'], 1, True, '%')} ({mlabel(v['cpi_date'])})",
@@ -755,6 +929,17 @@ def texts(key, v, date):
                 ["S&P 500 수익률로 설명되는 몫을 뺀 뒤 남는 금리 상관이다. 양(+)이면 시장 전체보다 그 지수가 금리와 같은 "
                  "방향으로 더 움직였다는 뜻이다. 나스닥100 기술 선과 나란히 보면 AI 지수의 남는 몫이 대형 기술주 전체에도 "
                  "있는지 견줄 수 있다."])
+    if key == "ai_b2":
+        ys = v["years"]
+        per = " · ".join(f"{y['year']}{'(~' + y['to'][5:] + ')' if y['to'][:4] == date[:4] else ''} "
+                         f"{_f(y['b2'], 2, True, 'bp')} (t {_f(y['t2'], 1, True)}, {y['n']}일)" for y in ys)
+        return (f"AI 지수가 S&P 500보다 1%p 더 오른 날의 10년 금리 변화(b2) {per} — 측정 기록, 예측 아님",
+                ["Δ10년(bp) = a + b1·S&P 500(%) + b2·(AI − S&P 500)(%), HC1 견고 표준오차, 세 시리즈의 공통 관측일, 해마다 따로 "
+                 "맞춘다(묶으면 S&P 500 기울기를 여러 해에 하나로 강제해 b2가 낮게 나온다). b1(S&P 500과 AI 지수가 함께 1% 오른 "
+                 "날): " + " · ".join(f"{y['year']} {_f(y['b1'], 2, True, 'bp')} (t {_f(y['t1'], 1, True)})" for y in ys) + ".",
+                 "나스닥100 기술 섹터를 먼저 넣으면 AI 지수의 추가 몫은 거의 남지 않았다(2026-10-27 측정) — 대형 기술주 공통 요인과 "
+                 "겹친다. 한 해 치 표본이라 계수의 오차가 크다 — t값과 함께 본다.",
+                 "국채 가격 기준으로 보면 부호가 반대다 — 여기서 양(+)이면 AI 지수가 더 오른 날 금리가 올랐다(국채 가격은 내렸다)."])
     if key == "hq_spread":
         d10 = "" if v["s10_date"] == v["s30_date"] else f" ({mlabel(v['s10_date'])})"
         extra = []
@@ -785,7 +970,12 @@ def texts(key, v, date):
 
 
 def table_of(key, v):
-    """sb_long의 시대 × 조건 표 — 숫자에서 만든다(정해 둔 머리글 + 숫자). 다른 칸은 None."""
+    """sb_long의 시대 × 조건 표 · ai_b2의 해마다 계수 표 — 숫자에서 만든다(정해 둔 머리글 + 숫자). 다른 칸은 None."""
+    if key == "ai_b2":
+        return {"caption": "해마다 회귀 계수(bp는 1%당 10년 금리 변화, t는 HC1)",
+                "columns": ["해", "b2 (bp)", "t (b2)", "b1 (bp)", "t (b1)", "관측일", "기간"],
+                "rows": [[str(y["year"]), _f(y["b2"], 2, True), _f(y["t2"], 1, True), _f(y["b1"], 2, True),
+                          _f(y["t1"], 1, True), f"{y['n']}", f"{y['from']} ~ {y['to']}"] for y in v["years"]]}
     if key != "sb_long":
         return None
     label = {"e1": f"{v['first'][:4]}~1997", "e2": "1998~2020", "e3": "2021~", "all": "전체"}
@@ -803,17 +993,20 @@ _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "Augu
 
 
 def citation(sid, retrieved):
-    """FRED 권장 인용 형식(render_public.citation과 같은 꼴). 날짜는 지금 값을 처음 받은 날."""
+    """FRED 권장 인용 형식(render_public.citation과 같은 꼴). 날짜는 지금 값을 처음 받은 날. 사모대출 열 줄은 출처 뒤에 Z.1
+    발표 이름을 넣는다."""
     d = datetime.date.fromisoformat(retrieved)
     src, title = SOURCES[sid]
-    return (f"{src}, {title} [{sid}], retrieved from FRED, Federal Reserve Bank of St. Louis; "
+    rel = f"{Z1_RELEASE}, " if sid in PC.values() else ""
+    return (f"{src}, {rel}{title} [{sid}], retrieved from FRED, Federal Reserve Bank of St. Louis; "
             f"{rp.FRED_URL.format(sid)}, {_MONTHS[d.month - 1]} {d.day}, {d.year}.")
 
 
 def sources_of(spec, retrieved=None):
     out = []
     for sid in spec["series"]:
-        s = {"series": sid, "name": SOURCES[sid][0], "url": rp.FRED_URL.format(sid), "restricted": sid in RESTRICTED}
+        s = {"series": sid, "name": SOURCES[sid][0], "url": rp.FRED_URL.format(sid), "restricted": sid in RESTRICTED,
+             "licence": LICENCE[sid]}
         if retrieved:
             s["citation"] = citation(sid, retrieved)
         out.append(s)
@@ -826,7 +1019,12 @@ def source_note(spec):
 
 
 def notices(spec):
-    return [RESTRICTED_NOTICE] if any(s in RESTRICTED for s in spec["series"]) else [COMPUTED_NOTICE]
+    if spec.get("notice"):
+        return [spec["notice"]]
+    out = [RESTRICTED_NOTICE] if any(s in RESTRICTED for s in spec["series"]) else [COMPUTED_NOTICE]
+    if any(LICENCE[s] == UNLABELED for s in spec["series"]):
+        out.append(Z1_NOTICE)
+    return out
 
 
 def present(key, core, retrieved):
@@ -834,15 +1032,17 @@ def present(key, core, retrieved):
     spec = BY_KEY[key]
     line, extra = texts(key, core["values"], core["date"])
     derived = any(s in RESTRICTED for s in spec["series"])
-    chart = {"key": f"ai_{key}", "title": spec["title"], "unit": spec["unit"], "years": spec["years"],
-             "zero": spec["zero"], "threshold": None, "note": spec["note"], "source_note": source_note(spec),
-             "notices": [],
-             "lines": [{**ln, "derived": derived, "points": core["lines"][ln["key"]]} for ln in spec["lines"]]}
-    if spec.get("bands"):
-        chart["bands"] = [{"key": k, "label": label, "ranges": core["bands"][k]} for k, label in spec["bands"]]
     out = {"key": key, "channel": spec["channel"], "name": spec["title"], "date": core["date"],
-           "values": core["values"], "retrieved": retrieved, "line": line, "extra": extra, "chart": chart,
+           "values": core["values"], "retrieved": retrieved, "line": line, "extra": extra,
            "notices": notices(spec), "sources": sources_of(spec, retrieved)}
+    if spec["lines"]:                                    # 선이 없는 칸(ai_b2 — 표만)은 그래프를 싣지 않는다
+        chart = {"key": f"ai_{key}", "title": spec["title"], "unit": spec["unit"], "years": spec["years"],
+                 "zero": spec["zero"], "threshold": None, "note": spec["note"], "source_note": source_note(spec),
+                 "notices": [],
+                 "lines": [{**ln, "derived": derived, "points": core["lines"][ln["key"]]} for ln in spec["lines"]]}
+        if spec.get("bands"):
+            chart["bands"] = [{"key": k, "label": label, "ranges": core["bands"][k]} for k, label in spec["bands"]]
+        out["chart"] = chart
     table = table_of(key, core["values"])
     if table:
         out["table"] = table
@@ -863,8 +1063,34 @@ def _is_num(v):
     return type(v) in (int, float) and v == v and abs(v) != float("inf")
 
 
+def coef_rows_ok(rows):
+    """b2 표의 지킴(재배포 제한 지수로 만든 회귀) — 해마다 한 줄, 칸은 B2_KEYS뿐, 해는 늘어나는 차례, 계수 |b| ≤ COEF_CAP,
+    |t| ≤ T_CAP, 관측일 수 MIN_OLS~366, 처음·끝 날짜는 그해 안. 지수 값·수익률 열이 섞이거나 칸이 늘면 싣지 않는다."""
+    if not isinstance(rows, list) or not rows:
+        return False
+    last = None
+    for y in rows:
+        if not isinstance(y, dict) or set(y) != set(B2_KEYS):
+            return False
+        yr = y["year"]
+        if type(yr) is not int or (last is not None and yr <= last):
+            return False
+        last = yr
+        if not all(_is_num(y[k]) and abs(y[k]) <= COEF_CAP for k in ("b1", "b2")):
+            return False
+        if not all(y[k] is None or (_is_num(y[k]) and abs(y[k]) <= T_CAP) for k in ("t1", "t2")):
+            return False
+        if type(y["n"]) is not int or not MIN_OLS <= y["n"] <= 366:
+            return False
+        if not (_is_day(y["from"]) and _is_day(y["to"]) and y["from"] <= y["to"]
+                and y["from"][:4] == y["to"][:4] == f"{yr:04d}"):
+            return False
+    return True
+
+
 _KIND = {"num": _is_num, "num?": lambda v: v is None or _is_num(v), "day": _is_day,
-         "day?": lambda v: v is None or _is_day(v), "int": lambda v: type(v) is int and v >= 0}
+         "day?": lambda v: v is None or _is_day(v), "int": lambda v: type(v) is int and v >= 0,
+         "coef_rows": coef_rows_ok}
 
 
 def _in_bounds(spec, vals, lines):
@@ -877,18 +1103,25 @@ def _in_bounds(spec, vals, lines):
     return all(x is None or abs(x) <= 1 for x in nums)
 
 
+def values_ok(spec, vals, lines):
+    """값·선의 꼴과 지킴(_in_bounds·coef_rows) — 직전 파일을 이어 실을 때와 새로 계산한 값을 쓸 때 모두 본다."""
+    return (isinstance(vals, dict) and set(vals) == set(spec["values"])
+            and all(_KIND[t](vals[k]) for k, t in spec["values"].items())
+            and isinstance(lines, dict) and set(lines) == {ln["key"] for ln in spec["lines"]}
+            and all(isinstance(p, list) and len(p) == 2 and _is_day(p[0]) and (p[1] is None or _is_num(p[1]))
+                    for pts in lines.values() for p in (pts if isinstance(pts, list) else [None]))
+            and _in_bounds(spec, vals, lines))
+
+
 def core_of(item, key):
     """직전 파일의 칸 → (core, 받은 날) 또는 None(없거나 꼴이 어긋남 — 이어 실을 값이 없는 것으로 본다)."""
     spec = BY_KEY[key]
     try:
-        vals, chart = item["values"], item["chart"]
-        lines = {ln["key"]: ln["points"] for ln in chart["lines"]}
-        ok = (_is_day(item["date"]) and _is_day(item["retrieved"]) and isinstance(vals, dict)
-              and set(vals) == set(spec["values"]) and all(_KIND[t](vals[k]) for k, t in spec["values"].items())
-              and set(lines) == {ln["key"] for ln in spec["lines"]}
-              and all(isinstance(p, list) and len(p) == 2 and _is_day(p[0]) and (p[1] is None or _is_num(p[1]))
-                      for pts in lines.values() for p in (pts if isinstance(pts, list) else [None]))
-              and _in_bounds(spec, vals, lines))
+        vals = item["values"]
+        lines = {ln["key"]: ln["points"] for ln in item["chart"]["lines"]} if spec["lines"] else {}
+        chart = item.get("chart")
+        ok = (_is_day(item["date"]) and _is_day(item["retrieved"]) and values_ok(spec, vals, lines)
+              and (spec["lines"] or chart is None))
         bands = None
         if spec.get("bands"):
             bands = {b["key"]: b["ranges"] for b in chart["bands"]}
@@ -925,6 +1158,8 @@ def _ends(key, core):
 
 
 def item_ok(key, core, prev, today):
+    if not values_ok(BY_KEY[key], core["values"], core["lines"]):
+        raise ItemError("format")                   # 새로 계산한 값도 같은 꼴·지킴을 넘어야 싣는다
     old = core_of(prev, key) if prev else None
     if old and any(new and was and new < was
                    for (_, new), (_, was) in zip(_ends(key, core), _ends(key, old[0]))):

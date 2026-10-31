@@ -93,7 +93,21 @@ def world(end=D(2026, 10, 23), seed=7):
     S["HQMCB30YRP"] = [(m, t30[m] + 0.9 + 0.2 * math.sin(i / 7)) for i, m in enumerate(sorted(t30))
                        if m <= D(2026, 9, 1)]
     S["HQMCB10YRP"] = [(m, t10[m] + 0.7) for m in sorted(t10) if m <= D(2026, 9, 1)]
+    S.update(z1_world())
     return S
+
+
+def z1_world(end=D(2026, 4, 1)):
+    """연준 Z.1 사모대출 열 줄(백만 달러) — 분기마다 곧은 선, 잔액은 2012Q4 앞이 0. 값은 지어낸 것이다."""
+    qs = quarters(D(2010, 1, 1), end)
+    lin = lambda a, b: [(q, a + b * i) for i, q in enumerate(qs)]
+    pc = ai.PC
+    return {pc["total"]: [(q, 0.0 if q < D(2012, 10, 1) else 400000.0 + 15000.0 * i) for i, q in enumerate(qs)],
+            pc["nfc"]: lin(100000.0, 5000.0), pc["nfc_debt"]: lin(9000000.0, 40000.0),
+            pc["pdf_liab"]: lin(200000.0, 6000.0), pc["pdf_fa"]: lin(600000.0, 9000.0),
+            pc["bdc_liab"]: lin(80000.0, 3000.0), pc["bdc_fa"]: lin(200000.0, 4000.0),
+            pc["pdf_bank"]: lin(50000.0, 2000.0), pc["bdc_bank"]: lin(30000.0, 1000.0),
+            pc["dry"]: lin(100000.0, 3500.0)}
 
 
 def long_world(seed=11):
@@ -430,6 +444,10 @@ class MainTest(unittest.TestCase):
         for key, it in js["items"].items():
             self.assertTrue(it["ok"], key)
             self.assertEqual(it["retrieved"], "2026-10-27")
+            if not ai.BY_KEY[key]["lines"]:                                       # 표만 싣는 칸(ai_b2)
+                self.assertNotIn("chart", it, key)
+                self.assertTrue(it["table"]["rows"], key)
+                continue
             self.assertEqual(set(it["chart"]), SPEC_KEYS | ({"bands"} if ai.BY_KEY[key].get("bands") else set()))
             for ln in it["chart"]["lines"]:
                 self.assertEqual(set(ln), LINE_KEYS)
@@ -645,6 +663,277 @@ class MainTest(unittest.TestCase):
                 self.assertNotIn(word, t, (word, t))
 
 
+class B2Test(unittest.TestCase):
+    """AI 고유 몫 b2(2026-10-30, 비공개 알림에서 옮김) — 회귀 산식, 해마다 표, 재배포 제한 지킴."""
+    @staticmethod
+    def b2_world(end=D(2026, 10, 23), seed=3, coef=None, noise=0.05):
+        """S&P·AI·10년 일간 — Δ10년(bp) = b1·S&P(%) + b2·(AI − S&P)(%) + 잡음, 해마다 정해 둔 (b1, b2)."""
+        coef = coef or {2024: (0.5, 0.0), 2025: (-2.0, 1.0), 2026: (-1.0, -0.5)}
+        rnd = random.Random(seed)
+        sp, aiv, y = LEVEL_START["SP500"], LEVEL_START["NASDAQNQINTEL"], 4.0
+        S = {"SP500": [], "NASDAQNQINTEL": [], "DGS10": []}
+        for d in bdays(D(2024, 6, 3), end):
+            r_sp, rel = rnd.gauss(0, 1.0), rnd.gauss(0, 0.8)
+            b1, b2 = coef[d.year]
+            dy = b1 * r_sp + b2 * rel + rnd.gauss(0, noise)
+            sp *= 1 + r_sp / 100
+            aiv *= 1 + (r_sp + rel) / 100
+            y += dy / 100
+            S["SP500"].append((d, sp))
+            S["NASDAQNQINTEL"].append((d, aiv))
+            S["DGS10"].append((d, y))
+        return S
+
+    def test_ols_hc1_matches_the_closed_form_for_one_regressor(self):
+        rnd = random.Random(5)
+        x = [rnd.gauss(0, 1) for _ in range(80)]
+        y = [0.3 + 1.7 * v + rnd.gauss(0, 0.5) * (1 + abs(v)) for v in x]
+        fit = ai.ols(y, [[1.0, v] for v in x])
+        n, mx, my = len(x), sum(x) / len(x), sum(y) / len(y)
+        sxx = sum((v - mx) ** 2 for v in x)
+        b = sum((u - mx) * (v - my) for u, v in zip(x, y)) / sxx
+        e = [v - (my - b * mx) - b * u for u, v in zip(x, y)]
+        var = n / (n - 2) * sum((u - mx) ** 2 * r * r for u, r in zip(x, e)) / sxx ** 2   # HC1
+        self.assertAlmostEqual(fit["b"][1], b, places=10)
+        self.assertAlmostEqual(fit["se"][1], math.sqrt(var), places=10)
+        self.assertEqual(fit["n"], 80)
+
+    def test_ols_refuses_short_or_singular_samples(self):
+        x = [float(i % 7) for i in range(59)]
+        self.assertIsNone(ai.ols([v * 2 for v in x], [[1.0, v] for v in x]))       # MIN_OLS(60) 미만
+        x = [float(i % 7) for i in range(80)]
+        self.assertIsNone(ai.ols(x, [[1.0, v, 2 * v] for v in x]))                 # 특이(같은 열 둘)
+        self.assertIsNotNone(ai.ols([v + (i % 3) for i, v in enumerate(x)], [[1.0, v] for v in x]))
+
+    def test_rows_pair_common_days_like_ai_corr_check(self):
+        S = {"SP500": [(D(2024, 12, 30), 100.0), (D(2024, 12, 31), 0.0), (D(2025, 1, 2), 101.0), (D(2025, 1, 3), 102.01),
+                       (D(2025, 1, 6), 100.99)],
+             "NASDAQNQINTEL": [(D(2024, 12, 30), 50.0), (D(2024, 12, 31), 50.0), (D(2025, 1, 2), 51.0),
+                               (D(2025, 1, 6), 51.51)],
+             "DGS10": [(D(2024, 12, 30), 4.0), (D(2024, 12, 31), 4.1), (D(2025, 1, 2), 4.05), (D(2025, 1, 3), 4.0),
+                       (D(2025, 1, 6), 4.2)]}
+        rows = ai.b2_rows(S)
+        # 12-31은 앞 날 가격이 0이라 건너뛰고(01-02 줄 없음), 01-03은 AI가 없어 공통 날짜가 아니다 → 01-02 → 01-06 한 줄
+        self.assertEqual([r[0] for r in rows], [D(2025, 1, 6)])
+        d, sp, a, dy = rows[0]
+        self.assertAlmostEqual(sp, (100.99 / 101 - 1) * 100)
+        self.assertAlmostEqual(a, (51.51 / 51 - 1) * 100)
+        self.assertAlmostEqual(dy, (4.2 - 4.05) * 100)
+        S["SP500"][1] = (D(2024, 12, 31), 99.0)
+        rows = ai.b2_rows(S)
+        self.assertEqual([r[0] for r in rows], [D(2025, 1, 2), D(2025, 1, 6)])     # 첫 줄은 그 앞 해의 날에서 시작한다
+        self.assertEqual([r[0] for r in ai.b2_rows(S, since=D(2024, 1, 1))][0], D(2024, 12, 31))
+
+    def test_recovers_the_coefficients_year_by_year(self):
+        v = ai.calc_ai_b2(self.b2_world())
+        ys = {y["year"]: y for y in v["values"]["years"]}
+        self.assertEqual(sorted(ys), [2025, 2026])                                    # 2024는 표본 시작 앞
+        for yr, (b1, b2) in ((2025, (-2.0, 1.0)), (2026, (-1.0, -0.5))):
+            self.assertAlmostEqual(ys[yr]["b1"], b1, delta=0.02)
+            self.assertAlmostEqual(ys[yr]["b2"], b2, delta=0.02)
+            self.assertGreater(abs(ys[yr]["t2"]), 50)
+        self.assertEqual((ys[2025]["from"], ys[2025]["to"]), ("2025-01-01", "2025-12-31"))
+        self.assertEqual((ys[2026]["from"], ys[2026]["to"], v["date"]), ("2026-01-01", "2026-10-23", "2026-10-23"))
+        self.assertEqual(ys[2025]["n"], len(bdays(D(2025, 1, 1), D(2025, 12, 31))))
+        self.assertEqual(set(ys[2025]), set(ai.B2_KEYS))
+        self.assertEqual(v["lines"], {})
+        # 해마다 따로 맞춘다 — 묶으면 다른 값이 나오는 세계에서 각 해의 값이 그해 기울기다
+        rows = ai.b2_rows(self.b2_world())
+        pooled = ai.ols([r[3] for r in rows], [[1.0, r[1], r[2] - r[1]] for r in rows])
+        self.assertGreater(abs(pooled["b"][2] - ys[2025]["b2"]), 0.3)
+
+    def test_a_short_year_is_left_out_and_none_at_all_fails(self):
+        v = ai.calc_ai_b2(self.b2_world(end=D(2026, 3, 20)))                           # 2026은 57일(MIN_OLS 60 미만)
+        self.assertEqual([y["year"] for y in v["values"]["years"]], [2025])
+        self.assertEqual(v["date"], "2026-03-20")                                       # 칸 날짜는 마지막 관측
+        with self.assertRaises(ai.ItemError):
+            ai.calc_ai_b2(self.b2_world(end=D(2025, 3, 20)))
+
+    def test_table_and_text(self):
+        core = ai.calc_ai_b2(self.b2_world())
+        line, extra = ai.texts("ai_b2", core["values"], core["date"])
+        self.assertIn("2025 +1.00bp", line)
+        self.assertIn("2026(~10-23) -0.50bp", line)
+        self.assertIn("측정 기록, 예측 아님", line)
+        self.assertIn("2025 -2.00bp", extra[0])
+        t = ai.table_of("ai_b2", core["values"])
+        self.assertEqual(len(t["columns"]), 7)
+        self.assertEqual([r[0] for r in t["rows"]], ["2025", "2026"])
+        self.assertEqual(t["rows"][1][1], "-0.50")
+        self.assertEqual(t["rows"][1][6], "2026-01-01 ~ 2026-10-23")
+
+    def test_coefficient_guard(self):
+        good = [{"year": 2025, "b1": -2.0, "t1": -5.1, "b2": 0.9, "t2": 2.6, "n": 250, "from": "2025-01-02",
+                 "to": "2025-12-31"},
+                {"year": 2026, "b1": -2.5, "t1": None, "b2": 0.5, "t2": 2.5, "n": 205, "from": "2026-01-02",
+                 "to": "2026-10-23"}]
+        self.assertTrue(ai.coef_rows_ok(good))
+        bad = [lambda r: r[0].update(b2=7351.37),                      # 지수 수준 같은 값
+               lambda r: r[0].update(sp_ret=0.42),                     # 정해 둔 칸 밖(수익률 열)
+               lambda r: r[1].pop("t2"),
+               lambda r: r[0].update(t1=500.0),
+               lambda r: r[0].update(n=12),
+               lambda r: r[0].update(n=400),
+               lambda r: r[0].update(b1="0.5"),
+               lambda r: r[1].update(year=2025),                       # 같은 해 둘
+               lambda r: r[0].update(to="2026-01-02"),                 # 그해 밖
+               lambda r: r[0].update(year=True),
+               lambda r: r.append([1, 2, 3]),
+               lambda r: r.clear()]
+        for i, f in enumerate(bad):
+            rows = json.loads(json.dumps(good))
+            f(rows)
+            self.assertFalse(ai.coef_rows_ok(rows), i)
+        self.assertFalse(ai.coef_rows_ok({"years": good}))
+        self.assertEqual(ai.BY_KEY["ai_b2"]["values"], {"years": "coef_rows"})
+
+
+class B2MainTest(unittest.TestCase):
+    """b2·사모대출을 실은 산출물 — 지수 값·수익률 비노출, 직전 파일·새 값의 지킴, 인용."""
+    setUp = MainTest.setUp
+    run_main = MainTest.run_main
+    saved = MainTest.saved
+
+    def test_no_index_value_or_return_is_written(self):
+        self.run_main()
+        js = self.saved()
+        dump = json.dumps(js)
+        it = js["items"]["ai_b2"]
+        self.assertEqual(set(it["values"]), {"years"})
+        self.assertTrue(it["values"]["years"])
+        self.assertTrue(all(set(y) == set(ai.B2_KEYS) for y in it["values"]["years"]))
+        self.assertEqual(it["notices"], [ai.COEF_NOTICE])
+        self.assertEqual({s["series"]: s["licence"] for s in it["sources"]},
+                         {"SP500": "restricted", "NASDAQNQINTEL": "restricted", "DGS10": "public-domain"})
+        for d, sp, a, dy in ai.b2_rows(self.S)[-40:]:
+            for x in (sp, a):
+                if abs(x) >= 0.01:
+                    self.assertNotIn(f"{x:.4f}", dump, d)                       # 일간 수익률(%)
+        for sid in ("SP500", "NASDAQNQINTEL"):
+            for d, v in self.S[sid][-60:]:
+                for nd in (1, 2, 3, 4):
+                    self.assertNotIn(f"{v:.{nd}f}", dump, (sid, d))
+
+    def test_a_carried_b2_with_an_index_value_or_extra_column_is_dropped(self):
+        for k, v in (("b2", 7351.37), ("sp_ret", 0.4242)):
+            self.run_main()
+            js = self.saved()
+            js["items"]["ai_b2"]["values"]["years"][0][k] = v
+            with open(self.path, "w", encoding="utf-8") as f:
+                json.dump(js, f, ensure_ascii=False)
+            self.run_main(fred=FakeFred(self.S, fail={"SP500"}), now=NOW + datetime.timedelta(days=1))
+            it = self.saved()["items"]["ai_b2"]
+            self.assertEqual((it["ok"], it["stale"], "line" in it, "table" in it), (False, False, False, False), k)
+            self.assertNotIn(str(v), json.dumps(self.saved()))
+            os.remove(self.path)
+        self.run_main()
+        self.run_main(fred=FakeFred(self.S, fail={"SP500"}), now=NOW + datetime.timedelta(days=1))
+        it = self.saved()["items"]["ai_b2"]                                             # 온전한 직전 값은 이어 싣는다
+        self.assertEqual((it["ok"], it["stale"], it["failed_since"]), (False, True, "2026-10-28"))
+        self.assertTrue(it["table"]["rows"])
+
+    def test_fresh_values_pass_the_same_guard(self):
+        level = {"date": "2026-10-23", "lines": {},
+                 "values": {"years": [{"year": 2026, "b1": 7351.37, "t1": 1.0, "b2": 0.5, "t2": 2.0, "n": 200,
+                                       "from": "2026-01-02", "to": "2026-10-23"}]}}
+        with mock.patch.dict(ai.BY_KEY["ai_b2"], {"calc": lambda S: level}), \
+                mock.patch.dict(ai.BY_KEY["corr20"], {"calc": lambda S: dict(ai.calc_corr20(S), values=dict(
+                    ai.calc_corr20(S)["values"], ai=1234.56))}):
+            self.run_main()
+        items = self.saved()["items"]
+        for key in ("ai_b2", "corr20"):
+            self.assertEqual((items[key]["ok"], items[key]["error"]), (False, ai.REASONS["format"]), key)
+            self.assertNotIn("line", items[key])
+        self.assertNotIn("7351.37", json.dumps(self.saved()))
+        self.assertNotIn("1234.56", json.dumps(self.saved()))
+        self.assertTrue(items["corr60"]["ok"])
+
+    def test_private_credit_cites_z1_and_says_the_licence(self):
+        self.run_main()
+        it = self.saved()["items"]["private_credit"]
+        self.assertTrue(it["ok"])
+        self.assertEqual(it["channel"], "finance")
+        self.assertEqual([s["series"] for s in it["sources"]], list(ai.PC.values()))
+        for src in it["sources"]:
+            want = "public-domain" if src["series"] == "BCNSDODNS" else ai.UNLABELED
+            self.assertEqual(src["licence"], want, src["series"])
+            self.assertFalse(src["restricted"])
+            self.assertTrue(src["citation"].startswith(
+                "Board of Governors of the Federal Reserve System (US), Financial Accounts of the United States (Z.1), "))
+            self.assertIn(f"{ai.SOURCES[src['series']][1]} [{src['series']}], retrieved from FRED, Federal Reserve Bank "
+                          f"of St. Louis; https://fred.stlouisfed.org/series/{src['series']}, October 27, 2026.",
+                          src["citation"])
+        self.assertEqual(it["notices"], [ai.COMPUTED_NOTICE, ai.Z1_NOTICE])
+        self.assertEqual({sid for sid, lic in ai.LICENCE.items() if lic == ai.UNLABELED},
+                         set(ai.PC.values()) - {"BCNSDODNS"})
+        self.assertEqual(set(ai.LICENCE), set(ai.SERIES))
+        fin = self.saved()["items"]["financing"]
+        self.assertEqual(fin["notices"], [ai.COMPUTED_NOTICE])
+        self.assertNotIn("Z.1), ", fin["sources"][0]["citation"])                     # 다른 Z.1 칸의 인용은 그대로
+        self.assertEqual(ai.SERIES[-len(ai.PC):], list(ai.PC.values()))                # 수신 시간이 모자라면 끝부터 빠진다
+
+    def test_private_credit_fails_alone_and_refuses_an_earlier_quarter(self):
+        self.run_main()
+        code, log = self.run_main(fred=FakeFred(self.S, fail={ai.PC["dry"]}), now=NOW + datetime.timedelta(days=1))
+        self.assertEqual(code, 0, log)
+        items = self.saved()["items"]
+        self.assertEqual((items["private_credit"]["stale"], items["private_credit"]["failed_since"]), (True, "2026-10-28"))
+        self.assertTrue(all(it["ok"] for k, it in items.items() if k != "private_credit"))
+        short = dict(self.S, **{ai.PC["nfc"]: self.S[ai.PC["nfc"]][:-1]})
+        self.run_main(fred=FakeFred(short), now=NOW + datetime.timedelta(days=2))
+        it = self.saved()["items"]["private_credit"]
+        self.assertEqual((it["ok"], it["error"], it["date"]), (False, ai.REASONS["older"], "2026-04-01"))
+
+
+class PrivateCreditTest(unittest.TestCase):
+    """사모대출(연준 Z.1) — 손으로 셀 수 있는 곧은 선 자료(z1_world)."""
+    def test_values_by_hand(self):
+        S = z1_world()
+        v = ai.calc_private_credit(S)
+        i = len(quarters(D(2010, 1, 1), D(2026, 4, 1))) - 1                              # 2026Q2의 차례
+        tot, tot0 = 400000 + 15000 * i, 400000 + 15000 * (i - 4)
+        self.assertEqual(v["date"], "2026-04-01")
+        w = v["values"]
+        self.assertAlmostEqual(w["total_tn"], round(tot / 1e6, 4))
+        self.assertAlmostEqual(w["total_yoy"], round((tot / tot0 - 1) * 100, 4))
+        self.assertAlmostEqual(w["share"], round((100000 + 5000 * i) / (9000000 + 40000 * i) * 100, 4))
+        self.assertAlmostEqual(w["share_1y"], round((100000 + 5000 * (i - 4)) / (9000000 + 40000 * (i - 4)) * 100, 4))
+        self.assertAlmostEqual(w["pdf_lev"], round((200000 + 6000 * i) / (600000 + 9000 * i) * 100, 4))
+        self.assertAlmostEqual(w["bdc_lev_1y"], round((80000 + 3000 * (i - 4)) / (200000 + 4000 * (i - 4)) * 100, 4))
+        bank, bank0 = 80000 + 3000 * i, 80000 + 3000 * (i - 4)
+        self.assertAlmostEqual(w["bank_bn"], round(bank / 1e3, 4))
+        self.assertAlmostEqual(w["bank_yoy"], round((bank / bank0 - 1) * 100, 4))
+        self.assertAlmostEqual(w["dry_bn"], round((100000 + 3500 * i) / 1e3, 4))
+        self.assertEqual(w["from"], "2012-10-01")                                        # 잔액이 0이 아닌 첫 분기
+        pts = v["lines"]["share"]
+        self.assertEqual((pts[0][0], pts[-1][0]), ("2012-10-01", "2026-04-01"))
+        self.assertAlmostEqual(pts[-1][1], round(w["share"], 2))
+
+    def test_last_quarter_all_ten_share_and_exact_year_ago(self):
+        S = z1_world()
+        pc = ai.PC
+        S[pc["pdf_bank"]] = S[pc["pdf_bank"]][:-1]                                      # 한 줄이 한 분기 늦다
+        S[pc["dry"]] = [(d, x) for d, x in S[pc["dry"]] if d != D(2025, 1, 1)]           # 1년 전 분기가 빠졌다
+        v = ai.calc_private_credit(S)
+        self.assertEqual(v["date"], "2026-01-01")
+        self.assertIsNone(v["values"]["dry_yoy"])                                        # 다른 분기로 대신하지 않는다
+        self.assertIsNotNone(v["values"]["bank_yoy"])
+        line, _ = ai.texts("private_credit", v["values"], v["date"])
+        self.assertIn("2026Q1 잔액", line)
+        self.assertIn("미소진 약정", line)
+        self.assertIn("(전년비 —)", line)
+        S[pc["total"]] = []
+        with self.assertRaises(ai.ItemError):
+            ai.calc_private_credit(S)
+
+    def test_eok_switches_to_jo_on_the_rounded_value(self):
+        self.assertEqual(ai._eok(325.1), "3,251억 달러")
+        self.assertEqual(ai._eok(999.94), "9,999억 달러")
+        self.assertEqual(ai._eok(999.96), "1.00조 달러")
+        self.assertEqual(ai._eok(1200.0), "1.20조 달러")
+        self.assertEqual(ai._eok(None), "—")
+
+
 class FetchTest(unittest.TestCase):
     class Drip:
         """한 번에 몇 바이트씩만 흘려보내는 응답 — 읽을 때마다 시계가 10초씩 간다."""
@@ -715,7 +1004,7 @@ class StaticTest(unittest.TestCase):
         self.assertIn("continue-on-error: true", step[:200])
         self.assertIn("timeout-minutes: 2", step[:200])
         job = wf[wf.index("\n  update:"):wf.index("\n  deploy:")]
-        self.assertIn("timeout-minutes: 17", job[:300])                          # 참고 단계 제한의 합이 일을 넘기지 않게
+        self.assertIn("timeout-minutes: 30", job[:300])                          # 참고 단계 제한의 합이 일을 넘기지 않게
         self.assertIn("python scripts/ai_invest_fetch.py", step[:300])
         self.assertLess(wf.index("id: ai_invest"), wf.index("공개 전 검사(새 산출물 포함)"))
         self.assertLess(wf.index("id: ai_invest"), wf.index("git add data"))

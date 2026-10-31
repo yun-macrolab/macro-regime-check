@@ -303,6 +303,20 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .oil-late { color: var(--alert); }
 .oil-row figure.ch { margin-top: 8px; }
 .korea-oil { margin-top: 12px; }
+/* 신용 긴축 참고(site/credit.js) — AI 투자 화면 아래 절. 유가 카드와 같은 틀이고, 단계 줄 바로 뒤의 정의 문단만 색이 다르다.
+   기간 프리미엄(tp.js)·지준·재정(liquidity.js)·단일종목 CDS(cds.js) 카드는 위 oil-* 틀을 그대로 쓴다 */
+.credit-slot:empty { display: none; }
+.credit-card { margin-top: 12px; padding: 0 12px 10px; border: 1px solid var(--rule); background: var(--panel); min-width: 0; }
+.credit-card > h3 { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 8px; margin: 0 -12px 8px;
+  padding: 4px 10px; background: var(--bar); font-size: 13.5px; color: var(--ink); }
+.credit-card > h3 .reference-label { font-size: 11.5px; font-weight: 500; }
+.credit-card p { margin: 4px 0 0; line-height: 1.6; font-size: 12.5px; overflow-wrap: anywhere; }
+.credit-row { padding: 8px 0 0; border-top: 1px solid var(--rule); margin-top: 8px; min-width: 0; }
+.credit-card > .muted + .credit-row { border-top: 0; }
+.credit-name small { font: 400 11.5px var(--f-mono); color: #8a8a8a; }
+.credit-num { color: var(--amber); font-variant-numeric: tabular-nums; }
+.credit-def { color: var(--key); }
+.credit-late { color: var(--alert); }
 
 /* ── 출처 ── */
 .source-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 10px 0; }

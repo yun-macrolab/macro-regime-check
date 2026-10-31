@@ -583,6 +583,29 @@ class NewIndicatorComputeTest(unittest.TestCase):
         self.assertIsNone(ind["unrate_rise"]["value"])
         self.assertIsNone(ind["core_mom"]["value"])
 
+    def test_baa_low_and_percentile_hand_computed(self):
+        # Baa−10년(2026-10-30부터 공개본에 값이 실린다 — 비공개 월간 점검과 같은 계산): 저점은 마지막 관측 365일 전(그 날 포함)
+        # 이후의 최저, 분위는 1990-01-01 이후 관측 가운데 지금 값 이하인 비율. 숫자는 지어낸 것이다
+        baa = [(D(1989, 6, 1), 0.50),                  # 1990년 앞 — 분위에서 빠진다
+               (D(2024, 1, 2), 3.10),
+               (D(2025, 9, 17), 1.90),                 # 365일 하루 전 — 저점 창 밖
+               (D(2025, 9, 18), 2.10),                 # 정확히 365일 전 — 저점 창 안
+               (D(2026, 3, 2), 2.40),
+               (D(2026, 9, 18), 2.62)]
+        ind, _, _ = _compute(BAA10Y=baa)
+        b = ind["baa10y"]
+        self.assertEqual((b["value"], b["asof"]), (2.62, "2026-09-18"))
+        self.assertAlmostEqual(b["from_low_12m"], 2.62 - 2.10, places=12)
+        self.assertEqual(b["pct_since_1990"], 4 / 5)                  # 3.10·1.90·2.10·2.40·2.62 가운데 2.62 이하 넷
+        fl = MOD.flat(ind)
+        self.assertEqual((fl["baa10y"], fl["baa10y_pct"]), (2.62, 0.8))
+        sig = next(s for s in rr.evaluate(fl) if s["key"] == "credit_spread")
+        self.assertTrue(sig["fired"])                                  # +0.52 ≥ 0.4, HY 없음 → OR 참
+        self.assertTrue(sig["text"].startswith("Baa−10Y 2.62%p(바닥 대비 +0.52, 1990년 이후 하위 80.0%) · HY OAS —%p"))
+        ind, _, _ = _compute()
+        self.assertEqual((ind["baa10y"]["value"], ind["baa10y"]["from_low_12m"], ind["baa10y"]["pct_since_1990"]),
+                         (None, None, None))
+
 
 class BuildTest(unittest.TestCase):
     """regime_check.build: 매일 원본 결과를 <work>/raw/에 기록한다. 수신 실패면 아무것도 쓰지 않는다.
@@ -638,6 +661,16 @@ class BuildTest(unittest.TestCase):
         sig = {s["key"]: s for s in js["signals"]}
         self.assertEqual((sig["core_momentum"]["fired"], sig["unemployment_rise"]["fired"]), (False, False))
         self.assertEqual(res["total"], len(js["signals"]))
+
+    def test_gdp_level_for_the_public_more_values(self):
+        # 2026-10-30: 공개본 '그 밖의 관측값'의 명목GDP 수준 — 마지막 분기 값과 그 분기(make_cache: 27000 × 1.013^13, 2026-04-01)
+        rck.build(self.work, TODAY, offline=True)
+        g = self._raw()["indicators"]["gdp"]
+        self.assertAlmostEqual(g["value"], 27000 * 1.013 ** 13, places=6)
+        self.assertEqual(g["asof"], "2026-04-01")
+        os.remove(os.path.join(self.work, "fred", "GDP.csv"))
+        rck.build(self.work, TODAY, offline=True)
+        self.assertEqual(self._raw()["indicators"]["gdp"], {"value": None, "asof": None})
 
     def test_unrate_counts_toward_max_missing(self):
         # 23개가 되어도 미수신 셈은 같다 — UNRATE만 없으면 그 규칙만 판정 불가, 셋이 없으면 그날을 기록하지 않는다

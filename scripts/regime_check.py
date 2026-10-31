@@ -7,8 +7,9 @@
   <work>/raw/latest.json               원본 결과 (schema=2). 가장 최근 날짜의 결과만 이 이름으로 둔다
   <work>/raw/history/YYYY-MM-DD.json   날짜별 사본 (같은 날 다시 돌면 덮어쓴다)
   <work>/fred/<ID>.csv                 원자료 캐시 (--offline이면 캐시만 사용)
-raw/와 fred/에는 재배포가 제한된 시리즈(S&P·ICE·Moody's)의 원값이 들어 있어 커밋·배포하지 않는다.
-공개용 표는 render_public.py가 raw/latest.json에서 만들어 data/에 쓴다.
+raw/와 fred/에는 재배포가 제한된 시리즈(S&P·ICE)의 원값과 Moody's Baa−10년의 전체 시계열이 들어 있어 커밋·배포하지 않는다.
+공개용 표는 render_public.py가 raw/latest.json에서 만들어 data/에 쓴다(Baa−10년은 2026-10-30부터 마지막 값·12개월 저점 대비·
+1990년 이후 분위만 Moody's 고지·FRED 인용과 함께 — 비공개 월간 점검과 같은 계산).
 수신 실패면 아무것도 쓰지 않고 한 줄 오류로 끝난다 — 직전 결과가 남는다. 수신 실패에는 FRED 요청이 실패해
 캐시로 대신한 시리즈도 포함한다(오프라인 실행 제외): 미수신+캐시 대체가 MAX_MISSING을 넘으면 기록하지 않는다.
 과거 날짜(--date)는 지금 시점의 개정치로 다시 계산한 값이라 history에만 쓰고 latest는 되돌리지 않는다.
@@ -121,6 +122,7 @@ def compute(series, today, prev_regime=None):
     m2v = S("M2V")
     ind["m2v"] = _ind(*reversed(_last(m2v))) if m2v else _ind(None)
     wres, gdp = S("WRESBAL"), S("GDP")
+    ind["gdp"] = _ind(*reversed(_last(gdp))) if gdp else _ind(None)     # 명목GDP 수준(십억 달러, 연율) — 공개본 '그 밖의 관측값'
     if wres and gdp:
         g = _last(gdp)
         ind["reserves_gdp"] = _ind(wres[-1][1] / 1000 / g[1] * 100, wres[-1][0], gdp_quarter=_iso(g[0]))
@@ -216,7 +218,8 @@ def compute(series, today, prev_regime=None):
         warns.append("실업률 결측월 " + ", ".join(ugaps) + " — 그 달이 낀 3개월 평균은 남은 2개월로 계산한다."
                      " 값은 현재 개정치라 첫 발표 당시와 다를 수 있음")
 
-    # 국면 판정 재료 — 주가·금리 13주 추세, ρ60, 전환 경계 (공개본에는 싣지 않는다)
+    # 국면 판정 재료 — 주가·금리 13주 추세, ρ60, 전환 경계. 공개본(render_public)은 이것으로 직전 국면 없이 후보를 다시 계산하고
+    # S&P 500 13주 변화는 방향만, t2(ICE IG OAS)는 ON/OFF만 싣는다 — 원값은 raw/에만 남는다
     sp13 = ff.pct_change_days(S("SP500"), 91) if S("SP500") else None
     y13 = ff.change_days(S("DGS10"), 91) if S("DGS10") else None
     sp_pct = sp13["value"] if sp13 else None

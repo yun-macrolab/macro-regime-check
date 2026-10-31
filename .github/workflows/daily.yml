@@ -13,9 +13,15 @@
 #           형식을 확인하지 못한 뉴욕 연은 단일 시계열 주소가 첫 실행부터 맞는다는 보장이 없어 매일 실패 메일이 오지 않게.
 #           한쪽 실패는 그 단계 로그의 경고 줄(::warning:: — 실행 요약에 보이고 단계는 초록)과 페이지의 '받지 못함'·'자료 없음'으로,
 #           두 쪽 다 실패하면 그 단계가 빨간 표시(실행 결과는 성공)로 보인다.
-#           AI 투자 참고 자료(ai_invest.json — FRED 공개 통계, 재배포 제한 지수는 상관만)도 같은 원칙이다: 칸마다 따로,
+#           AI 투자 참고 자료(ai_invest.json — FRED 공개 통계, 재배포 제한 지수는 상관·회귀 계수만)도 같은 원칙이다: 칸마다 따로,
 #           못 받은 칸은 직전 값을 '받지 못함'과 함께 남기고 경고 줄을 찍는다. 알림에 넣지 않는다.
 #           유가·에너지 참고 자료(oil.json — FRED 공개 통계, 물가 묶음의 참고 카드와 한국 시장의 한 줄)도 같은 원칙이다.
+#           2026-10-30 더한 참고 자료 다섯도 같은 원칙이다(칸마다 따로, 못 받으면 직전 값을 '받지 못함'과 함께, 알림 없음):
+#             SEC 공시 조달(sec.json — SEC EDGAR XBRL, 연락처는 비밀 SEC_USER_AGENT에서만, 그 단계에만 넘긴다)
+#             → 신용 긴축(credit.json — FRED + 연준 이사회 EBP · 뉴욕 연은 CMDI, sec.json을 읽으므로 SEC 다음)
+#             · 지준·재정(liquidity.json — FRED)
+#             · 기간 프리미엄 모형 대조(tp.json — FRED Kim-Wright + 뉴욕 연은 ACM) · 단일종목 CDS(cds.json·cds_days.json —
+#             DTCC 공개 거래 보고 하루 파일, 빠진 날만 이어 받는다)
 #   deploy  data/·site/만 Pages로. 스크립트·원자료(.work/)는 배포하지 않는다.
 #   alert   수집·생성·그래프·국고채 참고 자료가 실패한 날은 마지막에 실행을 실패로 끝내 GitHub 알림 메일을 받는다.
 #
@@ -67,13 +73,18 @@ jobs:
           node --test scripts/test_korea_health.cjs
           node --test scripts/test_notes_render.cjs
           node --test scripts/test_oil_render.cjs
+          node --test scripts/test_ai_invest_render.cjs
+          node --test scripts/test_tp_render.cjs
+          node --test scripts/test_liquidity_render.cjs
+          node --test scripts/test_credit_render.cjs
+          node --test scripts/test_cds_render.cjs
 
   update:
     needs: check
     # main에서만 — 다른 브랜치에서 수동 실행하면 그 브랜치 커밋이 main으로 밀려 올라간다
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 17        # 참고 자료 단계 제한의 합(국고채 2 + 수급 2 + AI 2 + 유가 2 + 한국 4 = 12분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다
+    timeout-minutes: 30        # 참고 자료 단계 제한의 합(국고채 2 + 수급 2 + AI 2 + SEC 2 + 신용 2 + 지준 2 + 기간 프리미엄 2 + CDS 2 + 유가 2 + 한국 4 = 22분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다
     permissions:
       contents: write   # 봇이 data/를 커밋한다
     outputs:
@@ -118,14 +129,49 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/supply_fetch.py
-      # 참고 자료 — AI 투자(FRED 공개 통계 + 재배포 제한 지수는 상관만, 요청 20회, 전체 60초 상한). 규칙 판정에 쓰지 않고,
-      # 실패해도 알림 없음
+      # 참고 자료 — AI 투자(FRED 공개 통계 + 재배포 제한 지수는 상관·회귀 계수만, 요청 30회, 전체 80초 상한). 규칙 판정에 쓰지
+      # 않고, 실패해도 알림 없음
       - name: AI 투자 참고 자료 받기
         id: ai_invest
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/ai_invest_fetch.py
-      # 참고 자료 — 유가·에너지(FRED 공개 통계, 요청 12회, 전체 60초 상한). 규칙 판정에 쓰지 않고, 실패해도 알림 없음
+      # 참고 자료 — 하이퍼스케일러 조달(SEC EDGAR XBRL, 요청 35회·간격 0.25초, 전체 60초 상한). 연락처는 비밀에서만 — 이 단계에만
+      # 넘긴다(비밀이 없으면 요청 없이 '연락처 미설정'). 실패해도 알림 없음
+      - name: SEC 공시 조달 참고 자료 받기
+        id: sec
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: python scripts/sec_fetch.py
+      # 참고 자료 — 신용 긴축(요청 10번: FRED 8개 + 연준 이사회 EBP CSV 1 + 뉴욕 연은 CMDI 통합 문서 1, 요청마다 min(10초, 남은 예산),
+      # 전체 60초 상한 — 단계 2분 안. 바로 앞 단계의 sec.json을 읽는다). 연준 이사회·뉴욕 연은에는 프로젝트를 밝히는 User-Agent
+      # (이메일 없음), FRED는 기본 머리글. 규칙 판정에 쓰지 않고, 실패해도 알림 없음
+      - name: 신용 긴축 참고 자료 받기
+        id: credit
+        continue-on-error: true
+        timeout-minutes: 2
+        run: python scripts/credit_fetch.py
+      # 참고 자료 — 지준·재정(FRED 공개 통계, 요청 11회, 전체 60초 상한). 규칙 판정에 쓰지 않고, 실패해도 알림 없음
+      - name: 지준·재정 참고 자료 받기
+        id: liquidity
+        continue-on-error: true
+        timeout-minutes: 2
+        run: python scripts/liquidity_fetch.py
+      # 참고 자료 — 기간 프리미엄 모형 대조(FRED Kim-Wright 2회 + 뉴욕 연은 ACM 1회, 전체 45초 상한). 실패해도 알림 없음
+      - name: 기간 프리미엄 모형 대조 참고(Kim-Wright · ACM)
+        id: tp
+        continue-on-error: true
+        timeout-minutes: 2
+        run: python scripts/tp_fetch.py
+      # 참고 자료 — 단일종목 CDS(DTCC 공개 거래 보고 하루 파일, 빠진 날만 · 전체 90초 굳은 상한). 규칙 판정에 쓰지 않고, 실패해도 알림 없음
+      - name: 단일종목 CDS 참고 자료 받기
+        id: cds
+        continue-on-error: true
+        timeout-minutes: 2
+        run: python scripts/cds_fetch.py
+      # 참고 자료 — 유가·에너지(FRED 공개 통계, 요청 16회, 전체 60초 상한). 규칙 판정에 쓰지 않고, 실패해도 알림 없음
       - name: 유가·에너지 참고 자료 받기
         id: oil
         continue-on-error: true

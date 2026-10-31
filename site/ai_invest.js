@@ -1,24 +1,36 @@
 /* AI 투자 참고 — data/ai_invest.json(scripts/ai_invest_fetch.py)을 그린다 (2026-10-27). 이 사이트의 규칙 판정에 쓰지 않는 공개 통계 묶음이다.
+   2026-10-30: 조달에 사모대출(private_credit — 그래프 하나), 상관에 AI 고유 몫 b2(ai_b2 — 해마다 계수 표, 그래프 없음)를 더했다.
    index.html의 el() · chartFigure()를 쓴다(부를 때 이미 정의돼 있다). 글자는 전부 el()의 텍스트로만 넣는다(자료를 HTML로 해석하지 않는다).
    채널 이름·안내 문구는 이 파일에 정해 둔 것이고, 칸의 숫자 줄·덧붙이는 줄은 자료 파일에 정해 둔 문구다(그 스크립트가 숫자로 만든다).
-   형식이 어긋난 칸, 고지(notices)가 한 줄도 없는 칸은 숫자를 싣지 않고 '자료 없음' 한 줄로 둔다. 바깥 요청은 없다. */
+   형식이 어긋난 칸, 고지(notices)가 한 줄도 없는 칸은 숫자를 싣지 않고 '자료 없음' 한 줄로 둔다. 바깥 요청은 없다.
+   2026-10-30: 출처를 밝혀 싣는다고 고지한 자료(사모대출의 연준 Z.1 — FRED에 이용 조건 표시가 없는 시리즈, licence CITE_LICENCES)는
+   그 칸 아래에 FRED 권장 인용(sources[].citation, 'Financial Accounts of the United States (Z.1)' 포함)을 글자로 싣는다.
+   2026-10-30: 머리말은 이 파일의 ABOUT(합니다체) 하나 — 자료 파일의 notice(한다체, 같은 내용)를 뒤에 붙이지 않는다(단일종목 CDS 카드와 같다). */
 "use strict";
 window.AiInvest = (() => {
   // 화면 차례 — 자료 파일의 order와 같다(scripts/test_ai_invest_fetch.py가 견준다)
   const CHANNELS = [
     ["invest", "실물 투자", "데이터센터에 들어가는 장비·소프트웨어·건물 투자의 크기와 속도입니다.",
       ["ict_share", "tech_orders", "office_cons"]],
-    ["finance", "조달", "기업이 투자를 내부 자금으로 하는지, 바깥에서 빌려서 하는지의 총량과, 고신용 회사채가 국채보다 얼마나 더 내는지입니다.",
-      ["financing", "hq_spread"]],
+    ["finance", "조달", "기업이 투자를 내부 자금으로 하는지, 바깥에서 빌려서 하는지의 총량과, 고신용 회사채가 국채보다 얼마나 더 내는지, " +
+      "사모대출(연준 Z.1)의 크기와 레버리지입니다.",
+      ["financing", "hq_spread", "private_credit"]],
     ["power", "전력 가격", "데이터센터 전력 수요가 전기 요금에 실리는지 봅니다.", ["power"]],
     ["rates", "금리 쪽 결과", "장기 금리 쪽에 남는 숫자입니다. 원인을 가리지 않습니다.", ["curve_30_10"]],
     ["corr", "주식과 미 10년 금리의 상관",
       "AI 관련 주식이 금리와 같은 방향으로 움직이는지 봅니다. 양(+)이면 주가와 금리가 같은 방향, 국채 가격으로는 반대 방향입니다. " +
-      "지수 값은 재배포가 제한돼 싣지 않고 상관만 싣습니다. 맨 아래는 1972년 이후 긴 기간의 주가-금리 상관과 물가·고용 조건입니다.",
-      ["corr60", "corr20", "partial60", "sb_long"]]
+      "지수 값과 수익률은 재배포가 제한돼 싣지 않고 상관과 회귀 계수만 싣습니다(회귀 계수는 측정 기록이고 예측이 아닙니다). " +
+      "맨 아래는 1972년 이후 긴 기간의 주가-금리 상관과 물가·고용 조건입니다.",
+      ["corr60", "corr20", "partial60", "ai_b2", "sb_long"]]
   ];
   const TEASER = ["ict_share", "financing", "power", "curve_30_10", "corr60"];   // 첫 화면에는 채널마다 첫 칸의 숫자 줄만
+  // 머리말 — 합니다체 한 벌. 자료 파일의 notice(한다체, 같은 내용)를 덧붙이지 않는다(칸마다의 고지는 칸 아래에 그대로)
+  const ABOUT = "AI 투자를 다섯 갈래로 나눠 공개 통계의 숫자와 그래프만 싣습니다. 이 사이트의 규칙 판정에 쓰지 않는 참고 자료라 " +
+    "충족·미충족이나 상태 판정이 없고, 값의 크기나 방향을 시장 전망으로 읽지 않습니다.";
   const DAY = /^\d{4}-\d{2}-\d{2}$/;
+  // 권장 인용 — 이 licence의 출처만(scripts/ai_invest_fetch.py UNLABELED · 인용 필요). 꼴('…, retrieved from …, October 30, 2026.')이 다르면 싣지 않는다
+  const CITE_LICENCES = ["board-public-domain (FRED unlabeled)", "citation-required"];
+  const CITE = /^[^<>]{1,300}, retrieved from [^<>]{1,300}, [A-Z][a-z]+ \d{1,2}, \d{4}\.$/;
   const texts = v => (Array.isArray(v) ? v : []).filter(x => typeof x === "string" && x);
   const isObj = v => v && typeof v === "object" && !Array.isArray(v);
 
@@ -40,6 +52,19 @@ window.AiInvest = (() => {
       el("tbody", {}, ...t.rows.map(r => el("tr", {}, el("th", { scope: "row" }, r[0]), ...r.slice(1).map(c => el("td", {}, c)))))));
   }
 
+  // 칸 하나의 권장 인용 줄 — 시리즈마다 한 번, 자료 파일의 차례대로
+  function citeLines(it) {
+    const seen = new Set(), out = [];
+    for (const s of Array.isArray(it.sources) ? it.sources : []) {
+      if (!isObj(s) || !CITE_LICENCES.includes(s.licence) || s.restricted === true) continue;
+      if (typeof s.series !== "string" || !/^[A-Z0-9]+$/.test(s.series) || seen.has(s.series)) continue;
+      if (typeof s.citation !== "string" || !CITE.test(s.citation)) continue;
+      seen.add(s.series);
+      out.push(el("p", { class: "muted" }, "권장 인용: " + s.citation));
+    }
+    return out.length ? el("div", { class: "cite-lines" }, ...out) : null;
+  }
+
   function item(it, key) {
     const name = isObj(it) && typeof it.name === "string" && it.name ? it.name : key;
     if (!usable(it, key)) return el("div", { class: "ai-item" }, el("h4", { class: "ai-name" }, name), el("p", { class: "muted" }, "자료 없음"));
@@ -51,7 +76,8 @@ window.AiInvest = (() => {
       it.stale === true ? el("p", { class: "ai-late" }, "이번 갱신의 값을 싣지 못해 직전에 받은 값을 싣습니다" + since) : null,
       chartFigure(it.chart, 190, false),
       table(it.table),
-      el("div", { class: "notices" }, ...texts(it.notices).map(t => el("p", {}, t))));
+      el("div", { class: "notices" }, ...texts(it.notices).map(t => el("p", {}, t))),
+      citeLines(it));
   }
 
   // 자료 파일 전체 → 화면 두 곳(첫 화면 요약 · 'AI 투자' 화면). 그린 칸이 하나도 없으면 false
@@ -59,9 +85,7 @@ window.AiInvest = (() => {
     if (!isObj(d) || !isObj(d.items)) return false;
     const items = d.items;
     if (!TEASER.some(k => usable(items[k], k))) return false;
-    const notice = typeof d.notice === "string" ? d.notice : "";
-    document.getElementById("ai-head").textContent =
-      "AI 투자를 다섯 갈래로 나눠 공개 통계의 숫자와 그래프만 싣습니다. " + notice;
+    document.getElementById("ai-head").textContent = ABOUT;
     document.getElementById("ai-body").replaceChildren(...CHANNELS.map(([id, title, about, keys]) =>
       el("section", { class: "ai-channel", "aria-label": title },
         el("h3", {}, title), el("p", { class: "muted" }, about),
@@ -72,5 +96,5 @@ window.AiInvest = (() => {
     return true;
   }
 
-  return Object.freeze({ render, CHANNELS, TEASER });
+  return Object.freeze({ render, CHANNELS, TEASER, ABOUT });
 })();

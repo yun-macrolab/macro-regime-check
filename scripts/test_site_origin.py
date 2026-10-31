@@ -43,7 +43,7 @@ WATCHED = (                                                # study/ 밖 파일�
 )
 
 ALLOW = {                                                  # 파일(site/ 기준) → 낱말 → 허용 횟수. 없는 파일 · 낱말은 0번
-    "index.html": {'rel="preconnect"': 2, "<script>": 2, "<script": 8, "fetch(": 1, "localStorage": 4, "location.": 2,
+    "index.html": {'rel="preconnect"': 2, "<script>": 2, "<script": 12, "fetch(": 1, "localStorage": 4, "location.": 2,
                    "createElement": 2},
     "charts.js": {"createElement": 2},
     "korea.js": {"createElement": 1},

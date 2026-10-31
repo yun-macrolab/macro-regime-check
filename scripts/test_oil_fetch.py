@@ -5,7 +5,7 @@
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
 네트워크 불필요 — FRED는 가짜 loader 또는 합성 캐시(--offline). 숫자는 모두 지어낸 것이다.
 """
-import os, sys, io, re, json, math, datetime, tempfile, unittest, shutil, contextlib
+import os, sys, io, re, json, math, datetime, tempfile, unittest, shutil, contextlib, statistics
 from unittest import mock
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +21,11 @@ NOW = datetime.datetime(2026, 10, 30, 1, 30, tzinfo=datetime.timezone.utc)
 # 판정·방향 낱말 — 공개 카드 어디에도 없어야 한다(FORBIDDEN_TEXT에 더해)
 VERDICT = ("판정", "충족", "신호", "경보", "전망", "매수", "매도", "⚠", "강세", "약세", "호재", "악재", "우려", "부담",
            "상승", "하락", "→")
+
+
+def no_tags(text):
+    """정해 둔 꼬리표 이름(운영자 정의 — '에너지 하락')은 낱말 검사에서 뺀다. 그 밖의 '하락'은 그대로 잡힌다."""
+    return text.replace(oil.TAG_DOWN, "")
 
 
 def bdays(start, end):
@@ -62,6 +67,10 @@ def world(end=D(2026, 10, 23)):
     S["CPIAUCSL"] = [(m, 300 * 1.003 ** i) for i, m in enumerate(ms)]
     S["CPILFESL"] = [(m, 310 * 1.0025 ** i) for i, m in enumerate(ms) if m != D(2025, 10, 1)]   # 결측월
     S["CPIENGSL"] = [(m, 280 * 1.01 ** i) for i, m in enumerate(ms) if m <= D(2026, 9, 1)]
+    S["PCEPILFE"] = [(m, 120 * 1.003 ** i) for i, m in enumerate(ms) if m <= D(2026, 9, 1)]     # 전년비 약 3.7% — 높음 · 보통
+    S["IPN213111N"] = [(m, 100.0 if m.year < 2026 else 90.0) for m in ms if m <= D(2026, 9, 1)]
+    S["CAPUTLG211S"] = [(m, 80.0 if m.year < 2026 else 85.0) for m in ms if m <= D(2026, 9, 1)]
+    S["POILDUBUSDM"] = [(m, 70.0 if m.year < 2026 else 77.0) for m in ms if m <= D(2026, 9, 1)]
     return S
 
 
@@ -266,6 +275,7 @@ class ArithmeticTest(unittest.TestCase):
         self.assertEqual(v["gas_date"], "2026-10-19")
         self.assertAlmostEqual(v["gas_yoy"], (4 / 3 - 1) * 100, places=3)
         self.assertAlmostEqual(v["diesel_13w"], 0.0)
+        self.assertEqual((v["gas_m"], v["gas_m_n"], v["gas_m_avg"], v["gas_m_ch"]), ("2026-10-01", 3, 4.0, 0.0))
 
     def test_observations_after_today_are_dropped(self):
         S = dict(self.S, DCOILBRENTEU=self.S["DCOILBRENTEU"] + [(D(2026, 11, 2), 999.0)])
@@ -290,27 +300,317 @@ class ArithmeticTest(unittest.TestCase):
             for t in [line, *extra, spec["title"]]:
                 self.assertNotIn("None", t)
                 for word in list(FORBIDDEN_TEXT) + list(VERDICT):
-                    self.assertNotIn(word, t, (spec["key"], word))
+                    self.assertNotIn(word, no_tags(t), (spec["key"], word))
         state = oil.texts("state", core["state"]["values"], core["state"]["date"])
         self.assertIn(oil.STATE_DEF, state[1])                                     # 상태 이름은 정의와 함께만
         self.assertIn("예측하지 않는다", " ".join(state[1]))
 
 
+def index(start, growths):
+    """월간 지수 — start 달부터 달마다 growths[i]만큼 늘어난다(첫 달 100)."""
+    out, v, (y, m) = [], 100.0, (start.year, start.month)
+    for g in growths:
+        v *= 1 + g
+        out.append((D(y, m, 1), v))
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return out
+
+
+def g_of(rate):
+    """연율 rate(%)가 되는 달마다의 증가율."""
+    return (1 + rate / 100) ** (1 / 12) - 1
+
+
+class AddedLinesTest(unittest.TestCase):
+    """운영자의 월간 점검에만 있던 줄 — 실질 WTI 분위·이번 달 평균·I4와 꼬리표·상태별 측정 기록·공급 반응·두바이."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.S = world()
+
+    # 실질 WTI 분위
+    def wti_world(self, cpi_end=D(2026, 9, 1)):
+        days = bdays(D(1985, 12, 2), D(2026, 10, 23))
+        wti = [(d, 50.0) for d in days if not (d.year == 2000 and d.month == 2 and d.day > 7)]   # 2000-02는 5일뿐
+        wti = [(d, 1.0 if d.year == 1985 else v) for d, v in wti]                                # 1986년 앞은 표본 밖
+        ms = months(D(1985, 12, 1), cpi_end)
+        cpi = [(m, 100 * 1.002 ** i) for i, m in enumerate(ms)]
+        return {"DCOILBRENTEU": wti, "DCOILWTICO": wti, "CPIAUCSL": cpi}
+
+    def test_real_wti_percentile_uses_same_month_cpi_and_the_last_cpi_for_a_new_month(self):
+        r = oil.real_wti(self.wti_world())
+        n = len(months(D(1986, 1, 1), D(2026, 10, 1))) - 1                           # 2000-02(관측 5일) 빠짐
+        self.assertEqual((r["wti_month"], r["real_cpi_month"], r["real_n"], r["wti_avg"]), ("2026-10-01", "2026-09-01", n, 50.0))
+        self.assertAlmostEqual(r["real_pct"], round(2 / n * 100, 1))                  # 10월 = 50 ÷ 9월 CPI = 9월 실질 — 둘이 가장 낮다
+        self.assertEqual(r["nom_pct"], 100.0)                                         # 명목은 모두 50 — 같은 값은 '이하'에 든다
+
+    def test_real_wti_needs_a_cpi_within_three_months(self):
+        self.assertEqual(oil.real_wti(self.wti_world(cpi_end=D(2026, 7, 1)))["real_cpi_month"], "2026-07-01")
+        self.assertIsNone(oil.real_wti(self.wti_world(cpi_end=D(2026, 6, 1))))       # 4개월 전 — 나누지 않는다
+        S = self.wti_world(cpi_end=D(2026, 6, 1))
+        v = oil.calc_crude(S)["values"]                                                # 원유 줄은 그대로, 분위만 빈다
+        self.assertEqual({k: v[k] for k in oil.REAL_KEYS}, dict.fromkeys(oil.REAL_KEYS))
+        line, extra = oil.texts("crude", v, "2026-10-23")
+        self.assertNotIn("실질", line)
+        self.assertEqual(len(extra), 1)
+        self.assertEqual([s["series"] for s in oil.sources_of(oil.BY_KEY["crude"], "2026-10-30", v)],
+                         ["DCOILBRENTEU", "DCOILWTICO"])                               # 쓰지 않은 CPI는 출처에 없다
+
+    def test_crude_line_shows_the_percentiles(self):
+        v = oil.calc_crude(self.wti_world())["values"]
+        line, extra = oil.texts("crude", v, "2026-10-23")
+        self.assertTrue(line.endswith(f" · 실질 WTI 2026-10 월평균 p{v['real_pct']:.0f} (명목 p100, 1986~)"), line)
+        self.assertIn("이번엔 2026-09", extra[1])
+        self.assertIn(f"1986년 이후 {v['real_n']}개 달", extra[1])
+
+    def test_crude_without_cpi_keeps_its_numbers(self):
+        S = {k: v for k, v in self.S.items() if k != "CPIAUCSL"}
+        core = oil.compute(S, {"CPIAUCSL": "fetch"}, NOW.date())
+        self.assertNotIsInstance(core["crude"], oil.ItemError)
+        self.assertIsNone(core["crude"]["values"]["real_pct"])
+        self.assertIsInstance(core["cpi"], oil.ItemError)
+        self.assertIsInstance(core["i4"], oil.ItemError)
+
+    # 소매가 이번 달 평균
+    def test_month_to_date_against_last_month(self):
+        s = [(D(2026, 9, 7), 3.0), (D(2026, 9, 14), 3.2), (D(2026, 10, 5), 3.3), (D(2026, 10, 12), 3.5), (D(2026, 10, 19), 3.7)]
+        m, n, avg, ch = oil.month_to_date(s)
+        self.assertEqual((oil._mday(m), n), (D(2026, 10, 1), 3))
+        self.assertAlmostEqual(avg, 3.5)
+        self.assertAlmostEqual(ch, (3.5 / 3.1 - 1) * 100)
+        self.assertIsNone(oil.month_to_date(s[2:]))                                    # 지난달 관측이 없다
+        self.assertIsNone(oil.month_to_date([]))
+        self.assertIsNone(oil.month_to_date([(D(2026, 8, 31), 3.0)] + s[2:]))          # 두 달 전은 지난달이 아니다
+
+    def test_month_to_date_is_the_mean_not_the_median(self):
+        # 평균과 가운데 값이 다른 주간 값 — 이번 달 (3.0+3.1+3.8)/3 = 3.3(가운데 3.1), 지난달 (2.0+2.1+3.1)/3 = 2.4(가운데 2.1)
+        s = [(D(2026, 9, 7), 2.0), (D(2026, 9, 14), 2.1), (D(2026, 9, 21), 3.1),
+             (D(2026, 10, 5), 3.0), (D(2026, 10, 12), 3.1), (D(2026, 10, 19), 3.8)]
+        m, n, avg, ch = oil.month_to_date(s)
+        self.assertEqual(n, 3)
+        self.assertAlmostEqual(avg, 3.3)
+        self.assertAlmostEqual(ch, (3.3 / 2.4 - 1) * 100)
+
+    def test_products_line_shows_this_month_and_skips_it_when_missing(self):
+        v = oil.calc_products(self.S)["values"]
+        v.update(gas_m_avg=3.5, gas_m_ch=12.9032, gas_m_n=3)
+        line, extra = oil.texts("products", v, "2026-10-19")
+        self.assertIn("전년비 +33.3% · 10월 평균 $3.50(3주) 대 9월 +12.9% / 경유", line)
+        self.assertTrue(line.endswith(" · 10월 평균 $5.00(3주) 대 9월 0.0%"), line)
+        self.assertIn("계절조정 없음", extra[1])
+        v.update(dict.fromkeys(("gas_m", "gas_m_n", "gas_m_avg", "gas_m_ch")))
+        line, _ = oil.texts("products", v, "2026-10-19")
+        self.assertIn("전년비 +33.3% / 경유", line)
+        self.assertEqual(line.count("평균"), 1)
+        jan = dict(v, diesel_m="2026-01-01")
+        self.assertIn("1월 평균 $5.00(3주) 대 12월", oil.texts("products", jan, "2026-01-19")[0])   # 해를 넘는 지난달
+
+    # I4 · 물가 상태 · 꼬리표
+    def test_band_hysteresis(self):
+        cases = [(None, 3.1, "M"), (None, 3.1000004, "M"), (None, 3.100001, "H"), ("H", 2.9, "H"), ("H", 2.899999, "M"),
+                 ("H", 2.5, "Lo"), (None, 2.6, "M"), (None, 2.599999, "Lo"), ("Lo", 2.7, "Lo"), ("Lo", 2.700001, "M"),
+                 ("Lo", 3.2, "H"), ("M", 3.0, "M"), ("H", None, None)]
+        for prev, y, want in cases:
+            self.assertEqual(oil.band_step(prev, y), want, (prev, y))
+
+    def test_momentum_class(self):
+        cases = [([0.5], "A"), ([0.4999], "F"), ([None], None), ([], None), ([-0.3], None), ([0.1, -0.3], "F"),
+                 ([-0.3, -0.3], "D"), ([None, -0.35], None), ([-0.31, -0.29], "F"), ([-0.4, 0.6], "A"),
+                 ([-0.3000004, -0.2999996], "D")]
+        for seq, want in cases:
+            self.assertEqual(oil.mom_class(seq), want, seq)
+
+    def test_infl_rows_y3_takes_two_of_three_months(self):
+        s = index(D(2023, 1, 1), [g_of(2.0)] * 12 + [g_of(4.0)] * 14)                    # 2023-01 ~ 2025-02
+        rows = oil.infl_rows([p for p in s if p[0] != D(2024, 10, 1)])                  # 결측월 — 그 달 전년비가 없다
+        k = oil._mkey(D(2024, 11, 1))
+        self.assertIsNone(rows.get(oil._mkey(D(2024, 10, 1))))
+        y = lambda d: rows[oil._mkey(d)]["y12"]
+        self.assertAlmostEqual(rows[k]["Y3"], (y(D(2024, 11, 1)) + y(D(2024, 9, 1))) / 2)  # 석 달 중 둘
+        self.assertIsNone(rows[oil._mkey(D(2024, 1, 1))]["Y3"])                         # 첫 전년비 달 — 하나뿐
+        self.assertAlmostEqual(rows[k]["a6"], (((s[22][1] / s[16][1]) ** 2) - 1) * 100)  # 6개월 연율
+        self.assertIsNone(rows[oil._mkey(D(2025, 1, 1))]["a3"])                          # 3개월 전이 결측월
+
+    def test_p_grid_is_fixed(self):
+        self.assertEqual(oil.P_GRID, {("H", "A"): "P+", ("H", "F"): "P+", ("H", "D"): "Pd",
+                                      ("M", "A"): "P+", ("M", "F"): "P0", ("M", "D"): "P−",
+                                      ("Lo", "A"): "P0", ("Lo", "F"): "P−", ("Lo", "D"): "P−"})
+        self.assertEqual((oil.SUPPLY_HC, oil.H_IN, oil.H_OUT, oil.LO_IN, oil.LO_OUT, oil.MOM, oil.MOM_N, oil.MOM_DN,
+                          oil.MOM_DN_N), (1.0, 3.1, 2.9, 2.6, 2.7, 0.5, 1, 0.3, 2))
+
+    def test_pce_states_carry_the_band_and_read_the_grid(self):
+        flat = lambda rate, n: [g_of(rate)] * n
+        rows = oil.pce_states(oil.infl_rows(index(D(2018, 1, 1), flat(3.6, 30) + flat(3.0, 6) + flat(2.4, 30))))
+        ms = sorted(rows)
+        self.assertIsNone(rows[ms[11]]["band"])                                           # 첫 해 — 전년비 없음
+        self.assertEqual(rows[ms[24]]["band"], "H")
+        self.assertAlmostEqual(rows[ms[24]]["mom"], 0.0, places=9)
+        self.assertEqual((rows[ms[24]]["mom_class"], rows[ms[24]]["P"]), ("F", "P+"))
+        lows = [t for t in ms if rows[t]["Y3"] is not None and rows[t]["Y3"] < 2.9]
+        self.assertEqual(rows[lows[0]]["band"], "M")                                      # 2.9 밑으로 와야 높음에서 나온다
+        self.assertTrue(all(rows[t]["band"] == "H" for t in ms[24:] if t < lows[0]))
+        self.assertTrue(any(2.9 <= rows[t]["Y3"] <= 3.1 for t in ms[24:] if t < lows[0]))  # 사이 구간을 실제로 지난다
+        self.assertIsNone(rows[ms[0]]["mom_class"])
+        self.assertEqual(rows[ms[0]]["P"], "?")
+
+    def test_pce_states_keep_the_band_across_a_month_without_y3(self):
+        # 높음(H)에 들어간 뒤 Y3가 빈 달이 끼어도 그다음 달은 직전 띠(H)에서 이어 읽는다 — 2.9~3.1 사이면 H에 머문다
+        rows = {1: {"Y3": 3.5, "mom": 0.0}, 2: {"Y3": None, "mom": None}, 3: {"Y3": 3.0, "mom": 0.0},
+                4: {"Y3": 2.95, "mom": 0.0}, 5: {"Y3": 2.85, "mom": 0.0}}
+        out = oil.pce_states(rows)
+        self.assertEqual([out[t]["band"] for t in sorted(out)], ["H", None, "H", "H", "M"])
+        self.assertEqual(out[3]["P"], "P+")
+        self.assertEqual(out[2]["P"], "?")
+        rows = {1: {"Y3": 2.4, "mom": 0.0}, 2: {"Y3": None, "mom": None}, 3: {"Y3": 2.65, "mom": 0.0}}   # 낮음(Lo)도
+        self.assertEqual([r["band"] for _, r in sorted(oil.pce_states(rows).items())], ["Lo", None, "Lo"])
+
+    def cpi_pair(self, i4, core=2.0, months_n=30, start=D(2024, 4, 1)):
+        """근원 연율 core로 고르게, 전체는 마지막 석 달만 연율 core + i4로 — 마지막 달의 I4 = i4."""
+        core_s = index(start, [g_of(core)] * months_n)
+        head_s = index(start, [g_of(core)] * (months_n - 3) + [g_of(core + i4)] * 3)
+        return head_s, core_s
+
+    def tag_world(self, i4, pce_rate, pce_end=None):
+        head, core = self.cpi_pair(i4)
+        pce = index(D(2023, 1, 1), [g_of(pce_rate)] * 45)                                 # 2023-01 ~ 2026-09
+        if pce_end:
+            pce = [p for p in pce if p[0] <= pce_end]
+        return {"CPIAUCSL": head, "CPILFESL": core, "PCEPILFE": pce}
+
+    def test_supply_tag_needs_p_plus_and_i4_at_least_one(self):
+        for i4, rate, want_p, want in ((1.0, 3.6, "P+", ["공급형(에너지)"]), (0.9999, 3.6, "P+", []),
+                                       (2.0, 2.8, "P0", []), (-1.0, 3.6, "P+", ["에너지 하락"]),
+                                       (-1.5, 2.0, "P−", ["에너지 하락"]), (-0.99, 2.0, "P−", [])):
+            v = oil.energy_tags(self.tag_world(i4, rate))
+            self.assertEqual((v["p"], v["tags"]), (want_p, want), (i4, rate))
+            self.assertAlmostEqual(v["i4"], i4, places=4)
+            self.assertEqual((v["month"], v["pce_month"]), ("2026-09-01", "2026-09-01"))
+            self.assertAlmostEqual(v["hc_pce"], i4, places=4)
+
+    def test_tags_use_the_i4_of_the_pce_month(self):
+        v = oil.energy_tags(self.tag_world(1.5, 3.6, pce_end=D(2026, 8, 1)))           # PCE가 CPI보다 한 달 늦다
+        self.assertEqual((v["month"], v["pce_month"]), ("2026-09-01", "2026-08-01"))
+        self.assertAlmostEqual(v["i4"], 1.5, places=4)
+        self.assertLess(v["hc_pce"], 1.0)                                                 # 8월의 I4는 석 달 중 두 달만
+        self.assertEqual(v["tags"], [])
+        line, _ = oil.texts("i4", v, "2026-09-01")
+        self.assertIn(" — 근원 PCE 2026-08 물가 상태 P+ · 그 달 I4 +", line)
+
+    def test_i4_without_pce(self):
+        S = self.tag_world(1.5, 3.6)
+        del S["PCEPILFE"]
+        c = oil.calc_i4(S)
+        self.assertEqual((c["date"], c["values"]["p"], c["values"]["tags"], c["values"]["pce_month"]), ("2026-09-01", None, None, None))
+        line, _ = oil.texts("i4", c["values"], c["date"])
+        self.assertTrue(line.endswith(" · 꼬리표: 근원 PCE 미수신"), line)
+        self.assertEqual([s["series"] for s in oil.sources_of(oil.BY_KEY["i4"], "2026-10-30", c["values"])],
+                         ["CPIAUCSL", "CPILFESL"])
+        with self.assertRaises(oil.ItemError):
+            oil.calc_i4({"CPIAUCSL": S["CPIAUCSL"][:2], "CPILFESL": S["CPILFESL"]})
+
+    def test_i4_line_and_definitions(self):
+        c = oil.calc_i4(self.tag_world(1.2, 3.6))
+        line, extra = oil.texts("i4", c["values"], c["date"])
+        self.assertEqual(line, "2026-09 I4(CPI 전체 a3 − 근원 a3) +1.20%p · 꼬리표 공급형(에너지) — 근원 PCE 2026-09 물가 상태 P+ 기준")
+        joined = " ".join(extra)
+        for part in ("+1.0%p 이상", "-1.0%p 이하", "3.1% 넘으면", "2.9% 밑에서", "2.6% 밑이면", "2.7% 넘어서", "+0.5%p",
+                     "-0.3%p 이하가 2개 발표", "높음 × 둔화 = Pd", "2026-10-14", "예측하지 않는다"):
+            self.assertIn(part, joined)
+        later = dict(c["values"], pce_month="2026-10-01", hc_pce=None)                   # PCE 달에 CPI가 없으면 그 달 I4는 —
+        self.assertTrue(oil.texts("i4", later, c["date"])[0].endswith("물가 상태 P+ · 그 달 I4 — 기준"))
+
+    # 상태 줄의 측정 기록
+    def test_state_line_carries_the_measured_averages(self):
+        self.assertEqual(oil.STATE_AVG, {"up": 2.43, "flat": 0.81, "down": -1.16, "all": 0.83})
+        self.assertEqual(oil.STATE_N, {"up": 117, "flat": 204, "down": 92})
+        v = oil.calc_state(self.S)["values"]
+        line, extra = oil.texts("state", v, "2026-10-01")
+        self.assertTrue(line.endswith(" — 측정 기록: 다음 3개월 CPI 에너지 평균 오름 +2.43% · 보합 +0.81% · 내림 -1.16% "
+                                      "(전체 +0.83%, 1990~)"), line)
+        self.assertIn("413개 — 오름 117 · 보합 204 · 내림 92", extra[2])
+        self.assertIn("예측이 아니며", extra[2])
+
+    # 미국 공급 반응
+    def test_supply(self):
+        v = oil.calc_supply(self.S)["values"]
+        self.assertEqual((v["drill_month"], v["util_month"], v["util"], v["util_1y"]), ("2026-09-01", "2026-09-01", 85.0, 80.0))
+        self.assertAlmostEqual(v["drill_yoy"], -10.0)
+        line, _ = oil.texts("supply", v, "2026-09-01")
+        self.assertEqual(line, "석유·가스 시추 생산 전년비 -10.0%(2026-09) · 석유·가스 추출 가동률 85.0%(2026-09, 1년 전 80.0%)")
+        S = dict(self.S, CAPUTLG211S=[p for p in self.S["CAPUTLG211S"] if p[0] != D(2025, 9, 1)],
+                 IPN213111N=[p for p in self.S["IPN213111N"] if p[0] != D(2025, 9, 1)])
+        v = oil.calc_supply(S)["values"]
+        self.assertIsNone(v["util_1y"])                                                  # 1년 전 같은 달이 없으면 비운다
+        self.assertEqual(v["drill_month"], "2026-08-01")                                 # 전년비는 1년 전 같은 달이 있는 마지막 달
+        self.assertIn("1년 전 —", oil.texts("supply", v, "2026-09-01")[0])
+        self.assertIn("시추 생산 전년비 +12.5%(", oil.texts("supply", dict(v, drill_yoy=12.5), "2026-09-01")[0])
+
+    # 두바이 × 원/달러
+    def test_dubai_split_adds_up_and_uses_monthly_fx(self):
+        v = oil.calc_dubai(self.S)["values"]
+        fx = lambda y, m: statistics.fmean(x for d, x in self.S["DEXKOUS"] if (d.year, d.month) == (y, m))
+        k1, k0 = fx(2026, 9), fx(2025, 9)
+        self.assertEqual(v["month"], "2026-09-01")
+        self.assertAlmostEqual(v["yoy"], (77 * k1 / (70 * k0) - 1) * 100, places=3)
+        self.assertAlmostEqual(v["usd_pp"] + v["fx_pp"], v["yoy"], places=3)
+        lb, lk = math.log(77 / 70), math.log(k1 / k0)
+        self.assertAlmostEqual(v["usd_pp"], v["yoy"] * lb / (lb + lk), places=3)
+        self.assertAlmostEqual(v["krw"], 77 * k1 / 10000, places=3)
+        line, extra = oil.texts("dubai", v, v["month"])
+        a, b, c = [float(x) for x in re.findall(r"[+-]\d+\.\d", line.split("전년비 ")[1])]
+        self.assertAlmostEqual(b + c, a, places=6)
+        self.assertIn("IMF 두바이", extra[0])
+
+    def test_dubai_month_needs_ten_fx_days(self):
+        S = dict(self.S, DEXKOUS=[p for p in self.S["DEXKOUS"] if not (p[0].year == 2026 and p[0].month == 9 and p[0].day > 9)])
+        self.assertEqual(oil.calc_dubai(S)["values"]["month"], "2026-08-01")
+        with self.assertRaises(oil.ItemError):
+            oil.calc_dubai(dict(self.S, POILDUBUSDM=self.S["POILDUBUSDM"][-6:]))           # 1년 전 달이 없다
+
+    # 직전 파일 검사 — 새 꼴
+    def test_previous_item_kinds(self):
+        good = oil.build(oil.compute(self.S, {}, NOW.date()), {}, NOW)["items"]
+        self.assertIsNotNone(oil.core_of(good["i4"], "i4"))
+        for bad in ({"tags": ["매수"]}, {"tags": ["공급형(에너지)", "공급형(에너지)"]}, {"tags": "공급형(에너지)"},
+                    {"p": "P++"}, {"p": 3}):
+            it = json.loads(json.dumps(good["i4"]))
+            it["values"].update(bad)
+            self.assertIsNone(oil.core_of(it, "i4"), bad)
+        it = json.loads(json.dumps(good["crude"]))
+        it["values"]["real_n"] = -3
+        self.assertIsNone(oil.core_of(it, "crude"))
+        it["values"]["real_n"] = None
+        self.assertIsNotNone(oil.core_of(it, "crude"))
+
+
 class LicenceTest(unittest.TestCase):
     def test_series_list_is_fixed_and_public(self):
         self.assertEqual(set(oil.SERIES), {"DCOILBRENTEU", "DCOILWTICO", "GASREGW", "GASDESW", "DGASNYH", "DDFUELNYH",
-                                           "CPIENGSL", "CPIAUCSL", "CPILFESL", "DEXKOUS", "T5YIE", "T5YIFR"})
+                                           "CPIENGSL", "CPIAUCSL", "CPILFESL", "DEXKOUS", "T5YIE", "T5YIFR",
+                                           "PCEPILFE", "IPN213111N", "CAPUTLG211S", "POILDUBUSDM"})
+        self.assertEqual(oil.SERIES[-4:], ["PCEPILFE", "IPN213111N", "CAPUTLG211S", "POILDUBUSDM"])   # 새로 더한 것은 끝
         self.assertEqual(set(oil.LICENCE), set(oil.SERIES))
-        self.assertEqual({s for s, v in oil.LICENCE.items() if v != "public-domain"}, {"T5YIE", "T5YIFR"})
+        self.assertEqual({s for s, v in oil.LICENCE.items() if v != "public-domain"}, {"T5YIE", "T5YIFR", "POILDUBUSDM"})
         self.assertEqual(set(oil.LICENCE.values()), {"public-domain", "citation-required"})
         self.assertFalse(set(oil.SERIES) & (set(rp.RESTRICTED) | set(ai.RESTRICTED)))
         for spec in oil.ITEMS:
-            self.assertLessEqual(set(spec["series"]), set(oil.SERIES))
+            self.assertLessEqual(set(spec["series"]) | set(spec.get("optional", ())), set(oil.SERIES))
+            self.assertFalse(set(spec["series"]) & set(spec.get("optional", ())))
+            for field in spec.get("optional", {}).values():
+                self.assertIn(field, spec["values"])
+        self.assertEqual({sid for sid in oil.SERIES if oil.LICENCE[sid] == "citation-required"}, set(oil.SERIES_NOTICES))
+        self.assertEqual(oil.SOURCES["POILDUBUSDM"], ("International Monetary Fund", "Global price of Dubai Crude"))
 
     def test_citation_required_items_carry_the_notice(self):
         self.assertIn(oil.CITATION_NOTICE, oil.notices(oil.BY_KEY["bei"]))
-        for key in ("crude", "korea", "cpi"):
+        self.assertEqual(oil.notices(oil.BY_KEY["dubai"]), [oil.COMPUTED_NOTICE, oil.IMF_NOTICE])
+        for key in ("crude", "korea", "cpi", "i4", "supply"):
             self.assertEqual(oil.notices(oil.BY_KEY[key]), [oil.COMPUTED_NOTICE])
+        self.assertIn("Copyright © International Monetary Fund", oil.IMF_NOTICE)
+        self.assertIn("계산값", oil.IMF_NOTICE)
+        self.assertEqual(oil.citation("POILDUBUSDM", "2026-10-30"),
+                         "International Monetary Fund, Global price of Dubai Crude [POILDUBUSDM], retrieved from FRED, "
+                         "Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/POILDUBUSDM, October 30, 2026.")
 
 
 class MainTest(unittest.TestCase):
@@ -348,6 +648,11 @@ class MainTest(unittest.TestCase):
                 self.assertEqual(src["licence"], oil.LICENCE[src["series"]])
                 self.assertTrue(src["citation"].startswith(oil.SOURCES[src["series"]][0]))
                 self.assertTrue(src["citation"].endswith("October 30, 2026."))
+        used = lambda key: [src["series"] for src in js["items"][key]["sources"]]
+        self.assertEqual(used("crude"), ["DCOILBRENTEU", "DCOILWTICO", "CPIAUCSL"])    # 분위를 채웠으니 CPI도 출처에
+        self.assertEqual(used("i4"), ["CPIAUCSL", "CPILFESL", "PCEPILFE"])
+        self.assertEqual(used("dubai"), ["POILDUBUSDM", "DEXKOUS"])
+        self.assertIn(oil.IMF_NOTICE, js["items"]["dubai"]["notices"])
         chart = js["items"]["base"]["chart"]
         self.assertEqual([ln["key"] for ln in chart["lines"]], ["yoy", "path"])
         self.assertEqual([p[0] for p in chart["lines"][1]["points"]][-1], "2027-04-01")
@@ -362,7 +667,8 @@ class MainTest(unittest.TestCase):
         k = items["korea"]
         self.assertEqual((k["ok"], k["stale"], k["error"], k["failed_since"]), (False, True, oil.REASONS["fetch"], "2026-10-31"))
         self.assertEqual(k["retrieved"], "2026-10-30")
-        self.assertTrue(all(items[x]["ok"] for x in items if x != "korea"))
+        self.assertFalse(items["dubai"]["ok"])                                    # 원/달러를 함께 쓰는 두바이 줄도
+        self.assertTrue(all(items[x]["ok"] for x in items if x not in oil.KOREA))
         self.assertIn("::warning::유가·에너지 참고 korea 받지 못함", log)
         self.assertNotIn("xyz-77", log)
         self.run_main(fred=FakeFred(self.S, fail={"DCOILBRENTEU"}), now=NOW + datetime.timedelta(days=2))
@@ -472,7 +778,7 @@ class MainTest(unittest.TestCase):
         self.run_main(fred=FakeFred(self.S, fail={"DCOILBRENTEU", "T5YIE"}), now=NOW + datetime.timedelta(days=2))
         dump = json.dumps(self.saved(), ensure_ascii=False)
         for word in list(FORBIDDEN_TEXT) + list(VERDICT):
-            self.assertNotIn(word, dump, word)
+            self.assertNotIn(word, no_tags(dump), word)
         urls = {u.rstrip(".") for u in re.findall(r"https?://[^\s,;)\"]+", dump)}
         self.assertEqual(urls, {f"https://fred.stlouisfed.org/series/{sid}" for sid in oil.SERIES})
         self.assertNotIn("bad.invalid", dump)
@@ -531,17 +837,38 @@ class StaticTest(unittest.TestCase):
         self.assertIn('<div id="korea-oil" class="panel korea-oil" hidden', korea[:korea.index("</section>")])
         self.assertIn("window.OilEnergy.render(oil.value)", page)
 
+    def test_card_shows_the_citations_the_notices_promise_and_one_intro(self):
+        # CITATION_NOTICE·IMF_NOTICE는 'FRED 권장 인용과 함께 싣는다'고 적는다 — 화면이 그 licence의 citation을 글자로 싣는다
+        js = self.read("site", "oil.js")
+        code = re.sub(r"/\*.*?\*/|//[^\n]*", "", js, flags=re.S)
+        lic = re.search(r'const CITE_LICENCE = "([^"]+)";', code).group(1)
+        self.assertEqual({sid for sid, v in oil.LICENCE.items() if v == lic}, {"T5YIE", "T5YIFR", "POILDUBUSDM"})
+        self.assertEqual({sid for sid, t in oil.SERIES_NOTICES.items() if "함께 싣는다" in t}, {"T5YIE", "T5YIFR", "POILDUBUSDM"})
+        self.assertIn("citeLines(items, CARD)", code)                              # 카드(T5YIE·T5YIFR)
+        self.assertIn("citeLines(items, shown)", code)                             # 한국 시장 줄(두바이)
+        self.assertNotIn("d.notice", code)
+        about = "".join(re.findall(r'"([^"]*)"', code[code.index("const ABOUT = "):].split(";\n", 1)[0]))
+        for sent in filter(None, re.split(r"(?<=\.)\s+", about)):
+            self.assertTrue(sent.endswith("니다."), sent)
+        for mine, theirs in (("규칙 수에 들지 않는", "규칙 점검에 쓰지 않는"), ("공개 통계와 그 산술", "공개 통계로 계산한 산술"),
+                             ("유가나 금리를 예측하지 않습니다", "유가나 금리를 예측하지 않는다")):
+            self.assertIn(mine, about)
+            self.assertIn(theirs, oil.NOTICE)
+
     def test_screen_script_matches_the_file_and_avoids_verdict_words(self):
         js = self.read("site", "oil.js")
         card = re.findall(r'"(\w+)"', js[js.index("const CARD = ["):].split("]")[0])
-        self.assertEqual(card, [s["key"] for s in oil.ITEMS if s["key"] != "korea"])
+        self.assertEqual(card, [s["key"] for s in oil.ITEMS if s["key"] not in oil.KOREA])
+        korea = re.findall(r'"(\w+)"', js[js.index("const KOREA = ["):].split("]")[0])
+        self.assertEqual(korea, [s["key"] for s in oil.ITEMS if s["key"] in oil.KOREA])
+        self.assertEqual(list(oil.KOREA), korea)
         reasons = re.findall(r'"([^"]+)"', js[js.index("const REASONS = ["):].split("];")[0])
         self.assertEqual(reasons, list(oil.REASONS.values()))
         for tok in ("innerHTML", "outerHTML", "insertAdjacentHTML", "createElement", "fetch(", "eval("):
             self.assertNotIn(tok, js)
         body = re.sub(r"/\*.*?\*/|//[^\n]*", "", js, flags=re.S)
         for word in list(FORBIDDEN_TEXT) + list(VERDICT):
-            self.assertNotIn(word, body, word)
+            self.assertNotIn(word, no_tags(body), word)
         self.assertIn('key === "state" ? el("p", { class: "oil-note" }, STATE_NOTE)', js)   # 상태 줄에는 늘 정의 안내
         css = self.read("site", "dashboard.css")
         self.assertRegex(css, r"\.oil-card p, \.korea-oil p \{[^}]*overflow-wrap: anywhere")

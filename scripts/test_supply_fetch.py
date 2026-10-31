@@ -222,7 +222,7 @@ class StatsTest(unittest.TestCase):
             self.assertEqual(text is None, want is None)
             if text:
                 self.assertIn("2019년 이후", text)
-                self.assertIn("p95 위" if want == "high" else "p5 아래", text)
+                self.assertRegex(text, r"p95\([+-][\d,]+\) 위" if want == "high" else r"p5\([+-][\d,]+\) 아래")
 
     def test_flag_thresholds_are_p95_and_p5_not_p90_or_p10(self):
         base = [(w, 200.0 + 10 * math.sin(i * 1.7)) for i, w in enumerate(wednesdays(D(2018, 1, 3), D(2026, 9, 2)))]
@@ -315,6 +315,21 @@ class PresentTest(unittest.TestCase):
         self.assertTrue(d["extra"][1].startswith("논문 계수 대입 참고값: +282bn × 0.038bp = 약 +10.7bp"))
         self.assertIn("판정에 쓰지 않음", d["extra"][1])
         self.assertEqual(c["extra"], [])
+
+    def test_flag_lines_carry_the_private_monthly_wording(self):
+        # 2026-10-30 사용자 결정: 비공개 월간 점검 [수급 구조]의 ⚠ 줄(tp_drivers._flag_line)과 같은 구절 — 숫자는 이 카드의 꼴(쉼표)
+        cases = (("dealer", "high", 80.4, "⚠ 딜러 4주 변화 +80bn이 2019년 이후 p95(+52) 위(상위 5%) — 재고 급증(조달 압박·TFP 상승 쪽)"),
+                 ("dealer", "low", -61.0, "⚠ 딜러 4주 변화 -61bn이 2019년 이후 p5(-45) 아래(하위 5%) — 재고 급감"),
+                 ("custody", "high", 1250.0, "⚠ 해외 공적 수탁 4주 변화 +1,250bn이 2019년 이후 p95(+43) 위(상위 5%) — 수탁 급증"),
+                 ("custody", "low", -70.0, "⚠ 해외 공적 수탁 4주 변화 -70bn이 2019년 이후 p5(-53) 아래(하위 5%) — "
+                                           "수탁 급감(매도 또는 민간 수탁 이전 — 단정하지 않음)"))
+        for kind, flag, c4, want in cases:
+            core = {**(self.DEALER if kind == "dealer" else self.CUSTODY), "flag": flag, "chg_4w_bn": c4}
+            self.assertEqual(sf.present(kind, core, "2026-10-14")["flag_text"], want)
+        late = {**self.DEALER, "flag": "high", "chg_4w_bn": 80.0, "q4w": {**self.DEALER["q4w"], "from": "2021-03-03"}}
+        self.assertIn("2021년 이후 p95(+52) 위", sf.present("dealer", late, "2026-10-14")["flag_text"])   # 표본 시작 해
+        self.assertIsNone(sf.present("dealer", self.DEALER, "2026-10-14")["flag_text"])
+        self.assertIn("예측이 아니다", sf.NOTICE)
 
     def test_sign_rounding_has_no_negative_zero(self):
         self.assertEqual([sf._signed(v) for v in (-0.4, 0.4, 0, None, 1234.6, -1234.6)],
@@ -594,6 +609,7 @@ class MainTest(unittest.TestCase):
         texts = [sf.NOTICE, sf.PD_DERIVED, sf.PD_DERIVED_EN, sf.CUSTODY_DERIVED, sf.CHART_NOTE, *sf.REASONS.values()]
         texts += [v for spec in sf.SIDES.values() for v in spec.values() if isinstance(v, str)]
         texts += sf.present("dealer", PresentTest.DEALER, "2026-10-14")["extra"]
+        texts += [*sf.FLAG_NAME.values(), *sf.FLAG_READING.values()]                    # ⚠ 줄 구절(2026-10-30)
         for t in texts:
             for word in FORBIDDEN_TEXT:
                 self.assertNotIn(word, t, (word, t))
