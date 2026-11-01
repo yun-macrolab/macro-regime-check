@@ -33,6 +33,7 @@ BANNED = (                                                 # 어느 파일에서
     'setAttribute("on', "setAttribute('on",
     "serviceWorker", "import(", "importScripts", "RTCPeerConnection", "window.open", "location.assign", "location.replace",
     'rel="dns-prefetch"', 'rel="prefetch"', 'rel="prerender"',
+    "<iframe", "<frame", "<object", "<embed", 'http-equiv="refresh"',      # 다른 문서·플러그인 싣기, 자동 이동(2026-11-01)
 )
 
 WATCHED = (                                                # study/ 밖 파일에서 세는 낱말 — 횟수가 ALLOW와 같아야 한다
@@ -50,7 +51,7 @@ ALLOW = {                                                  # 파일(site/ 기준
     # 연준 인물 페이지(2026-11-01) — 글꼴 미리 잇기 2 · 같은 폴더 스크립트 2(자료 people-data.js, 그리기 people.js)
     "people.html": {'rel="preconnect"': 2, "<script": 2},
     # 저장은 점검 페이지와 같은 이름 둘(motion·keys)의 읽기·쓰기, 주소는 사람마다의 #키, 요소는 createElement·createElementNS
-    "people.js": {"localStorage": 4, "location.": 4, "createElement": 2},
+    "people.js": {"localStorage": 4, "location.": 3, "createElement": 2},
     "people.css": {"url(": 1},                              # url(#hatch-unk) — 페이지 안 SVG 무늬, 바깥 요청 아님
 }
 
@@ -164,8 +165,12 @@ def code_only(name, text):
 
 
 def banned_hits(site):
-    """[(파일, 낱말)] — site/의 모든 파일(study/ 포함)에서 주석을 떼고 찾은 금지 낱말."""
-    return [(n, w) for n in files_under(site) for w in BANNED if w in code_only(n, read(site, n))]
+    """[(파일, 낱말)] — site/의 모든 파일(study/ 포함)에서 주석을 떼고 찾은 금지 낱말. 대소문자는 가리지 않는다(JavaScript: · <IFRAME)."""
+    out = []
+    for n in files_under(site):
+        code = code_only(n, read(site, n)).lower()
+        out += [(n, w) for w in BANNED if w.lower() in code]
+    return out
 
 
 def foreign_scripts(site):
@@ -195,10 +200,12 @@ class SiteWordsTest(unittest.TestCase):
                       'const kind = "image/*"; box.insertAdjacentHTML("x", kind); /* 끝 */\n</script>\n',
             "study/c.js": "box.innerHTML = 1;\n",
             "d.css": "/* url( */\na { color: red; }\n",
+            "e.html": '<a href="JavaScript:void 0">x</a><IFRAME src="x.html"></IFRAME>',
         }
         with planted(files) as site:
             self.assertEqual(banned_hits(site), [("a.js", "outerHTML"), ("b.html", "insertAdjacentHTML"),
-                                                 ("b.html", "javascript:"), ("study/c.js", "innerHTML")])
+                                                 ("b.html", "javascript:"), ("e.html", "javascript:"), ("e.html", "<iframe"),
+                                                 ("study/c.js", "innerHTML")])
             self.assertIn('"https://example.org/a"', code_only("a.js", read(site, "a.js")))     # 문자열 안의 //는 주석이 아니다
             self.assertNotIn("url(", code_only("d.css", read(site, "d.css")))
 

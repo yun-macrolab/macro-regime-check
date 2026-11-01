@@ -12,7 +12,7 @@ const $ = id => document.getElementById(id);
 function el(tag, attrs, ...kids) {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
-    if (v === null || v === undefined || v === false) continue;
+    if (v === null || v === undefined || v === false || /^on/i.test(k)) continue;   // on* 속성은 받지 않는다
     if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else n.setAttribute(k, v === true ? "" : v);
   }
   for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) n.append(c.nodeType ? c : String(c));
@@ -20,7 +20,7 @@ function el(tag, attrs, ...kids) {
 }
 function sv(tag, attrs, ...kids) {
   const n = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs || {})) if (v !== null && v !== undefined) n.setAttribute(k, v);
+  for (const [k, v] of Object.entries(attrs || {})) if (v !== null && v !== undefined && !/^on/i.test(k)) n.setAttribute(k, v);   // on* 속성은 받지 않는다
   for (const c of kids.flat()) if (c !== null && c !== undefined) n.append(c.nodeType ? c : String(c));
   return n;
 }
@@ -32,14 +32,15 @@ let KEYS_ON = true;
 try { KEYS_ON = localStorage.getItem("keys") !== "off"; } catch (e) {}
 
 const people = DATA.people || [];
-const byKey = {};
+const byKey = Object.create(null);
 people.forEach((p, i) => { p._i = i; byKey[p.key] = p; });
-const ALIAS = {};   // 옛 주소 → 사람 키(지금은 없다)
-const HASH = Object.fromEntries(Object.entries(ALIAS).map(([a, k]) => [k, a]));
+const ALIAS = Object.create(null);   // 옛 주소 → 사람 키(지금은 없다)
+const HASH = Object.assign(Object.create(null), Object.fromEntries(Object.entries(ALIAS).map(([a, k]) => [k, a])));
 const hashOf = p => HASH[p.key] || p.key;
+const hashKey = () => { try { return decodeURIComponent(location.hash.slice(1)); } catch (e) { return ""; } };
 const SEAL = n => "ABCDEFGHIJKL"[n - 1] || "?";
-const DIST = Object.fromEntries((DATA.districts || []).map(d => [d.n, d]));
-const STATE_D = {};
+const DIST = Object.assign(Object.create(null), Object.fromEntries((DATA.districts || []).map(d => [d.n, d])));
+const STATE_D = Object.create(null);
 for (const d of DATA.districts || []) for (const s of d.states || []) STATE_D[s] = d.n;
 const TONE = { 1: "a", 2: "b", 3: "c", 4: "a", 5: "d", 6: "b", 7: "c", 8: "e", 9: "a", 10: "b", 11: "c", 12: "d" };
 const CAMP = { "매파": "hawk", "중도": "mid", "비둘기": "dove", "스윙": "swing", "미상": "unk" };
@@ -47,7 +48,7 @@ const CAMP_ORDER = ["매파", "중도", "스윙", "비둘기", "미상"];
 const campCls = p => CAMP[p.camp] || "unk";
 const campVar = p => `var(--${campCls(p)})`;
 const KIND = { school: "학교", academia: "학계", company: "회사", government: "정부", fed: "연준", other: "기타" };
-const sur = p => (p.name_ko || p.key).split(" ").slice(-1)[0];
+const sur = p => String(p.name_ko || p.key).trim().split(/\s+/).pop() || p.key;
 const fmtS = v => v === null || v === undefined ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1);
 const md = d => (d || "").slice(5);
 const SIDE = side => /인상/.test(side) ? { cls: "up", mark: "▲", word: "인상" } : /인하/.test(side) ? { cls: "down", mark: "▼", word: "인하" } : { cls: "text", mark: "◆", word: "문구" };
@@ -167,6 +168,11 @@ function placeLabels(items, obstacles, view) {
         i++;
       });
     });
+    if (view && best) {
+      const pad = 2 * k;
+      best.x = Math.min(Math.max(best.x, view.x + pad), view.x + view.w - best.w - pad);
+      best.y = Math.min(Math.max(best.y, view.y + pad), view.y + view.h - best.h - pad);
+    }
     placed.push(best);
     it.box = best; it.ring = bestRing;
   }
@@ -262,13 +268,14 @@ function drawGhosts(p, k) {
 }
 function placeHubs(k, view, obstacles) {
   const boxes = [];
+  const narrow = routeSvg.getBoundingClientRect().width < 480;
   for (const h of hubList()) {
     const g = sv("g", { class: "hub" });
     const nT = sv("text", { class: "n", "font-size": 11 * k }, `${h.who.size}명`);
-    const lT = sv("text", { class: "lb", "font-size": 11 * k, "stroke-width": 3 * k }, h.place.split(",")[0]);
-    g.append(nT, lT, sv("title", {}, `${h.place} — ${h.who.size}명이 거쳐 감: ${[...h.who].map(nameOfKey).join(", ")}`));
+    const lT = narrow ? null : sv("text", { class: "lb", "font-size": 11 * k, "stroke-width": 3 * k }, h.place.split(",")[0]);
+    g.append(nT, ...(lT ? [lT] : []), sv("title", {}, `${h.place} — ${h.who.size}명이 거쳐 감: ${[...h.who].map(nameOfKey).join(", ")}`));
     route.hubs.append(g);
-    const bw = nT.getBBox().width + 8 * k, bh = 15 * k, lw = lT.getBBox().width + 4 * k;
+    const bw = nT.getBBox().width + 8 * k, bh = 15 * k, lw = lT ? lT.getBBox().width + 4 * k : 0;
     const it = { cx: h.xy[0], cy: h.xy[1], r: 5 * k, w: bw + 3 * k + lw, h: bh, k, rings: [1.6, 3, 4.6] };
     placeLabels([it], obstacles.concat(boxes), view);
     const b = it.box;
@@ -276,7 +283,7 @@ function placeHubs(k, view, obstacles) {
     g.prepend(sv("line", { x1: h.xy[0].toFixed(1), y1: h.xy[1].toFixed(1), x2: near[0].toFixed(1), y2: near[1].toFixed(1), "stroke-width": k }),
       sv("rect", { x: b.x.toFixed(1), y: b.y.toFixed(1), width: bw.toFixed(1), height: bh.toFixed(1), "stroke-width": k }));
     nT.setAttribute("x", (b.x + bw / 2).toFixed(1)); nT.setAttribute("y", (b.y + bh / 2).toFixed(1));
-    lT.setAttribute("x", (b.x + bw + 3 * k).toFixed(1)); lT.setAttribute("y", (b.y + bh / 2).toFixed(1));
+    if (lT) { lT.setAttribute("x", (b.x + bw + 3 * k).toFixed(1)); lT.setAttribute("y", (b.y + bh / 2).toFixed(1)); }
     boxes.push(b);
   }
   return boxes;
@@ -613,7 +620,7 @@ function renderFile(p, ropt) {
   const num = typeof p.stance_now === "number";
   const idcard = el("div", { class: "idcard" },
     el("div", { class: "badge-row" }, el("span", { class: "badge-k", text: "관찰자 라벨" }),
-      el("span", { class: "badge " + camp, title: "언론·관찰자 평판을 줄인 것 — 계산값 아님", text: p.camp || "미상" }),
+      el("span", { class: "badge " + camp, title: "언론·관찰자 평판을 줄인 것 — 계산값 아님" + ((p.camp_src || []).length ? " · 라벨 출처: " + p.camp_src.map(s => `${s.outlet} ${s.date}`).join(" · ") : p.camp_cert ? ` · 라벨 출처: ${p.camp_cert}(미확인)` : ""), text: p.camp || "미상" }),
       el("span", { class: "badge-note", text: "평판 요약 · 계산값 아님" })),
     el("div", { class: "lean" }, el("span", { class: "lean-k", text: "위치 · 운영자 해석 (−2 비둘기 … +2 매파)" }),
       el("span", { class: "big", text: fmtS(p.stance_now) }),
@@ -639,14 +646,14 @@ function renderFile(p, ropt) {
     el("span", { class: "glyph", "aria-hidden": "true", text: glyph }),
     el("div", { class: "bbody" }, el("h4", {}, title, el("small", { text: q })), el("ul", {}, li(arr))));
   const base = el("section", { id: "sec-base", "aria-labelledby": "h-base" },
-    el("div", { class: "sec-h" }, el("h3", { id: "h-base" }, el("span", { class: "no", text: "02" }), "기준선"),
+    el("div", { class: "sec-h" }, el("h3", { id: "h-base" }, el("span", { class: "no", text: "02" }), "기준선", el("span", { class: "tag", text: "운영자 정리 · " + (DATA.review === "approved" ? "확인함" : "초안") })),
       el("p", {}, el("span", { class: "wide", text: "새 발언은 이 세 칸에 견준다 — 가운데 ‘평소’ 안이면 뉴스가 아니다 · 순서는 축과 같다: 비둘기 → 평소 → 매파" }), el("span", { class: "narrow", text: "‘평소’ 안이면 뉴스 아님 · 위에서부터 비둘기 → 평소 → 매파(축 순서)" }))),
     el("div", { class: "base-axis", "aria-hidden": "true" }, el("span", { class: "d", text: "◀ 비둘기 쪽" }), el("span", { class: "u", text: "이 사람의 평소" }), el("span", { class: "h", text: "매파 쪽 ▶" })),
     el("div", { class: "base-grid" },
       col("dove", "▼", "비둘기 쪽 놀랄 일", "나오면 비둘기 쪽 뉴스", b.dove_surprise),
       col("usual", "■", "평소", "늘 하는 말 — 새 소식 아님", b.usual),
       col("hawk", "▲", "매파 쪽 놀랄 일", "나오면 매파 쪽 뉴스", b.hawk_surprise)),
-    p.watch ? el("div", { class: "watch" }, el("b", { text: "다음 확인" }), el("p", { text: p.watch })) : null,
+    p.watch ? el("div", { class: "watch" }, el("b", { text: "다음 확인" }), el("p", { text: p.watch + " (운영자 정리 — 예측 아님)" })) : null,
     p.stance_basis ? el("p", { class: "basis" }, el("b", { text: "위치 근거(운영자 해석): " }), p.stance_basis) : null);
   f.append(base);
   /* 노선도 */
@@ -1113,9 +1120,12 @@ function buildMix() {
 /* ───────── 머리: 기능 키 · 찾기 · 띠 · 움직임 · 단축키 · D-n ───────── */
 const SECTIONS = [["file-wrap", "파일", true], ["sec-base", "기준선", true], ["sec-route", "노선도", true], ["sec-talk", "말·기록", true],
   ["sec-dmap", "지구 지도"], ["sec-spec", "스펙트럼"], ["sec-ledger", "표결 장부"], ["sec-mix", "출신"], ["sec-notes", "읽기 전에"]];
+let spyHold = 0;
+function litKey(id) { document.querySelectorAll("#fkeys button").forEach(b => b.setAttribute("aria-current", b.dataset.target === id ? "true" : "false")); }
 function jump(id, instant) {
   const n = $(id); if (!n) return;
   n.scrollIntoView({ behavior: MOTION && !instant ? "smooth" : "auto", block: "start" });
+  if (SECTIONS.some(s => s[0] === id)) { litKey(id); spyHold = Date.now() + 800; }
 }
 function buildKeys() {
   const nav = $("fkeys");
@@ -1135,17 +1145,19 @@ function buildTape() {
     (m.dissents || []).length ? el("small", {}, "반대 ", ...m.dissents.flatMap((x, i) => { const s = SIDE(x.side); return [i ? " " : "", who(x.key, s.cls, s.mark + nameOfKey(x.key))]; })) : null) }));
   (DATA.events_2026 || []).forEach(e => items.push({ d: e.date, node: () => {
     /* 사건 글 안의 이름(keys에 적힌 사람의 성)을 표시해 두면, 그 사람을 고를 때 호박색으로 켜진다 */
-    const names = (e.keys || []).filter(k => byKey[k]).map(k => [sur(byKey[k]), k]);
+    const names = (e.keys || []).filter(k => byKey[k]).map(k => [sur(byKey[k]), k]).filter(([nm]) => nm);
     const span = el("span");
     let rest = e.text || "";
     while (rest) {
       let hit = null;
       for (const [nm, k] of names) { const i = rest.indexOf(nm); if (i >= 0 && (!hit || i < hit.i)) hit = { i, nm, k }; }
-      if (!hit) { span.append(rest); break; }
+      if (!hit || !hit.nm) { span.append(rest); break; }
       span.append(rest.slice(0, hit.i), who(hit.k, null, hit.nm));
       rest = rest.slice(hit.i + hit.nm.length);
     }
-    return el("span", { class: "tape-item" }, el("time", { text: e.date.slice(2) }), span);
+    const src = (e.src || []).map(s => `${s.outlet} ${s.date}`).join(" · ");
+    return el("span", { class: "tape-item", title: `확인 수준 ${e.cert || "미상"} — ` + (src ? "출처: " + src : "출처 미첨부") },
+      el("time", { text: e.date.slice(2) }), span, e.cert === "2차" ? el("small", { text: "보도" }) : null);
   } }));
   items.sort((a, b) => a.d.localeCompare(b.d));
   people.forEach(p => { const q = (p.phrases || [])[0]; if (q) items.push({ node: () => el("span", { class: "tape-item" }, el("em", {}, who(p.key, null, sur(p))), el("span", { lang: "en", text: `“${q.text}”` }), el("small", { text: q.date || "" })) }); });
@@ -1181,8 +1193,9 @@ function buildSearch() {
   function find(q) {
     const n = norm(q); if (!n) return [];
     if (/^[a-l]$/.test(n)) { const d = DIST["abcdefghijkl".indexOf(n) + 1]; return d ? [byKey[d.president_key]].filter(Boolean) : []; }
-    const dn = /^(\d{1,2})(지구)?$/.exec(n); if (dn) { const d = DIST[+dn[1]]; return d ? [byKey[d.president_key]].filter(Boolean) : []; }
-    if (ALIAS[n]) return [byKey[ALIAS[n]]];
+    const dn = /^제?(\d{1,2})(지구)?$/.exec(n); if (dn) { const d = DIST[+dn[1]]; return d ? [byKey[d.president_key]].filter(Boolean) : []; }
+    if (n === "dc" || n === "이사" || n === "이사회") return people.filter(p => p.seat === "board");
+    if (ALIAS[n]) return [byKey[ALIAS[n]]].filter(Boolean);
     if (byKey[n]) return [byKey[n]];
     const hits = [];
     const score = p => {
@@ -1216,6 +1229,7 @@ function select(key, opt) {
   document.querySelectorAll("#ledger tbody tr").forEach(tr => tr.classList.toggle("cur", tr.dataset.key === p.key));
   const anim = !!opt.push && changed;
   renderFile(p, { fly: anim, trace: anim, from });
+  const live = $("file-live"); if (live) live.textContent = `${p.name_ko} 파일 — ${p._i + 1}/${people.length}`;
   markDmap();
   markTape();
   if (anim) { const f = $("file"); f.classList.remove("flash"); void f.offsetWidth; f.classList.add("flash"); }
@@ -1232,7 +1246,7 @@ function cycleBoard() {
   const i = board.findIndex(p => p.key === current);
   select(board[(i + 1) % board.length].key, { push: true, scroll: true });
 }
-window.addEventListener("hashchange", () => { const k = decodeURIComponent(location.hash.slice(1)); const kk = ALIAS[k] || k; if (kk && kk !== current && byKey[kk]) select(kk, { push: true, scroll: true }); });
+window.addEventListener("hashchange", () => { const k = hashKey(); const kk = ALIAS[k] || k; if (kk && kk !== current && byKey[kk]) select(kk, { push: true, scroll: true }); });
 /* 한 글자 단축키 — 머리의 ‘단축키’로 끈다(WCAG 2.1.4). 입력칸·조합 중·수정 키와 함께면 무시 */
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && e.target === $("q")) { $("q").value = ""; $("q").blur(); return; }
@@ -1249,23 +1263,12 @@ document.addEventListener("keydown", e => {
 });
 
 /* 숫자 줄 · 주의 한 줄 · 읽기 전에 */
-/* 읽는 글에 자료의 칸 이름(영문 식별자)이 그대로 나오지 않게 — 이 페이지가 화면에서 쓰는 이름으로 바꿔 보여 준다.
-   자료(page_data.json)의 글은 그대로 두고 화면에서만 바꾼다. 문장째 바꿀 것을 먼저, 남은 낱말은 아래 표로 */
-const PLAIN_PHRASES = [
-  ["프로필 조사(corrected_profile)와", "사람별 프로필 조사와"],
-  ["camp(매파·중도·비둘기·스윙·미상)는 프로필 perceived의", "관찰자 라벨(매파·중도·비둘기·스윙·미상)은 프로필 ‘평판’ 칸의"],
-  ["stance 수치(", "위치 숫자("], ["·shift_note·stance_basis는", "·올해의 흐름·위치 근거는"], ["null = 판단 불가", "빈 값 = 판단 불가"],
-  ["지구의 states는", "지구의 주 목록은"], ["지구별 approx 칸 참고.", "지구별 근사 메모는 자료 쪽에 있다."],
-  ["loc_guess = ", "‘위치 추정’ = "], ["from/to null = ", "‘연도 미상’ = "], ["cert 사전 지식 = ", "확인 수준 ‘사전 지식’ = "],
-  ["인용(phrases)은", "인용(자주 나온 말)은"], ["camp는 2026-10 기준", "관찰자 라벨은 2026-10 기준"], ["프로필 perceived 칸", "프로필 ‘평판’ 칸"],
-  ["프로필 baseline·perceived를", "프로필의 기준선·평판 칸을"]];
-const PLAIN_WORDS = { corrected_profile: "프로필 조사", perceived: "평판", shift_note: "올해의 흐름", stance_basis: "위치 근거", loc_guess: "위치 추정",
+/* 읽는 글에 자료의 칸 이름(영문 식별자)이 그대로 나오지 않게 — 자료(people-data.js)의 notes에 칸 이름을 쓰면 화면에서만 바꿔 보여 준다 */
+const PLAIN_WORDS = { shift_note: "올해의 흐름", stance_basis: "위치 근거", loc_guess: "위치 추정",
   phrases: "자주 나온 말", baseline: "기준선", events_2026: "2026 사건 기록", voter_2026: "2026 투표권", voter_2027: "2027 투표권", approx: "근사 메모",
   camp: "관찰자 라벨", stance: "위치 숫자", states: "주 목록", cert: "확인 수준" };
 function plainKo(s) {
-  let t = String(s || "");
-  for (const [a, b] of PLAIN_PHRASES) t = t.split(a).join(b);
-  return t.replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)*\b/g, w => PLAIN_WORDS[w] || w);
+  return String(s || "").replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)*\b/g, w => PLAIN_WORDS[w] || w);
 }
 function buildStatus() {
   const held = meetings.filter(m => m.vote);
@@ -1289,7 +1292,9 @@ function buildNotes() {
   $("h1-small").textContent = `FOMC 2026 · 참가자 ${people.length}명 · 참고 — 예측 아님`;
   const c = $("caveat");
   const toNotes = el("button", { type: "button", text: "전문 ↓" }); toNotes.addEventListener("click", () => jump("sec-notes"));
-  c.append(el("b", { text: "초안" }), " 사람 확인 전, 대부분 2차 보도", el("i", { "aria-hidden": "true", text: "|" }),
+  const draft = DATA.review !== "approved";
+  if (!draft) { const m = document.querySelector(".mark"); if (m) { m.title = "참고 자료이고 금리 예측이 아니다"; m.replaceChildren("참고 — 예측 아님"); } }
+  c.append(el("b", { text: draft ? "초안" : "확인" }), draft ? " 사람 확인 전, 대부분 2차 보도" : " 사람이 출처를 확인함", el("i", { "aria-hidden": "true", text: "|" }),
     el("b", { text: "라벨" }), " 매파·중도는 관찰자 평판, ±2 위치는 운영자 해석", el("i", { "aria-hidden": "true", text: "|" }),
     el("b", { text: "미확인" }), " ‘사전 지식’·‘위치 추정’ 표시", el("i", { "aria-hidden": "true", text: "|" }), "금리 예측 아님 ", toNotes);
   const ol = $("notes");
@@ -1315,7 +1320,7 @@ $("next").addEventListener("click", () => step(1));
 function syncHead() { document.documentElement.style.setProperty("--head-h", $("head").offsetHeight + "px"); }
 syncHead();
 {
-  const h = decodeURIComponent(location.hash.slice(1)), k = ALIAS[h] || h;
+  const h = hashKey(), k = ALIAS[h] || h;
   select(byKey[k] ? k : "warsh", {});
   /* 사람 주소로 열었고 명단이 파일 위에 쌓이는 좁은 화면이면 곧장 파일로 */
   if (byKey[k] && window.innerWidth <= 1079) requestAnimationFrame(() => jump("file-wrap", true));
@@ -1328,15 +1333,17 @@ window.addEventListener("resize", () => {
 });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { syncHead(); if (route.p && !route.raf) drawRoute(route.p, {}); drawDmapMarks(); }).catch(() => {});
 /* 흐름에 따라 기능 키 불 켜기 */
-if ("IntersectionObserver" in window) {
-  const vis = new Map();
-  const io = new IntersectionObserver(es => {
-    es.forEach(e => vis.set(e.target.id, e.isIntersecting ? e.intersectionRect.height : 0));
-    let best = null, bh = 0;
-    SECTIONS.forEach(([id]) => { const h = vis.get(id === "file-wrap" ? "file-head" : id) || 0; if (h > bh) { bh = h; best = id; } });
-    document.querySelectorAll("#fkeys button").forEach(b => b.setAttribute("aria-current", b.dataset.target === best ? "true" : "false"));
-  }, { threshold: [0, .1, .25, .5, .75, 1] });
-  const observe = () => SECTIONS.forEach(([id]) => { const n = $(id === "file-wrap" ? "file-head" : id); if (n) io.observe(n); });
-  observe();
-  new MutationObserver(() => { io.disconnect(); observe(); }).observe($("file"), { childList: true });
+/* 흐름에 따라 기능 키 불 켜기 — 위에서부터 머리선(머리 높이 + 16px)을 넘어선 마지막 절. 없으면 첫 절 */
+let spyRaf = 0;
+function spy() {
+  spyRaf = 0;
+  if (Date.now() < spyHold) return;
+  const line = $("head").offsetHeight + 16;
+  let best = SECTIONS[0][0];
+  for (const [id] of SECTIONS) { const n = $(id); if (n && n.getBoundingClientRect().top <= line) best = id; }
+  litKey(best);
 }
+window.addEventListener("scroll", () => { if (!spyRaf) spyRaf = requestAnimationFrame(spy); }, { passive: true });
+spy();
+/* 파일로 건너뛰기 — 주소(#사람)를 바꾸지 않고 초점만 옮긴다(점검 페이지와 같다) */
+document.querySelector(".skip").addEventListener("click", e => { e.preventDefault(); $("file").focus(); });

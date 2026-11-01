@@ -2,9 +2,12 @@
 표준 라이브러리만, 네트워크 불필요.
 
   껍데기   문서 머리(문자 집합 · 화면 폭 · 제목) · 바깥에서는 글꼴만 · 스크립트는 자료 → 그리기 순 · 점검 페이지와 서로 잇는다
-  표시     '참고 — 예측 아님'과 '초안'이 머리에 보이고, 비공개 쪽 낱말(비공개 · 분석실)은 없다 · 사람 사진 · 기관 로고(이미지)가 없다
+  표시     '참고 — 예측 아님'이 머리에 보이고 '초안'은 자료의 review가 draft일 때만 · 비공개 쪽 낱말(비공개 · 분석실 · 발언 판정의 꼴)이
+           없다 · 사람 사진 · 기관 로고(이미지)가 없다 · 바깥에서 싣는 것은 글꼴뿐(CSP meta · url( · href · src)
   자료     people-data.js가 window.PEOPLE_DATA = {JSON}; 꼴이고, 사람 · 회의 · 지구 · 지도의 칸과 범위가 맞는다 ·
-           출처 주소는 https · 이메일 주소가 없다 · 회의 반대표와 지구 총재가 명단(또는 명단 밖 위원)을 가리킨다
+           출처 주소는 https · 이메일 주소가 없다 · 회의 반대표 ↔ 사람 반대표(양쪽) · 지구 총재 ↔ 그 사람의 지구 ·
+           인용마다 같은 날짜의 출처 · 사람이 나오는 사건마다 출처 · 진영 꼬리표마다 라벨 출처(없으면 '사전 지식') ·
+           이름에 앞뒤 · 겹 공백 없음(띠의 이름 표시가 빈 글자로 멈추지 않게) · 지구 총재는 지구 번호 순
   저장     움직임 · 단축키는 점검 페이지와 같은 저장 이름(motion · keys)만 쓴다
 
 실행:  python -X utf8 scripts/test_people_site.py   (아침 묶음 `python -m unittest discover -s scripts`가 함께 돈다)
@@ -37,7 +40,7 @@ def read(name):
 
 def load_data(text):
     """people-data.js → dict. 꼴이 다르면 ValueError(머리 주석 + window.PEOPLE_DATA = {JSON}; 한 문장만)."""
-    m = re.fullmatch(r"\s*(?:/\*.*?\*/\s*)?window\.PEOPLE_DATA = (\{.*\});\s*", text, re.S)
+    m = re.fullmatch(r"\s*(?:/\*(?:(?!\*/).)*\*/\s*)?window\.PEOPLE_DATA = (\{.*\});\s*", text, re.S)
     if not m:
         raise ValueError("people-data.js는 머리 주석과 window.PEOPLE_DATA = {...}; 한 문장이어야 한다")
     return json.loads(m.group(1))
@@ -76,13 +79,42 @@ class ShellTest(unittest.TestCase):
     def test_reference_and_draft_marks_are_visible(self):
         head = self.page[self.page.index('<header'):self.page.index('</header>')]
         self.assertIn("참고 — 예측 아님", head)
-        self.assertIn("초안", head)
         self.assertIn("참고 — 예측 아님`", read("people.js"))    # 큰 제목 줄
+        data = load_data(read("people-data.js"))
+        self.assertIn(data["review"], ("draft", "approved"))
+        if data["review"] == "draft":                               # 승인하면 자료의 review만 바꾼다 — 머리 표시는 people.js가 바꾼다
+            self.assertIn("초안", head)
+            self.assertTrue(data["notes"][0].startswith("초안"))
+        self.assertIn('DATA.review !== "approved"', read("people.js"))
+
+    def test_only_fonts_are_loaded_from_outside(self):
+        # 싣는 것(link href · src · css url( · @import)은 같은 폴더의 파일 · 페이지 안 조각(#) · 글꼴 두 곳뿐
+        css = re.sub(r"/\*.*?\*/", "", read("people.css"), flags=re.S)
+        self.assertNotIn("@import", css)
+        for target in re.findall(r"url\(\s*['\"]?([^'\")\s]*)", css):
+            self.assertTrue(target.startswith("#"), target)
+        loads = re.findall(r'<link\b[^>]*\bhref="([^"]*)"', self.page) + re.findall(r'\bsrc="([^"]*)"', self.page)
+        for u in loads:
+            host = re.match(r"(?:https:)?//([^/]+)", u)
+            ok = (host and host.group(1) in ("fonts.googleapis.com", "fonts.gstatic.com")) or re.fullmatch(r"[\w.-]+", u)
+            self.assertTrue(ok, u)
+        csp = re.search(r'<meta http-equiv="Content-Security-Policy" content="([^"]+)">', self.page)
+        self.assertIsNotNone(csp)
+        for part in ("default-src 'none'", "script-src 'self'", "font-src https://fonts.gstatic.com", "connect-src 'none'",
+                     "object-src 'none'", "base-uri 'none'", "trusted-types 'none'"):
+            self.assertIn(part, csp.group(1))
+
+    def test_attributes_from_data_cannot_be_handlers(self):
+        js = read("people.js")
+        self.assertEqual(js.count("/^on/i.test(k)"), 2)            # el() · sv() 둘 다 on* 속성을 버린다
+        self.assertEqual(re.findall(r"\bhref:", js), ["href:"])    # 바깥 링크는 safeLink 하나(https만)로
+        self.assertIn('/^https:\\/\\//.test(u)', js[js.index("function safeLink"):js.index("function safeLink") + 200])
 
     def test_no_private_wording(self):
         for name in FILES:
             text = read(name)
-            for word in ("비공개", "분석실", "my_path", "fed_people", "알림 줄"):
+            for word in ("비공개", "분석실", "my_path", "fed_people", "알림 줄", "page_data", "corrected_profile",
+                         "평소와 같음", "평소보다 매파", "평소보다 비둘기", "닿은 항목", "기준선 갱신 검토", "프로필에 없는 반대표"):
                 self.assertNotIn(word, text, f"{name}: {word}")
 
     def test_no_pictures_of_people_or_logos(self):
@@ -127,6 +159,7 @@ class DataTest(unittest.TestCase):
     def test_file_shape_is_one_assignment(self):
         self.assertRaises(ValueError, load_data, "window.PEOPLE_DATA = {};\nalert(1);")
         self.assertRaises(ValueError, load_data, "var x = 1;")
+        self.assertRaises(ValueError, load_data, "/* a */ alert(1); /* b */\nwindow.PEOPLE_DATA = {};\n")   # 두 주석 사이의 코드
         self.assertEqual(load_data("/* 주석 */\nwindow.PEOPLE_DATA = {\"a\": 1};\n"), {"a": 1})
 
     def test_header_fields(self):
@@ -135,6 +168,47 @@ class DataTest(unittest.TestCase):
         self.assertTrue(any("참고 — 예측 아님" in n for n in self.data["notes"]))
         scale = self.data["stance_scale"]
         self.assertEqual((scale["min"], scale["max"], scale["step"]), (-2, 2, 0.5))
+
+    def test_names_have_no_stray_spaces(self):
+        # 띠는 사건 글에서 성(이름의 마지막 낱말)을 찾는다 — 끝 공백이면 성이 빈 글자가 된다(2026-11-01 검토: 페이지가 멈춤)
+        for p in self.people:
+            for f in ("name_ko", "name_en"):
+                self.assertEqual(p[f], p[f].strip(), (p["key"], f))
+                self.assertNotIn("  ", p[f], (p["key"], f))
+            self.assertTrue(p["name_ko"].split()[-1], p["key"])
+
+    def test_bank_presidents_follow_district_order(self):
+        bank = [p["district"] for p in self.people if p["seat"] == "bank"]
+        self.assertEqual(bank, sorted(bank))
+        seats = [p["seat"] for p in self.people]
+        self.assertEqual(seats, sorted(seats, key=["board", "ny", "bank"].index))
+
+    def test_quotes_have_a_source_of_the_same_date(self):
+        for p in self.people:
+            dates = {s["date"] for s in p["sources"]}
+            for q in p["phrases"]:
+                self.assertIn(q["date"], dates, (p["key"], q["text"][:30]))
+                self.assertLessEqual(len(q["text"].split()), 15, (p["key"], q["text"][:30]))
+
+    def test_events_carry_a_level_and_people_events_a_source(self):
+        for e in self.data["events_2026"]:
+            self.assertIn(e["cert"], ("1차", "2차"), e["date"])
+            for s in e["src"]:
+                self.assertRegex(s["url"], r"^https://[a-z0-9.-]+\.[a-z]{2,}/", e["date"])
+            if e.get("keys"):
+                self.assertTrue(e["src"], f"{e['date']}: 사람이 나오는 사건은 출처가 있어야 한다")
+        self.assertIn('확인 수준 ${e.cert', read("people.js"))           # 띠의 title에 확인 수준 · 출처
+
+    def test_camp_labels_cite_who_said_so(self):
+        for p in self.people:
+            if p["camp"] == "미상":
+                continue
+            src = p.get("camp_src") or []
+            self.assertTrue(src or p.get("camp_cert") == "사전 지식", p["key"])
+            urls = {s["url"] for s in p["sources"]}
+            for s in src:
+                self.assertRegex(s["url"], r"^https://", p["key"])
+                self.assertIn(s["url"], urls, p["key"])                  # 출처 목록에도 보인다
 
     def test_people_have_unique_plain_keys(self):
         self.assertGreaterEqual(len(self.people), 12)
@@ -186,17 +260,25 @@ class DataTest(unittest.TestCase):
     def test_meetings_and_districts_point_at_the_roster(self):
         off_roster = {"miran"}                                     # 반대표 기록에만 나오는 전 이사 — people.js의 OFFROSTER
         self.assertIn("miran: {", read("people.js"))
+        by_key = {p["key"]: p for p in self.people}
         for m in self.data["meetings_2026"]:
             self.assertRegex(m["date"], DATE)
             for d in m.get("dissents", []):
                 self.assertIn(d["key"], self.keys | off_roster)
                 self.assertIn(d["side"], SIDES)
+                if d["key"] in by_key:                                    # 회의 → 사람 방향도
+                    self.assertIn({"date": m["date"], "side": d["side"]}, by_key[d["key"]]["dissents_2026"], d["key"])
         for e in self.data["events_2026"]:
             self.assertLessEqual(set(e.get("keys", [])), self.keys)
         ns = sorted(d["n"] for d in self.data["districts"])
         self.assertEqual(ns, list(range(1, 13)))
         for d in self.data["districts"]:
             self.assertIn(d["president_key"], self.keys, d["n"])
+            pres = by_key[d["president_key"]]
+            if d["n"] == 2:
+                self.assertEqual(pres["seat"], "ny")
+            else:
+                self.assertEqual((pres["seat"], pres["district"]), ("bank", d["n"]), d["n"])
 
     def test_every_2026_dissent_appears_in_a_meeting(self):
         held = {(m["date"], d["key"], d["side"]) for m in self.data["meetings_2026"] for d in m.get("dissents", [])}

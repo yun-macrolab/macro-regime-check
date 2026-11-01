@@ -3,17 +3,19 @@
  * 고칠 때: scripts/test_people_site.py가 꼴(사람 수·칸·범위·출처 주소)을 본다. */
 window.PEOPLE_DATA = {
  "asof": "2026-10-31",
+ "review": "draft",
  "notes": [
   "초안 — 사람이 확인하기 전이다. 연준 원문을 직접 열지 못해 1차 자료는 제3자 사본·검색 조각이고, 나머지는 2차 보도다.",
   "사실은 인물별 조사와 2026 회의 기록에서만 옮겼다. 장소의 도시·좌표와 연준 지구 경계만 일반 지식(대략값)이다.",
   "진영 꼬리표(매파·중도·비둘기·스윙·미상)는 언론·관찰자가 붙인 평판을 줄인 것이고 계산값이 아니다. 그런 라벨이 없으면 미상.",
+  "기준선(평소·놀랄 일)과 ‘다음 확인’은 운영자가 조사에서 정리한 초안이다 — 예측이 아니라 새 발언을 견줄 틀이다.",
   "위치 눈금(−2 비둘기 … +2 매파)과 올해의 흐름·위치 근거는 운영자 해석이다. 빈 칸은 판단할 수 없다는 뜻이다(베너블·데일리 — 2026 금리 발언 없음).",
   "지구는 주 단위 근사다 — 실제로는 나뉜 주(CT·NJ·PA·KY·WV·TN·MS·LA·IL·IN·MI·WI·MO·NM)를 한 지구에 통째로 넣었다. 지구마다 근사 설명이 붙어 있다.",
   "걸어온 길의 좌표는 캠퍼스·본사 도시의 대략값이다. ‘위치 추정’은 조사에 장소가 없어 추정한 점(나라 중심 포함)이고, 연도가 빈 칸은 조사에 연도가 없는 것이다. ‘사전 지식’ 표시는 확인하지 않은 것이다.",
   "인용 문구는 조사에 옮겨진 그대로다 — 2차 보도가 옮긴 것이면 원문과 다를 수 있다.",
   "애틀랜타는 임시 총재(베너블)이고 정식 후임은 발표 전이다(10-31 기준). 마이런(전 이사)은 반대표 기록에만 나온다.",
-  "글은 이 저장소가 공개 자료(연준 원문·연은 자료·보도)를 읽고 쓴 요약이다. 인용은 짧게, 출처 링크와 함께 싣는다. 사람 사진·기관 로고는 싣지 않는다.",
-  "지도의 주 경계는 folium 예제 자료(us-states.json, MIT 라이선스)를 앨버스 투영으로 미리 계산한 그림이다.",
+  "글은 이 저장소가 공개 자료(연준·연은 자료 — 사본·검색 조각 포함, 보도)를 읽고 쓴 요약이다. 인용은 짧게, 같은 날짜의 출처와 함께 싣는다. 사람 사진·기관 로고는 싣지 않는다.",
+  "지도의 주 경계는 folium 예제 자료(us-states.json, MIT 라이선스 — 저작권 표시는 저장소의 THIRD_PARTY_NOTICES.md)를 앨버스 투영으로 미리 계산한 그림이다.",
   "참고 — 예측 아님. 이 사이트의 규칙 판정·점검표에 쓰지 않고, 매일 갱신하지 않는다(머리의 기준일을 본다)."
  ],
  "stance_scale": {
@@ -27,9 +29,9 @@ window.PEOPLE_DATA = {
    "1": "추가 인상이 기본 시나리오",
    "2": "강한 매파(인상 쪽 반대표 반복·즉시 인상 요구)"
   },
-  "basis": "운영자 해석 — 인물별 기준선과 평판을 읽은 것, 계산값 아님"
+  "basis": "운영자 해석 — 인물별 기준선과 관찰자 평판을 읽은 것, 계산값 아님"
  },
- "camp_note": "진영 꼬리표는 2026-10 기준 언론·관찰자 라벨의 요약이다. 근거는 인물별 평판 칸이고, 라벨이 없으면 미상.",
+ "camp_note": "진영 꼬리표는 2026-10 기준 언론·관찰자 라벨의 요약이다. 라벨을 붙인 보도는 꼬리표에 마우스를 올리면 보이고 출처 목록에도 있다. 그런 보도를 못 찾은 라벨은 ‘사전 지식’, 라벨이 없으면 미상.",
  "board": {
   "name": "Board of Governors of the Federal Reserve System",
   "name_ko": "연준 이사회",
@@ -365,49 +367,99 @@ window.PEOPLE_DATA = {
   {
    "date": "2026-02-28",
    "text": "미·이스라엘-이란 전쟁 시작, 호르무즈 사실상 봉쇄 → 유가 약 70→100달러",
-   "keys": []
+   "keys": [],
+   "src": [],
+   "cert": "2차"
   },
   {
    "date": "2026-05-13",
-   "text": "상원, 워시 인준(55-45·54-45로 보도 엇갈림)",
+   "text": "상원, 워시 의장 인준(54-45 — 보도에 따라 55-45)",
    "keys": [
     "warsh"
-   ]
+   ],
+   "src": [
+    {
+     "outlet": "Orrick InfoBytes",
+     "date": "2026-05-15",
+     "url": "https://infobytes.orrick.com/2026-05-15/u-s-senate-confirms-kevin-warsh-to-serve-as-fed-chair/"
+    }
+   ],
+   "cert": "2차"
   },
   {
    "date": "2026-05-15",
    "text": "파월 의장 임기 종료, 임시 의장",
    "keys": [
     "powell"
-   ]
+   ],
+   "src": [
+    {
+     "outlet": "Orrick InfoBytes",
+     "date": "2026-05-15",
+     "url": "https://infobytes.orrick.com/2026-05-15/u-s-senate-confirms-kevin-warsh-to-serve-as-fed-chair/"
+    }
+   ],
+   "cert": "2차"
   },
   {
    "date": "2026-05-22",
    "text": "워시 취임. 마이런은 그날이나 직전 이사직 퇴임(날짜 미확인)",
    "keys": [
     "warsh"
-   ]
+   ],
+   "src": [
+    {
+     "outlet": "연준 이사 약력",
+     "date": "2026-05-22",
+     "url": "https://www.federalreserve.gov/aboutthefed/bios/board/warsh.htm"
+    }
+   ],
+   "cert": "1차"
   },
   {
    "date": "2026-06-29",
-   "text": "대법원 5-4로 쿡 해임 막음(절차 판단, 해임 권한은 미결)",
+   "text": "대법원 5-4, 쿡 해임을 막은 하급심 명령 유지(절차 판단 — 해임 권한 자체는 미결)",
    "keys": [
     "cook"
-   ]
+   ],
+   "src": [
+    {
+     "outlet": "HousingWire",
+     "date": "2026-06",
+     "url": "https://www.housingwire.com/articles/supreme-court-fed-cook-removal/"
+    }
+   ],
+   "cert": "2차"
   },
   {
    "date": "2026-08-28",
    "text": "잭슨홀: 워시 인플레 경고, 2% PCE '확고하고 고정된 목표'",
    "keys": [
     "warsh"
-   ]
+   ],
+   "src": [
+    {
+     "outlet": "AP(ADN 재게재)",
+     "date": "2026-08-28",
+     "url": "https://www.adn.com/nation-world/2026/08/28/fed-chair-warsh-signals-rate-hikes-may-be-needed-with-inflation-stubbornly-elevated/"
+    }
+   ],
+   "cert": "1차"
   },
   {
    "date": "2026-09-30",
-   "text": "감찰관 보고서: 파월 개보수 건 형사 위반 없음, 트럼프는 사임 요구",
+   "text": "감찰관 보고서: 파월 개보수 건 형사 위반 없음. 트럼프는 사임 요구",
    "keys": [
     "powell"
-   ]
+   ],
+   "src": [
+    {
+     "outlet": "CNBC",
+     "date": "2026-09-30",
+     "url": "https://www.cnbc.com/2026/09/30/fed-inspector-general-report-powell-trump.html"
+    }
+   ],
+   "cert": "2차"
   },
   {
    "date": "2026-10-30",
@@ -416,14 +468,27 @@ window.PEOPLE_DATA = {
     "musalem",
     "logan",
     "daly"
-   ]
+   ],
+   "src": [
+    {
+     "outlet": "세인트루이스 연은 연설",
+     "date": "2026-10-30",
+     "url": "https://www.stlouisfed.org/from-the-president/remarks/2026/remarks-on-us-economy-and-monetary-policy-somc"
+    },
+    {
+     "outlet": "댈러스 연은 연설",
+     "date": "2026-10-30",
+     "url": "https://www.dallasfed.org/news/speeches/logan/2026/lkl261030"
+    }
+   ],
+   "cert": "1차"
   }
  ],
  "people": [
   {
    "key": "warsh",
    "name_ko": "케빈 워시",
-   "name_en": "Kevin Warsh",
+   "name_en": "Kevin M. Warsh",
    "role_short": "의장·이사",
    "seat": "board",
    "district": null,
@@ -560,10 +625,6 @@ window.PEOPLE_DATA = {
     {
      "text": "I don't believe in forward guidance absent exigent circumstances",
      "date": "2026-10-28"
-    },
-    {
-     "text": "play the ball, not the referee",
-     "date": "2026-07-29"
     }
    ],
    "dissents_2026": [],
@@ -587,19 +648,22 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "'물가 너무 높고 오래'·'2% PCE, 연성 목표 없음' 반복",
-     "가이던스·점 없음, 회의마다 정보로 판단",
-     "금융여건 '더 긴축됐지만 긴축적이진 않다', 생산성 낙관"
+     "'물가 너무 높고 너무 오래'·'2% PCE, 연성 목표 없음'",
+     "가이던스·점 없음, 회의마다 판단",
+     "성장이 물가 원인은 아님(생산성)",
+     "제도 개편은 이번 국면 영향 작음"
     ],
     "hawk_surprise": [
-     "12월·연속 인상을 미리 약속(가이던스 부활)·50bp 시사",
-     "수요 과열·AI 투자를 물가 원인으로 지목",
-     "인상 쪽 반대 가담·대차대조표 매각 시작"
+     "12월·연속 인상 미리 약속",
+     "50bp·'훨씬 더 긴축해야'",
+     "수요 과열·AI 투자를 물가 원인으로",
+     "인상 쪽 반대 가담·점 제출"
     ],
     "dove_surprise": [
      "12월 동결 시사·'이제 긴축적, 할 만큼 했다'",
-     "유가 하락·생산성을 근거로 인상 종료 선언",
-     "고용 약화를 주된 위험으로·2027 인하 언급"
+     "유가·생산성으로 인상 종료 선언",
+     "고용 약화를 주된 위험으로·2027 인하",
+     "트럼프 인하 요구에 맞추는 말투"
     ]
    },
    "watch": "11-16 생산성 청문회, 12월 FOMC 금융여건 문구·점 미제출 유지",
@@ -624,6 +688,23 @@ window.PEOPLE_DATA = {
      "outlet": "CNN",
      "date": "2026-05-22",
      "url": "https://www.cnn.com/2026/05/22/economy/kevin-warsh-sworn-in-fed-chair"
+    },
+    {
+     "outlet": "24/7 Wall St",
+     "date": "2026-08-06",
+     "url": "https://247wallst.com/investing/2026/08/06/bank-of-america-says-federal-reserve-chair-kevin-warsh-facing-credibility-shock/"
+    },
+    {
+     "outlet": "Orrick InfoBytes",
+     "date": "2026-05-15",
+     "url": "https://infobytes.orrick.com/2026-05-15/u-s-senate-confirms-kevin-warsh-to-serve-as-fed-chair/"
+    }
+   ],
+   "camp_src": [
+    {
+     "outlet": "24/7 Wall St",
+     "date": "2026-08-06",
+     "url": "https://247wallst.com/investing/2026/08/06/bank-of-america-says-federal-reserve-chair-kevin-warsh-facing-credibility-shock/"
     }
    ]
   },
@@ -761,16 +842,8 @@ window.PEOPLE_DATA = {
    ],
    "phrases": [
     {
-     "text": "well positioned to respond",
-     "date": "2026-05-27"
-    },
-    {
      "text": "We do not have the luxury of considering each shock",
      "date": "2026-07-16"
-    },
-    {
-     "text": "cautiously optimistic",
-     "date": "2026-02-06"
     }
    ],
    "dissents_2026": [],
@@ -794,19 +867,22 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "'지표가 받쳐주면 한 번 더 인상 적절할 수도'류 조건부",
-     "'시간을 갖고 판단한다', 물가 위험 상방·고용 균형",
-     "AI가 중립금리를 올리면 정책이 덜 긴축적일 수 있다"
+     "'대응할 위치'·'지표·전망·위험 균형'",
+     "조건부 '한 번 더 인상 적절할 수 있다'",
+     "'시간을 갖고 판단'",
+     "AI가 중립금리를 올리면 덜 긴축적"
     ],
     "hawk_surprise": [
      "12월 인상이 '필요하다'고 단정",
-     "두 번 이상 추가 인상·'정책이 충분히 긴축적이지 않다'",
-     "인상 쪽 반대표(기록 없어 그 자체가 큰 사건)"
+     "두 번 이상·'충분히 긴축적이지 않다'",
+     "중립금리 상승으로 지금 느슨하다 단정",
+     "인상 쪽 반대표(반대 기록 없음)"
     ],
     "dove_surprise": [
-     "'9월 인상으로 충분, 긴축은 끝났다'",
-     "2025-09식 '고용이 약해 받쳐줘야' 복귀",
-     "인하 가능성 언급·지도부 인상에 반대"
+     "'9월 인상으로 충분, 긴축 끝'",
+     "'고용이 약해 받쳐줘야' 복귀",
+     "인하 가능성 언급",
+     "지도부 인상안에 반대"
     ]
    },
    "watch": "블랙아웃 전 '시간 더 걸릴 수'가 '한 번 더 적절'로 옮겨 가는지",
@@ -831,6 +907,18 @@ window.PEOPLE_DATA = {
      "outlet": "Federal Reserve History",
      "date": "—",
      "url": "https://www.federalreservehistory.org/people/philip-jefferson"
+    },
+    {
+     "outlet": "investinglive",
+     "date": "2025-09-17",
+     "url": "https://investinglive.com/news/fomc-hawks-and-doves-a-comprehensive-overview-20250917/amp"
+    }
+   ],
+   "camp_src": [
+    {
+     "outlet": "investinglive",
+     "date": "2025-09-17",
+     "url": "https://investinglive.com/news/fomc-hawks-and-doves-a-comprehensive-overview-20250917/amp"
     }
    ]
   },
@@ -973,10 +1061,6 @@ window.PEOPLE_DATA = {
      "date": "2026-10-14"
     },
     {
-     "text": "can appear to be stable right up until it doesn't",
-     "date": "2026-01-16"
-    },
-    {
      "text": "unwarranted policy restraint",
      "date": "2026-05-29"
     }
@@ -1002,19 +1086,21 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "'추가 조치 급하지 않다'·'자료와 접촉 보며 판단'",
-     "노동 취약·에너지 충격 일시성·관세 뺀 근원 강조",
-     "12월엔 다수안(인상이든 동결이든) 찬성"
+     "'급하지 않다, wait and see'",
+     "자료와 기업 접촉으로 판단",
+     "관세 뺀 근원·절사평균 강조",
+     "규제·감독(eSLR·바젤III·SVB)"
     ],
     "hawk_surprise": [
-     "12월 인상 명시 지지·'추가 인상 곧 필요'",
+     "12월 인상 명시 지지",
      "에너지 충격이 근원·기대로 번졌다고 인정",
-     "'정책이 아직 충분히 긴축적이지 않다'"
+     "'아직 충분히 긴축적이지 않다'",
+     "인상 쪽 반대표"
     ],
     "dove_surprise": [
-     "12월 인상에 반대표(연설로 미리 예고 가능)",
-     "9월 인상 되돌리기·2027 인하 언급",
-     "'노동 급격 악화'·'behind the curve' 복귀"
+     "12월 인상에 반대표(연설로 예고 가능)",
+     "9월 인상 되돌림·2027 인하",
+     "'behind the curve'식 노동 경고 복귀"
     ]
    },
    "watch": "블랙아웃 전 '급하지 않다' 유지 여부, 바젤III 연내 확정",
@@ -1039,6 +1125,28 @@ window.PEOPLE_DATA = {
      "outlet": "Federal Reserve History",
      "date": "—",
      "url": "https://www.federalreservehistory.org/people/michelle-w-bowman"
+    },
+    {
+     "outlet": "Reuters via Kitco",
+     "date": "2024-09-20",
+     "url": "https://www.kitco.com/news/off-the-wire/2024-09-20/us-inflation-data-cemented-big-cut-one-fed-official-dissent-another"
+    },
+    {
+     "outlet": "상원 은행위 소수당",
+     "date": "2025-11-07",
+     "url": "https://www.banking.senate.gov/newsroom/minority/warren-presses-fed-for-details-on-reported-30-cuts-to-supervision-and-regulation-team"
+    }
+   ],
+   "camp_src": [
+    {
+     "outlet": "Reuters via Kitco",
+     "date": "2024-09-20",
+     "url": "https://www.kitco.com/news/off-the-wire/2024-09-20/us-inflation-data-cemented-big-cut-one-fed-official-dissent-another"
+    },
+    {
+     "outlet": "상원 은행위 소수당",
+     "date": "2025-11-07",
+     "url": "https://www.banking.senate.gov/newsroom/minority/warren-presses-fed-for-details-on-reported-30-cuts-to-supervision-and-regulation-team"
     }
    ]
   },
@@ -1156,10 +1264,6 @@ window.PEOPLE_DATA = {
      "date": "2026-01-30"
     },
     {
-     "text": "a coin flip",
-     "date": "2026-02-23"
-    },
-    {
      "text": "The hikes do not need to come at consecutive meetings",
      "date": "2026-10-08"
     }
@@ -1190,19 +1294,22 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "예상대로면 추가 인상, 연속 회의일 필요 없음",
-     "다음 표를 특정 근원 CPI·PCE 발표에 미리 건다",
-     "노동 'solid and stable', 약한 고용 한 번은 깎아 봄"
+     "'예상대로면 추가 인상, 연속 아님'",
+     "다음 표를 특정 물가 발표에 건다",
+     "AI = 성장 + 기술재 물가 압력",
+     "가이던스 불필요, SEP 신호 옹호"
     ],
     "hawk_surprise": [
-     "12월 인상을 자료 전에 무조건 지지",
-     "연속 인상·50bp, 또는 인상 쪽 반대표",
+     "데이터 전에 12월 인상 무조건 지지",
+     "연속 인상·50bp",
+     "인상 쪽 반대표",
      "2~5년 기대 '이탈' 경보"
     ],
     "dove_surprise": [
-     "9월 한 번이면 충분, 추가 인상 불필요",
-     "노동 약화가 다시 '지배적 요인'이라는 틀로 복귀",
-     "2027 인하 언급·12월 동결 쪽 반대표"
+     "'9월 한 번이면 충분'",
+     "노동 약화가 지배적이라는 1월식 틀",
+     "2027 인하 언급",
+     "3개월 근원 둔화로 12월 보류"
     ]
    },
    "watch": "11월 전망 연설: 12월 표를 걸 지표, '두 번'·'50bp' 언급",
@@ -1227,6 +1334,18 @@ window.PEOPLE_DATA = {
      "outlet": "Federal Reserve History",
      "date": "—",
      "url": "https://federalreservehistory.org/people/christopher-waller"
+    },
+    {
+     "outlet": "Reuters ROI 칼럼 via Zawya",
+     "date": "2026-07-16",
+     "url": "https://www.zawya.com/en/web-section/insights/fed-flip-flops-make-case-for-less-talk-mike-dolan-394207"
+    }
+   ],
+   "camp_src": [
+    {
+     "outlet": "Reuters ROI 칼럼 via Zawya",
+     "date": "2026-07-16",
+     "url": "https://www.zawya.com/en/web-section/insights/fed-flip-flops-make-case-for-less-talk-mike-dolan-394207"
     }
    ]
   },
@@ -1397,22 +1516,25 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "물가 5년 넘게 목표 위, 기본 시나리오는 추가 인상",
-     "AI는 장기 생산성 낙관·단기 물가 압력 — 인하 근거 아님",
-     "규제 완화·감독 인력 감축·대차대조표 축소 비판"
+     "'timely'·'balance of risks'·'기본 시나리오'",
+     "AI는 인하 근거 아님(r* 상승)",
+     "규제 완화 비판·반대 성명",
+     "대차대조표 축소 반대"
     ],
     "hawk_surprise": [
-     "FOMC 첫 반대표(인상 쪽) — 12월 동결이면 해맥 쪽",
-     "50bp·연속 인상 요구, 목표 금리 수준 제시",
-     "r*가 이미 올라 정책이 덜 긴축적이라고 단정"
+     "FOMC 첫 반대표(인상 쪽)",
+     "50bp·연속 인상·목표 수준 제시",
+     "r* 상승으로 지금 덜 긴축적이라 단정",
+     "대차대조표 축소 찬성(체제 변화)"
     ],
     "dove_surprise": [
-     "'인상은 충분하다'·장기 동결 선호",
-     "노동 하방·AI 일자리 대체로 인상 보류",
-     "금융안정 위험(AI 재평가·사모신용)으로 인상 반대"
+     "'인상 충분'·장기 동결",
+     "노동 하방·AI 일자리 대체로 보류",
+     "금융안정 위험으로 인상 반대",
+     "인하 언급"
     ]
    },
-   "watch": "12월 전 '기본 시나리오 추가 조정' 유지, 동결 시 첫 반대표",
+   "watch": "12월 전 '기본 시나리오 추가 조정' 유지 여부, 첫 반대표 여부",
    "conf": "연설·표결은 1차 사본, 학력·직함 연도는 사전 지식(미검증)",
    "sources": [
     {
@@ -1429,11 +1551,6 @@ window.PEOPLE_DATA = {
      "outlet": "연준 연설(1차 사본)",
      "date": "2026-06-06",
      "url": "https://www.federalreserve.gov/newsevents/speech/barr20260606a.htm"
-    },
-    {
-     "outlet": "CNBC",
-     "date": "2026-10-01",
-     "url": "https://www.cnbc.com/2026/10/01/trump-fed-powell-lisa-cook-michael-barr-removal.html"
     }
    ]
   },
@@ -1632,10 +1749,6 @@ window.PEOPLE_DATA = {
    ],
    "phrases": [
     {
-     "text": "inflation has been too high for too long",
-     "date": "2026-09-30"
-    },
-    {
      "text": "I am prepared to act by raising rates, if necessary",
      "date": "2026-08-05"
     },
@@ -1670,22 +1783,24 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "'too high for too long'·'위험이 인플레 쪽'·'prepared to act'",
-     "AI 수요·중동 에너지 충격이 물가를 더함, 노동은 안정",
-     "AI 부문 가격은 금리로 싸우지 말자는 구분"
+     "'위험이 인플레 쪽'·'prepared to act'",
+     "AI 수요·중동 에너지 충격이 물가를 더함",
+     "노동 안정(저채용·저해고)",
+     "AI 부문 가격은 금리로 싸우지 말자"
     ],
     "hawk_surprise": [
-     "50bp·연속 인상·'확실히 제약적 수준까지' 요구",
-     "중장기 기대 인플레가 풀리고 있다는 판단",
+     "50bp·연속·'확실히 제약적 수준까지'",
+     "중장기 기대가 풀린다는 판단",
      "대차대조표 축소 재개 지지"
     ],
     "dove_surprise": [
      "12월 동결 지지·'더 기다리자'",
-     "10월 반대를 금리 아닌 이유로 설명하거나 물림",
-     "AI발 실업·노동 악화를 인하 근거로"
+     "10월 반대를 물리거나 금리 밖 이유로",
+     "'고용 하방 위험이 더 크다' 복귀",
+     "'충분히 제약적'"
     ]
    },
-   "watch": "블랙아웃 뒤 첫 연설(반대 설명), 백악관 청문·해임 소송, 12월 표결",
+   "watch": "블랙아웃 뒤 첫 연설(반대 설명), 해임 소송 경과, 12월 표결",
    "conf": "연설·표결은 1차 사본, 학력·경력 연도·대법원 판단은 사전 지식·2차",
    "sources": [
     {
@@ -1707,9 +1822,31 @@ window.PEOPLE_DATA = {
      "outlet": "CNN live",
      "date": "2026-10-28",
      "url": "https://www.cnn.com/2026/10/28/business/live-news/federal-reserve-interest-rate-october"
+    },
+    {
+     "outlet": "CNBC",
+     "date": "2026-10-28",
+     "url": "https://www.cnbc.com/2026/10/28/fed-interest-rate-decision-october-2026.html"
+    },
+    {
+     "outlet": "HousingWire",
+     "date": "2026-06",
+     "url": "https://www.housingwire.com/articles/supreme-court-fed-cook-removal/"
     }
    ],
-   "voter_note": "2027 재직은 해임 다툼에 달림(불확실)"
+   "voter_note": "2027 재직은 해임 다툼에 달림(불확실)",
+   "camp_src": [
+    {
+     "outlet": "CNN 라이브",
+     "date": "2026-10-28",
+     "url": "https://www.cnn.com/2026/10/28/business/live-news/federal-reserve-interest-rate-october"
+    },
+    {
+     "outlet": "CNBC",
+     "date": "2026-10-28",
+     "url": "https://www.cnbc.com/2026/10/28/fed-interest-rate-decision-october-2026.html"
+    }
+   ]
   },
   {
    "key": "powell",
@@ -1916,20 +2053,19 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "공개 발언 없이 다수 쪽 투표, 금리 경로는 말 안 함",
-     "공개 문장은 독립성·조사 등 제도에 관한 것뿐",
-     "4/29 기준점: 중립 3~4%, 노동은 물가 원천 아님"
+     "독립성 원칙론, 조사 끝날 때까지 잔류",
+     "'high-profile dissident'는 안 함"
     ],
     "hawk_surprise": [
-     "동결 회의에서 인상 소수 반대에 합류",
-     "공개적으로 '추가 인상 필요'·'복귀 서둘러야'"
+     "12월 동결이면 인상 쪽 반대 합류",
+     "공개적으로 '추가 인상 필요'"
     ],
     "dove_surprise": [
-     "인상 회의에서 동결 쪽 반대표('반대파 안 한다'를 깸)",
-     "워시 체제 대차대조표 축소를 공개 비판"
+     "인상 결정에 동결 쪽 반대표",
+     "대차대조표 축소 공개 비판"
     ]
    },
-   "watch": "12월 표결, 10월 의사록 명단, 법무부 검토 뒤 사임 시점",
+   "watch": "12월 표결, 10월 의사록 명단, 이사직 유지 여부(본인: 조사가 끝날 때까지 남겠다 — 04-29 회견)",
    "conf": "기자회견·의사록 명단은 1차 사본, 경력 세부는 사전 지식(미확인)",
    "sources": [
     {
@@ -2079,14 +2215,6 @@ window.PEOPLE_DATA = {
     {
      "text": "The accumulation of more data should provide greater clarity",
      "date": "2026-09-29"
-    },
-    {
-     "text": "totality of the data",
-     "date": "2026"
-    },
-    {
-     "text": "There Is No Try",
-     "date": "2026-05-04"
     }
    ],
    "dissents_2026": [],
@@ -2110,19 +2238,22 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "'물가는 의심의 여지 없이 너무 높다·1번 과제'",
-     "'서두를 필요 없다', 전망대로면 연말 한 번 더 인상",
-     "다수와 같은 표, 충분한 준비금 체계 옹호"
+     "'물가 너무 높다·1번 과제'",
+     "'서두를 필요 없다'",
+     "조건부 '연말 한 번 더 인상'",
+     "전망: 성장 2¼%·실업 4%·물가 3½%"
     ],
     "hawk_surprise": [
-     "12월 인상을 조건 없이·2회 이상·연속 인상 시사",
-     "2차 효과나 기대 인플레 이탈 인정",
-     "인상 쪽 반대표(기록 0회라 극히 큰 신호)"
+     "12월 인상 무조건·2회 이상·연속",
+     "'충분히 긴축적이지 않다'·AI로 r* 상향",
+     "기대 인플레 이탈 인정",
+     "인상 쪽 반대표"
     ],
     "dove_surprise": [
-     "연말 추가 인상 문구를 빼고 '잘 자리 잡음'으로",
-     "노동 하방 재강조·에너지·AI 물가 '넘겨보기'",
-     "주가 급락·금융여건을 동결·인하 근거로"
+     "추가 인상 문구 빼고 '잘 자리 잡음'",
+     "노동 하방 위험 재강조",
+     "에너지·AI 물가 '넘겨본다'",
+     "금융여건 악화를 동결 근거로"
     ]
    },
    "watch": "11월 '연말 한 번 더' 유지 여부, 12월 SEP 대비 본인 물가 전망",
@@ -2147,6 +2278,18 @@ window.PEOPLE_DATA = {
      "outlet": "연준 보도자료 — 총재 재임명(검색 조각)",
      "date": "2025-12-11",
      "url": "https://www.federalreserve.gov/newsevents/pressreleases/other20251211a.htm"
+    },
+    {
+     "outlet": "investinglive",
+     "date": "2025-09-17",
+     "url": "https://investinglive.com/news/fomc-hawks-and-doves-a-comprehensive-overview-20250917/amp"
+    }
+   ],
+   "camp_src": [
+    {
+     "outlet": "investinglive",
+     "date": "2025-09-17",
+     "url": "https://investinglive.com/news/fomc-hawks-and-doves-a-comprehensive-overview-20250917/amp"
     }
    ]
   },
@@ -2353,19 +2496,20 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "'연말 전 조금 더 인상', 횟수 말 안 함·totality 단서",
-     "물가 쪽 집중, 노동은 '완전고용 근처·균형'",
-     "최빈 시나리오는 효율 향상에 따른 점진 디스인플레"
+     "'연말 전 조금 더'·'데이터 전체'",
+     "최빈 시나리오: 효율 향상 디스인플레",
+     "물가가 에너지·AI 품목에 갇혔나"
     ],
     "hawk_surprise": [
-     "50bp나 '여러 번' 인상 지지",
-     "기대 인플레 이탈·기업 가격 설정 어긋남을 단정",
-     "10월 동결이 잘못·정책이 긴축적이지 않다고"
+     "50bp·'여러 번' 인상",
+     "기대 인플레가 풀렸다 단정",
+     "생산성 낙관 시나리오 폐기",
+     "10월 동결이 잘못"
     ],
     "dove_surprise": [
-     "12월 인상 불필요 명시·2027 인하 언급",
-     "노동 하방(AI 대체·주가 재평가)을 주된 위험으로",
-     "에너지 충격을 look-through하자고"
+     "12월 인상 불필요·2027 인하",
+     "노동 하방(AI 대체)을 주된 위험으로",
+     "에너지 충격 look-through"
     ]
    },
    "watch": "11월에 '연말 전 조금 더' 유지 여부(비투표, 다음 투표 2028)",
@@ -2485,10 +2629,6 @@ window.PEOPLE_DATA = {
     {
      "text": "some modest further tightening may be warranted",
      "date": "2026-09-24"
-    },
-    {
-     "text": "bending, but not breaking",
-     "date": "2026-01-03"
     }
    ],
    "dissents_2026": [],
@@ -2512,19 +2652,22 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "'조건이 예상대로면 소폭 추가 긴축 정당화될 수도'",
-     "2% 복귀 'non-negotiable', AI 투자 수요가 물가를 올림",
-     "노동 안정(4.1%)이라 물가가 우선, 표는 다수안"
+     "'소폭 추가 긴축 정당화 가능'",
+     "'too high for too long'",
+     "AI 투자 수요가 물가를 올림",
+     "R* 약 3.1%, 지역 접촉"
     ],
     "hawk_surprise": [
-     "인상 쪽 반대표(2026년 없음)",
-     "'두 번 더'·'연속'·'50bp' 같은 경로 약속",
-     "'아직 충분히 긴축적이지 않다'·R* 3.1%에서 상향"
+     "인상 쪽 반대표",
+     "'두 번 더'·연속·50bp",
+     "'충분히 긴축적이지 않다'",
+     "장기 기대 이탈 단정"
     ],
     "dove_surprise": [
-     "고용이 꺾이지 않았는데 '추가 긴축 불필요'",
-     "인하 언급·노동 위험을 다시 물가 위에",
-     "9월 인상이 과했다는 뉘앙스"
+     "9-24 문장 철회",
+     "인하·노동 위험을 물가 위로",
+     "9월 인상이 과했다",
+     "1990년대 '인내' 논리 적용"
     ]
    },
    "watch": "블랙아웃 전 11월 발언에서 9-24 문장 유지·강화·철회",
@@ -2549,6 +2692,188 @@ window.PEOPLE_DATA = {
      "outlet": "Axios",
      "date": "2025-04-17",
      "url": "https://www.axios.com/2025/04/17/federal-reserve-philadelphia-interest-rates"
+    },
+    {
+     "outlet": "Reuters via Kitco",
+     "date": "2026-01-06",
+     "url": "https://www.kitco.com/news/off-the-wire/2026-01-06/fed-hawks-and-doves-what-us-central-bankers-are-saying"
+    }
+   ],
+   "camp_src": [
+    {
+     "outlet": "Reuters via Kitco",
+     "date": "2026-01-06",
+     "url": "https://www.kitco.com/news/off-the-wire/2026-01-06/fed-hawks-and-doves-what-us-central-bankers-are-saying"
+    }
+   ]
+  },
+  {
+   "key": "hammack",
+   "name_ko": "베스 해맥",
+   "name_en": "Beth M. Hammack",
+   "role_short": "클리블랜드 연은 총재",
+   "seat": "bank",
+   "district": 4,
+   "voter_2026": true,
+   "voter_2027": false,
+   "bg_type": "실무(시장)",
+   "bg_line": "뉴욕 시장 30년: 마켓메이커·기업 재무책임자(골드만)",
+   "camp": "매파",
+   "stance_now": 2,
+   "stance_start_2026": 0,
+   "stance_basis": "+25bp씩 '작게, 비교적 빨리', 위원회가 쉬면 반대(올해 3회). 2월엔 '인내'",
+   "shift_note": "2월 '중립 부근·인내' → 4·7·10월 매파 쪽 반대",
+   "journey": [
+    {
+     "from": null,
+     "to": null,
+     "org": "Stanford University",
+     "org_ko": "스탠퍼드대",
+     "kind": "school",
+     "place": "Stanford, CA",
+     "lat": 37.4275,
+     "lon": -122.1697,
+     "note": "학사·석사(사전 지식)",
+     "cert": "사전 지식"
+    },
+    {
+     "from": "1993",
+     "to": null,
+     "org": "Goldman Sachs",
+     "org_ko": "골드만삭스",
+     "kind": "company",
+     "place": "New York, NY",
+     "lat": 40.7149,
+     "lon": -74.0145,
+     "note": "뉴욕 시장 30년(본인)·회사명 사전 지식",
+     "cert": "사전 지식"
+    },
+    {
+     "from": null,
+     "to": null,
+     "org": "Treasury Borrowing Advisory Committee",
+     "org_ko": "재무부 국채차입자문위(TBAC)",
+     "kind": "other",
+     "place": "Washington, DC",
+     "lat": 38.8987,
+     "lon": -77.0342,
+     "note": "부의장·의장(사전 지식)",
+     "cert": "사전 지식"
+    },
+    {
+     "from": "2024",
+     "to": null,
+     "org": "Federal Reserve Bank of Cleveland",
+     "org_ko": "클리블랜드 연은",
+     "kind": "fed",
+     "place": "Cleveland, OH",
+     "lat": 41.5025,
+     "lon": -81.69,
+     "note": "총재(2024-08, 메스터 후임)",
+     "cert": "2차",
+     "now": true
+    }
+   ],
+   "style": [
+    "반대표를 의사표시로 쓰고, 연은 웹에 설명 성명",
+    "조건부 '반응함수'로 말함 — 포워드 가이던스 거부",
+    "클리블랜드 자체 지표(중위·절사평균)와 지역 일화"
+   ],
+   "phrases": [
+    {
+     "text": "A reaction function is not forward guidance",
+     "date": "2026-10-12"
+    },
+    {
+     "text": "in a timely fashion",
+     "date": "2026-06-02"
+    }
+   ],
+   "dissents_2026": [
+    {
+     "date": "2026-04-29",
+     "side": "문구"
+    },
+    {
+     "date": "2026-07-29",
+     "side": "인상"
+    },
+    {
+     "date": "2026-10-28",
+     "side": "인상"
+    }
+   ],
+   "recent": [
+    {
+     "date": "2026-10-28",
+     "text": "동결에 반대, +25bp 인상(쿡과 함께)"
+    },
+    {
+     "date": "2026-10-12",
+     "text": "NABE 'Trimming the Sails': 제약적 스탠스, 작게·비교적 빨리"
+    },
+    {
+     "date": "2026-09-16",
+     "text": "+25bp 인상 찬성(12-0)"
+    },
+    {
+     "date": "2026-07-29",
+     "text": "동결에 반대, +25bp(카시카리·로건과 함께)"
+    }
+   ],
+   "baseline": {
+    "usual": [
+     "'충분히 제약적이지 않다'",
+     "주거 제외 근원 서비스·'inflationary mindset'",
+     "가이던스 거부, 조건부 반응함수"
+    ],
+    "hawk_surprise": [
+     "50bp·12월에도 '더 크게' 반대",
+     "장기 기대 'unanchored' 선언",
+     "대차대조표 축소 재개 주장",
+     "연속 인상 명시"
+    ],
+    "dove_surprise": [
+     "12월 동결에 반대 없이 찬성",
+     "한 번 더 뒤 '충분히 제약적'",
+     "에너지·관세 충격 '넘겨볼 수 있다'",
+     "노동 악화·인하 언급"
+    ]
+   },
+   "watch": "12월 표: 인상이면 폭, 동결이면 반대 여부",
+   "conf": "표결·연설은 1차 사본, 학력·골드만 경력은 사전 지식, 취임일 2차",
+   "sources": [
+    {
+     "outlet": "클리블랜드 연은 연설(1차 사본)",
+     "date": "2026-10-12",
+     "url": "https://www.clevelandfed.org/collections/speeches/2026/sp-20261012-trimming-the-sails-communicating-my-reaction-function"
+    },
+    {
+     "outlet": "연준 FOMC 성명(1차 사본)",
+     "date": "2026-10-28",
+     "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm"
+    },
+    {
+     "outlet": "연준 FOMC 성명(1차 사본)",
+     "date": "2026-07-29",
+     "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a.htm"
+    },
+    {
+     "outlet": "클리블랜드 연은 연설(1차 사본)",
+     "date": "2026-06-02",
+     "url": "https://www.clevelandfed.org/collections/speeches/2026/sp-20260602-it-takes-two-to-make-an-economy-go-right"
+    },
+    {
+     "outlet": "CNN 라이브",
+     "date": "2026-10-28",
+     "url": "https://www.cnn.com/2026/10/28/business/live-news/federal-reserve-interest-rate-october"
+    }
+   ],
+   "camp_src": [
+    {
+     "outlet": "CNN 라이브",
+     "date": "2026-10-28",
+     "url": "https://www.cnn.com/2026/10/28/business/live-news/federal-reserve-interest-rate-october"
     }
    ]
   },
@@ -2659,19 +2984,22 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "물가 우선 서술(5년 넘게 목표 초과, 기업 가격 전가)",
-     "추가 인상은 'We'll see' — 횟수·시점 말 안 함",
-     "하방 시나리오(소비·투자·시장 조정·고용)를 늘 나열"
+     "추가 인상 'We'll see'",
+     "기업 일화·CFO 설문 숫자",
+     "하방 목록(소비·시장 조정·고용) 나열",
+     "'다음 회의 지침 없음'"
     ],
     "hawk_surprise": [
-     "12월 인상을 회의 전에 명시 지지",
-     "인상 횟수·도달 금리 제시, '아직 긴축적이지 않다'",
-     "장기 기대가 흔들린다고 판단"
+     "12월 인상 회의 전 명시 지지",
+     "인상 횟수·도달 금리 제시",
+     "'뒤처졌다'",
+     "2027 반대 시사"
     ],
     "dove_surprise": [
-     "추가 인상 불필요·9월은 일회성이라고 결론",
-     "위험 무게가 고용으로 넘어갔다고 선언",
-     "AI 생산성이 물가를 충분히 낮춘다고 판단"
+     "9월은 일회성·추가 인상 불필요",
+     "위험 무게가 고용으로",
+     "공급 충격 무조건 넘겨보기",
+     "인하 언급"
     ]
    },
    "watch": "2027 첫 투표 해 1월 전망 연설, 12월 전 회의 방향 문장",
@@ -2697,165 +3025,12 @@ window.PEOPLE_DATA = {
      "date": "2018-08-08",
      "url": "https://www.richmondfed.org/press_room/speeches/thomas_i_barkin/2018/barkin_speech_20180808"
     }
-   ]
-  },
-  {
-   "key": "hammack",
-   "name_ko": "베스 해맥",
-   "name_en": "Beth M. Hammack",
-   "role_short": "클리블랜드 연은 총재",
-   "seat": "bank",
-   "district": 4,
-   "voter_2026": true,
-   "voter_2027": false,
-   "bg_type": "실무(시장)",
-   "bg_line": "뉴욕 시장 30년: 마켓메이커·기업 재무책임자(골드만)",
-   "camp": "매파",
-   "stance_now": 2,
-   "stance_start_2026": 0,
-   "stance_basis": "+25bp씩 '작게, 비교적 빨리', 위원회가 쉬면 반대(올해 3회). 2월엔 '인내'",
-   "shift_note": "2월 '중립 부근·인내' → 4·7·10월 매파 쪽 반대",
-   "journey": [
-    {
-     "from": null,
-     "to": null,
-     "org": "Stanford University",
-     "org_ko": "스탠퍼드대",
-     "kind": "school",
-     "place": "Stanford, CA",
-     "lat": 37.4275,
-     "lon": -122.1697,
-     "note": "학사·석사(사전 지식)",
-     "cert": "사전 지식"
-    },
-    {
-     "from": "1993",
-     "to": null,
-     "org": "Goldman Sachs",
-     "org_ko": "골드만삭스",
-     "kind": "company",
-     "place": "New York, NY",
-     "lat": 40.7149,
-     "lon": -74.0145,
-     "note": "뉴욕 시장 30년(본인)·회사명 사전 지식",
-     "cert": "사전 지식"
-    },
-    {
-     "from": null,
-     "to": null,
-     "org": "Treasury Borrowing Advisory Committee",
-     "org_ko": "재무부 국채차입자문위(TBAC)",
-     "kind": "other",
-     "place": "Washington, DC",
-     "lat": 38.8987,
-     "lon": -77.0342,
-     "note": "부의장·의장(사전 지식)",
-     "cert": "사전 지식"
-    },
-    {
-     "from": "2024",
-     "to": null,
-     "org": "Federal Reserve Bank of Cleveland",
-     "org_ko": "클리블랜드 연은",
-     "kind": "fed",
-     "place": "Cleveland, OH",
-     "lat": 41.5025,
-     "lon": -81.69,
-     "note": "총재(2024-08, 메스터 후임)",
-     "cert": "2차",
-     "now": true
-    }
    ],
-   "style": [
-    "반대표를 의사표시로 쓰고, 연은 웹에 설명 성명",
-    "조건부 '반응함수'로 말함 — 포워드 가이던스 거부",
-    "클리블랜드 자체 지표(중위·절사평균)와 지역 일화"
-   ],
-   "phrases": [
+   "camp_src": [
     {
-     "text": "A reaction function is not forward guidance",
-     "date": "2026-10-12"
-    },
-    {
-     "text": "in a timely fashion",
-     "date": "2026-06-02"
-    },
-    {
-     "text": "barely restrictive, if at all",
-     "date": "2025-11-06"
-    }
-   ],
-   "dissents_2026": [
-    {
-     "date": "2026-04-29",
-     "side": "문구"
-    },
-    {
-     "date": "2026-07-29",
-     "side": "인상"
-    },
-    {
-     "date": "2026-10-28",
-     "side": "인상"
-    }
-   ],
-   "recent": [
-    {
-     "date": "2026-10-28",
-     "text": "동결에 반대, +25bp 인상(쿡과 함께)"
-    },
-    {
-     "date": "2026-10-12",
-     "text": "NABE 'Trimming the Sails': 제약적 스탠스, 작게·비교적 빨리"
-    },
-    {
-     "date": "2026-09-16",
-     "text": "+25bp 인상 찬성(12-0)"
-    },
-    {
-     "date": "2026-07-29",
-     "text": "동결에 반대, +25bp(카시카리·로건과 함께)"
-    }
-   ],
-   "baseline": {
-    "usual": [
-     "'정책이 충분히 제약적이지 않다', +25bp씩 작게·빨리",
-     "위원회가 쉬면 반대(7·10월) — 12월 동결이면 또 반대",
-     "실업률 ≈ 최대고용, 금융여건 중립, '인플레 심리'"
-    ],
-    "hawk_surprise": [
-     "50bp 주장, 25bp 인상에도 '더 크게'로 반대",
-     "장기 기대 인플레가 '흔들렸다'고 선언",
-     "대차대조표 축소 재개·회의마다 연속 인상 명시"
-    ],
-    "dove_surprise": [
-     "12월 동결에 반대 없이 찬성, '기다릴 수 있다'",
-     "한 번 더 인상 뒤 '충분히 제약적'·'위험 균형'",
-     "에너지·관세 충격을 다시 '넘겨볼 수 있다'고"
-    ]
-   },
-   "watch": "12월: 인상이면 '더 크게'? 동결이면 올해 네 번째 반대?",
-   "conf": "표결·연설은 1차 사본, 학력·골드만 경력은 사전 지식, 취임일 2차",
-   "sources": [
-    {
-     "outlet": "클리블랜드 연은 연설(1차 사본)",
-     "date": "2026-10-12",
-     "url": "https://www.clevelandfed.org/collections/speeches/2026/sp-20261012-trimming-the-sails-communicating-my-reaction-function"
-    },
-    {
-     "outlet": "연준 FOMC 성명(1차 사본)",
-     "date": "2026-10-28",
-     "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm"
-    },
-    {
-     "outlet": "연준 FOMC 성명(1차 사본)",
-     "date": "2026-07-29",
-     "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a.htm"
-    },
-    {
-     "outlet": "클리블랜드 연은 연설(1차 사본)",
-     "date": "2026-06-02",
-     "url": "https://www.clevelandfed.org/collections/speeches/2026/sp-20260602-it-takes-two-to-make-an-economy-go-right"
+     "outlet": "리치먼드 연은 연설",
+     "date": "2026-09-22",
+     "url": "https://www.richmondfed.org/press_room/speeches/thomas_i_barkin/2026/barkin_speech_20260922"
     }
    ]
   },
@@ -2928,14 +3103,14 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "통화정책 공개 발언 없음 — 침묵이 기준선",
-     "대체위원으로 참석, 점도표는 익명 제출(추정)"
+     "지역경제·운영 이야기(추정)"
     ],
     "hawk_surprise": [
-     "공개적으로 추가 인상 요구·쿡·해맥 반대 논리 지지"
+     "추가 인상 공개 요구",
+     "금리 경로 명시 자체"
     ],
     "dove_surprise": [
-     "인상 종료나 인하를 공개 주장"
+     "인상 종료·인하 공개 주장"
     ]
    },
    "watch": "정식 총재 발표(포켄더 등), 2027-01 애틀랜타 몫 투표자",
@@ -3102,19 +3277,22 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "인플레가 최대 문제, 지속적 공급 충격은 넘겨볼 수 없다",
-     "충격이 사라진다는 증거 필요, 서비스·AI 데이터센터 주시",
-     "모든 선택지가 열려 있다 — 횟수·시점 없이 조건부"
+     "'인플레가 최대 문제'",
+     "지속적 공급 충격은 지나쳐 볼 수 없다",
+     "기대된 AI 생산성은 적정 금리를 올림",
+     "'모든 선택지가 열려 있다'"
     ],
     "hawk_surprise": [
-     "12월 인상 명시 지지·'최소 두 번 더'처럼 횟수",
-     "50bp나 'behind the curve'",
-     "2027년 인상 쪽 반대 예고"
+     "12월 인상 명시 지지",
+     "'최소 두 번 더'처럼 횟수 못박음",
+     "50bp·'behind the curve'",
+     "2027 인상 쪽 반대 예고"
     ],
     "dove_surprise": [
-     "9월 인상으로 '충분'·장기 동결 시사",
-     "유가·관세 충격을 다시 '지나쳐 보자'",
-     "AI주 급락·고용 둔화를 이유로 인하 시사"
+     "9월로 '충분'·장기 동결",
+     "유가·관세 충격 '지나쳐 보자'",
+     "생산성 붐으로 인하 논리",
+     "AI주 급락·고용 둔화로 인하 시사"
     ]
    },
    "watch": "11-02 발언: 9월 OMFIF 기준을 최근 자료에 어떻게 적용하나",
@@ -3140,7 +3318,9 @@ window.PEOPLE_DATA = {
      "date": "2025-12-10",
      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20251210a.htm"
     }
-   ]
+   ],
+   "camp_src": [],
+   "camp_cert": "사전 지식"
   },
   {
    "key": "musalem",
@@ -3286,19 +3466,22 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "인플레 '높고 넓게 퍼짐', 정책·금융여건 '여전히 완화적'",
-     "추가 긴축 필요 — '이르고 점진적', 폭·횟수 말 안 함",
-     "AI 생산성 기대로 완화하지 말라, 장기금리는 연준 의지에"
+     "'추가 긴축, 이르고 점진적'",
+     "인플레 '높고 넓게', 기대는 '대체로 고정'",
+     "AI 생산성 기대로 완화 말라",
+     "장기금리는 연준 의지에 달림"
     ],
     "hawk_surprise": [
-     "50bp·연속 인상·'최소 n번' 명시",
-     "'behind the curve'·10월 동결이 실수",
-     "기대인플레가 '풀리고 있다'로 판단 상향"
+     "50bp·연속·'최소 n번'",
+     "'behind the curve'·10월 동결 실수",
+     "대차대조표 등 금리 밖 도구",
+     "기대 'unanchoring'·최종금리 제시"
     ],
     "dove_surprise": [
-     "12월 동결 수용·'인내'로 돌아섬",
-     "'덜 그럴듯한' 둘째 시나리오가 그럴듯해졌다",
-     "노동 하방을 다시 주 위험으로"
+     "12월 동결 수용·'인내'",
+     "'덜 그럴듯한' 시나리오가 그럴듯해짐",
+     "노동 하방을 주 위험으로",
+     "금융여건으로 인상 보류"
     ]
    },
    "watch": "블랙아웃 전 12월 인상 명시 여부, 두 시나리오 무게 변화",
@@ -3323,6 +3506,13 @@ window.PEOPLE_DATA = {
      "outlet": "세인트루이스 연은 Q&A(1차 사본, 약력)",
      "date": "2026-05-06",
      "url": "https://www.stlouisfed.org/from-the-president/remarks/2026/ms-bankers-association-qa"
+    }
+   ],
+   "camp_src": [
+    {
+     "outlet": "CNBC",
+     "date": "2026-10-30",
+     "url": "https://www.cnbc.com/2026/10/30/musalem-fed-monetary-policy-tightening.html"
     }
    ]
   },
@@ -3468,10 +3658,6 @@ window.PEOPLE_DATA = {
     {
      "text": "Federal funds rate increases, potentially a series of them, could be warranted",
      "date": "2026-04-30"
-    },
-    {
-     "text": "should not be on a preset easing course",
-     "date": "2025-06"
     }
    ],
    "dissents_2026": [
@@ -3504,19 +3690,20 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "인플레 5년 넘게 목표 위, 장기 기대 고정이 최우선",
-     "작은 폭 인상을 잇되 꺾이면 멈춤, '올해 한 번 더'",
-     "중립금리를 높게 봄, 양방향 안내 선호"
+     "'너무 오래 높다'·'기대 고정'",
+     "'look through 한계'·'작은 걸음'",
+     "12월 인상 지지",
+     "12월 동결이면 인상 쪽 반대"
     ],
     "hawk_surprise": [
-     "50bp·매 회의 연속 인상 요구",
-     "2027년까지 여러 차례 인상을 기본 경로로",
-     "장기 기대 이탈이 '이미 시작됐다'고 진단"
+     "50bp·매 회의 연속 인상",
+     "2027까지 여러 번 기본 경로로",
+     "장기 기대 이탈 '이미 시작'"
     ],
     "dove_surprise": [
-     "12월 동결 지지·'추가 인상 불필요'",
-     "에너지 충격은 지나쳐 볼 수 있다(7월 논리 철회)",
-     "노동 급랭을 다시 최대 위험으로·2027 인하 거론"
+     "12월 동결·'추가 인상 불필요'",
+     "에너지 충격 '지나쳐 볼 수 있다'",
+     "중립금리 하향·2027 인하"
     ]
    },
    "watch": "10월 AI주 급락을 금융여건 긴축으로 읽어 인상 필요를 낮추나",
@@ -3539,6 +3726,13 @@ window.PEOPLE_DATA = {
     },
     {
      "outlet": "Continuum Economics",
+     "date": "2026-07",
+     "url": "https://continuumeconomics.com/a/df2af25a/us-feds-kashkari-hammack-and-logan-explain-their-hawkish-dissents"
+    }
+   ],
+   "camp_src": [
+    {
+     "outlet": "Continuum",
      "date": "2026-07",
      "url": "https://continuumeconomics.com/a/df2af25a/us-feds-kashkari-hammack-and-logan-explain-their-hawkish-dissents"
     }
@@ -3700,18 +3894,19 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "'물가가 최우선 걱정 — 너무 뜨겁고 너무 오래'",
-     "에너지만의 문제 아님, 공급 충격도 지나쳐 보지 않음",
-     "정책은 긴축적이지 않아 더 조여야(8월), 노동은 균형"
+     "'My primary concern is inflation…'",
+     "'에너지만의 문제가 아니다'",
+     "노동 균형·성장 견조"
     ],
     "hawk_surprise": [
-     "인상 폭·횟수를 숫자로 말함",
-     "대차대조표를 긴축 수단으로 꺼냄",
-     "10월 동결·의장을 공개 비판"
+     "인상 폭·횟수를 숫자로",
+     "대차대조표를 긴축 수단으로",
+     "10월 동결·의장 공개 비판"
     ],
     "dove_surprise": [
-     "'정책이 이제 충분히 긴축적'·'지켜볼 수 있다'",
-     "에너지 제외 물가 개선·노동 약화 걱정",
+     "'이제 충분히 긴축적'",
+     "'인내·지켜볼 수 있다'",
+     "노동 약화를 걱정거리로",
      "'에너지는 지나쳐 볼 수 있다'"
     ]
    },
@@ -3737,6 +3932,23 @@ window.PEOPLE_DATA = {
      "outlet": "Bloomberg Government",
      "date": "2026-09-18",
      "url": "https://news.bgov.com/banking-law/feds-schmid-backed-rate-hike-says-inflation-goes-beyond-energy"
+    },
+    {
+     "outlet": "Scotsman Guide",
+     "date": "2025-12-10",
+     "url": "https://www.scotsmanguide.com/news/fed-cuts-rates-though-three-officials-dissent/"
+    },
+    {
+     "outlet": "캔자스시티 연은 연설",
+     "date": "2026-07-16",
+     "url": "https://www.kansascityfed.org/speeches/the-federal-reserve-economic-outlook-and-monetary-policy-july-2026/"
+    }
+   ],
+   "camp_src": [
+    {
+     "outlet": "Scotsman Guide",
+     "date": "2025-12-10",
+     "url": "https://www.scotsmanguide.com/news/fed-cuts-rates-though-three-officials-dissent/"
     }
    ]
   },
@@ -3881,22 +4093,24 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "정책은 아직 긴축적 아님, '약간 긴축적'까지 최소 50bp",
-     "인상은 연속일 필요 없음, 목적지가 분명하면 시점은 덜 중요",
-     "주가·좁은 스프레드 = 긴축 부족 증거, AI 투자는 물가 상방"
+     "'최소 두 번 25bp 뒤 멈춤'",
+     "근원 PCE 3.1%·넓은 압력",
+     "금융여건 순풍 = 긴축 부족",
+     "절사평균은 낮게 치우침"
     ],
     "hawk_surprise": [
-     "한 번에 50bp·'곧·다음 회의' 같은 시급성",
-     "'두 번 뒤 멈춤' 대신 상당히 긴축적·세 번 이상",
-     "12월에 반대하면서 50bp까지 요구"
+     "한 번에 50bp·'곧' 시급성",
+     "'상당히 긴축적'·세 번 이상",
+     "12월 반대하며 50bp 요구"
     ],
     "dove_surprise": [
-     "'한 번이면 충분'·지금 수준이 이미 긴축적",
-     "장기 금리·기간 프리미엄 상승이 '일을 대신했다'",
-     "고용 악화를 멈춤·인하 이유로"
+     "'한 번이면 충분'·이미 긴축적",
+     "기간 프리미엄이 '일을 대신했다'",
+     "고용 악화를 멈춤 이유로",
+     "물가 추세 2%로"
     ]
    },
-   "watch": "12월: 동결이면 반대 가능성 높음, 목적지(최소 50bp) 유지 여부",
+   "watch": "12월 동결 시 반대 여부, 목적지(최소 50bp) 유지 여부",
    "conf": "연설·표결은 1차 사본, 학력 세부·취임일은 사전 지식",
    "sources": [
     {
@@ -3918,6 +4132,18 @@ window.PEOPLE_DATA = {
      "outlet": "댈러스 연은 듀크 졸업 연설(1차 사본, 약력)",
      "date": "2026-05-10",
      "url": "https://www.dallasfed.org/news/speeches/logan/2026/lkl260510"
+    },
+    {
+     "outlet": "Continuum",
+     "date": "2026-07",
+     "url": "https://continuumeconomics.com/a/df2af25a/us-feds-kashkari-hammack-and-logan-explain-their-hawkish-dissents"
+    }
+   ],
+   "camp_src": [
+    {
+     "outlet": "Continuum",
+     "date": "2026-07",
+     "url": "https://continuumeconomics.com/a/df2af25a/us-feds-kashkari-hammack-and-logan-explain-their-hawkish-dissents"
     }
    ]
   },
@@ -4060,19 +4286,21 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "원칙·불확실성 위주, 날짜·폭은 약속하지 않음",
-     "2026 원고 주제는 AI·생산성과 연준 구조·독립성",
-     "다수·의장을 거스른 기록 없음, 반대표 0회"
+     "'목표에 기대고, 상충을 따지고, 결정'",
+     "AI·신기술, 1990년대 인내 비유",
+     "연준 구조·독립성·소통 원칙"
     ],
     "hawk_surprise": [
-     "12월(또는 '곧') 추가 인상 필요 명시·횟수 제시",
-     "AI 투자 붐이 물가를 올린다며 AI 논리를 뒤집음",
-     "정책이 '긴축적이지 않다'·기대 인플레 위험 앞세움"
+     "12월 추가 인상 명시",
+     "AI 붐이 물가를 올린다",
+     "'긴축적이지 않다'·기대 위험",
+     "2027 인상 쪽 반대"
     ],
     "dove_surprise": [
-     "9월 인상이 과했다·추가 인상 반대 명시",
-     "고용 하방 경고 재등장(2025-08식)",
-     "AI 생산성을 지금 덜 올릴 이유로 처방"
+     "9월 인상이 과했다",
+     "'노동은 넘어지면 빠르고 세게' 복귀",
+     "AI 생산성을 덜 올릴 이유로",
+     "인하 언급"
     ]
    },
    "watch": "11월 발언에서 2026년 첫 명시적 금리 입장, 2027 첫 투표",
@@ -4097,6 +4325,11 @@ window.PEOPLE_DATA = {
      "outlet": "Quartz",
      "date": "2026-10-30",
      "url": "https://qz.com/fed-officials-signal-more-interest-rate-hikes-103026"
+    },
+    {
+     "outlet": "SF 연은 연설",
+     "date": "2025-09-24",
+     "url": "https://www.frbsf.org/news-and-media/speeches/mary-c-daly/2025/09/steady-through-change-policy-business-life/"
     }
    ]
   }

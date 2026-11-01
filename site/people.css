@@ -61,6 +61,7 @@ a.brand { text-decoration: none; }
 .head-right { display: flex; align-items: center; gap: 12px; white-space: nowrap; font: 500 12.5px var(--f-mono); color: var(--dim); }
 .dday b { color: var(--ink); font-weight: 500; }
 .dday strong { color: var(--amber); font-weight: 600; font-variant-numeric: tabular-nums; }
+.mark-short { display: none; }
 .mark { padding: 0 7px; border: 1px dashed #7a6a12; color: var(--key); font: 500 12px/1.7 var(--f-text); }
 .keyrow { display: flex; align-items: center; gap: 6px; padding: 0 0 8px; overflow-x: auto; scrollbar-width: none; max-width: 1360px; margin: 0 auto; }
 .keyrow::-webkit-scrollbar { display: none; }
@@ -75,7 +76,7 @@ a.brand { text-decoration: none; }
 .fkeys button.file-key[aria-current="true"] { color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
 .fkeys button[aria-current="true"] kbd { background: var(--key); color: #000; }
 .fkeys button.file-key[aria-current="true"] kbd { background: var(--gold); }
-.toggles { display: flex; gap: 6px; flex: none; margin-left: auto; padding-left: 10px; }
+.toggles { display: flex; gap: 6px; flex: none; margin-left: auto; padding-left: 10px; position: sticky; right: 0; background: var(--black); box-shadow: -10px 0 8px -2px var(--black); }   /* 좁은 화면에서도 움직임·단축키 버튼이 보이게 — 기능 키가 그 밑으로 밀려 들어간다 */
 .motion { padding: 1px 8px; border: 1px solid var(--rule); background: #000; color: var(--dim); font: 500 12px/1.6 var(--f-text); white-space: nowrap; }
 .motion[aria-pressed="true"] { color: var(--go); border-color: var(--go); }
 
@@ -480,6 +481,7 @@ h4.sub span { font-weight: 400; font-size: 12px; color: var(--dim); margin-left:
 .tile.hawk .vl { color: var(--hawk); } .tile.dove .vl { color: var(--dove); } .tile.zero .vl { color: var(--ink); }
 .spec-lede { font-size: 14px; line-height: 1.65; color: var(--ink-2); margin: 0 0 10px; }
 .spec-lede b { color: var(--ink); font-weight: 600; }
+.sec-h h3 .tag { margin-left: 10px; padding: 0 6px; border: 1px dashed #7a6a12; color: var(--key); font: 500 11.5px/1.6 var(--f-text); vertical-align: 2px; letter-spacing: 0; }
 .spec-lede .tag { display: inline-block; margin-right: 8px; padding: 0 6px; border: 1px dashed #7a6a12; color: var(--key); font-size: 11.5px; line-height: 1.6; vertical-align: 1px; }
 .spec-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 10px; }
 .tool-g { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
@@ -644,9 +646,10 @@ table.ledger { width: 100%; min-width: 330px; border-collapse: collapse; table-l
   .sec-h .wide { display: none; }
   .sec-h .narrow { display: inline; }
   .mark-long { display: none; }
+  .mark-short { display: inline; }
   .brand { font-size: 14px; }
   .brand span { display: none; }
-  .cmd-msg { display: none; }
+  .cmd-msg:not(:empty) { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }   /* 좁은 화면: 화면에서만 숨기고 화면 읽기에는 남긴다 */
   .top h1 { font-size: 20px; }
   .top h1 small { display: block; }
   .lede { font-size: 13.5px; }
@@ -704,6 +707,8 @@ table.ledger { width: 100%; min-width: 330px; border-collapse: collapse; table-l
   .quote p { font-size: 16px; }
 }
 @media (max-width: 380px) {
+  table.ledger { min-width: 300px; }
+  .ledger thead th.rowh { width: 56px; }
   .who-sur { font-size: 12.5px; }
   .rail-list { gap: 3px; }
   .rail-group { padding: 6px 6px 8px; }
@@ -716,6 +721,11 @@ table.ledger { width: 100%; min-width: 330px; border-collapse: collapse; table-l
 /* 낮은 화면(가로로 돌린 휴대폰)에서는 머리를 고정하지 않는다 — 화면의 절반을 가린다 (관측실과 같음) */
 @media (max-height: 520px) { .term-head { position: static; } .rail { position: static; max-height: none; } }
 html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="off"] *::after { animation: none !important; transition: none !important; }
+@media print {
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .skip, .cmd, .toggles, .fkeys, .tape, .file-nav, .seg { display: none !important; }
+  .term-head, .rail, #sec-route .route-fig { position: static !important; }
+}
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion="on"]) .tape-track { animation: none; }
 }
