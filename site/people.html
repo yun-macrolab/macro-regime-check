@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>매크로 관측실 · 연준 인물</title>
+<meta name="description" content="2026 FOMC 참가자 19명을 한 사람 한 파일로 — 출신·걸어온 길·말하는 방식·평판·표결과 새 발언을 견줄 기준선(참고 — 예측 아님, 초안)">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="people.css">
+</head>
+<body>
+<a class="skip" href="#file">파일로 건너뛰기</a>
+<header class="term-head" id="head">
+  <div class="cmdbar">
+    <a class="brand" href="./" title="점검 페이지로">매크로 관측실 <span>연준 인물</span></a>
+    <form class="cmd" id="cmd" role="search" autocomplete="off">
+      <label for="q">&gt;</label>
+      <input id="q" list="names" enterkeyhint="go" placeholder="이름·도시·표지 글자 — 해맥, Dallas, D" aria-label="사람 찾기: 이름, 연은 도시, 표지 글자, 지구 번호">
+      <datalist id="names"></datalist>
+      <span class="cmd-msg" id="cmd-msg" role="status"></span>
+      <button type="submit">열기</button>
+    </form>
+    <div class="head-right">
+      <span class="dday" id="dday" title="다음 FOMC 첫날까지 — 한국 날짜 기준"></span>
+      <span class="mark" title="참고 자료이고 금리 예측이 아니다. 사람이 확인하기 전의 초안이다"><span class="mark-long">참고 — 예측 아님 · </span>초안</span>
+    </div>
+  </div>
+  <div class="keyrow" id="keyrow">
+    <nav class="fkeys" id="fkeys" aria-label="화면 이동"></nav>
+    <div class="toggles">
+      <button class="motion" id="motion" type="button" aria-pressed="true">움직임 켬</button>
+      <button class="motion" id="keys" type="button" aria-pressed="true" title="한 글자 단축키(/ 1–9 A–L 0 [ ])를 켜고 끈다">단축키 켬</button>
+    </div>
+  </div>
+</header>
+<div class="tape" id="tape" tabindex="0" aria-label="2026년 회의·사건·발언 띠 — 초점을 두거나 마우스를 올리면 멈춘다. 고른 사람의 이름은 호박색"></div>
+
+<div class="page">
+  <div class="top">
+    <h1><small id="h1-small">FOMC 2026 · 참가자 19명</small> 연준 인물 서류철</h1>
+    <p class="lede">한 사람이 한 파일이다 — 맨 앞의 <b>기준선</b>(평소·놀랄 일)에 새 발언을 견준다.</p>
+  </div>
+  <p class="status" id="status" aria-label="이 서류철의 숫자"></p>
+  <p class="caveat" id="caveat" role="note"></p>
+
+  <div class="desk">
+    <nav class="rail" id="rail" aria-label="위원 모니터 — 파일 고르기"></nav>
+    <div class="main">
+      <div class="file-wrap" id="file-wrap">
+        <div class="file-tabrow">
+          <div class="file-tab" id="file-tab"></div>
+          <div class="file-nav"><button type="button" id="prev" aria-label="이전 파일">◀<span class="nav-w"> 이전</span></button><button type="button" id="next" aria-label="다음 파일"><span class="nav-w">다음 </span>▶</button></div>
+        </div>
+        <article class="file" id="file" tabindex="-1" aria-live="polite"></article>
+      </div>
+
+      <section id="sec-dmap" aria-labelledby="h-dmap">
+        <div class="section-heading"><h2 id="h-dmap"><span class="no">05</span>12개 지구와 이사회</h2><p>글자 = 달러 지폐에 찍히는 연은 표지 · 칠한 색 = 총재의 관찰자 라벨</p></div>
+        <div class="panel"><div class="dmap-grid">
+          <figure class="route-fig"><div class="mapbox dmapbox"><svg id="dmap" role="group" aria-label="연준 12개 지구 지도: 지구마다 연은 표지 글자와 총재. 표지를 누르면 그 총재의 파일"></svg></div>
+            <div class="tint-key" id="tint-key"></div>
+            <p class="small-note">지구 경계는 주 단위 근사다(실제로는 CT·NJ·PA·KY·WV·TN·MS·LA·IL·IN·MI·WI·MO·NM이 두 지구로 나뉜다). 북동부는 표지가 몰려 있어 대서양 쪽 여백에 꺼내 선으로 이었다. 표지나 표의 줄을 누르면 그 총재의 파일이 열린다.</p></figure>
+          <div><table class="dtable" id="dtable"></table><div class="board-list" id="board-list"></div></div>
+        </div></div>
+      </section>
+
+      <section id="sec-spec" aria-labelledby="h-spec">
+        <div class="section-heading"><h2 id="h-spec"><span class="no">06</span>위원회 스펙트럼</h2><p class="ref">운영자 해석 — 측정값 아님</p></div>
+        <div class="panel">
+          <div class="tiles" id="tiles" aria-label="운영자 해석 위치의 셈"></div>
+          <p class="spec-lede" id="spec-lede"></p>
+          <div class="spec-tools">
+            <span class="tool-g"><span class="seg-l" id="seg-time-l">시점</span>
+            <span class="seg" role="group" aria-labelledby="seg-time-l"><button type="button" id="t-now" aria-pressed="true">10월 지금</button><button type="button" id="t-jan" aria-pressed="false">1월 연초</button></span></span>
+            <span class="tool-g"><span class="seg-l" id="seg-col-l">색</span>
+            <span class="seg" role="group" aria-labelledby="seg-col-l"><button type="button" id="c-camp" aria-pressed="true">관찰자 라벨</button><button type="button" id="c-vote" aria-pressed="false">투표권</button></span></span>
+          </div>
+          <div class="spec" id="spec" data-time="now" data-color="camp"></div>
+          <div class="spec-key" id="spec-key"></div>
+          <div class="spec-null" id="spec-null"></div>
+          <ul class="scale-labels" id="scale-labels"></ul>
+        </div>
+      </section>
+
+      <section id="sec-ledger" aria-labelledby="h-ledger">
+        <div class="section-heading"><h2 id="h-ledger"><span class="no">07</span>2026 표결 장부</h2><p>반대표는 기록, 나머지 칸은 표 수로 맞춰 본 것</p></div>
+        <div class="panel">
+          <div class="ledger-grid">
+            <div>
+              <div class="tbl-scroll" tabindex="0" role="group" aria-label="표결 장부 — 좁은 화면에서는 가로로 밀어 볼 수 있음"><table class="ledger" id="ledger"></table></div>
+              <p class="small-note">칸: <b style="color:var(--hawk)">인상</b>·<b style="color:var(--dove)">인하</b>·<b style="color:var(--gold)">문구</b> = 그쪽으로 낸 반대표, · = 반대 기록 없음(다수 쪽으로 봄), – = 그 회의 때 위원 아님, <b class="q-key">?</b> = 아직 열리지 않은 회의, 호박색 밑줄 = 의장. 상단 금리는 결정 문구의 범위 윗값. 맨 아래 줄은 칸의 합이 발표된 표 수와 맞는지 본 것이다.</p>
+            </div>
+            <ol class="meets" id="meets"></ol>
+          </div>
+          <div class="swap" id="swap"></div>
+        </div>
+      </section>
+
+      <section id="sec-mix" aria-labelledby="h-mix">
+        <div class="section-heading"><h2 id="h-mix"><span class="no">08</span>어디서 왔나</h2><p>19명의 배경과, 여러 사람이 거쳐 간 ‘환승역’</p></div>
+        <div class="panel">
+          <div class="mix-bar" id="mix-bar"></div>
+          <div class="mix-keys" id="mix-keys"></div>
+          <h4 class="sub">환승역 <span>지금 자리를 빼고, 두 사람 이상이 거쳐 간 곳 — 걸어온 길 기록 기준(확인 수준이 섞여 있다)</span></h4>
+          <ul class="hubs" id="hubs"></ul>
+        </div>
+      </section>
+
+      <section id="sec-notes" aria-labelledby="h-notes">
+        <div class="section-heading"><h2 id="h-notes"><span class="no">09</span>읽기 전에</h2><p>이 파일들의 출처와 한계</p></div>
+        <div class="panel">
+          <ol class="notes" id="notes"></ol>
+          <p class="keys-help">단축키(입력칸 밖에서, 머리의 ‘단축키’로 끈다): <kbd>/</kbd> 찾기 · <kbd>1</kbd>–<kbd>9</kbd> 화면 이동 · <kbd>A</kbd>–<kbd>L</kbd> 그 표지의 연은 총재 · <kbd>0</kbd> 이사회(누를 때마다 다음 이사) · <kbd>[</kbd> <kbd>]</kbd> 이전·다음 사람 · <kbd>Esc</kbd> 찾기 닫기. 사람마다 주소가 있다(#hammack, #venable처럼).</p>
+          <p class="keys-help"><a href="./">← 매크로 관측실 점검 페이지</a> · 자료 파일 <a href="people-data.js">people-data.js</a></p>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<script src="people-data.js"></script>
+<script src="people.js"></script>
+</body>
+</html>
