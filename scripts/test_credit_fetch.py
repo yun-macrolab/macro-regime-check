@@ -106,7 +106,21 @@ def world():
     S["BOGZ1FA105050005Q"] = [(q, 90.0 if i >= len(zq) - 4 else 100.0 + 20 * math.sin(i / 3)) for i, q in enumerate(zq)]
     S["NASDAQ100"] = index_world()
     S["NASDAQNQINTEL"] = index_world(drop=[(30, 0.8613)])                     # 30영업일 전부터 고점 대비 약 −14%
+    S.update(bond_world())
     return S
+
+
+def bond_world(last=(2026, 2)):
+    """회사채 흐름 Z.1 다섯(계절조정 연율, 백만 달러) — 2018Q1부터 last까지. 마지막 4분기: 전체 0.8·1.2·0.9·1.1조(평균 1조 →
+    4분기 합 1000bn), 비금융 0.3조, 해외 0.4조(40%), 생보 0.2·0.3·0.1·0.2조(20%), 사적 연금 10·30·−10·10십억(1%) → 그 밖
+    390bn(39%). 그 앞 4분기: 전체 0.5조, 비금융 0.1조, 해외 0.1조(20%), 생보 0.15조(30%), 사적 연금 −20십억(−4%) → 그 밖
+    270bn(54%)."""
+    qs = quarters(2018, 1, *last)
+    base = {"total": 500000.0, "nonfin": 100000.0, "foreign": 100000.0, "life": 150000.0, "pension": -20000.0}
+    end = {"total": [800000.0, 1200000.0, 900000.0, 1100000.0], "nonfin": [300000.0] * 4, "foreign": [400000.0] * 4,
+           "life": [200000.0, 300000.0, 100000.0, 200000.0], "pension": [10000.0, 30000.0, -10000.0, 10000.0]}
+    return {cf.BOND[k]: [(q, end[k][i - (len(qs) - 4)] if i >= len(qs) - 4 else base[k]) for i, q in enumerate(qs)]
+            for k in cf.BOND}
 
 
 # ---------- 연준 이사회 EBP · 뉴욕 연은 CMDI (지어낸 파일) ----------
@@ -586,7 +600,7 @@ class MainTest(_MainBase):
         js = self.saved()
         self.assertEqual(set(js), {"schema", "generated_at", "notice", "definition", "order", "items"})
         self.assertEqual((js["order"], js["definition"]),
-                         (["stage", "ebp", "cmdi", "cell", "gap", "drawdown", "sec"], cf.STAGE_DEF))
+                         (["stage", "ebp", "cmdi", "cell", "gap", "drawdown", "bond_flow", "sec"], cf.STAGE_DEF))
         for key in cf.BY_KEY:
             it = js["items"][key]
             self.assertTrue(it["ok"], key)
@@ -615,6 +629,11 @@ class MainTest(_MainBase):
         self.assertEqual(js["items"]["cmdi"]["notices"], [cf.CMDI_DERIVED, cf.CMDI_DERIVED_EN, rp.nyfed_attribution("2026"),
                                                           rp.NOT_AFFILIATED, cf.CMDI_CITE])
         self.assertEqual(js["items"]["cell"]["notices"], [cf.COMPUTED_NOTICE])
+        bf = js["items"]["bond_flow"]
+        self.assertEqual((bf["notices"], bf["date"], bf["name"]), ([cf.BOND_NOTICE], "2026-04-01", "회사채 공급 대 흡수 (연준 Z.1, 4분기 합)"))
+        self.assertEqual([x["series"] for x in bf["sources"]], list(cf.BOND.values()))
+        self.assertEqual({x["licence"] for x in bf["sources"]}, {"public-domain"})
+        self.assertTrue(bf["line"].startswith("2025Q3~2026Q2 4분기 합: 회사채·외국채 순발행 +1000.0bn (1년 전 +500.0)"))
         self.assertTrue(js["items"]["cell"]["line"].startswith("확장 × 현금 조달 — "))
         sec = js["items"]["sec"]                                                  # sec.json이 없다
         self.assertEqual((sec["ok"], sec["stale"], sec["error"]), (False, False, "SEC 자료 파일을 읽지 못함"))
@@ -754,7 +773,7 @@ class MainTest(_MainBase):
                 self.assertNotIn(word, spec["title"])
             for t in (cf.NOTICE, cf.STAGE_DEF, cf.HYPO, cf.EASING, cf.PATH_NOTE, cf.RESTRICTED_NOTICE, cf.CITATION_NOTICE,
                       cf.COPYRIGHT_NOTICE, cf.EBP_NOTICE, cf.EBP_CITE, cf.EBP_SOURCE, cf.EBP_PD, cf.CMDI_DERIVED,
-                      cf.CMDI_DERIVED_EN, cf.CMDI_CITE, *cf.CMDI_LABEL.values(),
+                      cf.CMDI_DERIVED_EN, cf.CMDI_CITE, *cf.CMDI_LABEL.values(), cf.BOND_NOTICE, *cf.BOND_LABEL.values(),
                       *cf.BAND_NAME.values(), *cf.REASONS.values()):
                 self.assertNotIn(word, t)
         urls = {u.rstrip(".") for u in re.findall(r"https?://[^\s,;)\"]+", dump)}
@@ -1136,8 +1155,9 @@ class ExtFetchTest(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             data, errors = cf.load_all(self.tmp, opener=web)
         self.assertEqual(errors, {})
-        self.assertEqual([u for u, _, _ in web.calls], [ff.FRED_CSV.format(sid=sid) for sid in cf.SERIES] +
-                         [cf.EBP_URL, cf.CMDI_URL])
+        fred_url = lambda sids: [ff.FRED_CSV.format(sid=sid) for sid in sids]
+        self.assertEqual([u for u, _, _ in web.calls],                            # FRED 8 → EBP → CMDI → 회사채 Z.1 5
+                         fred_url(cf.SERIES[:8]) + [cf.EBP_URL, cf.CMDI_URL] + fred_url(cf.BOND.values()))
         for url, ua, tmo in web.calls:
             self.assertLessEqual(tmo, cf.REQ_TIMEOUT)
             if "stlouisfed" in url:
@@ -1197,11 +1217,21 @@ class ExtFetchTest(unittest.TestCase):
         web = Slow()
         fred = FakeFred(world())
         with contextlib.redirect_stdout(io.StringIO()):
-            data, errors = cf.load_all(self.tmp, fred_load=lambda *a, **k: (t.__setitem__(0, t[0] + 6.0), fred(*a, **k))[1],
-                                       clock=clock, opener=web)
-        self.assertEqual([tmo for _, tmo in fred.calls], [10] * 8)              # 6초씩 8번 = 48초
+            data, errors = cf.load_all(self.tmp, fred_load=lambda *a, **k: (t.__setitem__(0, t[0] + 4.0), fred(*a, **k))[1],
+                                       clock=clock, opener=web, budget=60)
+        # FRED 8 × 4초 = 32 → EBP·CMDI 9초씩(50) → 회사채 Z.1: 남은 10 · 6 · 2초, 그다음은 남은 시간 없음
+        self.assertEqual([tmo for _, tmo in fred.calls], [10] * 8 + [10, 6.0, 2.0])
+        self.assertEqual([(u, tmo) for u, _, tmo in web.calls], [(cf.EBP_URL, 10), (cf.CMDI_URL, 10)])
+        self.assertEqual(errors, {cf.BOND["life"]: "fetch", cf.BOND["pension"]: "fetch"})   # 새 회사채 줄부터 빠진다(검토 S1)
+        self.assertIn(cf.EBP, data)
+        self.assertIn(cf.CMDI, data)                                              # 기존 신용 스트레스 두 칸은 그대로 받는다
+        t[0] = 0.0                                                                # 예산이 더 모자라면 — 받는 중에 전체 마감을 넘음
+        web, fred = Slow(), FakeFred(world())
+        with contextlib.redirect_stdout(io.StringIO()):
+            data, errors = cf.load_all(self.tmp, fred_load=lambda *a, **k: (t.__setitem__(0, t[0] + 4.0), fred(*a, **k))[1],
+                                       clock=clock, opener=web, budget=44)
         self.assertEqual([(u, tmo) for u, _, tmo in web.calls], [(cf.EBP_URL, 10), (cf.CMDI_URL, 3.0)])   # 12초 중 10 · 남은 3
-        self.assertEqual(errors, {cf.CMDI: "fetch"})                              # 받는 중에 전체 마감을 넘었다
+        self.assertEqual(errors, {cf.CMDI: "fetch", **{sid: "fetch" for sid in cf.BOND.values()}})
         self.assertIn(cf.EBP, data)
 
     def test_offline_reads_the_cache_and_does_not_call_out(self):
@@ -1346,10 +1376,126 @@ class SecMirrorTest(unittest.TestCase):
         self.assertEqual(it["failed_since"], "2026-10-31")
 
 
+class BondFlowTest(_MainBase):
+    """회사채 공급 대 흡수 — 4분기 합 = 연율 평균 ÷ 1000, 몫, 그 밖(보이는 숫자끼리 합), 빠진 분기, 전체 0 이하, 칸 격리."""
+    def test_four_quarter_sums_shares_and_year_ago(self):
+        v = cf.bond_flow(bond_world())
+        self.assertEqual((v["q"], v["from"], v["p_q"], v["p_from"]), ("2026-04-01", "2025-07-01", "2025-04-01", "2024-07-01"))
+        self.assertEqual({k: v[k] for k in ("total", "nonfin", "foreign", "life", "pension", "other")},
+                         {"total": 1000.0, "nonfin": 300.0, "foreign": 400.0, "life": 200.0, "pension": 10.0, "other": 390.0})
+        self.assertEqual({k: v[f"s_{k}"] for k in cf.ISSUE_KEYS},
+                         {"nonfin": 30.0, "foreign": 40.0, "life": 20.0, "pension": 1.0, "other": 39.0})
+        self.assertEqual({k: v[f"p_{k}"] for k in ("total", "nonfin", "foreign", "life", "pension", "other")},
+                         {"total": 500.0, "nonfin": 100.0, "foreign": 100.0, "life": 150.0, "pension": -20.0, "other": 270.0})
+        self.assertEqual({k: v[f"ps_{k}"] for k in cf.ISSUE_KEYS},
+                         {"nonfin": 20.0, "foreign": 20.0, "life": 30.0, "pension": -4.0, "other": 54.0})
+        line, extra = cf.texts("bond_flow", v, v["q"])
+        self.assertEqual(line, "2025Q3~2026Q2 4분기 합: 회사채·외국채 순발행 +1000.0bn (1년 전 +500.0) · 그중 비금융기업 회사채 "
+                               "+300.0bn, 발행 몫 30% — 사들인 쪽: 해외 +400.0bn 40% · 생보 +200.0bn 20% · 사적 연금 +10.0bn 1% · "
+                               "그 밖 +390.0bn 39%")
+        self.assertEqual(extra[-1], "1년 전 4분기(2024Q3~2025Q2): 순발행 +500.0bn · 비금융기업 +100.0bn, 발행 몫 20% — 해외 20% · "
+                                    "생보 30% · 사적 연금 -4% · 그 밖 54%")
+        self.assertIn("계절조정 흐름의 4분기 합", extra[0])                      # 달력 연도 창에서만 실제 흐름 합(검토 F6)
+        self.assertIn("발행 몫 = 비금융기업 ÷ 순발행 전체이고 사들인 쪽의 몫이 아니다", extra[0])
+        self.assertIn("사적 연금은 2024년까지 연간 자료를 네 분기에 고르게 나눈 값", extra[1])
+        self.assertTrue(cf._consistent("bond_flow", v))
+        self.assertEqual(cf.calc_bond_flow(bond_world(), TODAY)["date"], "2026-04-01")
+
+    def test_last_quarter_is_where_all_five_meet(self):
+        S = bond_world()
+        S[cf.BOND["pension"]] = S[cf.BOND["pension"]][:-1]                       # 연금이 한 분기 늦다 → 2026Q1까지
+        v = cf.bond_flow(S)
+        self.assertEqual((v["q"], v["from"]), ("2026-01-01", "2025-04-01"))
+        S = bond_world()
+        S[cf.BOND["life"]] = [x for x in S[cf.BOND["life"]] if x[0] != D(2025, 10, 1)]   # 마지막 4분기 가운데 하나가 빠지면
+        with self.assertRaises(cf.ItemError):
+            cf.bond_flow(S)
+        S = bond_world()
+        S[cf.BOND["foreign"]] = [x for x in S[cf.BOND["foreign"]] if x[0] != D(2024, 10, 1)]   # 1년 전 창만 빠지면 1년 전만 비움
+        v = cf.bond_flow(S)
+        self.assertEqual((v["total"], v["p_q"], v["p_total"], v["ps_other"]), (1000.0, None, None, None))
+        line, extra = cf.texts("bond_flow", v, v["q"])
+        self.assertNotIn("1년 전", line)
+        self.assertEqual(len(extra), 2)
+        self.assertTrue(cf._consistent("bond_flow", v))
+        with self.assertRaises(cf.ItemError):
+            cf.bond_flow({})
+
+    def test_non_positive_total_has_no_shares(self):
+        S = bond_world()
+        S[cf.BOND["total"]] = [(d, x if d < D(2025, 7, 1) else -1000.0) for d, x in S[cf.BOND["total"]]]
+        v = cf.bond_flow(S)
+        self.assertEqual((v["total"], v["s_foreign"], v["s_other"], v["s_nonfin"]), (-1.0, None, None, None))
+        line = cf.texts("bond_flow", v, v["q"])[0]
+        self.assertIn("그중 비금융기업 회사채 +300.0bn — 사들인 쪽", line)            # 발행 몫도 없다
+        self.assertIn("해외 +400.0bn · 생보 +200.0bn · 사적 연금 +10.0bn · 그 밖 -611.0bn", line)
+        self.assertNotIn("%", line)
+        self.assertTrue(cf._consistent("bond_flow", v))
+
+    def test_shares_are_stored_at_four_places_and_rounded_once(self):
+        S = bond_world()
+        sid = cf.BOND["foreign"]
+        S[sid] = S[sid][:-4] + [(d, 354951.0) for d, _ in S[sid][-4:]]          # 해외 = 전체 1000bn의 35.4951%
+        v = cf.bond_flow(S)
+        self.assertEqual((v["foreign"], v["s_foreign"]), (354.951, 35.4951))
+        self.assertIn("해외 +355.0bn 35% ·", cf.texts("bond_flow", v, v["q"])[0])   # 둘째 자리로 저장하면 35.50 → '36%'
+        self.assertTrue(cf._consistent("bond_flow", v))
+
+    def test_other_takes_the_rounding_so_shown_numbers_add_up(self):
+        v = cf.bond_flow(bond_world())
+        v.update(total=100.04, foreign=33.35, life=33.35, pension=33.34, other=0.0,
+                 s_foreign=33.336, s_life=33.336, s_pension=33.327, s_other=0.0)
+        line = cf.texts("bond_flow", v, v["q"])[0]
+        self.assertIn("순발행 +100.0bn", line)
+        self.assertIn("해외 +33.4bn 33% · 생보 +33.4bn 33% · 사적 연금 +33.3bn 33% · 그 밖 -0.1bn 1%", line)   # 100 − 33.4×2 − 33.3
+
+    def test_previous_file_shape_and_consistency(self):
+        v = cf.bond_flow(bond_world())
+        ok = {"date": v["q"], "values": dict(v)}
+        it = cf.item_ok("bond_flow", ok, None, TODAY)
+        self.assertTrue(cf.core_of(it, "bond_flow"))
+        for mutate in (lambda x: x.update(other=5.0), lambda x: x.update(s_life=None), lambda x: x.update(p_total=None),
+                       lambda x: x.update(total="1000"), lambda x: x.update(extra=1), lambda x: x.update(q="2025-01-01"),
+                       lambda x: x.update(p_q="2026-04-01"), lambda x: x.update(s_nonfin=None), lambda x: x.pop("ps_nonfin")):
+            bad = json.loads(json.dumps(it))
+            mutate(bad["values"])
+            self.assertIsNone(cf.core_of(bad, "bond_flow"), mutate)
+
+    def test_one_failed_series_stales_only_this_item(self):
+        self.run_main()
+        code, log = self.run_main(fred=FakeFred(self.S, fail={cf.BOND["nonfin"]}), now=NOW + datetime.timedelta(days=1))
+        items = self.saved()["items"]
+        bf = items["bond_flow"]
+        self.assertEqual((code, bf["ok"], bf["stale"], bf["error"], bf["retrieved"]), (0, False, True, "수신 실패", "2026-10-30"))
+        self.assertEqual(bf["values"]["total"], 1000.0)
+        self.assertTrue(all(items[k]["ok"] for k in ("stage", "ebp", "cmdi", "cell", "gap", "drawdown")))
+        self.assertIn("::warning::신용 긴축 참고 bond_flow 받지 못함: 수신 실패 — 직전 값(2026-04-01 기준) 유지", log)
+        S = dict(self.S, **{sid: x[:-1] for sid, x in bond_world().items()})        # 이른 자료는 받지 않는다
+        self.run_main(fred=FakeFred(S), now=NOW + datetime.timedelta(days=2))
+        bf = self.saved()["items"]["bond_flow"]
+        self.assertEqual((bf["ok"], bf["error"], bf["values"]["q"]), (False, "받은 자료가 직전 자료보다 오래됨", "2026-04-01"))
+
+
 class LicenceTest(unittest.TestCase):
     def test_series_list_is_fixed(self):
         self.assertEqual(set(cf.SERIES), {"DRTSCILM", "NFCICREDIT", "A679RC1Q027SBEA", "GDP", "BOGZ1FA105050005Q",
-                                          "BOGZ1FA106000135Q", "NASDAQ100", "NASDAQNQINTEL"})
+                                          "BOGZ1FA106000135Q", "NASDAQ100", "NASDAQNQINTEL", "BOGZ1FA893163005Q",
+                                          "NCBCBLQ027S", "ROWCBAQ027S", "BOGZ1FA543063005Q", "BOGZ1FA573063005Q"})
+        self.assertEqual(cf.SERIES[-5:], list(cf.BOND.values()))                # 회사채 흐름은 FRED 목록 끝
+        self.assertEqual(cf.FETCH[-5:], list(cf.BOND.values()))                 # 요청 차례도 맨 끝 — EBP·CMDI 뒤(예산이 모자라면 먼저 빠진다)
+        # 2026-11-02 FRED 시리즈 쪽 제목·Suggested Citation(출처 = 연준 이사회)·'Public Domain: Citation Requested'
+        self.assertEqual({sid: cf.SOURCES[sid][1] for sid in cf.BOND.values()}, {
+            "BOGZ1FA893163005Q": "All Sectors; Corporate and Foreign Bonds; Liability, Transactions",
+            "NCBCBLQ027S": "Nonfinancial Corporate Business; Corporate Bonds; Liability (Excluding Ereits), Transactions",
+            "ROWCBAQ027S": "Rest of the World; Corporate Bonds; Asset, Transactions",
+            "BOGZ1FA543063005Q": "Life Insurance Companies; Corporate and Foreign Bonds; Asset, Transactions",
+            "BOGZ1FA573063005Q": "Private Pension Funds; Corporate and Foreign Bonds; Asset, Transactions"})
+        self.assertEqual({cf.SOURCES[sid][0] for sid in cf.BOND.values()}, {"Board of Governors of the Federal Reserve System (US)"})
+        self.assertEqual({cf.LICENCE[sid] for sid in cf.BOND.values()}, {"public-domain"})
+        self.assertEqual(cf.citation("NCBCBLQ027S", "2026-11-02"),
+                         "Board of Governors of the Federal Reserve System (US), Nonfinancial Corporate Business; Corporate Bonds; "
+                         "Liability (Excluding Ereits), Transactions [NCBCBLQ027S], retrieved from FRED, Federal Reserve Bank "
+                         "of St. Louis; https://fred.stlouisfed.org/series/NCBCBLQ027S, November 2, 2026.")
         self.assertEqual(set(cf.LICENCE), set(cf.SERIES))
         self.assertEqual({s for s, v in cf.LICENCE.items() if v != "public-domain"}, {"NFCICREDIT", "NASDAQ100", "NASDAQNQINTEL"})
         self.assertEqual(cf.RESTRICTED, {"NASDAQ100", "NASDAQNQINTEL"})
@@ -1368,7 +1514,8 @@ class LicenceTest(unittest.TestCase):
         private = ("BAMLC0A1CAAA", "BAMLC0A2CAA", "BAMLC0A3CA", "BAMLC0A4CBBB", "BAMLC0A0CM", "BAMLC8A0C15PY",
                    "BAMLH0A0HYM2", "BAA10Y", "SP500")
         self.assertFalse(set(cf.FETCH) & set(private))
-        self.assertEqual(cf.FETCH, cf.SERIES + ["EBP", "CMDI"])
+        self.assertEqual(cf.FETCH, cf.SERIES[:8] + ["EBP", "CMDI"] + list(cf.BOND.values()))
+        self.assertEqual(len(cf.FETCH), 15)
 
     def test_nasdaq_titles_and_copyright_are_the_fred_page_text(self):
         # 2026-10-30 FRED 시리즈 쪽 Suggested Citation·Notes 그대로(NASDAQ100 쪽의 'Â©'는 '©'로 고쳤다)
@@ -1416,7 +1563,11 @@ class StaticTest(unittest.TestCase):
     def test_screen_script_matches_the_files_and_writes_text_only(self):
         js = self.read("site", "credit.js")
         card = re.findall(r'"(\w+)"', js[js.index("const CARD = ["):].split("]")[0])
-        self.assertEqual(card, cf.ORDER)
+        self.assertEqual(card, cf.CARD)
+        self.assertEqual(cf.CARD, cf.ORDER + ["flow", "bal"])
+        self.assertEqual(re.findall(r'"(\w+)"', js[js.index("const SEC_ROWS = ["):].split("]")[0]),
+                         [k for k in sf.ORDER if k != "funding"])
+        self.assertEqual(re.findall(r'"(\w+)"', js[js.index("const LATE = ["):].split("]")[0]), ["bond_flow", "flow", "bal"])
         reasons = re.findall(r'"([^"]+)"', js[js.index("const REASONS = ["):].split("];")[0])
         want = list(cf.REASONS.values()) + [r for r in sf.REASONS.values() if r not in cf.REASONS.values()]
         self.assertEqual(reasons, want)

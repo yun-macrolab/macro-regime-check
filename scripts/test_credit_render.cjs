@@ -38,8 +38,9 @@ function item(key,extra={}){
   values:{},retrieved:'2026-10-30',line:key+' 숫자 줄 +0.040',extra:[key+' 덧붙임'],notices:['계산값 고지'],sources:[fred('DRTSCILM')]},extra);
 }
 function data(){
- const keys=['stage','ebp','cmdi','cell','gap','drawdown','sec'];
+ const keys=['stage','ebp','cmdi','cell','gap','drawdown','bond_flow','sec'];
  const items=Object.fromEntries(keys.map(k=>[k,item(k)]));
+ items.bond_flow.notices=['Z.1 고지'];items.bond_flow.sources=[fred('BOGZ1FA893163005Q'),fred('ROWCBAQ027S')];
  items.stage.notices=['계산값 고지','인용 고지'];items.stage.sources=[fred('DRTSCILM'),fred('NFCICREDIT','citation-required')];
  items.ebp.notices=['EBP 고지','EBP 인용'];items.ebp.sources=[ext('EBP',EBP_URL,'public-domain')];
  items.cmdi.notices=['CMDI 고지','관계없음 고지'];items.cmdi.sources=[ext('CMDI',CMDI_URL,'nyfed-terms')];
@@ -48,8 +49,11 @@ function data(){
  return {schema:1,notice:'참고 자료다.',order:keys,items};
 }
 function secFile(extra={}){
- return {schema:1,order:['funding'],items:{funding:item('funding',Object.assign({name:'sec 이름',line:'sec.json 줄 2사 TTM 98%',
-  detail:['TSTA 회사 줄','TSTA 태그 줄'],sources:[edgar],notices:['SEC 고지']},extra))}};
+ const sec=(key,name,line,detail)=>item(key,{name,line,detail,sources:[edgar],notices:['SEC 고지']});
+ return {schema:1,order:['funding','flow','bal'],items:{funding:item('funding',Object.assign({name:'sec 이름',line:'sec.json 줄 2사 TTM 98%',
+  detail:['TSTA 회사 줄','TSTA 태그 줄'],sources:[edgar],notices:['SEC 고지']},extra)),
+  flow:sec('flow','흐름 이름','2사 분기 FCF(달력 분기, bn): 25Q3 +5.0, 26Q3 -6.0 · 연속 감소 4분기',['TSTA 흐름 줄','TSTB 흐름 줄']),
+  bal:sec('bal','잔액 이름','2사 분기 말 잔액(회사마다 마지막 공시일): 현금 79.5bn',['TSTA 잔액 줄'])}};
 }
 
 test('card draws every row in order with the label and the definition, and no stray words',()=>{
@@ -57,15 +61,17 @@ test('card draws every row in order with the label and the definition, and no st
  assert.equal(api.render(data(),secFile()),true);
  const card=ids['credit-slot'].kids[0], text=card.textContent;
  const rows=rowsOf(card).map(r=>cls(r,'credit-name')[0].textContent.split(' 이름')[0]);
- assert.deepEqual(rows,[...api.CARD]);
- assert.deepEqual([...api.CARD],['stage','ebp','cmdi','cell','gap','drawdown','sec']);
+ assert.deepEqual(rows,['stage','ebp','cmdi','cell','gap','drawdown','bond_flow','sec','흐름','잔액']);
+ assert.deepEqual([...api.CARD],['stage','ebp','cmdi','cell','gap','drawdown','bond_flow','sec','flow','bal']);
+ assert.deepEqual([...api.SEC_ROWS],['flow','bal']);
+ assert.deepEqual([...api.LATE],['bond_flow','flow','bal']);
  assert.equal(api.LABEL,'참고 — 금리 예측 아님');
  assert.ok(text.includes('참고 — 금리 예측 아님'));
  assert.ok(text.includes(api.STAGE_DEF));
  assert.ok(!/undefined|NaN|null/.test(text));
  assert.deepEqual(cls(card,'notices')[0].kids.map(k=>k.textContent),
-  ['계산값 고지','인용 고지','EBP 고지','EBP 인용','CMDI 고지','관계없음 고지','제한 고지','저작권 고지','SEC 고지']);
- assert.equal(walk(card,n=>n.tag==='a').length,3);                                    // FRED 링크, 시리즈마다 한 번
+  ['계산값 고지','인용 고지','EBP 고지','EBP 인용','CMDI 고지','관계없음 고지','제한 고지','저작권 고지','Z.1 고지','SEC 고지']);
+ assert.equal(walk(card,n=>n.tag==='a').length,5);                                    // FRED 링크, 시리즈마다 한 번
  const src=cls(card,'source-link')[0].textContent;
  assert.ok(src.endsWith('Source: SEC EDGAR XBRL API (data.sec.gov); site calculations'));
  assert.ok(!/EBP|CMDI|newyorkfed|federalreserve/.test(src));                         // FRED 밖은 이 줄에 넣지 않는다(고지로 나간다)
@@ -146,27 +152,71 @@ test('stale rows say since when and keep their numbers',()=>{
 });
 
 test('the SEC row prefers sec.json and falls back to the copy in credit.json',()=>{
+ const secRow=slot=>rowsOf(slot).find(r=>cls(r,'credit-name')[0].textContent.startsWith('sec 이름'));
  let t=load();t.api.render(data(),secFile());
- let sec=rowsOf(t.ids['credit-slot']).at(-1);
+ let sec=secRow(t.ids['credit-slot']);
+ assert.equal(rowsOf(t.ids['credit-slot']).indexOf(sec),7);                            // 회사채 줄 다음, 흐름·잔액 앞
  assert.ok(sec.textContent.includes('sec.json 줄 2사 TTM 98%'));
  assert.ok(!sec.textContent.includes('credit 쪽 SEC 줄'));
  const det=walk(sec,n=>n.tag==='details')[0];                                            // 회사별 줄은 접어 둔다
  assert.deepEqual(det.kids.slice(1).map(k=>k.textContent),['TSTA 회사 줄','TSTA 태그 줄']);
  for(const s of [undefined,null,{},secFile({notices:[]}),secFile({date:'어제'}),{items:{funding:item('sec')}}]){
   t=load();t.api.render(data(),s);
-  sec=rowsOf(t.ids['credit-slot']).at(-1);
+  sec=secRow(t.ids['credit-slot']);
   assert.ok(sec.textContent.includes('credit 쪽 SEC 줄'),JSON.stringify(s));
  }
 });
 
 test('no card when the page has no slot or nothing is usable',()=>{
  const t=load({noSlot:true});assert.equal(t.api.render(data()),false);
- const u=load();const d=data();for(const k of u.api.CARD)d.items[k].notices=[];
+ const u=load();const d=data();for(const k of Object.keys(d.items))d.items[k].notices=[];
  assert.equal(u.api.render(d),false);assert.equal(u.ids['credit-slot'].kids.length,0);
- const v=load();const e=data();for(const k of v.api.CARD)e.items[k].notices=[];
+ const v=load();const e=data();for(const k of Object.keys(e.items))e.items[k].notices=[];
  assert.equal(v.api.render(e,secFile()),true);                                          // sec.json만 있어도 카드는 그린다
- assert.equal(rowsOf(v.ids['credit-slot']).length,7);
+ assert.equal(rowsOf(v.ids['credit-slot']).length,10);
  assert.equal(cls(v.ids['credit-slot'],'credit-group').length,1);
+});
+
+test('flow and balance rows come from sec.json only and fold their company lines',()=>{
+ let t=load();t.api.render(data(),secFile());
+ const rows=rowsOf(t.ids['credit-slot']);
+ const flow=rows.at(-2),bal=rows.at(-1);
+ assert.ok(cls(flow,'credit-num')[0].textContent.startsWith('2사 분기 FCF(달력 분기, bn): 25Q3 +5.0'));
+ assert.ok(cls(bal,'credit-num')[0].textContent.startsWith('2사 분기 말 잔액'));
+ assert.deepEqual(walk(flow,n=>n.tag==='details')[0].kids.slice(1).map(k=>k.textContent),['TSTA 흐름 줄','TSTB 흐름 줄']);
+ const d=data();d.items.flow=item('flow',{line:'credit.json에 섞인 흐름 줄'});        // credit.json 쪽 같은 키는 쓰지 않는다
+ t=load();t.api.render(d,{schema:1,items:{funding:secFile().items.funding}});
+ assert.ok(!t.ids['credit-slot'].textContent.includes('credit.json에 섞인 흐름 줄'));
+ assert.ok(!t.ids['credit-slot'].textContent.includes('흐름 이름'));                   // 그 전 sec.json — 줄을 두지 않는다
+ assert.equal(rowsOf(t.ids['credit-slot']).length,8);
+ const f=secFile();f.items.flow.key='funding';                                          // 키가 다른 칸은 싣지 않는다
+ t=load();t.api.render(data(),f);
+ assert.equal(rowsOf(t.ids['credit-slot']).length,9);
+ assert.ok(!t.ids['credit-slot'].textContent.includes('흐름 이름'));
+});
+
+test('new rows fail with a fixed reason, and an older credit.json has no bond row',()=>{
+ const d=data();d.items.bond_flow={key:'bond_flow',ok:false,stale:false,error:'수신 실패',name:'회사채 이름'};
+ const f=secFile();f.items.bal={key:'bal',ok:false,stale:false,error:'SEC 거절 · 요청 한도 또는 미신고 도구',name:'잔액 이름'};
+ f.items.flow={key:'flow',ok:false,stale:false,error:'<i>원문 https://bad.invalid</i>',name:'흐름 이름'};
+ let t=load();t.api.render(d,f);
+ let text=t.ids['credit-slot'].textContent;
+ assert.ok(text.includes('회사채 이름 — 미수신 — 수신 실패'));
+ assert.ok(text.includes('잔액 이름 — 미수신 — SEC 거절 · 요청 한도 또는 미신고 도구'));
+ assert.ok(text.includes('흐름 이름 — 자료 없음'));
+ assert.ok(!text.includes('bad.invalid'));
+ const old=data();delete old.items.bond_flow;
+ t=load();t.api.render(old,secFile());
+ text=t.ids['credit-slot'].textContent;
+ assert.ok(!text.includes('bond_flow'));
+ assert.equal(rowsOf(t.ids['credit-slot']).length,9);
+ const st=secFile();Object.assign(st.items.bal,{ok:false,stale:true,error:'수신 실패',failed_since:'2026-11-01'});
+ t=load();t.api.render(data(),st);
+ const bal=rowsOf(t.ids['credit-slot']).at(-1);
+ assert.ok(cls(bal,'credit-late')[0].textContent.includes('(2026-11-01부터)'));
+ assert.ok(bal.textContent.includes('현금 79.5bn'));
+ const guide=cls(t.ids['credit-slot'],'rule-guide')[0].textContent;
+ for(const head of ['회사채 공급 대 흡수','조달 흐름','재무상태 잔액'])assert.ok(guide.includes(head),head);
 });
 
 test('citation-required and restricted FRED sources show their citation as text, once, and nothing else is cited',()=>{

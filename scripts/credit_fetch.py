@@ -32,10 +32,21 @@
             위험 감수): 지수마다 정수 낙폭 % 하나만 더 싣는다 — 지수 값·12개월 고점·수익률·낙폭 시계열은 여전히 파일·문구 어디에도
             쓰지 않는다. FRED 시리즈 쪽의 저작권 표시(COPYRIGHT — FRED 페이지의 깨진 'Â©'는 '©'로)와 FRED 권장 인용을 함께
             싣는다. 단계를 바꾸지 않는다
-  sec       기업별 조달 — 같은 실행에서 먼저 쓴 <out>/sec.json(scripts/sec_fetch.py)의 칸을 검사해 다시 만든 것. 파일이
-            없거나 깨졌으면 이 파일의 직전 값을 받지 못함으로
+  bond_flow 회사채 공급 대 흡수(2026-11-02 — 'AI 하이퍼스케일러 조달' 1단계) — 연준 Z.1 흐름(계절조정 연율, 백만 달러)의
+            4분기 합: 전체 BOGZ1FA893163005Q(모든 부문 회사채·외국채 부채) · 비금융기업 NCBCBLQ027S(회사채 부채) · 해외
+            ROWCBAQ027S(미 회사채 자산) · 생보 BOGZ1FA543063005Q · 사적 연금 BOGZ1FA573063005Q(회사채·외국채 자산).
+            다섯 시리즈가 모두 있는 마지막 분기까지 연속 4분기의 연율 평균 ÷ 1000(bn) = 계절조정 흐름의 4분기 합(달력 연도
+            창에서만 실제 흐름 합과 같다 — 그 밖의 창은 근사, 2025Q3~2026Q2 전체 약 1%), 1년 전 = 그 앞 4분기(분기가 하나라도
+            빠지면 비움). 몫 = 흡수 ÷ 전체 × 100(전체가 0 이하면 비움), 그 밖 = 전체 − 해외 − 생보 − 사적 연금(보이는 숫자끼리
+            합이 맞게 그 밖이 반올림을 받는다), 비금융의 몫 = 비금융 ÷ 전체(발행 쪽). 사적 연금은 2024년까지 연간 자료를 네
+            분기에 나눈 값이다. 하이퍼스케일러 몫은 가를 수 없는 총량이다.
+            순수 함수 bond_flow({FRED ID: [(날짜, 값)]}) — 비공개 원본과의 짝 테스트가 부른다
+  sec       기업별 조달 — 같은 실행에서 먼저 쓴 <out>/sec.json(scripts/sec_fetch.py)의 funding 칸을 검사해 다시 만든 것. 파일이
+            없거나 깨졌으면 이 파일의 직전 값을 받지 못함으로. 같은 파일의 조달 흐름(flow)·재무상태 잔액(bal) 칸은 이 파일에
+            옮기지 않고 화면(site/credit.js)이 sec.json에서 바로 읽는다(CARD = ORDER + 그 둘)
 
-자료 이용 조건(2026-10-30 FRED 시리즈 쪽 license 확인 — LICENCE): DRTSCILM·BEA·연준 Z.1은 'Public Domain: Citation Requested',
+자료 이용 조건(2026-10-30 FRED 시리즈 쪽 license 확인, 회사채 흐름 Z.1 다섯은 2026-11-02 — LICENCE): DRTSCILM·BEA·연준 Z.1은
+'Public Domain: Citation Requested',
 NFCICREDIT은 'Copyrighted: Citation Required'(시카고 연은 — FRED 권장 인용을 함께 싣는다), NASDAQ100·NASDAQNQINTEL은
 'Copyrighted: Pre-Approval Required'(재배포 제한 — 정수 낙폭 %·구간·날짜만, 저작권 표시·FRED 권장 인용과 함께).
 FRED 밖(EXT): EBP는 연준 이사회 웹사이트 자료(따로 표시가 없으면 공공 영역 — 이사회 인장은 쓰지 않는다, 논문 인용과 출처 줄),
@@ -45,7 +56,7 @@ CMDI는 newyorkfed.org 이용약관(기본 출처 표시 · 계산값 표시 · 
 
 실패·이어 싣기·문구 원칙은 oil_fetch와 같다: 칸마다 따로(칸의 시리즈 가운데 하나라도 이번에 받지 못하면 직전 숫자를 '받지 못함'과
 그날부터라는 날짜와 함께), 받은 자료가 직전보다 이르면 받지 않는다, 문구는 이 파일에 정해 둔 것뿐, 같은 내용이면 다시 쓰지
-않는다, 수신 전체 BUDGET초(요청 10번 — FRED 8 · EBP · CMDI).
+않는다, 수신 전체 BUDGET초(요청 15번 — FRED 8 → EBP → CMDI → 회사채 Z.1 5: 예산이 모자라면 회사채 줄부터 빠진다).
 
 종료코드: 0 한 칸이라도 이번에 받음 / 1 하나도 못 받음(또는 파일을 쓰지 못함). 워크플로 단계는 continue-on-error, 알림 없음.
 
@@ -121,6 +132,12 @@ SOURCES = {
     # 두 Nasdaq 지수의 출처·제목은 2026-10-30 FRED 시리즈 쪽 Suggested Citation 그대로(이 환경에서 확인)
     "NASDAQ100": ("Nasdaq, Inc.", "NASDAQ-100"),
     "NASDAQNQINTEL": ("Nasdaq, Inc.", "Nasdaq Consumer Technical Association Artificial Intelligence Index"),
+    # 회사채 공급 대 흡수(Z.1, 분기·계절조정 연율, 백만 달러) — 2026-11-02 FRED 시리즈 쪽 제목·Suggested Citation 그대로
+    "BOGZ1FA893163005Q": (_BOARD, "All Sectors; Corporate and Foreign Bonds; Liability, Transactions"),
+    "NCBCBLQ027S": (_BOARD, "Nonfinancial Corporate Business; Corporate Bonds; Liability (Excluding Ereits), Transactions"),
+    "ROWCBAQ027S": (_BOARD, "Rest of the World; Corporate Bonds; Asset, Transactions"),
+    "BOGZ1FA543063005Q": (_BOARD, "Life Insurance Companies; Corporate and Foreign Bonds; Asset, Transactions"),
+    "BOGZ1FA573063005Q": (_BOARD, "Private Pension Funds; Corporate and Foreign Bonds; Asset, Transactions"),
 }
 LICENCE = {sid: "public-domain" for sid in SOURCES}
 LICENCE.update({"NFCICREDIT": "citation-required", "NASDAQ100": "restricted", "NASDAQNQINTEL": "restricted"})
@@ -129,7 +146,7 @@ RESTRICTED = {sid for sid, v in LICENCE.items() if v == "restricted"}
 COPYRIGHT = {"NASDAQ100": "Copyright © 2016, NASDAQ OMX Group, Inc.",
              "NASDAQNQINTEL": "Copyright © 2025, NASDAQ, Inc."}
 SERIES = list(SOURCES)                        # FRED — 차례 = 요청 차례
-# FRED 밖 자료(EXT) — FRED 8개 다음에 받는다
+# FRED 밖 자료(EXT) — FRED 8개 다음에 받는다(회사채 Z.1 다섯은 그 뒤 — FETCH)
 EBP_PAPER = ('Favara, Gilchrist, Lewis and Zakrajšek (2016), "Updating the Recession Risk and the Excess Bond Premium," '
              'FEDS Notes, Board of Governors of the Federal Reserve System')
 CMDI_PAPER = ('Boyarchenko, Crump, Kovner and Shachar, "Corporate Bond Market Distress," FRBNY Staff Report 957')
@@ -140,11 +157,22 @@ EXT = {
            "title": "Federal Reserve Bank of New York, Corporate Bond Market Distress Index (Market CMDI)",
            "licence": "nyfed-terms"},
 }
-FETCH = SERIES + [EBP, CMDI]                  # 요청 차례(10번)
+# 회사채 공급 대 흡수 — 칸 → FRED ID(차례 = 문구 차례). 흡수는 해외·생보·사적 연금, 나머지는 그 밖
+BOND = {"total": "BOGZ1FA893163005Q", "nonfin": "NCBCBLQ027S", "foreign": "ROWCBAQ027S", "life": "BOGZ1FA543063005Q",
+        "pension": "BOGZ1FA573063005Q"}
+# 요청 차례(15번) — FRED 8 → EBP → CMDI → 회사채 Z.1 5(2026-11-02 검토 S1: 예산이 모자라면 새 회사채 줄부터 빠지고 기존
+# 신용 스트레스 두 칸은 그대로 받는다)
+FETCH = [sid for sid in SERIES if sid not in BOND.values()] + [EBP, CMDI] + list(BOND.values())
+ABSORB = ("foreign", "life", "pension")
+SHARE_KEYS = ABSORB + ("other",)
+ISSUE_KEYS = ("nonfin",) + SHARE_KEYS             # 몫을 적는 칸 — 비금융의 몫은 발행 쪽(비금융 ÷ 전체, 흡수 몫이 아니다)
+BOND_LABEL = {"foreign": "해외", "life": "생보", "pension": "사적 연금", "other": "그 밖"}
+BOND_Q = 4                                    # 4분기 합
 
 NOTICE = ("이 사이트의 규칙 점검에 쓰지 않는 참고 자료다. 신용 긴축 단계는 정해 둔 문턱으로 지금 숫자를 적은 것이고 예측력은 "
           "검증하지 않았다. 측정 기록은 운영자가 과거 자료로 잰 숫자이고 금리를 예측하지 않는다.")
 COMPUTED_NOTICE = "13주 변화·분위·비율·중앙값은 macro-regime-check가 원자료로 계산한 값이다."
+BOND_NOTICE = "4분기 합·몫·그 밖은 macro-regime-check가 연준 Z.1 자료(FRED 경유)로 계산한 값이다."
 CITATION_NOTICE = ("NFCICREDIT은 FRED에서 'Copyrighted: Citation Required'로 표시된 시카고 연은 자료라 FRED 권장 인용을 "
                    "함께 싣는다.")
 RESTRICTED_NOTICE = ("나스닥100·Nasdaq CTA AI 지수는 FRED에서 'Copyrighted: Pre-Approval Required'로 표시된 재배포 제한 자료라 "
@@ -379,6 +407,49 @@ def calc_drawdown(S, today):
                      f"{pre}_e10": first_entries(dd, 10), f"{pre}_e20": first_entries(dd, 20)})
         dates.append(_iso(dd[-1][0]))
     return {"date": max(dates), "values": vals}
+
+
+# ---------- 회사채 공급 대 흡수 (Z.1) ----------
+
+def bond_flow(S):
+    """회사채 공급 대 흡수 — 순수 함수(비공개 원본과의 짝 테스트가 부른다).
+
+    S = {FRED ID: [(날짜(분기 첫날 date), 계절조정 연율 백만 달러)]} — BOND의 다섯 시리즈(날짜 차례). 반환 values:
+      q·from         마지막 4분기의 끝·처음 분기(분기 첫날 'YYYY-MM-DD') — 다섯 시리즈가 모두 있는 마지막 분기까지
+      total·nonfin·foreign·life·pension  4분기 흐름 합 bn(= 연율 평균 ÷ 1000 = 계절조정 흐름의 4분기 합, 소수 넷째 자리 —
+                     비공개 원본과 같은 저장 자리)
+      other          total − foreign − life − pension(반올림 전 값으로)
+      s_nonfin·s_foreign·s_life·s_pension·s_other  몫 %(소수 넷째 자리 — 글은 정수 %로 한 번만 반올림, 비금융은 발행 쪽 몫)
+                     — 전체가 0 이하면 None
+      p_q·p_from·p_*·ps_*  같은 것의 1년 전(그 앞 4분기) — 분기가 하나라도 빠지면 모두 None
+    마지막 4분기가 이어지지 않으면 ItemError('format')."""
+    by = {k: {ai._qkey(d): (d, v) for d, v in S.get(sid) or ()} for k, sid in BOND.items()}
+    common = set.intersection(*(set(x) for x in by.values()))
+    if not common:
+        raise ItemError("format")
+    q1 = max(common)
+
+    def window(end):
+        qs = [end - i for i in range(BOND_Q)]
+        if any(q not in common for q in qs):
+            return None
+        w = {k: sum(by[k][q][1] for q in qs) / BOND_Q / 1000 for k in BOND}
+        w["other"] = w["total"] - sum(w[k] for k in ABSORB)
+        tot = w["total"]
+        sh = {k: (w[k] / tot * 100 if round(tot, 6) > 0 else None) for k in ISSUE_KEYS}
+        return {"q": _iso(by["total"][end][0]), "from": _iso(by["total"][qs[-1]][0]),
+                **{k: _r(w[k], 4) for k in (*BOND, "other")}, **{f"s_{k}": _r(sh[k], 4) for k in ISSUE_KEYS}}
+    now = window(q1)
+    if now is None:
+        raise ItemError("format")
+    prev = window(q1 - BOND_Q)
+    return {**now, **{f"p_{k}": (prev[k] if prev else None) for k in ("q", "from", *BOND, "other")},
+            **{f"ps_{k}": (prev[f"s_{k}"] if prev else None) for k in ISSUE_KEYS}}
+
+
+def calc_bond_flow(S, today):
+    v = bond_flow(S)
+    return {"date": v["q"], "values": v}
 
 
 # ---------- 신용 스트레스(공개 자료) — EBP · CMDI ----------
@@ -711,6 +782,10 @@ for _k in CMDI_KEYS:
     _CMDI_VALUES.update({_k: "unit" + _opt, f"{_k}_date": "day" + _opt, f"{_k}_since": "day" + _opt,
                          f"{_k}_pct": "num?", f"{_k}_ch4": "num?"})
 
+_BOND_VALUES = {"q": "day", "from": "day", **{k: "num" for k in (*BOND, "other")},
+                **{f"s_{k}": "num?" for k in ISSUE_KEYS}, "p_q": "day?", "p_from": "day?",
+                **{f"p_{k}": "num?" for k in (*BOND, "other")}, **{f"ps_{k}": "num?" for k in ISSUE_KEYS}}
+
 ITEMS = [
     {"key": "stage", "title": "신용 긴축 단계 (규칙 C)", "series": ["DRTSCILM", "NFCICREDIT"], "calc": calc_stage,
      "values": {"value": "stage?", "lo": "stage", "hi": "stage", "s": "num", "s_survey": "day", "s_stale": "bool",
@@ -732,10 +807,13 @@ ITEMS = [
      "values": {"ndx_dd": "dd", "ndx_band": "band", "ndx_asof": "day", "ndx_e10": "day?", "ndx_e20": "day?",
                 "ai_dd": "dd", "ai_band": "band", "ai_asof": "day", "ai_e10": "day?", "ai_e20": "day?"},
      "ends": ["ndx_asof", "ai_asof"]},
+    {"key": "bond_flow", "title": "회사채 공급 대 흡수 (연준 Z.1, 4분기 합)", "series": list(BOND.values()),
+     "calc": calc_bond_flow, "values": _BOND_VALUES, "ends": ["q"]},
 ]
 STRESS = ("ebp", "cmdi")                      # 신용 스트레스(공개 자료) 묶음 — 화면이 한 무리로 그린다
 BY_KEY = {it["key"]: it for it in ITEMS}
 ORDER = [it["key"] for it in ITEMS] + ["sec"]
+CARD = ORDER + [k for k in sf.ORDER if k != "funding"]   # 화면 차례 — flow·bal은 sec.json에서 바로 읽는다
 
 
 # ---------- 문구 ----------
@@ -829,7 +907,56 @@ def texts(key, v, date):
                  f"값으로 정하고, 경계값(정확히 −10%·−20%)은 아래 구간으로 센다. 첫 진입은 앞 {DD_REST}영업일 동안 그 낙폭"
                  f"(−10%·−20% 이하)이 없다가 처음 들어선 날이고, 최근 {DD_REST}영업일 안의 마지막 것을 적는다.",
                  "단계를 바꾸지 않는 참고다. 지수 값·12개월 고점·수익률·낙폭 시계열은 재배포 제한 자료라 싣지 않는다."])
+    if key == "bond_flow":
+        line = (f"{_q(v['from'])}~{_q(v['q'])} 4분기 합: 회사채·외국채 순발행 {_s(v['total'], 1)}bn"
+                + (f" (1년 전 {_s(v['p_total'], 1)})" if v["p_total"] is not None else "")
+                + f" · 그중 비금융기업 회사채 {_s(v['nonfin'], 1)}bn" + _issue(v["s_nonfin"]) + " — 사들인 쪽: "
+                + _absorb(v, ""))
+        extra = ["연준 Z.1 금융계정의 흐름(계절조정 연율)을 4분기 평균해 계절조정 흐름의 4분기 합으로 적는다 — 달력 연도 창"
+                 "(1~4분기)에서만 실제 흐름 합과 같고 그 밖의 창은 근사다. 몫 = 사들인 쪽 ÷ 순발행 전체(전체가 0 이하인 4분기는 "
+                 "몫을 적지 않는다). 그 밖 = 전체 − 해외 − 생보 − 사적 연금(은행·펀드·연준·가계 등 나머지 — 보이는 숫자끼리 합이 "
+                 "맞게 그 밖이 반올림을 받는다). 비금융기업의 발행 몫 = 비금융기업 ÷ 순발행 전체이고 사들인 쪽의 몫이 아니다.",
+                 "범위가 조금 다르다: 전체·생보·사적 연금은 '회사채·외국채'(미국 거주자가 산 외국 채권 포함), 해외는 '미 회사채'"
+                 "만이다. 사적 연금은 2024년까지 연간 자료를 네 분기에 고르게 나눈 값이라 그 기간이 든 4분기의 몫은 분기 움직임이 "
+                 "아니다. 하이퍼스케일러 몫은 가를 수 없는 총량이다. 숫자만 싣는 서술이고 금리를 예측하지 않는다."]
+        if v["p_q"] is not None:
+            extra.append(f"1년 전 4분기({_q(v['p_from'])}~{_q(v['p_q'])}): 순발행 {_s(v['p_total'], 1)}bn · 비금융기업 "
+                         f"{_s(v['p_nonfin'], 1)}bn" + _issue(v["ps_nonfin"]) + " — " + _absorb(v, "p"))
+        return line, extra
     raise KeyError(key)
+
+
+def _sh(v):
+    """몫 % → '32%' · '-3%' · '—'(반올림 뒤 0은 '0%')."""
+    if v is None:
+        return "—"
+    t = f"{v:.0f}"
+    return ("0" if float(t) == 0 else t) + "%"
+
+
+def _issue(share):
+    """비금융기업의 발행 몫 글 — ', 발행 몫 36%'(전체가 0 이하라 몫이 없으면 빈 글)."""
+    return "" if share is None else f", 발행 몫 {_sh(share)}"
+
+
+def _absorb(v, pre):
+    """사들인 쪽 글 — 해외·생보·사적 연금·그 밖. 그 밖(bn·%)은 보이는 숫자끼리 합이 맞게 보인 값에서 뺀다."""
+    k = (lambda x: f"p_{x}") if pre else (lambda x: x)
+    sk = (lambda x: f"ps_{x}") if pre else (lambda x: f"s_{x}")
+    shown = {x: float(_s(v[k(x)], 1)) for x in ("total", *ABSORB)}
+    other = round(shown["total"] - sum(shown[x] for x in ABSORB), 1)
+    parts = []
+    for x in SHARE_KEYS:
+        bn = _s(other, 1) if x == "other" else _s(v[k(x)], 1)
+        if v[sk(x)] is None:
+            parts.append(f"{BOND_LABEL[x]} {bn}bn")
+            continue
+        if x == "other":
+            pct = _sh(100 - sum(float(_sh(v[sk(y)])[:-1]) for y in ABSORB))
+        else:
+            pct = _sh(v[sk(x)])
+        parts.append(f"{BOND_LABEL[x]} {bn}bn {pct}" if pre == "" else f"{BOND_LABEL[x]} {pct}")
+    return " · ".join(parts)
 
 
 def _dd(n):
@@ -866,6 +993,8 @@ def sources_of(spec, retrieved=None):
 
 def notices(spec, retrieved=None):
     """칸의 고지 — 정해 둔 글뿐. CMDI의 뉴욕 연은 기본 출처 표시는 처음 받은 해(retrieved)로."""
+    if spec["key"] == "bond_flow":
+        return [BOND_NOTICE]
     if spec["series"] == [EBP]:
         return [EBP_NOTICE, EBP_CITE, EBP_SOURCE, EBP_PD]
     if spec["series"] == [CMDI]:
@@ -906,6 +1035,15 @@ def _consistent(key, v):
         return (v["fund"] == "부채 조달") == v["high"] and (v["ch4"] >= 0 if v["invest"] == "확장" else v["ch4"] <= 0)
     if key == "drawdown":                         # 정수 낙폭 %가 구간과 맞는지(반올림이라 경계는 양쪽)
         return all(BAND_RANGE[v[f"{p}_band"]][0] <= v[f"{p}_dd"] <= BAND_RANGE[v[f"{p}_band"]][1] for p in ("ndx", "ai"))
+    if key == "bond_flow":                        # 그 밖 = 전체 − 흡수(넷째 자리 반올림 여유), 몫은 전체 > 0일 때만, 1년 전은 함께
+        cur = abs(v["other"] - (v["total"] - v["foreign"] - v["life"] - v["pension"])) <= 0.0021 and \
+            all((v[f"s_{k}"] is None) == (round(v["total"], 6) <= 0) for k in ISSUE_KEYS) and v["from"] < v["q"]
+        none = [v[f"p_{k}"] is None for k in ("q", "from", *BOND, "other")]
+        if all(none):
+            return cur and all(v[f"ps_{k}"] is None for k in ISSUE_KEYS)
+        return (cur and not any(none) and v["p_q"] < v["from"] and v["p_from"] < v["p_q"]
+                and abs(v["p_other"] - (v["p_total"] - v["p_foreign"] - v["p_life"] - v["p_pension"])) <= 0.0021
+                and all((v[f"ps_{k}"] is None) == (round(v["p_total"], 6) <= 0) for k in ISSUE_KEYS))
     if key == "cmdi":                             # 투자등급·하이일드는 값이 있으면 날짜도, 없으면 모두 없음
         return all((v[k] is None) == (v[f"{k}_date"] is None) == (v[f"{k}_since"] is None) and
                    (v[k] is not None or (v[f"{k}_pct"] is None and v[f"{k}_ch4"] is None)) for k in CMDI_KEYS)

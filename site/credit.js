@@ -8,6 +8,9 @@
    카드 이름·안내·단계 정의는 이 파일에 정해 둔 것이고(정의는 늘 함께 나간다), 칸의 숫자 줄·덧붙이는 줄은 자료 파일에 정해 둔
    문구다(그 스크립트가 숫자로 만든다). 형식이 어긋났거나 고지(notices)가 없는 칸은 숫자를 싣지 않고 '미수신 — 까닭' 또는
    '자료 없음' 한 줄로 둔다. 기업별 조달 줄은 sec.json의 칸을 먼저 쓰고, 그것이 없으면 credit.json에 옮겨 둔 칸을 쓴다.
+   2026-11-02에 더한 세 줄(LATE): 회사채 공급 대 흡수(credit.json의 bond_flow — 연준 Z.1)와 조달 흐름·재무상태 잔액
+   (SEC_ROWS — sec.json의 flow·bal을 바로 읽는다, credit.json에는 옮기지 않는다). 자료 파일에 그 칸이 아예 없으면(그 전 파일)
+   줄을 두지 않는다.
    카드 머리 안내는 ABOUT 하나(합니다체)다 — 자료 파일의 notice(한다체, 같은 뜻)는 겹쳐 싣지 않는다. 인용이 필요한 자료
    (licence 'citation-required' — 시카고 연은 NFCI 신용)와 정수 낙폭 %를 싣는 재배포 제한 자료(licence 'restricted' — 두 Nasdaq
    지수, 2026-10-30 운영자 결정)는 FRED 권장 인용(sources[].citation)을 카드 끝에 글자로 싣는다. Nasdaq 저작권 표시는 그 칸의
@@ -16,7 +19,11 @@
 "use strict";
 window.CreditCard = (() => {
   // 카드의 칸 차례 — credit.json의 order와 같다(scripts/test_credit_fetch.py가 견준다)
-  const CARD = ["stage", "ebp", "cmdi", "cell", "gap", "drawdown", "sec"];
+  const CARD = ["stage", "ebp", "cmdi", "cell", "gap", "drawdown", "bond_flow", "sec", "flow", "bal"];
+  // sec.json에서 바로 읽는 칸(scripts/sec_fetch.py의 ORDER에서 funding 밖 — 테스트가 견준다)
+  const SEC_ROWS = ["flow", "bal"];
+  // 2026-11-02에 더한 칸 — 자료 파일에 그 칸이 없으면(그 전 파일) 줄을 두지 않는다
+  const LATE = ["bond_flow", "flow", "bal"];
   // 신용 스트레스(공개 자료) 묶음 — credit_fetch.STRESS와 같다(테스트가 견준다)
   const STRESS = ["ebp", "cmdi"];
   // 실패 사유 — 이 목록의 글만 싣는다(credit_fetch.REASONS · sec_fetch.REASONS와 같다 — 테스트가 견준다)
@@ -48,7 +55,16 @@ window.CreditCard = (() => {
     ["AI 투자 칸", "투자 축(정보처리 투자/GDP가 1년 전보다 늘었는지)과 조달 축(설비투자가 내부자금보다 얼마나 큰지)을 적은 서술 꼬리표입니다. 금리 방향은 없습니다."],
     ["주가 낙폭", "나스닥100·AI 지수가 252영업일 고점보다 지금 몇 % 아래인지(정수)와 그 구간(10% 안 · 10~20% 아래 · 20% 넘게 " +
       "아래)을 적습니다. 지수 값·고점·수익률은 재배포 제한 자료라 싣지 않고, 저작권 표시와 FRED 권장 인용을 함께 싣습니다."],
-    ["기업별 조달", "마이크로소프트·알파벳·아마존·메타·오라클의 SEC 10-Q·10-K 공시에서 영업현금·설비투자·차입·주식 조달을 분기로 나눠 더한 숫자입니다."]
+    ["회사채 공급 대 흡수", "연준 Z.1 금융계정에서 회사채·외국채 순발행(모든 부문, 계절조정 흐름의 최근 4분기 합)과 그것을 사들인 쪽 — 해외(미 회사채만)·" +
+      "생명보험·사적 연금(회사채·외국채) — 의 몫을 적고, 나머지(은행·펀드·연준·가계 등)는 그 밖으로 둡니다. 비금융기업의 발행 몫은 " +
+      "사들인 쪽의 몫이 아닙니다. 하이퍼스케일러 몫은 가를 수 없는 총량입니다."],
+    ["기업별 조달", "마이크로소프트·알파벳·아마존·메타·오라클의 SEC 10-Q·10-K 공시에서 영업현금·설비투자·차입·주식 조달을 분기로 나눠 더한 숫자입니다."],
+    ["조달 흐름", "다섯 회사의 분기 FCF(영업현금 − 설비투자)를 달력 분기에 맞춰 더한 값(다섯 회사가 모두 낸 분기만)과 연속 감소 분기 수" +
+      "(앞 분기 대비 — 계절조정 아님), " +
+      "설비투자 가운데 외부 조달(순차입 + 순주식)의 몫, 자사주 매입을 적습니다. 오라클은 분기 끝이 2·5·8·11월이라 한 달 앞선 분기를 같은 달력 분기로 셉니다."],
+    ["재무상태 잔액", "회사마다 마지막 분기 말의 현금(단기 투자 포함)·장기 차입(유동 + 비유동, 기업어음·리스 제외 — 오라클 유동분은 " +
+      "기업어음이 섞일 수 있음)·순현금, 리스부채(운용 + 금융), " +
+      "수주잔고(RPO — 공시하는 회사만)를 적고 1년 전 잔액과 견줍니다."]
   ];
   const DAY = /^\d{4}-\d{2}-\d{2}$/;
   // 권장 인용의 꼴 — '…, retrieved from …, October 30, 2026.'(scripts/credit_fetch.py citation). 꼴이 다르면 싣지 않는다
@@ -140,7 +156,7 @@ window.CreditCard = (() => {
     const notices = [];
     for (const k of CARD) if (usable(items[k], k)) for (const t of texts(items[k].notices)) if (!notices.includes(t)) notices.push(t);
     const [stageKey] = CARD;
-    const rest = CARD.filter(k => k !== stageKey && !STRESS.includes(k));
+    const rest = CARD.filter(k => k !== stageKey && !STRESS.includes(k) && (!LATE.includes(k) || isObj(items[k])));
     return el("article", { class: "credit-card", "aria-label": "신용 긴축 참고" },
       el("h3", {}, "신용 긴축", el("span", { class: "reference-label" }, LABEL)),
       el("p", { class: "muted" }, ABOUT),
@@ -159,13 +175,18 @@ window.CreditCard = (() => {
   function render(d, sec) {
     if (!isObj(d) || !isObj(d.items)) return false;
     const items = Object.assign({}, d.items);
-    const f = isObj(sec) && isObj(sec.items) ? sec.items.funding : null;
+    const secItems = isObj(sec) && isObj(sec.items) ? sec.items : {};
+    const f = secItems.funding;
     if (usable(f, "funding")) items.sec = Object.assign({}, f, { key: "sec" });
+    for (const k of SEC_ROWS) {      // 조달 흐름·잔액은 sec.json에서만 — 그 칸이 없으면 줄을 두지 않는다
+      if (isObj(secItems[k]) && secItems[k].key === k) items[k] = secItems[k];
+      else delete items[k];
+    }
     const slot = document.getElementById("credit-slot");
     if (!slot || !CARD.some(k => usable(items[k], k))) return false;
     slot.replaceChildren(card(items));
     return true;
   }
 
-  return Object.freeze({ render, CARD, STRESS, REASONS, LABEL, ABOUT, STAGE_DEF, STRESS_NAME, STRESS_NOTE });
+  return Object.freeze({ render, CARD, SEC_ROWS, LATE, STRESS, REASONS, LABEL, ABOUT, STAGE_DEF, STRESS_NAME, STRESS_NOTE });
 })();

@@ -3,9 +3,12 @@
 
 누적(YTD) → 분기(회계연도 6월·5월 말, 4분기 = 연간 − 9개월), 정정 공시, TTM 연속 요건, 0 채움, 대체 태그·더하는 부분,
 금융리스 원금, 필수 줄의 앞 누적 없는 누적·같은 날 대체 태그, 5사 합(비공개 원본 sec_capex의 테스트를 옮긴 것),
+조달 흐름(달력 분기 맞춤 — 5월 말 회계연도는 한 달 앞선 분기, 5사 완전 분기, 연속 감소 셈의 끊김·같은 값·상한, 외부 조달
+몫은 모든 회사가 알 때만, 자사주 매입 0·매입·모름, 1년 전), 재무상태 잔액(시점 사실만, 늦게 낸 것, 첫 줄 필수·뒤 줄 0 채움·
+받지 못한 줄은 모름, 1년 전 355~375일·365일에 가까운 것, 리스·수주잔고는 잔액 날짜 이하, 합의 요건),
 연락처(환경 변수에서만·sec.gov https에만 — urllib이 붙는 호스트로 보고 '@'·역슬래시·포트 꼼수 거절, 실제 옮김 경로도 —
-어디에도 쓰지 않음, 쓰기·로그 직전 검사로 섞인 글은 정해 둔 사유로),
-받기(간격·시간 상한·실패 종류·하나라도 못 받으면 직전 값), 직전 파일 이어 싣기, 문구 원칙.
+어디에도 쓰지 않음, 쓰기·로그 직전 검사로 섞인 글은 그 칸만 정해 둔 사유로),
+받기(간격·시간 상한·흐름 먼저 그다음 잔액·실패 종류·칸마다 따로 실패·SEC 거절이면 모두 멈춤), 직전 파일 이어 싣기, 문구 원칙.
 
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
 네트워크 불필요. 숫자·회사·연락처는 모두 지어낸 것이다.
@@ -93,6 +96,56 @@ def concepts_b():
     }
 
 
+def inst(end, val, filed="2026-10-20", form="10-Q"):
+    """시점 사실 하나(start 없음)."""
+    return {"end": end, "val": val, "filed": filed, "form": form, "fy": 2027, "fp": "Q1"}
+
+
+# 지어낸 회사 둘의 잔액 태그 차림 — 실제 태그 이름, 가회사는 마이크로소프트 꼴(현금 한 줄·RPO 있음), 나회사는 오라클 꼴
+BAL_A = {"cash": [[sf.CASH_STI]], "debt": [[sf.LTD_NC], [sf.LTD_C]], "lease": [[sf.OP_LEASE], [sf.FIN_LEASE]],
+         "rpo": [[sf.RPO]]}
+BAL_B = {"cash": [[sf.CASH], [sf.MSEC]], "debt": [[sf.NOTES_LT], [sf.NOTES_C]], "lease": [[sf.OP_LEASE], [sf.FIN_LEASE]],
+         "rpo": []}
+FAKE_BAL = {"TSTA": BAL_A, "TSTB": BAL_B}
+
+
+def bal_a():
+    """가회사 잔액: 2026-09-30 현금 64.5(정정 공시가 63을 이김) · 장기 차입 31(유동 줄 없음 → 0) · 1년 전(2025-09-30) 50 ·
+    30 + 4, 리스는 연간에만(2026-06-30 운용 10 + 금융 2), 수주잔고 100(1년 전 80)."""
+    return {
+        sf.CASH_STI: concept([inst("2025-09-30", 50 * B, "2025-10-28"), inst("2026-06-30", 60 * B, "2026-07-29", "10-K"),
+                              inst("2026-09-30", 63 * B, "2026-10-21"), inst("2026-09-30", 64.5 * B, "2026-10-28", "10-Q/A")]),
+        sf.LTD_NC: concept([inst("2025-09-30", 30 * B), inst("2026-06-30", 30 * B, form="10-K"), inst("2026-09-30", 31 * B)]),
+        sf.LTD_C: concept([inst("2025-09-30", 4 * B), inst("2026-06-30", 3 * B, form="10-K")]),
+        sf.OP_LEASE: concept([inst("2025-06-30", 9 * B, form="10-K"), inst("2026-06-30", 10 * B, form="10-K")]),
+        sf.FIN_LEASE: concept([inst("2026-06-30", 2 * B, form="10-K")]),
+        sf.RPO: concept([inst("2025-09-30", 80 * B), inst("2026-09-30", 100 * B)]),
+    }
+
+
+def bal_b():
+    """나회사 잔액(5월 말 회계연도): 2026-08-31 현금 10 + 단기 5 · 차입 40 + 2 · 1년 전(2025-08-31) 12 + 3 · 30 + 1,
+    리스 운용 3(금융 404 → 0), 수주잔고 쓰지 않음."""
+    return {
+        sf.CASH: concept([inst("2025-08-31", 12 * B), inst("2026-05-31", 11 * B, form="10-K"), inst("2026-08-31", 10 * B)]),
+        sf.MSEC: concept([inst("2025-08-31", 3 * B), inst("2026-08-31", 5 * B)]),
+        sf.NOTES_LT: concept([inst("2025-08-31", 30 * B), inst("2026-05-31", 35 * B, form="10-K"),
+                              inst("2026-08-31", 40 * B)]),
+        sf.NOTES_C: concept([inst("2025-08-31", 1 * B), inst("2026-08-31", 2 * B)]),
+        sf.OP_LEASE: concept([inst("2026-08-31", 3 * B)]),
+        sf.FIN_LEASE: None,                                                    # 쓰지 않는 태그(404)
+    }
+
+
+def facts_of(a=None, b=None):
+    """{회사 키: {태그: 시점 사실 목록}} — bal_calc의 입력 꼴(받지 않은 태그는 빼고, 404는 빈 목록)."""
+    out = {}
+    for co, cs in ((CO_A, a), (CO_B, b)):
+        if cs is not None:
+            out[co[0]] = {t: (sf.trim_instant(js, TODAY) if js else []) for t, js in cs.items()}
+    return out
+
+
 def got_of(a=None, b=None):
     """{CIK: {태그: 사실 목록}} — fetch_all이 만드는 꼴."""
     out = {}
@@ -104,13 +157,13 @@ def got_of(a=None, b=None):
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self.orig = (sf.COMPANIES, sf.GAP)
-        sf.COMPANIES = [CO_A, CO_B]
+        self.orig = (sf.COMPANIES, sf.GAP, sf.BAL)
+        sf.COMPANIES, sf.BAL = [CO_A, CO_B], FAKE_BAL
         self.tmp = tempfile.mkdtemp()
         self.out = os.path.join(self.tmp, "data")
 
     def tearDown(self):
-        sf.COMPANIES, sf.GAP = self.orig
+        sf.COMPANIES, sf.GAP, sf.BAL = self.orig
         shutil.rmtree(self.tmp)
 
 
@@ -318,8 +371,319 @@ class QuarterTest(Base):
         self.assertEqual([c[0] for c in self.orig[0]], ["MSFT", "GOOGL", "AMZN", "META", "ORCL"])
         self.assertEqual([c[2] for c in self.orig[0]], ["0000789019", "0001652044", "0001018724", "0001326801", "0001341439"])
         self.assertEqual([c[3] for c in self.orig[0]], [6, 12, 12, 12, 5])
-        sf.COMPANIES = self.orig[0]
-        self.assertEqual(sum(len(sf.tags_of(c)) for c in sf.COMPANIES), 35)
+        sf.COMPANIES, sf.BAL = self.orig[0], self.orig[2]
+        self.assertEqual(sum(len(sf.tags_of(c)) for c in sf.COMPANIES), 37)
+        # 메타 차입 상환(2026-11-02 검토 F4): 상환 공시가 생기면 어느 태그로 내든 잡히게 — 둘 다 없으면 지금처럼 0
+        self.assertEqual(sf.COMPANIES[3][4]["debt_rep"], [["RepaymentsOfLongTermDebt", "RepaymentsOfSeniorDebt"]])
+        # 잔액 태그(2026-11-02 탐침으로 확인한 차림 — 비공개 원본과 같다): 첫 줄 필수, 뒤 줄은 그 날짜에 없으면 0
+        debt, lease = [["LongTermDebtNoncurrent"], ["LongTermDebtCurrent"]], [["OperatingLeaseLiability"], ["FinanceLeaseLiability"]]
+        rpo = [["RevenueRemainingPerformanceObligation"]]
+        self.assertEqual(sf.BAL, {
+            "MSFT": {"cash": [["CashCashEquivalentsAndShortTermInvestments"]], "debt": debt, "lease": lease, "rpo": rpo},
+            "GOOGL": {"cash": [["CashCashEquivalentsAndShortTermInvestments"]], "debt": debt, "lease": lease, "rpo": rpo},
+            "AMZN": {"cash": [["CashAndCashEquivalentsAtCarryingValue"], ["MarketableSecuritiesCurrent"]], "debt": debt,
+                     "lease": lease, "rpo": []},
+            "META": {"cash": [["CashAndCashEquivalentsAtCarryingValue"], ["MarketableSecuritiesCurrent"]], "debt": debt,
+                     "lease": lease, "rpo": []},
+            "ORCL": {"cash": [["CashAndCashEquivalentsAtCarryingValue"], ["AvailableForSaleSecuritiesDebtSecuritiesCurrent"]],
+                     "debt": [["LongTermNotesAndLoans"], ["NotesPayableCurrent"]], "lease": lease, "rpo": rpo}})
+        self.assertEqual(sum(len(sf.bal_tags_of(c[0])) for c in sf.COMPANIES), 31)
+        self.assertEqual(len(sf.flow_plan()) + len(sf.bal_plan()), 68)
+        self.assertEqual(sf.ORDER, ["funding", "flow", "bal"])
+
+
+# ---------- 조달 흐름 (flow) ----------
+
+def quarterly_of(a=None, b=None):
+    """{회사 키: items} — flow_calc의 입력 꼴(company_quarters의 items)."""
+    got = got_of(a, b)
+    out = {}
+    for co in (CO_A, CO_B):
+        if co[2] in got:
+            out[co[0]] = sf.company_quarters(got[co[2]], co)["items"]
+    return out
+
+
+def flat(qs):
+    """{회사 키: {분기 끝: (영업현금, 설비투자)}} → flow_calc 입력(나머지 칸은 0) — 연속 감소 셈을 손으로 짜기 위한 것."""
+    out = {}
+    for key, rows in qs.items():
+        items = {k: {e: 0 for e in rows} for k in sf.ITEMS}
+        items["ocf"] = {e: o for e, (o, _c) in rows.items()}
+        items["capex"] = {e: c for e, (_o, c) in rows.items()}
+        out[key] = items
+    return out
+
+
+def q_ends(y, m, n):
+    """y년 m월 끝부터 3달씩 n개의 분기 끝."""
+    return [month_end(y, m + 3 * i).isoformat() for i in range(n)]
+
+
+class FlowTest(Base):
+    def test_calendar_quarter_is_the_end_month(self):
+        self.assertEqual([sf.cal_label(sf.cal_q(e)) for e in ("2026-02-28", "2026-03-31", "2026-05-31", "2026-08-31",
+                                                                  "2026-09-30", "2026-11-30", "2026-12-31", "2027-01-31")],
+                         ["26Q1", "26Q1", "26Q2", "26Q3", "26Q3", "26Q4", "26Q4", "27Q1"])
+        self.assertEqual(sf.cal_label(sf.cal_q("2099-12-31")), "99Q4")
+
+    def test_two_company_quarters_and_the_shifted_fiscal_year(self):
+        v = sf.flow_calc(quarterly_of(concepts_a(), concepts_b()))
+        self.assertEqual((v["asof"], v["last"], v["of"]), ("2026-09-30", "26Q3", 2))
+        self.assertEqual(v["quarters"], [{"cal": "25Q3", "fcf": 5.0}, {"cal": "25Q4", "fcf": 4.0}, {"cal": "26Q1", "fcf": 3.0},
+                                         {"cal": "26Q2", "fcf": 1.0}, {"cal": "26Q3", "fcf": -6.0}])   # 가 FCF + 나 FCF
+        self.assertEqual(v["dec"], 4)                                  # 25Q2엔 나회사가 없어 셈이 거기서 멈춘다
+        b = v["companies"][1]
+        self.assertEqual([(r["cal"], r["end"]) for r in b["rows"]][-1], ("26Q3", "2026-08-31"))   # 8월 말 = 3분기
+        line, extra, detail = sf.flow_texts(v)
+        self.assertTrue(line.startswith("2사 분기 FCF(달력 분기, bn): 25Q3 +5.0, 25Q4 +4.0, 26Q1 +3.0, 26Q2 +1.0, "
+                                        "26Q3 -6.0 · 연속 감소 4분기 · "), line)
+        self.assertIn("나회사는 분기 끝이 2·5·8·11월이라 한 달 앞선 분기를 같은 달력 분기로 센다.", extra[0])
+        self.assertNotIn("가회사", extra[0])
+        self.assertIn("26Q3 -4.0(2026-08 말)", detail[1])
+        self.assertIn("26Q3 -2.0 ·", detail[0])                        # 달력 분기 끝과 같은 달이면 표시 없음
+
+    def test_external_share_needs_every_company(self):
+        v = sf.flow_calc(quarterly_of(concepts_a(), concepts_b()))
+        # 가 TTM: 순차입 15 + 순주식(14 − 9) = 20, 설비투자 51 · 나: 0, 34 → 20 / 85
+        self.assertEqual((v["ext"], v["ext_n"]), (round(20 / 85 * 100, 4), 2))   # 소수 넷째 자리로 저장(글은 정수 %)
+        self.assertEqual((v["companies"][0]["ext"], v["companies"][0]["capex"]), (20.0, 51.0))
+        self.assertEqual((v["ext_prev"], v["ext_prev_n"]), (None, 1))     # 나회사는 1년 전 4분기가 없다
+        self.assertEqual((v["companies"][0]["ext_prev"], v["companies"][0]["capex_prev"]), (-1.0, 25.0))
+        self.assertIn("외부 조달(순)/설비투자 TTM 24% ·", sf.flow_texts(v)[0])
+        a = concepts_a()
+        del a["RepaymentsX"]                                           # 받지 못한 태그 — 그 회사의 외부 조달은 모름
+        q = quarterly_of(a, concepts_b())
+        w = sf.flow_calc(q)
+        self.assertEqual((w["ext"], w["ext_n"], w["companies"][0]["ext"]), (None, 1, None))
+        self.assertIn("외부 조달(순)/설비투자 TTM — (1/2사만 계산됨)", sf.flow_texts(w)[0])
+        self.assertEqual(w["quarters"], v["quarters"])                 # FCF는 그대로
+
+    def test_external_share_is_stored_at_four_places_and_rounded_once(self):
+        def world(debt_a, rep_a):
+            q = flat({"TSTA": {e: (30 * B, 25 * B) for e in q_ends(2025, 12, 4)},
+                      "TSTB": {e: (30 * B, 25 * B) for e in q_ends(2025, 11, 4)}})       # 설비투자 TTM 합 200
+            last = q_ends(2025, 12, 4)[-1]
+            q["TSTA"]["debt_iss"][last], q["TSTA"]["debt_rep"][last] = debt_a, rep_a
+            return q
+        v = sf.flow_calc(world(0.5346 * 200 * B, 0))   # 53.46% — 한 자리로 저장하면 53.5 → '54%'(두 번 반올림, 비공개 원본은 53%)
+        self.assertEqual(v["ext"], 53.46)
+        self.assertIn("외부 조달(순)/설비투자 TTM 53% ·", sf.flow_texts(v)[0])
+        v = sf.flow_calc(world(0, 0.003 * 200 * B))      # −0.3% → '0%'('-0%'가 아니라 — 비공개 원본과 같은 글)
+        self.assertEqual(v["ext"], -0.3)
+        self.assertIn("외부 조달(순)/설비투자 TTM 0% ·", sf.flow_texts(v)[0])
+
+    def test_buybacks_last_quarter_zero_buyers_unknown_and_ttm(self):
+        v = sf.flow_calc(quarterly_of(concepts_a(), concepts_b()))
+        self.assertEqual((v["zero_n"], v["buyers"], v["unknown"]), (1, [["TSTA", 3.0]], []))
+        self.assertEqual((v["bb"], v["bb_prev"]), (9.0, None))          # 가 2+2+2+3 · 나 0, 1년 전은 나회사에 없음
+        line = sf.flow_texts(v)[0]
+        self.assertIn("마지막 분기 자사주 매입 0: 1/2사 (매입: TSTA 3.0bn) · TTM 자사주 매입 9.0bn", line)
+        self.assertNotIn("1년 전", line)
+        a = concepts_a()
+        del a[sf.BUYBACK]
+        w = sf.flow_calc(quarterly_of(a, concepts_b()))
+        self.assertEqual((w["zero_n"], w["buyers"], w["unknown"], w["bb"]), (1, [], ["TSTA"], None))
+        self.assertIn("마지막 분기 자사주 매입 0: 1/2사 (모름: TSTA) · TTM 자사주 매입 —bn", sf.flow_texts(w)[0])
+
+    def test_buyback_zero_from_a_missing_line_is_named_apart(self):
+        """마지막 분기 매입 0 가운데 그 공시에 줄이 없어 0으로 채운 회사는 '줄 없음'으로 따로(검토 F2) — 셈·분모는 그대로."""
+        got = got_of(concepts_a(), concepts_b())
+        quarterly, filled = {}, {}
+        for co in (CO_A, CO_B):
+            cq = sf.company_quarters(got[co[2]], co)
+            quarterly[co[0]], filled[co[0]] = cq["items"], cq["filled"]
+        v = sf.flow_calc(quarterly, filled)                            # 나회사 2026-08 분기 공시엔 매입 줄이 없다(0으로 채움)
+        self.assertEqual((v["zero_n"], v["noline"], v["buyers"]), (1, ["TSTB"], [["TSTA", 3.0]]))
+        self.assertIn("마지막 분기 자사주 매입 0: 1/2사 (줄 없음 1: TSTB · 매입: TSTA 3.0bn)", sf.flow_texts(v)[0])
+        self.assertEqual(sf.compute_flow(got)["values"]["noline"], ["TSTB"])   # 실제 경로(compute_flow)도 채움을 넘긴다
+        self.assertTrue(sf.flow_values_ok(json.loads(json.dumps(v))))
+        b = concepts_b()                                               # 공시가 0이라고 낸 것은 '줄 없음'이 아니다
+        b[sf.BUYBACK] = concept(ytd(5, 2026, [1 * B, 0, 0, 0]), ytd(5, 2027, [0]))
+        w = sf.compute_flow(got_of(concepts_a(), b))["values"]
+        self.assertEqual((w["zero_n"], w["noline"]), (1, []))
+        self.assertIn("마지막 분기 자사주 매입 0: 1/2사 (매입: TSTA 3.0bn)", sf.flow_texts(w)[0])
+        self.assertEqual(sf.flow_calc(quarterly)["noline"], [])        # 채움을 모르면 비운다(순수 함수의 옛 꼴)
+        extra = sf.flow_texts(v)[1]
+        self.assertIn("앞 분기 대비이고 계절조정이 아니다", extra[1])      # 연속 감소의 뜻(검토 F3)
+        self.assertIn("자사주 매입 0의 '줄 없음'은 그 분기 공시에 매입 줄이 없어 0으로 채운 회사다", extra[1])
+
+    def test_decline_count_stops_at_a_gap_an_equal_value_and_the_history(self):
+        ends = q_ends(2024, 9, 9)                                      # 2024-09 ~ 2026-09, 9분기
+        def world(fcf_a, fcf_b=None):
+            fcf_b = fcf_b or [0] * len(ends)
+            return flat({"TSTA": {e: (f * B, 0) for e, f in zip(ends, fcf_a) if f is not None},
+                         "TSTB": {e: (f * B, 0) for e, f in zip(ends, fcf_b)}})
+        self.assertEqual(sf.flow_calc(world([9, 8, 7, 6, 5, 4, 3, 2, 1]))["dec"], 7)   # 8분기 이력 → 최대 7
+        self.assertEqual(sf.flow_calc(world([1, 2, 3, 4, 5, 6, 7, 8, 9]))["dec"], 0)
+        self.assertEqual(sf.flow_calc(world([9, 8, 7, 6, 5, 5, 3, 2, 1]))["dec"], 3)   # 같은 값은 감소가 아니다
+        self.assertEqual(sf.flow_calc(world([9, 8, 7, 6, None, 4, 3, 2, 1]))["dec"], 3)  # 빈 분기에서 멈춘다
+        v = sf.flow_calc(world([9, 8, 7, 6, 5, 4, 3, 2, 1]))
+        self.assertIn("연속 감소 7분기", sf.flow_texts(v)[0])
+        self.assertIn("연속 감소 없음", sf.flow_texts(sf.flow_calc(world([1, 2, 3, 4, 5, 6, 7, 8, 9])))[0])
+        half = sf.flow_calc(world([9, 8, 7, 6, 5, 4, 3, 2.5, 2.5000004]))   # 반올림하면 같아도 반올림 전 값으로
+        self.assertEqual((half["dec"], [q["fcf"] for q in half["quarters"]][-2:]), (0, [2.5, 2.5]))
+
+    def test_latest_complete_quarter_and_missing_middle_quarter(self):
+        ends = q_ends(2025, 3, 7)                                      # 2025-03 ~ 2026-09
+        qa = {e: (2 * B, 1 * B) for e in ends}
+        qb = {e: (1 * B, 0) for e in ends[:-1] if e != "2025-12-31"}   # 나회사는 마지막 분기와 25Q4가 없다
+        v = sf.flow_calc(flat({"TSTA": qa, "TSTB": qb}))
+        self.assertEqual((v["last"], v["asof"]), ("26Q2", "2026-06-30"))
+        self.assertEqual([q["fcf"] for q in v["quarters"]], [2.0, 2.0, None, 2.0, 2.0])
+        self.assertIn("25Q4 —", sf.flow_texts(v)[0])
+        with self.assertRaises(sf.ItemError):                           # 한 회사가 아예 없으면 5사 분기가 없다
+            sf.flow_calc(flat({"TSTA": qa}))
+        with self.assertRaises(sf.ItemError):
+            sf.flow_calc({"TSTA": None, "TSTB": {}})
+        with self.assertRaises(sf.ItemError):                           # 함께 가진 달력 분기가 없다
+            sf.flow_calc(flat({"TSTA": {ends[0]: (1, 0)}, "TSTB": {ends[-1]: (1, 0)}}))
+
+    def test_two_ends_in_one_calendar_quarter_keep_the_later(self):
+        qa = {"2026-07-31": (5 * B, 0), "2026-09-30": (2 * B, 0)}
+        qb = {"2026-08-31": (1 * B, 0)}
+        v = sf.flow_calc(flat({"TSTA": qa, "TSTB": qb}))
+        self.assertEqual((v["quarters"][-1]["fcf"], v["asof"]), (3.0, "2026-09-30"))
+
+    def test_flow_values_check_refuses_odd_shapes(self):
+        v = json.loads(json.dumps(sf.flow_calc(quarterly_of(concepts_a(), concepts_b()))))
+        self.assertTrue(sf.flow_values_ok(v))
+        for mutate in (lambda x: x.update(dec=8), lambda x: x["quarters"].pop(), lambda x: x["quarters"].reverse(),
+                       lambda x: x["quarters"][-1].update(fcf=None), lambda x: x.update(last="26Q4"),
+                       lambda x: x["buyers"].append(["TSTB", 1.0]), lambda x: x.update(unknown=["ZZZZ"]),
+                       lambda x: x.update(zero_n=2), lambda x: x["companies"].reverse(), lambda x: x.update(extra=1),
+                       lambda x: x["companies"][0]["rows"][0].update(cal="2026Q3"), lambda x: x.update(ext_n=1),
+                       lambda x: x["companies"][0].update(capex="51"), lambda x: x["quarters"][0].update(fcf=float("nan")),
+                       lambda x: x.pop("noline"), lambda x: x.update(noline=["ZZZZ"]), lambda x: x.update(noline=["TSTA"]),
+                       lambda x: x.update(noline=["TSTB", "TSTB"]), lambda x: x.update(noline="TSTB")):
+            w = json.loads(json.dumps(v))
+            mutate(w)
+            self.assertFalse(sf.flow_values_ok(w), mutate)
+
+
+# ---------- 재무상태 잔액 (bal) ----------
+
+class BalTest(Base):
+    def test_trim_instant_keeps_10q_10k_point_facts_only(self):
+        js = concept([inst("2026-09-30", 5), dict(inst("2026-09-30", 6), start="2026-07-01"),   # 기간 사실은 뺀다
+                      dict(inst("2026-09-30", 7), form="8-K"), inst("2020-06-30", 8),            # 8-K · KEEP_DAYS 밖
+                      inst("2026-12-31", 9), dict(inst("2026-09-30", 1), val=True),             # 오늘 뒤 · 참/거짓
+                      dict(inst("2026-09-30", 1), val=float("nan")), dict(inst("2026-09-30", 1), val="3"),
+                      dict(inst("2026-09-30", 1), end="2026-9-30"), dict(inst("2026-09-30", 1), filed=None),
+                      inst("2026-06-30", 4, form="10-K/A")])
+        self.assertEqual(sf.trim_instant(js, TODAY), [["2026-06-30", 4, "2026-10-20", "10-K/A"],
+                                                      ["2026-09-30", 5, "2026-10-20", "10-Q"]])
+        self.assertEqual(sf.trim_instant({"units": {"EUR": [inst("2026-09-30", 1)]}}, TODAY), [])
+
+    def test_two_companies_numbers(self):
+        v = sf.bal_calc(facts_of(bal_a(), bal_b()))
+        a, b = v["companies"]
+        self.assertEqual((a["date"], a["cash"], a["debt"], a["net"]), ("2026-09-30", 64.5, 31.0, 33.5))   # 정정 공시가 이긴다
+        self.assertEqual((a["prev_date"], a["cash_prev"], a["debt_prev"], a["net_prev"]), ("2025-09-30", 50.0, 34.0, 16.0))
+        self.assertEqual((a["lease"], a["lease_date"]), (12.0, "2026-06-30"))
+        self.assertEqual((a["rpo"], a["rpo_date"], a["rpo_prev"]), (100.0, "2026-09-30", 80.0))
+        self.assertEqual(a["filled"], {"cash": 0, "debt": 1, "lease": 0, "rpo": 0})   # 유동 차입 줄 없음 → 0
+        self.assertEqual((b["date"], b["cash"], b["debt"], b["net"], b["net_prev"]), ("2026-08-31", 15.0, 42.0, -27.0, -16.0))
+        self.assertEqual((b["lease"], b["filled"]["lease"], b["rpo"], b["rpo_date"]), (3.0, 1, None, None))   # 금융리스 404
+        t = v["total"]
+        self.assertEqual((t["n"], t["of"], t["date"], t["cash"], t["debt"], t["net"]), (2, 2, "2026-09-30", 79.5, 73.0, 6.5))
+        self.assertEqual((t["cash_prev"], t["debt_prev"], t["net_prev"], t["pos"]), (65.0, 65.0, 0.0, 1))
+        self.assertEqual((t["lease"], t["rpo_of"], t["rpo_n"], t["rpo"], t["rpo_prev"]), (15.0, 1, 1, 100.0, 80.0))
+        line, extra, detail = sf.bal_texts(v)
+        self.assertEqual(line, "2사 분기 말 잔액(회사마다 마지막 공시일): 현금 79.5bn · 장기 차입 73.0bn · 순현금 +6.5bn "
+                               "(1년 전 0.0) · 순현금 양(+) 1/2사 · 리스부채 15.0bn · 수주잔고(RPO) 1사 100.0bn (1년 전 80.0) "
+                               "— 순현금 TSTA +33.5(리스 ~2026-06) · TSTB -27.0(~2026-08)")
+        self.assertIn("수주잔고(RPO)는 그 줄을 공시하는 회사만(가회사).", extra[0])
+        self.assertIn("TSTA(가회사, 잔액 2026-09-30, 1년 전 2025-09-30): 현금 64.5bn", detail[0])
+        self.assertIn("리스부채 12.0bn (2026-06-30) · 수주잔고 100.0bn · 1년 전 80.0 · 0으로 채운 줄: 장기 차입 1", detail[0])
+        self.assertIn("수주잔고 싣지 않음 · 0으로 채운 줄: 리스부채 1", detail[1])
+
+    def test_year_before_window_and_closest(self):
+        d = "2026-09-30"
+        self.assertEqual(sf._year_before(["2025-10-10", "2025-09-20"], d), "2025-10-10")   # 355·375일 — 둘 다 안, 같은 거리 → 늦은 날
+        self.assertIsNone(sf._year_before(["2025-10-11", "2025-09-19", "2026-06-30"], d))   # 354·376일 밖
+        self.assertEqual(sf._year_before(["2025-10-05", "2025-09-30", "2025-09-25"], d), "2025-09-30")
+        b = bal_b()                                                    # 1년 전 잔액이 없으면 합도 없다
+        b[sf.CASH] = concept([inst("2026-05-31", 11 * B, form="10-K"), inst("2026-08-31", 10 * B)])
+        v = sf.bal_calc(facts_of(bal_a(), b))
+        self.assertEqual((v["companies"][1]["prev_date"], v["total"]["net_prev"], v["total"]["cash_prev"]), (None, None, None))
+        self.assertNotIn("1년 전", sf.bal_texts(v)[0].split("수주잔고")[0])
+
+    def test_balance_date_needs_cash_and_debt_first_lines(self):
+        a = bal_a()                                                    # 2026-09-30 장기 차입 첫 줄이 없으면 그 날은 아니다
+        a[sf.LTD_NC] = concept([inst("2025-09-30", 30 * B), inst("2026-06-30", 30 * B, form="10-K")])
+        c = sf.bal_calc(facts_of(a, bal_b()))["companies"][0]
+        self.assertEqual((c["date"], c["cash"], c["debt"]), ("2026-06-30", 60.0, 33.0))
+        self.assertEqual((c["lease_date"], c["rpo_date"], c["rpo"], c["rpo_prev"]), ("2026-06-30", "2025-09-30", 80.0, None))
+        self.assertIn("TSTA +27.0(~2026-06 · RPO ~2025-09) · TSTB -27.0", sf.bal_texts(sf.bal_calc(facts_of(a, bal_b())))[0])   # 잔액 날짜 이하의 마지막
+        a[sf.LTD_NC] = None                                            # 첫 줄이 404면 그 회사는 잔액 없음
+        v = sf.bal_calc(facts_of(a, bal_b()))
+        self.assertEqual(v["companies"][0], {"key": "TSTA", "ok": False, "reason": "no_bal"})
+        self.assertEqual((v["total"]["n"], v["total"]["rpo"], v["total"]["rpo_n"]), (1, None, 0))
+        line = sf.bal_texts(v)[0]
+        self.assertTrue(line.startswith("1/2사 분기 말 잔액"), line)
+        self.assertIn("수주잔고(RPO) — (0/1사만 있음)", line)
+        self.assertIn("TSTA 잔액 자료 없음", line)
+        with self.assertRaises(sf.ItemError):
+            sf.bal_calc({})
+
+    def test_tag_not_received_is_unknown_not_zero(self):
+        a = bal_a()
+        del a[sf.FIN_LEASE]                                            # 받지 못한 뒤 줄 — 리스부채 모름(0이 아님)
+        v = sf.bal_calc(facts_of(a, bal_b()))
+        self.assertEqual((v["companies"][0]["lease"], v["companies"][0]["lease_date"], v["total"]["lease"]), (None, None, None))
+        self.assertIn("리스부채 —bn", sf.bal_texts(v)[0])
+        self.assertIn("TSTA +33.5(리스 모름) · TSTB", sf.bal_texts(v)[0])   # 비공개 원본과 같은 표식(검토 F6)
+        a = bal_a()
+        del a[sf.LTD_C]                                                # 받지 못한 장기 차입 줄 — 그 회사의 잔액을 모름
+        self.assertEqual(sf.bal_calc(facts_of(a, bal_b()))["companies"][0]["reason"], "no_bal")
+        f = facts_of(bal_a(), bal_b())
+        for t in (sf.CASH_STI, sf.LTD_NC):                             # 깨진 날짜(순수 함수에 바로 준 입력)는 그 회사만
+            f["TSTA"][t].append(["2026-99-99", 1, "2026-10-01", "10-Q"])
+        self.assertEqual(sf.bal_calc(f)["companies"][0]["reason"], "calc")
+
+    def test_same_date_later_filing_and_first_listed_tag(self):
+        best = sf._inst_part({"X": [["2026-09-30", 1, "2026-10-01", "10-Q"]], "Y": [["2026-09-30", 2, "2026-10-01", "10-Q"]]},
+                             ["X", "Y"])
+        self.assertEqual(best, {"2026-09-30": 1})                       # 같은 날 낸 것 — 앞 태그
+        best = sf._inst_part({"X": [["2026-09-30", 1, "2026-10-01", "10-Q"]], "Y": [["2026-09-30", 2, "2026-10-02", "10-Q"]]},
+                             ["X", "Y"])
+        self.assertEqual(best, {"2026-09-30": 2})
+        self.assertIsNone(sf._inst_part({}, ["X"]))
+
+    def test_rpo_without_a_year_ago_value_has_no_year_ago_sum(self):
+        a = bal_a()                                                    # 수주잔고는 있는데 1년 전 수주잔고가 없는 회사(검토 docs F4)
+        a[sf.RPO] = concept([inst("2026-09-30", 100 * B)])
+        v = sf.bal_calc(facts_of(a, bal_b()))
+        self.assertEqual((v["companies"][0]["rpo"], v["companies"][0]["rpo_prev"]), (100.0, None))
+        self.assertEqual((v["total"]["rpo"], v["total"]["rpo_prev"]), (100.0, None))
+        line = sf.bal_texts(v)[0]
+        self.assertIn("수주잔고(RPO) 1사 100.0bn — 순현금", line)          # '(1년 전 …)' 없음
+        self.assertIn("수주잔고 100.0bn · 1년 전 — ·", sf.bal_texts(v)[2][0])
+
+    def test_oracle_current_notes_note(self):
+        self.assertIn("오라클의 유동 줄 NotesPayableCurrent는 재무상태표에 기업어음 줄이 따로 없어 기업어음 등 단기 차입이 섞일 수 "
+                      "있다", sf.bal_texts(sf.bal_calc(facts_of(bal_a(), bal_b())))[1][0])   # 검토 F8
+
+    def test_net_cash_sign_count_uses_unrounded_values(self):
+        a = bal_a()
+        a[sf.LTD_NC] = concept([inst("2025-09-30", 30 * B), inst("2026-09-30", 64.5 * B - 1000)])   # 순현금 +0.000001bn
+        v = sf.bal_calc(facts_of(a, bal_b()))
+        self.assertEqual((v["companies"][0]["net"], v["total"]["pos"]), (0.0, 1))
+
+    def test_bal_values_check_refuses_odd_shapes(self):
+        v = json.loads(json.dumps(sf.bal_calc(facts_of(bal_a(), bal_b()))))
+        self.assertTrue(sf.bal_values_ok(v))
+        for mutate in (lambda x: x["total"].update(n=3), lambda x: x["companies"].reverse(),
+                       lambda x: x["companies"][0].update(lease_date="2026-12-31"),
+                       lambda x: x["companies"][1].update(rpo=5.0, rpo_date="2026-08-31"),
+                       lambda x: x["companies"][0].update(cash="64.5"), lambda x: x["companies"][0]["filled"].update(x=1),
+                       lambda x: x["total"].update(rpo_of=2), lambda x: x["total"].update(date="2026-08-31"),
+                       lambda x: x["companies"][0].update(extra=1), lambda x: x["total"].update(pos=3),
+                       lambda x: x["companies"][0].update(prev_date="2026-09-30")):
+            w = json.loads(json.dumps(v))
+            mutate(w)
+            self.assertFalse(sf.bal_values_ok(w), mutate)
 
 
 # ---------- 받기 ----------
@@ -380,13 +744,14 @@ class FakeClock:
         return self.t
 
 
-def world_answer(a=None, b=None):
-    a, b = a or concepts_a(), b or concepts_b()
-    by = {CO_A[2]: a, CO_B[2]: b}
+def world_answer(a=None, b=None, ba=None, bb=None):
+    """흐름 태그(concepts_*)와 잔액 태그(bal_*)를 함께 답한다 — 둘 다에 없는 태그는 404."""
+    by = {CO_A[2]: {**(ba or bal_a()), **(a or concepts_a())}, CO_B[2]: {**(bb or bal_b()), **(b or concepts_b())}}
     return lambda cik, tag: by[cik].get(tag)
 
 
 N_TAGS = len(sf.tags_of(CO_A)) + len(sf.tags_of(CO_B))
+N_BAL = len({t for f in BAL_A.values() for alts in f for t in alts}) + len({t for f in BAL_B.values() for alts in f for t in alts})
 
 
 class FetchTest(Base):
@@ -415,20 +780,25 @@ class FetchTest(Base):
         code, log = self.run_main(op, env={})
         self.assertEqual((code, op.reqs), (1, []))
         it = self.saved()["items"]["funding"]
-        self.assertEqual((it["ok"], it["stale"], it["error"]), (False, False, "연락처 미설정(SEC_USER_AGENT)"))
-        self.assertNotIn("line", it)
-        self.assertIn("::warning::SEC 조달 참고 받지 못함: 연락처 미설정(SEC_USER_AGENT)", log)
+        for key in sf.ORDER:                                                    # 세 칸 모두 그 사유
+            it = self.saved()["items"][key]
+            self.assertEqual((it["ok"], it["stale"], it["error"]), (False, False, "연락처 미설정(SEC_USER_AGENT)"), key)
+            self.assertNotIn("line", it)
+            self.assertIn(f"::warning::SEC 조달 참고 {key} 받지 못함: 연락처 미설정(SEC_USER_AGENT)", log)
+        self.assertIn("[sec_fetch] 요청 0번 (흐름 0 · 잔액 0)", log)
         self.run_main(FakeOpener(world_answer()))                                  # 받은 뒤 연락처가 빠지면
         op = FakeOpener(world_answer())
         code, _ = self.run_main(op, env={"SEC_USER_AGENT": " "}, now=NOW + datetime.timedelta(days=1))
-        it = self.saved()["items"]["funding"]
-        self.assertEqual((code, len(op.reqs), it["stale"], it["failed_since"]), (1, 0, True, "2026-10-31"))
-        self.assertTrue(it["line"].startswith("2사 TTM"))
+        self.assertEqual((code, len(op.reqs)), (1, 0))
+        for key, head in (("funding", "2사 TTM"), ("flow", "2사 분기 FCF"), ("bal", "2사 분기 말 잔액")):
+            it = self.saved()["items"][key]
+            self.assertEqual((it["stale"], it["failed_since"], it["error"]), (True, "2026-10-31", sf.REASONS["no_ua"]), key)
+            self.assertTrue(it["line"].startswith(head), key)
 
     def test_header_goes_only_to_sec_https(self):
         op = FakeOpener(world_answer())
         code, _ = self.run_main(op)
-        self.assertEqual((code, len(op.reqs)), (0, N_TAGS))
+        self.assertEqual((code, len(op.reqs)), (0, N_TAGS + N_BAL))
         for req, timeout in op.reqs:
             self.assertEqual(req.get_header("User-agent"), FAKE_UA)
             self.assertTrue(req.full_url.startswith("https://data.sec.gov/api/xbrl/companyconcept/CIK"))
@@ -570,30 +940,40 @@ class FetchTest(Base):
         why = sf.REASONS["leak"]
         with mock.patch.object(sf, "texts", leaky(lambda v: v["total"]["ocf"] != 87.0)):
             code, log = self.run_main(FakeOpener(world_answer(b=b)), now=NOW + datetime.timedelta(days=1))
-        it = self.saved()["items"]["funding"]
-        self.assertEqual((code, it["ok"], it["stale"], it["error"], it["failed_since"]), (1, False, True, why, "2026-10-31"))
+        items = self.saved()["items"]
+        it = items["funding"]
+        self.assertEqual((code, it["ok"], it["stale"], it["error"], it["failed_since"]), (0, False, True, why, "2026-10-31"))
         self.assertEqual((it["values"]["total"]["ocf"], it["retrieved"]), (87.0, "2026-10-30"))   # 새 숫자 대신 직전 값
+        self.assertTrue(items["flow"]["ok"] and items["bal"]["ok"])    # 섞인 칸만 — 나머지 칸은 이번 숫자
+        self.assertEqual(items["flow"]["retrieved"], "2026-10-31")     # 나회사 영업현금이 바뀌어 흐름도 새 숫자
         self.assertIn(why, log)
         with mock.patch.object(sf, "texts", leaky(lambda v: True)):  # 직전 값의 글에도 섞이면 직전 값 없이
             code, log = self.run_main(FakeOpener(world_answer(b=b)), now=NOW + datetime.timedelta(days=2))
         it = self.saved()["items"]["funding"]
-        self.assertEqual((code, it["ok"], it["stale"], it["error"]), (1, False, False, why))
+        self.assertEqual((code, it["ok"], it["stale"], it["error"]), (0, False, False, why))
         self.assertFalse({"values", "line", "detail"} & set(it))
+        orig_bal = sf.bal_texts                                       # 잔액 칸의 글에 섞여도 그 칸만
+        with mock.patch.object(sf, "bal_texts", lambda v: (orig_bal(v)[0] + " Example.Invalid",) + orig_bal(v)[1:]):
+            code, log = self.run_main(FakeOpener(world_answer(b=b)), now=NOW + datetime.timedelta(days=3))
+        items = self.saved()["items"]
+        self.assertEqual((code, items["bal"]["ok"], items["bal"]["stale"], items["bal"]["error"]), (0, False, False, why))
+        self.assertTrue(items["flow"]["ok"])
         with open(path, "rb") as f:
             before = f.read()
         with mock.patch.object(sf, "NOTICE", sf.NOTICE + " fake.tester"):     # 정해 둔 글에까지 섞이면 아무것도 쓰지 않는다
-            self.assertIsNone(sf.guarded(sf.ItemError("fetch"), None, NOW, FAKE_UA))
-            code, log = self.run_main(FakeOpener(world_answer()), now=NOW + datetime.timedelta(days=3))
+            self.assertIsNone(sf.guarded({k: sf.ItemError("fetch") for k in sf.ORDER}, {}, NOW, FAKE_UA))
+            code, log = self.run_main(FakeOpener(world_answer()), now=NOW + datetime.timedelta(days=4))
         self.assertEqual(code, 1)
         self.assertIn(f"{sf.FILE}를 쓰지 않음", log)
         with open(path, "rb") as f:
             self.assertEqual(f.read(), before)
         self.assertNotIn("fake.tester", before.decode("utf-8"))
         self.assertNotIn("fake.tester", log)
-        bad = sf.build(sf.ItemError("fetch"), None, NOW)              # 검사를 지나온 글이어도 쓰기에서 한 번 더
+        self.assertNotIn("example.invalid", before.decode("utf-8").casefold())
+        bad = sf.build({k: sf.ItemError("fetch") for k in sf.ORDER}, {}, NOW)   # 검사를 지나온 글이어도 쓰기에서 한 번 더
         bad["items"]["funding"]["name"] += " fake.tester"
         with mock.patch.object(sf, "guarded", lambda *a: bad):
-            code, log = self.run_main(FakeOpener(world_answer()), now=NOW + datetime.timedelta(days=4))
+            code, log = self.run_main(FakeOpener(world_answer()), now=NOW + datetime.timedelta(days=5))
         self.assertEqual(code, 1)
         with open(path, "rb") as f:
             self.assertEqual(f.read(), before)
@@ -614,24 +994,121 @@ class FetchTest(Base):
 
     def test_absent_tag_is_zero_and_gzip_reads(self):
         a = {k: (("gzip", v) if v else v) for k, v in concepts_a().items()}
-        code, _ = self.run_main(FakeOpener(world_answer(a)))
+        ba = {k: (("gzip", v) if v else v) for k, v in bal_a().items()}
+        code, _ = self.run_main(FakeOpener(world_answer(a, ba=ba)))
         self.assertEqual(code, 0)
         c = self.saved()["items"]["funding"]["values"]["companies"][0]
         self.assertEqual((c["ttm"]["debt_rep"], c["filled"]["debt_rep"]), (0.0, 4))
+        self.assertEqual(self.saved()["items"]["bal"]["values"]["companies"][0]["cash"], 64.5)
 
-    def test_any_failure_stops_and_keeps_the_previous_value(self):
+    def test_any_flow_failure_stops_the_flow_tags_and_keeps_their_previous_values(self):
         self.run_main(FakeOpener(world_answer()))
-        cases = (("boom", "수신 실패"), ("block", "SEC 거절 · 요청 한도 또는 미신고 도구"), ("rate", "SEC 거절 · 요청 한도 또는 미신고 도구"),
-                 ("bad", "계산할 자료가 모자람"))
-        for i, (kind, why) in enumerate(cases, 1):
+        cases = (("boom", "수신 실패", N_BAL), ("block", "SEC 거절 · 요청 한도 또는 미신고 도구", 0),
+                 ("rate", "SEC 거절 · 요청 한도 또는 미신고 도구", 0), ("bad", "계산할 자료가 모자람", N_BAL))
+        for i, (kind, why, n_bal) in enumerate(cases, 1):
             third = sf.tags_of(CO_A)[2]
             op = FakeOpener(lambda c, t, k=kind: k if t == third else world_answer()(c, t))
             code, log = self.run_main(op, now=NOW + datetime.timedelta(days=i))
-            it = self.saved()["items"]["funding"]
-            self.assertEqual((code, len(op.reqs)), (1, 3), kind)                  # 실패한 곳에서 멈춘다
-            self.assertEqual((it["ok"], it["stale"], it["error"], it["failed_since"]), (False, True, why, "2026-10-31"), kind)
-            self.assertEqual(it["retrieved"], "2026-10-30")
+            items = self.saved()["items"]
+            self.assertEqual(len(op.reqs), 3 + n_bal, kind)             # 흐름은 실패한 곳에서 멈추고, SEC 거절이면 잔액도 받지 않는다
+            for key in ("funding", "flow"):
+                it = items[key]
+                self.assertEqual((it["ok"], it["stale"], it["error"], it["failed_since"]),
+                                 (False, True, why, "2026-10-31"), (kind, key))
+                self.assertEqual(it["retrieved"], "2026-10-30")
+            self.assertIn("funding 받지 못함", log)
             self.assertIn("직전 값(2026-09-30 기준) 유지", log)
+            if n_bal:                                                   # 잔액은 따로 받는다
+                self.assertEqual((code, items["bal"]["ok"]), (0, True), kind)
+            else:
+                self.assertEqual((code, items["bal"]["ok"], items["bal"]["stale"], items["bal"]["error"]),
+                                 (1, False, True, why), kind)
+
+    def test_a_balance_failure_fails_only_the_balance_item(self):
+        self.run_main(FakeOpener(world_answer()))
+        for i, kind in enumerate(("boom", "bad", "block"), 1):
+            op = FakeOpener(lambda c, t, k=kind: k if t == sf.LTD_C else world_answer()(c, t))
+            code, log = self.run_main(op, now=NOW + datetime.timedelta(days=i))
+            items = self.saved()["items"]
+            self.assertEqual(code, 0, kind)
+            self.assertTrue(items["funding"]["ok"] and items["flow"]["ok"], kind)
+            bal = items["bal"]
+            self.assertEqual((bal["ok"], bal["stale"], bal["failed_since"], bal["retrieved"]),
+                             (False, True, "2026-10-31", "2026-10-30"), kind)
+            self.assertEqual(bal["values"]["total"]["cash"], 79.5)
+            self.assertIn("SEC 조달 참고 bal 받지 못함", log)
+            self.assertEqual(len(op.reqs), N_TAGS + 3, kind)                       # 잔액은 실패한 곳에서 멈춘다(유동 차입 = 셋째)
+
+    def test_odd_usd_shape_fails_only_its_group_and_never_escapes(self):
+        """units.USD가 목록이 아닌 응답(수·참/거짓·객체) — 예외가 main 밖으로 나가지 않고 그 묶음만 '계산할 자료가 모자람'(검토 S2)."""
+        self.run_main(FakeOpener(world_answer()))
+        for i, odd in enumerate((5, True, {"x": 1}), 1):
+            op = FakeOpener(lambda c, t, o=odd: {"units": {"USD": o}} if t == sf.CASH_STI else world_answer()(c, t))
+            code, log = self.run_main(op, now=NOW + datetime.timedelta(days=i))          # 잔액만 깨짐 — 흐름 칸은 이번 값
+            items = self.saved()["items"]
+            self.assertEqual(code, 0, odd)
+            self.assertTrue(items["funding"]["ok"] and items["flow"]["ok"], odd)
+            self.assertEqual((items["bal"]["ok"], items["bal"]["stale"], items["bal"]["error"]),
+                             (False, True, "계산할 자료가 모자람"), odd)
+            self.assertNotIn("Traceback", log)
+        op = FakeOpener(lambda c, t: {"units": {"USD": 5}} if t == sf.OCF else world_answer()(c, t))
+        code, log = self.run_main(op, now=NOW + datetime.timedelta(days=9))               # 흐름 태그가 깨짐 — 흐름 두 칸만
+        items = self.saved()["items"]
+        self.assertEqual(code, 0)
+        self.assertEqual({k: items[k]["error"] for k in ("funding", "flow")}, {"funding": "계산할 자료가 모자람",
+                                                                              "flow": "계산할 자료가 모자람"})
+        self.assertTrue(items["bal"]["ok"])
+        self.assertEqual(len(op.reqs), 1 + N_BAL)                                     # 흐름은 첫 태그에서 멈추고 잔액은 받는다
+        with self.assertRaises(sf.FetchError):                                         # fetch가 먼저 거른다
+            sf.fetch(CO_A[2], sf.OCF, FAKE_UA, 1e9, clock=lambda: 0.0,
+                     opener=FakeOpener(lambda c, t: {"units": {"USD": 5}}))
+        got, code, n = sf._fetch_plan([(CO_A[2], sf.OCF)], FAKE_UA, TODAY, 1e9, lambda js, today: [x for x in 5], [None],
+                                      FakeOpener(world_answer()), lambda: 0.0, lambda s: None)
+        self.assertEqual((got, code, n), ({}, "format", 1))                            # 뜻밖의 오류도 정해 둔 사유로
+
+    def test_fresh_numbers_pass_the_same_shape_check_or_fail_only_their_item(self):
+        orig = sf.flow_calc
+
+        def nan_flow(q):
+            v = orig(q)
+            v["quarters"][0]["fcf"] = float("nan")
+            return v
+        with mock.patch.object(sf, "flow_calc", nan_flow):
+            code, log = self.run_main(FakeOpener(world_answer()))
+        items = self.saved()["items"]
+        self.assertEqual((code, items["flow"]["ok"], items["flow"]["error"]), (0, False, "계산할 자료가 모자람"))
+        self.assertTrue(items["funding"]["ok"] and items["bal"]["ok"])
+        with open(os.path.join(self.out, sf.FILE), encoding="utf-8") as f:
+            self.assertNotIn("NaN", f.read())
+        with mock.patch.object(sf, "bal_calc", lambda f: (_ for _ in ()).throw(ZeroDivisionError("x"))):
+            code, log = self.run_main(FakeOpener(world_answer()), now=NOW + datetime.timedelta(days=1))
+        bal = self.saved()["items"]["bal"]
+        self.assertEqual((bal["ok"], bal["stale"], bal["error"]), (False, True, "계산할 자료가 모자람"))
+        self.assertIn("compute_bal 계산 오류: ZeroDivisionError", log)
+
+    def test_flow_tags_go_first_then_balance_tags_in_one_budget(self):
+        op = FakeOpener(world_answer())
+        f = sf.fetch_both(FAKE_UA, TODAY, opener=op, clock=FakeClock(), sleep=lambda s: None)
+        tags = [r.full_url.rsplit("/", 1)[-1][:-5] for r, _ in op.reqs]
+        self.assertEqual(tags[:N_TAGS], [t for c in (CO_A, CO_B) for t in sf.tags_of(c)])
+        self.assertEqual(tags[N_TAGS:], [t for c in (CO_A, CO_B) for t in sf.bal_tags_of(c[0])])
+        self.assertEqual((f["code"], f["bcode"], f["n"], f["nb"]), (None, None, N_TAGS, N_BAL))
+        self.assertEqual(f["bgot"][CO_B[2]][sf.FIN_LEASE], [])                    # 404 = 빈 목록
+        self.assertTrue(all(len(x) == 4 for x in f["bgot"][CO_A[2]][sf.CASH_STI]))   # 시점 사실 꼴
+        clock = FakeClock()                                                          # 흐름에 시간을 다 쓰면 잔액은 시간 상한
+        op = FakeOpener(world_answer(), clock=clock, cost=10.0)
+        f = sf.fetch_both(FAKE_UA, TODAY, budget=N_TAGS * 10 + 1, opener=op, clock=clock, sleep=lambda s: None)
+        self.assertEqual((f["code"], f["bcode"], f["n"], f["nb"]), (None, "budget", N_TAGS, 0))
+        clock, waits = FakeClock(), []                                              # 간격은 두 묶음 사이에도
+        op = FakeOpener(world_answer(), clock=clock, cost=0.1)
+
+        def sleep(s):
+            waits.append(round(s, 6))
+            clock.t += s
+        sf.GAP = 0.25
+        sf.fetch_both(FAKE_UA, TODAY, opener=op, clock=clock, sleep=sleep)
+        self.assertEqual(waits, [0.15] * (N_TAGS + N_BAL - 1))
+        self.assertEqual(sf.fetch_both(None, TODAY, opener=op)["bcode"], "no_ua")
 
     def test_requests_are_spaced(self):
         clock, waits = FakeClock(), []
@@ -669,7 +1146,17 @@ class FetchTest(Base):
                                           "citation": "Source: SEC EDGAR XBRL API (data.sec.gov); site calculations. "
                                                       "Retrieved October 30, 2026."}])
         self.assertEqual(len(it["detail"]), 4)                                   # 회사마다 두 줄
-        self.assertIn("[sec_fetch] funding 2026-09-30 기준 · 요청 13번", log)
+        self.assertEqual(js["order"], ["funding", "flow", "bal"])
+        for key, date, title in (("flow", "2026-09-30", sf.FLOW_TITLE), ("bal", "2026-09-30", sf.BAL_TITLE)):
+            x = js["items"][key]
+            self.assertEqual((x["ok"], x["date"], x["retrieved"], x["name"], x["key"]), (True, date, "2026-10-30", title, key))
+            self.assertEqual((x["sources"], x["notices"]), (it["sources"], [sf.COMPUTED_NOTICE]))
+            self.assertEqual(len(x["detail"]), 2)                                # 회사마다 한 줄
+        self.assertTrue(js["items"]["flow"]["line"].startswith("2사 분기 FCF(달력 분기, bn): 25Q3 +5.0, "))
+        self.assertTrue(js["items"]["bal"]["line"].startswith("2사 분기 말 잔액(회사마다 마지막 공시일): 현금 79.5bn"))
+        for key in sf.ORDER:
+            self.assertIn(f"[sec_fetch] {key} 2026-09-30 기준", log)
+        self.assertIn(f"[sec_fetch] 요청 {N_TAGS + N_BAL}번 (흐름 {N_TAGS} · 잔액 {N_BAL})", log)
 
     def test_same_numbers_keep_the_file_older_is_refused_and_broken_previous_is_not_carried(self):
         self.run_main(FakeOpener(world_answer()))
@@ -686,16 +1173,21 @@ class FetchTest(Base):
         for k in (sf.OCF, sf.PPE):
             b[k] = concept([f for f in b[k]["units"]["USD"] if f["fy"] != 2027])
         code, _ = self.run_main(FakeOpener(world_answer(a, b)), now=NOW + datetime.timedelta(days=2))
-        it = self.saved()["items"]["funding"]
-        self.assertEqual((code, it["ok"], it["stale"], it["error"]), (1, False, True, "받은 자료가 직전 자료보다 오래됨"))
+        for key in ("funding", "flow"):                                          # 흐름 칸 둘 다 마지막 분기가 이르다
+            it = self.saved()["items"][key]
+            self.assertEqual((it["ok"], it["stale"], it["error"]), (False, True, "받은 자료가 직전 자료보다 오래됨"), key)
+        self.assertEqual((code, self.saved()["items"]["bal"]["ok"]), (0, True))
         js = self.saved()
         js["items"]["funding"]["values"]["companies"][0]["tags"]["capex"] = "<b>NotATag</b>"
+        js["items"]["flow"]["values"]["quarters"][0]["cal"] = "<b>25Q3</b>"
+        js["items"]["bal"]["values"]["companies"][1]["cash"] = "<b>15</b>"
         with open(path, "w", encoding="utf-8") as f:
             json.dump(js, f, ensure_ascii=False)
         self.run_main(FakeOpener(lambda c, t: "boom"), now=NOW + datetime.timedelta(days=3))
-        it = self.saved()["items"]["funding"]
-        self.assertEqual((it["ok"], it["stale"]), (False, False))
-        self.assertNotIn("NotATag", json.dumps(self.saved()))
+        for key in sf.ORDER:
+            it = self.saved()["items"][key]
+            self.assertEqual((it["ok"], it["stale"]), (False, False), key)
+        self.assertNotIn("<b>", json.dumps(self.saved()))
 
     def test_values_check_refuses_odd_shapes(self):
         v = sf.summary(got_of(concepts_a(), concepts_b()))

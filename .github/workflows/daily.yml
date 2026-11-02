@@ -136,8 +136,8 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/ai_invest_fetch.py
-      # 참고 자료 — 하이퍼스케일러 조달(SEC EDGAR XBRL, 요청 35회·간격 0.25초, 전체 60초 상한). 연락처는 비밀에서만 — 이 단계에만
-      # 넘긴다(비밀이 없으면 요청 없이 '연락처 미설정'). 실패해도 알림 없음
+      # 참고 자료 — 하이퍼스케일러 조달·조달 흐름·재무상태 잔액(SEC EDGAR XBRL, 요청 68회 — 흐름 37 다음 잔액 31, 간격 0.25초,
+      # 전체 60초 상한). 연락처는 비밀에서만 — 이 단계에만 넘긴다(비밀이 없으면 요청 없이 '연락처 미설정'). 실패해도 알림 없음
       - name: SEC 공시 조달 참고 자료 받기
         id: sec
         continue-on-error: true
@@ -145,9 +145,10 @@ jobs:
         env:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
         run: python scripts/sec_fetch.py
-      # 참고 자료 — 신용 긴축(요청 10번: FRED 8개 + 연준 이사회 EBP CSV 1 + 뉴욕 연은 CMDI 통합 문서 1, 요청마다 min(10초, 남은 예산),
-      # 전체 60초 상한 — 단계 2분 안. 바로 앞 단계의 sec.json을 읽는다). 연준 이사회·뉴욕 연은에는 프로젝트를 밝히는 User-Agent
-      # (이메일 없음), FRED는 기본 머리글. 규칙 판정에 쓰지 않고, 실패해도 알림 없음
+      # 참고 자료 — 신용 긴축(요청 15번: FRED 8개 → 연준 이사회 EBP CSV 1 → 뉴욕 연은 CMDI 통합 문서 1 → 회사채 흐름 Z.1
+      # FRED 5 — 예산이 모자라면 회사채 흐름부터 빠진다, 요청마다 min(10초, 남은 예산), 전체 60초 상한 — 단계 2분 안. 바로 앞
+      # 단계의 sec.json을 읽는다). 연준 이사회·뉴욕 연은에는
+      # 프로젝트를 밝히는 User-Agent(이메일 없음), FRED는 기본 머리글. 규칙 판정에 쓰지 않고, 실패해도 알림 없음
       - name: 신용 긴축 참고 자료 받기
         id: credit
         continue-on-error: true
