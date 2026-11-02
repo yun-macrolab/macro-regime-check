@@ -21,6 +21,10 @@
 분기 만들기(회사마다 회계연도대로 — MSFT 6월 말, ORCL 5월 말, 나머지 12월 말):
   - 10-Q·10-K의 기간 사실만(8-K 등 제외). 같은 (시작, 끝)은 늦게 낸 공시가 이긴다(정정 공시·다음 해 비교 수치).
   - 현금흐름표는 누적(YTD)이라 같은 시작일의 앞 누적을 뺀다: 2분기 = 6개월 − 3개월, 4분기 = 연간 − 9개월. 3개월 사실은 그대로.
+  - 누적의 차는 같은 공시 기준(2026-11-02): 앞 누적은 누적을 실은 공시(accn)의 값, 그 공시에 없으면 그 공시를 낸 날까지 나온 값
+    가운데 늦게 낸 것(그 공시가 딛고 선 값), 그것도 없으면 가장 먼저 낸 것. 뒤에 낸 공시가 앞 기간을 고쳐 실은 값(비교 수치)은
+    3개월 사실로만 이기고 앞 공시의 누적에서 빼지 않는다 — 오라클 2025-06~08 주식 발행을 2026-09 10-Q가 0으로 고쳐 실어
+    2025-09~11 분기가 6개월 누적 1.308bn 통째(맞는 값 0.138)로 나온 일.
   - 영업현금·설비투자는 필수. 나머지는 그 분기에 줄이 없거나 쓰지 않는 태그(404)면 0으로 채운다(영업현금이 공시된 분기만).
   - TTM = 마지막 4분기, 분기 끝 사이가 80~100일로 이어질 때만. 1년 전 TTM = 그 앞 4분기, 지금 창에 바로 이어질 때만.
   - 5사 합은 TTM을 낸 회사끼리, 칸 하나라도 모르는 회사가 있으면 그 칸 합은 비운다. 1년 전 FCF 합은 그 회사들 모두에 1년 전
@@ -296,18 +300,20 @@ def fetch(cik, tag, ua, deadline, clock=time.monotonic, opener=None):
 
 
 def trim(js, today):
-    """companyconcept → [[시작, 끝, 값, 낸 날, 양식]] — USD 기간 사실, 10-Q·10-K만, 끝이 KEEP_DAYS 안인 것."""
+    """companyconcept → [[시작, 끝, 값, 낸 날, 양식, 공시 번호(accn)]] — USD 기간 사실, 10-Q·10-K만, 끝이 KEEP_DAYS 안인 것.
+    공시 번호가 없으면 ''."""
     lo = (today - datetime.timedelta(days=KEEP_DAYS)).isoformat()
     out = []
     for x in (js.get("units") or {}).get("USD") or []:
         try:
             s, e, v, f, form = x.get("start"), x["end"], x["val"], x["filed"], str(x.get("form") or "")
+            accn = str(x.get("accn") or "")
         except (KeyError, TypeError, AttributeError):
             continue
         if not s or not form.startswith("10-") or not isinstance(e, str) or e < lo or isinstance(v, bool) \
                 or not isinstance(v, (int, float)):
             continue
-        out.append([s, e, v, f, form])
+        out.append([s, e, v, f, form, accn])
     return sorted(out)
 
 
@@ -356,15 +362,42 @@ def _days(a, b):
     return (_d(b) - _d(a)).days
 
 
+class Merged(dict):
+    """merged()의 결과 — {(시작, 끝): (값, 낸 날, 태그)}에 기간마다 실은 공시 목록(.filings)을 단다."""
+    filings = None
+
+
 def merged(facts_lists):
-    """[(태그, [[시작, 끝, 값, 낸 날, 양식]…])…] → {(시작, 끝): (값, 낸 날, 태그)} — 같은 기간은 늦게 낸 것(같은 날이면 앞 태그)."""
-    best = {}
-    for tag, facts in facts_lists:
-        for s, e, v, f, _form in facts:
-            k = (s, e)
-            if k not in best or f > best[k][1]:
-                best[k] = (v, f, tag)
+    """[(태그, [[시작, 끝, 값, 낸 날, 양식, 공시 번호]…])…] → {(시작, 끝): (값, 낸 날, 태그)} — 같은 기간은 늦게 낸 것(같은 날이면
+    앞 태그). 결과의 .filings = {(시작, 끝): [(낸 날, 공시 번호, 값, 태그)…]} — 그 기간을 실은 공시마다 하나, 늦게 낸 것(같은 날이면
+    앞 태그) 먼저. 앞 칸은 늘 이 목록의 첫째다. 공시 번호가 없는 다섯 칸 사실은 ''."""
+    every = {}
+    for order, (tag, facts) in enumerate(facts_lists):
+        for x in facts:
+            s, e, v, f = x[0], x[1], x[2], x[3]
+            every.setdefault((s, e), []).append((f, -order, x[5] if len(x) > 5 else "", v, tag))
+    best = Merged()
+    best.filings = {}
+    for k, xs in every.items():
+        xs.sort(key=lambda t: (t[0], t[1]), reverse=True)  # 늦게 낸 것 먼저, 같은 날이면 앞 태그(같으면 들어온 차례)
+        best.filings[k] = [(f, accn, v, tag) for f, _o, accn, v, tag in xs]
+        f, accn, v, tag = best.filings[k][0]
+        best[k] = (v, f, tag)
     return best
+
+
+def base_value(filings, cur):
+    """누적에서 뺄 앞 누적 — filings = 앞 누적 기간의 공시 목록(늦게 낸 것 먼저), cur = 누적을 실은 공시(낸 날, 공시 번호, …).
+    같은 공시(공시 번호)에 있으면 그 값, 없으면 그 공시를 낸 날까지 나온 것 가운데 늦게 낸 것(그 공시가 딛고 선 값 — 뒤에 낸
+    정정·비교 수치를 섞지 않는다), 그것도 없으면 가장 먼저 낸 것."""
+    f, accn = cur[0], cur[1]
+    for p in filings:
+        if accn and p[1] == accn:
+            return p[2]
+    for p in filings:
+        if p[0] <= f:
+            return p[2]
+    return filings[-1][2]
 
 
 def ref_quarter_ends(ref):
@@ -377,8 +410,9 @@ def ref_quarter_ends(ref):
 
 
 def quarters(best, ref=None, optional=False):
-    """{분기 끝: (값, 태그)}와 0으로 채운 분기 끝 집합. 3개월 사실 그대로 · 누적은 같은 시작의 앞 누적(끝이 80~100일 앞)을
-    뺀다 · optional이면 앞 누적이 없고 영업현금엔 있을 때 앞을 0으로, 영업현금 분기에 값이 없으면 0으로 채운다."""
+    """{분기 끝: (값, 태그)}와 0으로 채운 분기 끝 집합. best = merged()의 결과. 3개월 사실 그대로(늦게 낸 것) · 누적은 같은
+    시작의 앞 누적(끝이 80~100일 앞)을 같은 공시 기준으로 뺀다(base_value) · optional이면 앞 누적이 없고 영업현금엔 있을 때
+    앞을 0으로, 영업현금 분기에 값이 없으면 0으로 채운다."""
     q, filled = {}, set()
     for (s, e), (v, _f, tag) in best.items():
         if Q_MIN <= _days(s, e) <= Q_MAX:
@@ -388,7 +422,7 @@ def quarters(best, ref=None, optional=False):
             continue
         prev = [(s2, e2) for (s2, e2) in best if s2 == s and Q_MIN <= _days(e2, e) <= Q_MAX]
         if prev:
-            q[e] = (v - best[prev[0]][0], tag)
+            q[e] = (v - base_value(best.filings[prev[0]], best.filings[(s, e)][0]), tag)
         elif optional and ref and any(s2 == s and Q_MIN <= _days(e2, e) <= Q_MAX for (s2, e2) in ref):
             q[e] = (v, tag)                                  # 앞 누적 공시에 이 줄이 없었다 — 앞 = 0
     if optional and ref:
@@ -578,7 +612,8 @@ def texts(v):
              "리스 원금 뺀 FCF = FCF − 금융리스 원금, 순차입 = 장기 차입 발행 − 상환(기업어음 제외), 순주식 = 주식 발행(전환우선주 "
              "포함) − 자사주 매입(배당 제외). 영업현금 초과 = 설비투자/영업현금이 100%를 넘은 회사 수.",
              "분기는 누적(YTD) 공시의 차다(2분기 = 6개월 − 3개월, 4분기 = 연간 − 9개월). 같은 기간은 늦게 낸 공시(정정·다음 해 "
-             "비교 수치)를 쓴다. TTM은 4분기가 이어질 때만. 그 분기 공시에 줄이 없거나 회사가 쓰지 않는 줄은 0으로 채우고 회사별 "
+             "비교 수치)를 쓰되, 누적에서 빼는 앞 누적은 그 누적을 실은 공시 기준이다(그 공시를 낸 날까지 나온 값 — 뒤에 고쳐 실은 "
+             "앞 기간 값을 빼지 않는다). TTM은 4분기가 이어질 때만. 그 분기 공시에 줄이 없거나 회사가 쓰지 않는 줄은 0으로 채우고 회사별 "
              "줄에 그 수를 적는다(영업현금·설비투자는 채우지 않는다).",
              "숫자만 싣는 서술이다 — 단계·점수가 없고 금리를 예측하지 않는다."]
     return line, extra, detail

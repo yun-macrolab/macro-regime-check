@@ -134,9 +134,42 @@ class QuarterTest(Base):
         amend = dict(f[1], val=25 * B, filed="2026-03-01", form="10-Q/A")        # 6개월을 정정(늦게 냄)
         q, _ = sf.quarters(sf.merged([("T", sf.trim(concept(f, [amend]), TODAY))]))
         self.assertEqual(q["2026-06-30"][0] / B, 15)                  # 25 − 10
+        self.assertEqual(q["2026-09-30"][0] / B, 10)                  # 9개월은 정정 전에 냈다 — 그 공시 기준의 6개월 20(30 − 20)
+        later = [dict(x, filed="2026-04-01") if x["fp"] in ("Q3", "FY") else x for x in f]   # 9개월·연간을 정정 뒤에 냈으면
+        q, _ = sf.quarters(sf.merged([("T", sf.trim(concept(later, [amend]), TODAY))]))
         self.assertEqual(q["2026-09-30"][0] / B, 5)                   # 30 − 25
         early = dict(f[1], val=99 * B, filed="2026-01-15")           # 먼저 낸 것은 지지 않는다
         self.assertEqual(sf.quarters(sf.merged([("T", sf.trim(concept(f, [early]), TODAY))]))[0]["2026-06-30"][0] / B, 10)
+
+    def test_restated_prior_period_does_not_leak_into_the_next_quarter(self):
+        """다음 해 10-Q가 앞 기간(3개월)을 0으로 고쳐 실어도, 다음 분기는 6개월 누적을 실은 공시 기준의 3개월을 뺀다 — 지어낸
+        회사·숫자·공시 번호(비공개 원본 sec_capex의 같은 이름 테스트를 옮긴 것)."""
+        n = lambda i: f"0000000000-26-{i:06d}"
+        q1, h1, m9, fy = ytd(12, 2026, [4 * B, 1 * B, 2 * B, 3 * B])            # 분기 4·1·2·3 → 누적 4·5·7·10
+        facts = [dict(q1, filed="2026-04-25", accn=n(1)), dict(h1, filed="2026-07-25", accn=n(2)),
+                 dict(m9, filed="2026-10-25", accn=n(3)), dict(fy, filed="2027-02-15", accn=n(4)),
+                 dict(ytd(12, 2027, [3 * B])[0], filed="2027-04-25", accn=n(5)),
+                 dict(q1, val=0, filed="2027-04-25", accn=n(5))]                # 다음 해 10-Q의 비교 수치 — 1분기를 0으로
+        q, _ = sf.quarters(sf.merged([("T", sf.trim(concept(facts), TODAY))]))
+        self.assertEqual([q[e][0] / B for e in ("2026-03-31", "2026-06-30", "2026-09-30", "2026-12-31", "2027-03-31")],
+                         [0, 1, 2, 3, 3])                             # 3개월은 늦게 낸 0 · 2분기 = 5 − 4(6개월 공시 기준, 5 − 0 아님)
+        restated = dict(h1, val=1 * B, filed="2027-07-25", accn=n(6))            # 이듬해 2분기 10-Q가 6개월도 고쳐 실으면
+        q, _ = sf.quarters(sf.merged([("T", sf.trim(concept(facts, [restated]), TODAY))]))
+        self.assertEqual(q["2026-06-30"][0] / B, 1)                   # 고친 6개월 1 − 그 공시 기준의 3개월 0
+        self.assertEqual(q["2026-09-30"][0] / B, 2)                   # 9개월 7 − 그 공시 기준의 6개월 5(뒤에 고친 1이 아니다)
+        same_day = [dict(q1, val=0, filed="2026-07-25", accn=n(7)), dict(h1, filed="2026-07-25", accn=n(2)),
+                    dict(q1, val=4 * B, filed="2026-07-25", accn=n(2))]      # 같은 날 다른 공시도 3개월을 실었다
+        q, _ = sf.quarters(sf.merged([("T", sf.trim(concept(same_day), TODAY))]))
+        self.assertEqual(q["2026-06-30"][0] / B, 1)                   # 6개월을 실은 공시(같은 공시 번호)의 3개월 4를 뺀다
+        a = concepts_a()                                              # 회사 단위: 가회사 주식 발행을 공시마다 따로 내고
+        f26, f27 = ytd(6, 2026, [1 * B] * 4), ytd(6, 2027, [1 * B])
+        a[sf.EQ] = concept(
+            [dict(x, filed=d, accn=n(10 + i)) for i, (x, d) in
+             enumerate(zip(f26, ("2025-10-30", "2026-01-30", "2026-04-30", "2026-08-30")))],
+            dict(f27[0], filed="2026-10-29", accn=n(20)), dict(f26[0], val=0, filed="2026-10-29", accn=n(20)))
+        t = sf.company_summary(got_of(a), CO_A)["ttm"]
+        self.assertEqual(t["eq_iss"], 14.0)                            # 1+1+1+1 + 전환우선주 10 — 고친 0을 빼면 15가 된다
+        self.assertEqual(t["eq_net"], 5.0)
 
     def test_trim_keeps_10q_10k_duration_facts_inside_window(self):
         js = concept(ytd(12, 2026, [1, 2, 3, 4]), ytd(12, 2019, [1, 1, 1, 1]),
