@@ -337,14 +337,14 @@ test('the RMP row falls back to its line and extra when the view is odd; old fil
  assert.ok(sr.textContent.includes('지금 창 RMP 0bn'));
  assert.equal(cls(sr,'oil-late').length,1);
  assert.equal(cls(sr,'oil-late')[0].textContent,
-  "이번 갱신의 값을 싣지 못해 2026-10-30에 받은 값을 싣습니다 — 이 칸의 '지금 창'·'다음 날짜'도 그날 기준 (2026-11-04부터)");
+  "이번 갱신의 값을 싣지 못해(2026-11-04부터) 2026-10-30에 받은 값을 싣습니다 — 이 칸의 창 표시·다음 날짜도 그날 기준");
  assert.deepEqual(sr.kids.slice(0,3).map(k=>(k.attrs.class||'').split(' ').pop()),['oil-name','oil-late','rmp-head']);
  assert.equal(cls(sr,'rmp-dates')[0].textContent,VIEW.dates);
  assert.ok(cls(cls(sr,'oil-late')[0],'nw').map(n=>n.textContent).includes('2026-11-04'));
  const stale2=data();Object.assign(stale2.items.rmp_view,{ok:false,stale:true,error:'수신 실패',failed_since:'언젠가',retrieved:'어제'});
  api.render(stale2);
  assert.equal(cls(cls(ids['fedbs-slot'],'fedbs-row')[2],'oil-late')[0].textContent,
-  "이번 갱신의 값을 싣지 못해 직전에 받은 값을 싣습니다 — 이 칸의 '지금 창'·'다음 날짜'도 그때 기준");
+  "이번 갱신의 값을 싣지 못해 직전에 받은 값을 싣습니다 — 이 칸의 창 표시·다음 날짜도 그때 기준");
  const bad=data();bad.items.rmp_view=null;
  api.render(bad);
  assert.ok(ids['fedbs-slot'].textContent.includes('rmp_view — 자료 없음'));

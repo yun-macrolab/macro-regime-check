@@ -40,15 +40,17 @@
                 글      태그를 벗기고(<br>은 한 칸) &nbsp;·줄바꿈·여분 공백을 한 칸으로. 같은 기간이 여러 번이면 하나로 — 읽은
                         숫자가 다르면 꼴 모름. 표가 없으면 이 칸만 실패(table), PLAN_MAX바이트보다 크면 받지 않는다
                 창      시작 달로 부른다 — RMP 시작 창(RMP_FROM 2025-12-12)이 든 달부터 페이지의 마지막 시작 달까지 달마다 그 달에
-                        시작하는 기간 하나(여럿이면 꼴 모름, 없으면 '페이지에 없음'). 페이지 표의 기간 가운데 RMP_FROM 앞의 것
+                        시작하는 기간 하나(여럿이면 '기간 여럿' — 숫자를 짓지 않는다, 없으면 '페이지에 없음'). 페이지 표의 기간 가운데 RMP_FROM 앞의 것
                         (2019~2025-11 — 다른 문장 꼴)은 쓰지 않는다
-                머리    마지막 창(오늘이 그 기간 안이면 '지금 창', 아직 시작 전이면 '다음 창', 끝났으면 '마지막 창' — 다음 창 계획은
-                        페이지에 아직 없음): RMP 금액 · 같은 금액이 이어진 창 수(0이면 'n창째 0', 아니면 'n창째 같은 금액', 한
-                        창이면 '지난 창 Y에서 바뀜') · RMP_FROM 창부터의 계획 누적(꼴 모름·없는 창이 하나라도 있으면 '—') · 그 창의
-                        재투자. 마지막 창이 꼴 모름이면 숫자를 짓지 않는다
+                머리    마지막 창(오늘이 그 기간 안이면 '지금 창', 아직 시작 전이면 '다음 창', 끝났으면 '마지막 창' — 'M월 창
+                        계획은 페이지에 아직 없음'): RMP 금액 · 같은 금액이 이어진 창 수(0이면 'n창째 0', 아니면 'n창째 같은 금액',
+                        한 창이면 '지난 창 Y에서 바뀜') · 지난 공지(late_dates — 다음 달부터 공지일이 지났는데 행이 없는 달, 창이
+                        무엇이든 '(공지일 MM-DD께 지남)', 셋까지 이름·넷부터 범위) · RMP_FROM 창부터의 계획 누적(꼴 모름·기간
+                        여럿·없는 창이 하나라도 있으면 '—') · 그 창의 재투자. 마지막 창이 꼴 모름·기간 여럿이면 숫자를 짓지 않는다
                 표      같은 RMP가 이어진 창끼리 한 줄(GROUPS_MAX줄까지 — 그 앞의 창은 누적에만 든다): 창 수·누적·재투자 범위
-                날짜    다음 두 계획 공지(마지막 시작 달의 다음 달부터 — 페이지의 다음 공지 칸에 날짜가 있으면 그 날, 비어 있으면
-                        그 달 RMP_BDAY영업일 bday_n에 '께')와 다음 FOMC(주 칸과 같은 규칙)
+                날짜    다음 두 계획 공지(마지막 시작 달의 다음 달부터 공지일이 오늘 이후인 달 — _notice_day: 첫 달은 페이지의 다음
+                        공지 칸 날짜가 62일 안이거나 그 날과 9영업일이 둘 다 지났으면 그 날, 아니면 그 달 RMP_BDAY영업일 bday_n에
+                        '께')와 다음 FOMC(주 칸과 같은 규칙). 지난 달은 머리의 지난 공지로
               대조    뉴욕 연은 Markets API 국채 운영 결과(요청 1번 — OPS_FROM(RMP 시작 달 1일) ~ 오늘, OPS_MAX바이트 상한)를 창마다
                       더해 그 달 MBS 상환(WSHOMCB)을 뺀다(rmp_window) — 화면엔 끝난 창의 '대조 − 계획 RMP' 범위 한 줄만, 창마다의
                       운영 수·합·운영일·상환 수요일·대조값은 values.checks에 남긴다:
@@ -264,7 +266,8 @@ OP_MAX = 200_000_000_000                      # 달러 — 운영 하나가 이�
 MBS_DAY = 25                                  # 그 달 MBS 상환 = 전달 상환 수요일 − 그 달 상환 수요일(WSHOMCB, paydown_wed)
 MBS = "WSHOMCB"
 GROUPS_MAX = 6                                # 묶음 표의 줄 상한 — 그 앞의 창은 누적에만 든다
-RELEASE_AHEAD = 62                            # 페이지의 다음 공지 칸 날짜는 오늘부터 이 날 수 안일 때만 쓴다
+RELEASE_AHEAD = 62                            # 페이지의 다음 공지 칸 날짜는 오늘부터 이 날 수 안일 때만 쓴다(지난 날짜는 _notice_day)
+LATE_MAX = 12                                 # 공지일이 지났는데 페이지에 행이 없는 달 — 이 수까지 센다(머리는 셋까지 이름, 넘으면 범위)
 WEEKS4 = 4                                    # RMP 시작 뒤 나눔 — 수요일 수준 네 주 평균
 # RMP 시작 뒤 나눔의 시리즈(나눔 칸이 받는 것 가운데 일곱 — 이표채(WSHONBNL)는 '그 밖'에 들어 따로 쓰지 않는다)
 BRIDGE = {"res": "WRBWFRBL", "tga": "WDTGAL", "onrrp": "WLRRAOL", "pool": "WLRRAFOIAL", "bills": "WSHOBL", "mbs": "WSHOMCB",
@@ -890,16 +893,25 @@ def window_state(w, today):
     return "now" if today <= _day(w["until"]) else "between"
 
 
+def _notice_day(ym, k, release, today):
+    """마지막 시작 달 뒤 k번째 달(ym)의 계획 공지일 — 그 달 RMP_BDAY영업일('께'). 첫 달(k == 0)만 페이지의 다음 공지 칸 날짜를
+    'official'로 쓴다: 오늘부터 RELEASE_AHEAD일 안이면, 또는 그 날과 9영업일이 둘 다 지났으면(지난 공지를 페이지의 날짜로 — 9영업일이
+    아직 앞이면 지난 칸 날짜는 쓰지 않고 9영업일)."""
+    rule = bday_n(*ym)
+    if k == 0 and release is not None and (today <= release <= today + TD(days=RELEASE_AHEAD)
+                                           or (release < today and rule < today)):
+        return release, True
+    return rule, False
+
+
 def next_dates(last_ym, release, today, now=None):
-    """다음 날짜 — 마지막 시작 달의 다음 달부터 계획 공지 둘(오늘 이후인 것 — 첫 달은 페이지의 다음 공지 칸 날짜가 오늘부터
-    RELEASE_AHEAD일 안이면 그 날 'official', 아니면 그 달 RMP_BDAY영업일)과 다음 FOMC(next_fomc), 날짜 차례."""
+    """다음 날짜 — 마지막 시작 달의 다음 달부터 계획 공지 둘(공지일 _notice_day가 오늘 이후인 것 — 지난 달은 late_dates)과 다음
+    FOMC(next_fomc), 날짜 차례."""
     out, ym = [], _shift(last_ym, 1)
-    for k in range(4):
+    for k in range(LATE_MAX + 2):
         if sum(1 for x in out if x["kind"] == "plan") == 2:
             break
-        day, official = bday_n(*ym), False
-        if k == 0 and release is not None and today <= release <= today + TD(days=RELEASE_AHEAD):
-            day, official = release, True
+        day, official = _notice_day(ym, k, release, today)
         if day >= today:
             out.append({"kind": "plan", "month": _mstr(ym), "date": _iso(day), "official": official})
         ym = _shift(ym, 1)
@@ -907,6 +919,19 @@ def next_dates(last_ym, release, today, now=None):
     if f:
         out.append({"kind": "fomc", "date": _iso(f[0]), "tentative": bool(f[1])})
     return sorted(out, key=lambda x: (x["date"], x["kind"]))
+
+
+def late_dates(last_ym, release, today):
+    """기다리는 공지 — 마지막 시작 달의 다음 달부터 공지일(_notice_day)이 오늘보다 앞인 달이 이어지는 동안(LATE_MAX까지): 공지일이
+    지났는데 그 달 행이 페이지에 아직 없다. 공지일이 오늘 이후인 첫 달에서 멈춘다(그 달부터는 next_dates)."""
+    out, ym = [], _shift(last_ym, 1)
+    for k in range(LATE_MAX):
+        day, official = _notice_day(ym, k, release, today)
+        if day >= today:
+            break
+        out.append({"kind": "plan", "month": _mstr(ym), "date": _iso(day), "official": official})
+        ym = _shift(ym, 1)
+    return out
 
 
 def bridge(S):
@@ -982,6 +1007,8 @@ def calc_view(S, today, plan, ops=None, errors=None, now=None):
             "values": {"rows": len(plan["periods"]), "dropped": plan["dropped"], "windows": wins,
                        "state": window_state(wins[-1], today),
                        "next": next_dates(months[-1], plan.get("release"), today, now),
+                       "late": late_dates(months[-1], plan.get("release"), today),
+                       "release": _iso(plan["release"]) if plan.get("release") else None,
                        "checks": checks, "chk_why": chk_why,
                        "bills4": _r(b4[2]["bills"]) if b4 else None, "bills13": _r(b13[2]["bills"]) if b13 else None,
                        "bridge": br, "bridge_why": None if br else why(br_why),
@@ -1166,13 +1193,20 @@ def _floor_ok(v):
 
 
 def _view_check(v):
-    """칸 사이의 맞춤 — 대조 창의 달 = 창의 달, 상태 'unknown'은 마지막 창에 날짜가 없을 때만, 숫자가 없는 줄에만 사유."""
+    """칸 사이의 맞춤 — 대조 창의 달 = 창의 달, 상태 'unknown'은 마지막 창에 날짜가 없을 때만, 지난 공지는 마지막 창 다음
+    달부터 이어지고 다음 날짜의 공지는 그 뒤, 숫자가 없는 줄에만 사유."""
     if v["checks"] is not None and [c["month"] for c in v["checks"]] != [w["month"] for w in v["windows"]]:
         return False
     if (v["state"] == "unknown") != (v["windows"][-1]["from"] is None):
         return False
     if v["checks"] is None and v["chk_why"] is None:
         return False
+    last = v["windows"][-1]["month"]
+    ym = (int(last[:4]), int(last[5:]))
+    if [x["month"] for x in v["late"]] != [_mstr(_shift(ym, k + 1)) for k in range(len(v["late"]))]:
+        return False                                # 지난 공지는 마지막 창 다음 달부터 이어지는 달
+    if any(x["month"] <= y["month"] for x in v["next"] if x["kind"] == "plan" for y in v["late"]):
+        return False                                # 다음 날짜의 공지는 지난 공지 뒤 달
     return ((v["bridge"] is None) == (v["bridge_why"] is not None) and (v["floor"] is None) == (v["floor_why"] is not None)
             and v["rows"] <= PLAN_ROWS_MAX and v["dropped"] <= 10 * PLAN_ROWS_MAX)
 
@@ -1191,7 +1225,7 @@ ITEMS = [
      "values": _dec_values(), "check": _dec_ok},
     {"key": "rmp_view", "title": RMP_NAME, "series": [*BRIDGE.values(), "GDP"], "ext": (PLAN, OPS), "calc": calc_view,
      "values": {"rows": "int", "dropped": "int", "windows": "plan_windows", "state": "state", "next": "next_dates",
-                "checks": "checks?", "chk_why": "why?", "bills4": "num?", "bills13": "num?", "bridge": "bridge",
+                "late": "late_dates", "release": "day?", "checks": "checks?", "chk_why": "why?", "bills4": "num?", "bills13": "num?", "bridge": "bridge",
                 "bridge_why": "why?", "floor": "floor", "floor_why": "why?"},
      "check": _view_check},
     {"key": "spread", "title": "SOFR − IORB (최근 5영업일)", "series": ["SOFR", "IORB"], "calc": calc_spread,
@@ -1214,6 +1248,8 @@ TAGS = ("", "월말", "분기말", "15일")
 _KIND = dict(ai._KIND, tag=lambda v: isinstance(v, str) and v in TAGS, bool=lambda v: type(v) is bool,
              days=lambda v: isinstance(v, list) and len(v) <= 3 and all(ai._is_day(x) for x in v) and v == sorted(set(v)),
              plan_windows=_plan_windows_ok, state=lambda v: v in STATES, next_dates=_next_ok,
+             late_dates=lambda v: isinstance(v, list) and len(v) <= LATE_MAX and all(_next_ok([x]) and x["kind"] == "plan" for x in v)
+             and [x["date"] for x in v] == sorted(x["date"] for x in v),
              **{"checks?": lambda v: v is None or _windows_ok(v), "why?": lambda v: v is None or v in REASONS},
              bridge=_bridge_ok, floor=_floor_ok)
 
@@ -1298,8 +1334,9 @@ def _nth(k):
 
 
 def rmp_groups(ws):
-    """같은 RMP가 이어진 창의 묶음 → [(첫 창 차례, 끝 창 차례, 키)] — 키는 ('ok', 금액) · ('unknown',) · ('missing',)."""
-    key = lambda w: ("ok", float(w["rmp"])) if w["form"] == "ok" else (w["form"],)
+    """같은 RMP가 이어진 창의 묶음 → [(첫 창 차례, 끝 창 차례, 키)] — 키는 ('ok', 금액) · ('multi',)(그 달에 시작하는 기간이 여럿 —
+    plan_window가 날짜를 비운 꼴 모름) · ('unknown',)(문장 꼴 모름) · ('missing',)."""
+    key = lambda w: ("ok", float(w["rmp"])) if w["form"] == "ok" else ("multi",) if _multi(w) else (w["form"],)
     out = []
     for i, w in enumerate(ws):
         if out and out[-1][2] == key(w):
@@ -1307,6 +1344,12 @@ def rmp_groups(ws):
         else:
             out.append((i, i, key(w)))
     return out
+
+
+def _multi(w):
+    """그 달에 시작하는 공식 기간이 여럿인 창 — plan_window가 날짜를 비우는 것은 그때뿐(마지막 창이 아니면 'missing'도 날짜가 없어
+    꼴로 가른다)."""
+    return w["form"] == "unknown" and w["from"] is None
 
 
 def rmp_cum(ws):
@@ -1335,20 +1378,29 @@ def rmp_text(v, date):
     lead = {"now": "지금 창", "next": "다음 창", "between": "마지막 창"}.get(state, f"{_mname(last['month'], year)} 창")
     this = "이번 창" if state == "now" else "그 창"
     groups, cums = rmp_groups(ws), rmp_cum(ws)
-    unknown = sum(1 for w in ws if w["form"] == "unknown")
+    multi = sum(1 for w in ws if _multi(w))
+    unknown = sum(1 for w in ws if w["form"] == "unknown") - multi
     missing = sum(1 for w in ws if w["form"] == "missing")
+    # 기다리는 공지 — 공지일이 지났는데 페이지에 아직 없는 달(late), 창 사이면 공지일이 아직 앞이어도 다음 달 창을 이름 붙인다
+    late = v["late"]
+    nm = _mstr(_shift((int(last["month"][:4]), int(last["month"][5:])), 1))
+    pend = ""
+    day = lambda x: _md(x["date"], year) + ("" if x["official"] else "께")
+    if 0 < len(late) <= 3:
+        names = "·".join(_mname(x["month"], year) for x in late)
+        pend = f"{names} 창 계획은 페이지에 아직 없음(공지일 {'·'.join(day(x) for x in late)} 지남)"
+    elif late:
+        span = f"{_mname(late[0]['month'], year)}~{_mname(late[-1]['month'], year)}"
+        pend = f"{span} 창 {len(late)}달 계획은 페이지에 아직 없음(첫 공지일 {day(late[0])} 지남)"
+    elif state == "between":
+        pend = f"{_mname(nm, year)} 창 계획은 페이지에 아직 없음"
     # 머리
-    if last["form"] != "ok" and last["from"] is None:          # plan_window가 날짜를 비우는 것은 그 달 기간이 여럿일 때뿐
+    if _multi(last):                                         # plan_window가 날짜를 비우는 것은 그 달 기간이 여럿일 때뿐
         head = [f"{lead} 계획 — 그 달에 시작하는 기간이 여럿이라 숫자를 짓지 않음"]
     elif last["form"] != "ok":
         head = [f"{lead} 계획 문장 꼴 모름 — 숫자를 짓지 않음"]
     elif state == "between":
-        # 다음 창의 공지일이 다음 날짜(오늘 이후만)에서 빠졌으면 이미 지난 것 — 기다리는 공지를 머리에서 이름 붙여 둔다
-        nm = _mstr(_shift((int(last["month"][:4]), int(last["month"][5:])), 1))
-        due = "" if any(x["kind"] == "plan" and x["month"] == nm for x in v["next"]) else \
-            f"(방침상 공지일 {_md(_iso(bday_n(int(nm[:4]), int(nm[5:]))), year)}께 지남)"
-        head = [f"{lead} RMP {last['rmp']}bn ({_mname(last['month'], year)} 창)",
-                f"{_mname(nm, year)} 창 계획은 페이지에 아직 없음{due}"]
+        head = [f"{lead} RMP {last['rmp']}bn ({_mname(last['month'], year)} 창)"]
     else:
         head = [f"{lead} RMP {last['rmp']}bn"]
         i0, i1, _ = groups[-1]
@@ -1358,7 +1410,10 @@ def rmp_text(v, date):
             head.append(f"{_mname(ws[i0]['month'], year)} 창부터 {_nth(k)} {same}")
         elif i0 > 0 and ws[i0 - 1]["form"] == "ok":
             head.append(f"{'지난 창' if state == 'now' else '지금 창'} {ws[i0 - 1]['rmp']}bn에서 바뀜")
-    gone = [x for x in (f"꼴 모름 창 {unknown}개" if unknown else "", f"페이지에 없는 창 {missing}개" if missing else "") if x]
+    if pend:
+        head.append(pend)
+    gone = [x for x in (f"꼴 모름 창 {unknown}개" if unknown else "", f"기간 여럿 창 {multi}개" if multi else "",
+                        f"페이지에 없는 창 {missing}개" if missing else "") if x]
     cum = f"{_num(cums[-1])}bn" if cums[-1] is not None else "—(" + " · ".join(gone) + ")"
     head.append(f"{_iso(RMP_FROM)} 창부터 계획 누적 {cum}")
     if last["form"] == "ok":
@@ -1366,24 +1421,25 @@ def rmp_text(v, date):
                     f"{this} 단기채 매입 계획은 재투자 {last['reinvest']}bn + RMP {last['rmp']}bn")
     window = f"{lead} {_span_full(last['from'], last['until'])}" if last["from"] else lead
     # 다음 날짜
-    bits, rule = [], []
+    bits = []
     for x in v["next"]:
         md = _md(x["date"], year)
         if x["kind"] == "plan":
             bits.append(f"{_mname(x['month'], year)} 계획 공지 {md}({_wd(x['date'])})" + ("" if x["official"] else "께"))
-            if not x["official"]:
-                rule.append(md)
         else:
             bits.append(f"FOMC {md}({_wd(x['date'])}" + (", 잠정)" if x["tentative"] else ")"))
     dates = "다음 날짜: " + " · ".join(bits) if bits else ""
-    official = [_md(x["date"], year) for x in v["next"] if x["kind"] == "plan" and x["official"]]
+    plans = [*late, *(x for x in v["next"] if x["kind"] == "plan")]       # 머리의 지난 공지일과 다음 날짜의 공지일
+    official = [_md(x["date"], year) for x in plans if x["official"]]
+    rule = [_md(x["date"], year) for x in plans if not x["official"]]
     # 표
     shown = groups[-GROUPS_MAX:]
     rows = []
     for i0, i1, key in shown:
         label = ws[i0]["month"] if i0 == i1 else f"{ws[i0]['month']}~{ws[i1]['month']}"
         k = i1 - i0 + 1
-        cell = f"{ws[i0]['rmp']} × {k}창" if key[0] == "ok" else ("꼴 모름" if key[0] == "unknown" else "페이지에 없음") + f" × {k}창"
+        cell = f"{ws[i0]['rmp']} × {k}창" if key[0] == "ok" else \
+            {"unknown": "꼴 모름", "multi": "기간 여럿", "missing": "페이지에 없음"}[key[0]] + f" × {k}창"
         re_vals = sorted((float(w["reinvest"]), w["reinvest"]) for w in ws[i0:i1 + 1] if w["form"] == "ok")
         reinv = "—" if not re_vals else re_vals[0][1] if re_vals[0][0] == re_vals[-1][0] else f"{re_vals[0][1]}~{re_vals[-1][1]}"
         note = {"now": "지금 창까지", "next": "다음 창까지"}.get(state, "") if i1 == len(ws) - 1 else ""
@@ -1432,7 +1488,8 @@ def rmp_text(v, date):
     if official:
         tail.append("·".join(official) + "은 공식 표의 다음 공지 칸 날짜")
     if rule:
-        tail.append("·".join(rule) + "은 방침 '매달 9영업일께'로 센 날" + ("" if official else "(공식 표의 다음 공지 칸은 비어 있음)"))
+        tail.append("·".join(rule) + "은 방침 '매달 9영업일께'로 센 날" + ("(공식 표의 다음 공지 칸은 비어 있음)" if v["release"] is None
+                                                                       else ""))
     notes.append(" · ".join(["계획 금액은 뉴욕 연은 공지 문장을 옮긴 것이다", chk, *tail]) + ".")
     if v["dropped"]:
         notes.append(f"페이지 표의 행 가운데 기간 날짜를 읽지 못한 {v['dropped']}개는 뺐다.")
@@ -1710,7 +1767,7 @@ def compute(data, errors, today, now=None, ops=None, plan=None):
     """칸마다 계산 — now(실행 시각, UTC)는 '다음 FOMC'를 고르는 주 칸·RMP 칸만 쓴다(없으면 today 0시). plan은 공식 계획
     (load_plan — dict 또는 ItemError), ops는 뉴욕 연은 국채 운영 결과(load_ops — 목록 또는 ItemError)로 RMP 칸(rmp_view)에 쓴다.
     plan을 넘기지 않으면(None) 그 칸은 셈하지 않는다(결과에 없다 — 비공개 쪽 짝 테스트 등). ops를 받지 못하면 그 칸의 대조 한
-    줄만, FRED 시리즈를 받지 못하면 시작 뒤 나눔·하한 줄만 미수신."""
+    줄만, FRED 시리즈를 받지 못하면 그 줄(시작 뒤 나눔·하한 — WSHOMCB면 대조 줄도)만 미수신."""
     S = {sid: [(d, v) for d, v in s if d <= today] for sid, s in data.items()}
     out = {}
     for spec in ITEMS:

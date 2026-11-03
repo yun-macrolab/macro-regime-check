@@ -177,9 +177,9 @@ window.FedBsCard = (() => {
   }
   function rmpStale(it) {
     const got = day(it.retrieved);
-    const since = day(it.failed_since) ? ` (${it.failed_since}부터)` : "";
-    return el("p", { class: "oil-late" }, ...nw((got ? `이번 갱신의 값을 싣지 못해 ${got}에 받은 값을 싣습니다 — 이 칸의 '지금 창'·'다음 날짜'도 그날 기준`
-      : "이번 갱신의 값을 싣지 못해 직전에 받은 값을 싣습니다 — 이 칸의 '지금 창'·'다음 날짜'도 그때 기준") + since));
+    const since = day(it.failed_since) ? `(${it.failed_since}부터)` : "";
+    return el("p", { class: "oil-late" }, ...nw(`이번 갱신의 값을 싣지 못해${since} ` + (got ? `${got}에 받은 값을 싣습니다 — 이 칸의 창 표시·다음 날짜도 그날 기준`
+      : "직전에 받은 값을 싣습니다 — 이 칸의 창 표시·다음 날짜도 그때 기준")));
   }
   function row(it, key) {
     if (it === undefined && OPTIONAL.includes(key)) return null;
