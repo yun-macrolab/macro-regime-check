@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """연준 재무상태표 참고 자료(fedbs_fetch) 테스트 — 산식(손으로 셀 수 있는 합성 자료), 지준/GDP가 규칙 카드와 같은 값, 4주 평균의
 정의, 분모 바뀜(새 분기·개정·같은 주), 4주/13주 나눔의 합·창·표시와 13주가 지준·재정 카드와 같은 값, 단기자금 5영업일(최대·이른
-날·n/m·월말·15일), 주의 꼬리표와 FOMC 표(연준 인물 페이지의 회의 장부와 같다), 칸마다 실패·직전 값 이어 싣기, 이용 조건 목록,
-문구 원칙(판정 낱말 없음), 화면·워크플로 연결.
+날·n/m·월말·15일), 주의 꼬리표와 FOMC 표(연준 인물 페이지의 회의 장부와 같다), 지준 관리 매입(RMP) 추정(연방 공휴일과 9영업일
+창 규칙·경계일·소액 시험 운영과 매각 제외·끝나지 않은 창·MBS 상환 수요일·보이는 숫자끼리 뺄셈·뉴욕 연은 응답 꼴·요청 머리글과
+예산), 칸마다 실패·직전 값 이어 싣기, 이용 조건 목록, 문구 원칙(판정 낱말 없음), 화면·워크플로 연결, 정책 사실 칸의 원문 인용.
 
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
-네트워크 불필요 — FRED는 가짜 loader 또는 합성 캐시(--offline). 숫자는 모두 지어낸 것이다(실자료 숫자를 넣지 않는다).
+네트워크 불필요 — FRED는 가짜 loader 또는 합성 캐시(--offline), 뉴욕 연은 국채 운영 결과는 가짜 ops_load·가짜 opener.
+숫자는 모두 지어낸 것이다(실자료 숫자를 넣지 않는다).
 """
 import os, sys, io, re, json, datetime, tempfile, unittest, shutil, contextlib
 from unittest import mock
@@ -15,6 +17,7 @@ sys.path.insert(0, SCRIPTS)
 import fedbs_fetch as fb
 import liquidity_fetch as liq
 import ai_invest_fetch as ai
+import credit_fetch as cf
 import regime_check as rc
 import regime_rules as rr
 import render_public as rp
@@ -98,7 +101,65 @@ class FakeFred:
         return list(self.data[sid]), ("cache" if sid in self.cache else "net")
 
 
+B = 1_000_000_000                                                                # 달러 → 십억 달러
+
+
+def op(day, amt, way="P", status="Results", oid=None, kind="Outright Bill Purchase"):
+    """뉴욕 연은 국채 운영 결과 한 줄(지어낸 것) — 금액은 십억 달러로 받아 달러 글자로."""
+    return {"operationId": oid or f"OP {day} {kind} {amt}", "auctionStatus": status, "operationType": kind,
+            "operationDate": day, "settlementDate": day, "operationDirection": way,
+            "totalParAmtSubmitted": str(int(round(amt * B * 3))), "totalParAmtAccepted": str(int(round(amt * B))), "note": ""}
+
+
+# 2026년 창(9영업일: 07-13 · 08-13 · 09-14 노동절 · 10-14 콜럼버스 · 11-13 재향군인)과 지어낸 운영 — NOW(10-30) 기준 끝난 창
+# 07·08·09월과 끝나지 않은 10월 창
+OPS_ROWS = [op("2026-07-13", 9.0),                                               # 7월 9영업일 그날 — 6월 창(싣지 않는다)
+            op("2026-07-14", 5.0), op("2026-07-28", 4.0), op("2026-08-13", 3.0),  # 7월 창 12.0(끝 날 08-13 포함)
+            op("2026-08-14", 6.0), op("2026-08-20", 0.05, kind="Outright FRN Purchase"),   # 8월 창: 소액 시험 운영은 뺀다
+            op("2026-08-25", 0.025, "S", kind="Outright Coupon Sale"), op("2026-09-14", 2.0),   # 매각은 세지 않는다 → 8.0
+            op("2026-09-15", 7.0), op("2026-09-30", 1.5, kind="Outright Coupon Purchase"), op("2026-10-14", 2.5),   # 9월 11.0
+            op("2026-10-15", 3.0), op("2026-10-29", 1.2),                         # 10월 창(끝나지 않음) 4.2
+            op("2026-10-31", 9.9),                                                # 오늘 뒤 — 빼고 센다
+            op("2026-09-16", 99.0, status="Announcement"),                        # 결과가 아닌 줄은 보지 않는다
+            {**op("2026-09-15", 7.0), "note": "같은 operationId — 한 번만"}]
+OPS_BLOB = json.dumps({"treasury": {"auctions": OPS_ROWS}}).encode()
+# 실행 테스트(MainTest)의 기본 응답 — 오늘 뒤 운영(10-31)을 뺀 것: 다음 날 실행에도 같은 숫자여야 하는 테스트가 있다
+MAIN_BLOB = json.dumps({"treasury": {"auctions": [r for r in OPS_ROWS if r["operationDate"] <= "2026-10-30"]}}).encode()
+
+
+def mbs_series(drops=None, start=D(2026, 1, 7), end=D(2026, 10, 28)):
+    """수요일 WSHOMCB(백만 달러) — drops {수요일: 그 주에 줄어든 백만 달러}. 기본: 7월 10.5bn(07-22 3.0 + 07-29 7.5) ·
+    8월 8.7bn(08-19 2.0 + 08-26 6.7) · 9월 10.9bn(09-23 1.0 + 09-30 9.9) · 10월 8.0bn(10-28)."""
+    drops = {D(2026, 7, 22): 3000, D(2026, 7, 29): 7500, D(2026, 8, 19): 2000, D(2026, 8, 26): 6700,
+             D(2026, 9, 23): 1000, D(2026, 9, 30): 9900, D(2026, 10, 28): 8000} if drops is None else drops
+    lvl, out = 2_000_000.0, []
+    for d in weds(start, end):
+        lvl -= drops.get(d, 0)
+        out.append((d, lvl))
+    return out
+
+
+def rmp_world():
+    S = world()
+    S["WSHOMCB"] = mbs_series()
+    return S
+
+
+class FakeOps:
+    """가짜 뉴욕 연은 요청(fedbs_fetch.main의 ops_load) — 부른 주소를 적고, 정해 둔 원문을 돌려주거나 실패한다."""
+    def __init__(self, blob=None, fail=False):
+        self.blob, self.fail, self.calls = MAIN_BLOB if blob is None else blob, fail, []
+
+    def __call__(self, url, deadline):
+        self.calls.append(url)
+        if self.fail:
+            raise OSError("원문 사유 https://bad.invalid/xyz-77")
+        return self.blob
+
+
 def calc(key, S=None, today=NOW.date()):
+    if key == "rmp":
+        return fb.calc_rmp(rmp_world() if S is None else S, today, fb.parse_ops(OPS_BLOB))
     return fb.BY_KEY[key]["calc"](world() if S is None else S, today)
 
 
@@ -433,7 +494,7 @@ class ArithmeticTest(unittest.TestCase):
         self.assertEqual(out["spread"]["values"]["max_bp"], 8.0)
 
     def test_every_item_computes_and_texts_have_no_verdict_words(self):
-        core = fb.compute(world(), {}, NOW.date())
+        core = fb.compute(rmp_world(), {}, NOW.date(), ops=fb.parse_ops(OPS_BLOB))
         for spec in fb.ITEMS:
             c = core[spec["key"]]
             self.assertNotIsInstance(c, fb.ItemError, spec["key"])
@@ -441,13 +502,262 @@ class ArithmeticTest(unittest.TestCase):
             self.assertTrue(fb.values_ok(spec, c["values"], c["lines"]), spec["key"])
             line, extra = fb.texts(spec["key"], c["values"], c["date"])
             for t in [line, *extra, spec["title"], fb.NOTICE, fb.COMPUTED_NOTICE, fb.WEEK_NOTICE, fb.SPREAD_DERIVED,
-                      fb.SRF_DERIVED, *[ln["label"] for ln in spec.get("lines", ())], spec.get("chart", {}).get("note", "")]:
+                      fb.SRF_DERIVED, fb.RMP_DERIVED, fb.RMP_NO_MBS, *[ln["label"] for ln in spec.get("lines", ())],
+                      spec.get("chart", {}).get("note", "")]:
                 self.assertNotIn("None", t)
                 body = t
                 for ok in TOPIC:
                     body = body.replace(ok, "")
                 for word in list(FORBIDDEN_TEXT) + list(VERDICT):
                     self.assertNotIn(word, body, (spec["key"], word))
+
+
+class RmpTest(unittest.TestCase):
+    """지준 관리 매입(RMP) 추정 — 창 규칙(9영업일, 연방 공휴일·대체일·토요일 공휴일), 경계일 운영, 소액 시험 운영·매각 제외, 이표채
+    매입 포함, 끝나지 않은 창, 상환 수요일, 상환 없음, 보이는 숫자끼리 뺄셈, 응답 꼴, 요청·예산, 칸만 실패. 운영·금액은 지어낸 것."""
+
+    def test_fed_holidays_follow_the_rules(self):
+        self.assertEqual(sorted(fb.fed_holidays(2026)),
+                         [D(2026, 1, 1), D(2026, 1, 19), D(2026, 2, 16), D(2026, 5, 25), D(2026, 6, 19), D(2026, 9, 7),
+                          D(2026, 10, 12), D(2026, 11, 11), D(2026, 11, 26), D(2026, 12, 25)])    # 07-04(토)은 대체 없음
+        self.assertNotIn(D(2026, 7, 3), fb.fed_holidays(2026))                          # 토요일 공휴일 — 앞 금요일에 연다
+        self.assertIn(D(2027, 7, 5), fb.fed_holidays(2027))                             # 07-04(일) → 월요일
+        self.assertNotIn(D(2027, 12, 24), fb.fed_holidays(2027))                        # 12-25(토) — 대체 없음
+        self.assertIn(D(2023, 1, 2), fb.fed_holidays(2023))                             # 새해(일) → 월요일
+        self.assertNotIn(D(2021, 12, 31), fb.fed_holidays(2021))                        # 2022-01-01(토) — 앞 해 금요일에 연다
+        self.assertIn(D(2022, 6, 20), fb.fed_holidays(2022))                            # 준틴스(일) → 월요일
+        self.assertNotIn(D(2020, 6, 19), fb.fed_holidays(2020))                         # 준틴스는 2021년부터
+        self.assertEqual(sorted(fb.fed_holidays(2027))[:3], [D(2027, 1, 1), D(2027, 1, 18), D(2027, 2, 15)])
+        self.assertIn(D(2027, 5, 31), fb.fed_holidays(2027))                            # 5월 마지막 월요일
+        self.assertIn(D(2027, 11, 25), fb.fed_holidays(2027))                           # 11월 넷째 목요일
+
+    def test_ninth_business_day(self):
+        got = {(y, m): fb.bday_n(y, m) for y, m in ((2026, 6), (2026, 7), (2026, 8), (2026, 9), (2026, 10), (2026, 11),
+                                                    (2027, 1), (2027, 7))}
+        self.assertEqual(got, {(2026, 6): D(2026, 6, 11), (2026, 7): D(2026, 7, 13),     # 07-03(금)은 영업일
+                               (2026, 8): D(2026, 8, 13), (2026, 9): D(2026, 9, 14),     # 노동절
+                               (2026, 10): D(2026, 10, 14), (2026, 11): D(2026, 11, 13),  # 콜럼버스 · 재향군인
+                               (2027, 1): D(2027, 1, 14), (2027, 7): D(2027, 7, 14)})     # 새해(금) · 07-05 대체일
+        for (y, m), d in got.items():                                                   # 손 셈과 따로 — 평일 − 공휴일을 센다
+            days = [D(y, m, 1) + TD(days=i) for i in range(31)]
+            bd = [x for x in days if x.month == m and x.weekday() < 5 and x not in fb.fed_holidays(y)]
+            self.assertEqual(bd[8], d)
+
+    def test_running_window_and_request_range(self):
+        for today, want in ((D(2026, 10, 14), (2026, 9)), (D(2026, 10, 15), (2026, 10)), (D(2026, 11, 13), (2026, 10)),
+                            (D(2026, 11, 16), (2026, 11)), (D(2027, 1, 5), (2026, 12)), (D(2027, 1, 14), (2026, 12)),
+                            (D(2027, 1, 15), (2027, 1))):
+            self.assertEqual(fb.running_month(today), want, today)
+        self.assertEqual(fb.ops_range(D(2026, 11, 3)), (D(2026, 6, 1), D(2026, 11, 3)))
+        self.assertEqual(fb.ops_range(D(2027, 2, 10)), (D(2026, 9, 1), D(2027, 2, 10)))
+        for today in (D(2026, 10, 15), D(2027, 1, 5), D(2027, 3, 31)):                  # 요청 범위가 실을 넷 창을 늘 덮는다
+            first = fb.bday_n(*fb._shift(fb.running_month(today), -fb.RMP_ENDED))
+            self.assertLess(fb.ops_range(today)[0], first)
+
+    def test_mbs_paydown_wednesdays(self):
+        self.assertEqual(fb.first_wed(D(2026, 11, 25)), D(2026, 11, 25))                  # 25일이 수요일이면 그날
+        self.assertEqual(fb.first_wed(D(2026, 7, 25)), D(2026, 7, 29))                    # 토요일 → 다음 수요일
+        self.assertEqual(fb.first_wed(D(2026, 10, 25)), D(2026, 10, 28))                  # 일요일
+        self.assertEqual(fb.first_wed(D(2026, 6, 25)), D(2026, 7, 1))                     # 목요일 → 다음 달
+        w = fb.rmp_window((2026, 7), [], dict(mbs_series()), D(2026, 12, 1))
+        self.assertEqual((w["red_from"], w["red_to"], w["red_bn"]), ("2026-07-01", "2026-07-29", 10.5))
+        w = fb.rmp_window((2026, 11), [], dict(mbs_series(end=D(2026, 12, 30))), D(2026, 12, 31))
+        self.assertEqual((w["red_from"], w["red_to"]), ("2026-10-28", "2026-11-25"))
+        self.assertEqual(w["red_bn"], 0.0)                                              # 그 사이 줄어든 것이 없으면 0
+
+    def test_windows_count_purchases_with_the_rules(self):
+        c = calc("rmp")
+        ws = c["values"]["windows"]
+        self.assertEqual(c["date"], "2026-10-29")                                       # 오늘(10-30) 이하 마지막 결과 운영일
+        self.assertTrue(c["values"]["mbs_ok"])
+        self.assertEqual([(w["month"], w["from"], w["until"], w["ended"]) for w in ws],
+                         [("2026-07", "2026-07-14", "2026-08-13", True), ("2026-08", "2026-08-14", "2026-09-14", True),
+                          ("2026-09", "2026-09-15", "2026-10-14", True), ("2026-10", "2026-10-15", "2026-11-13", False)])
+        self.assertEqual([w["ops"] for w in ws],
+                         [["2026-07-14", "2026-07-28", "2026-08-13"],                    # 07-13(9영업일 그날)은 앞 창, 08-13은 이 창
+                          ["2026-08-14", "2026-09-14"],                                  # 소액 시험 운영·매각은 빠진다
+                          ["2026-09-15", "2026-09-30", "2026-10-14"],                    # 이표채 매입도 든다 · 같은 operationId는 한 번
+                          ["2026-10-15", "2026-10-29"]])                                 # 오늘 뒤(10-31)는 빠진다
+        self.assertEqual([w["bn"] for w in ws], [12.0, 8.0, 11.0, 4.2])
+        self.assertEqual([(w["small"], w["sales"]) for w in ws], [(0, 0), (1, 1), (0, 0), (0, 0)])
+        self.assertEqual([w["red_bn"] for w in ws], [10.5, 8.7, 10.9, None])            # 끝나지 않은 창은 상환을 견주지 않는다
+        self.assertEqual([w["rmp_bn"] for w in ws], [1.5, -0.7, 0.1, None])
+        self.assertTrue(fb._windows_ok(ws))
+
+    def test_text_line_and_extras(self):
+        c = calc("rmp")
+        line, extra = fb.texts("rmp", c["values"], c["date"])
+        self.assertEqual(line, "RMP 추정(월 일정 창의 매입 − 그 달 MBS 상환): 2026-07 +1.5bn · 2026-08 -0.7bn · 2026-09 +0.1bn · "
+                               "2026-10 아직 끝나지 않은 창 — 2번 운영, 합 4.2bn(2026-10-29까지)")
+        self.assertEqual(extra[0], "2026-07 창(운영일 2026-07-14~2026-08-13): 매입 3번 12.0bn(2026-07-14~2026-08-13) − "
+                                   "2026-07 MBS 상환 10.5bn(WSHOMCB 2026-07-01~2026-07-29 사이 줄어든 몫) = +1.5bn.")
+        self.assertTrue(extra[1].endswith("= -0.7bn · 소액 시험 운영 1번 뺌 · 매각 운영 1번 셈하지 않음."), extra[1])
+        self.assertEqual(extra[3], "2026-10 창(운영일 2026-10-15~2026-11-13): 아직 끝나지 않은 창 — 2번 운영, 합 4.2bn"
+                                   "(2026-10-29까지) — 끝나기 전에는 상환과 견주지 않는다.")
+        self.assertNotIn("상환 8.0", extra[3])
+        self.assertEqual(extra[-2:], [fb.RMP_METHOD, fb.RMP_LIMITS])
+        for word in ("공식 나눔 수치가 아니라", "거꾸로 셈한 추정", "예상 상환", "기관채·CMBS", "9영업일 규칙의 근사", "늘려 잡지 않는다"):
+            self.assertIn(word, fb.RMP_LIMITS)
+        nested = re.compile(r"\([^()]*\(")
+        for t in [line, *extra, fb.RMP_DERIVED, fb.RMP_DERIVED_EN, fb.RMP_NO_MBS]:
+            self.assertIsNone(nested.search(t), t)
+            self.assertNotIn("None", t)
+            for word in list(FORBIDDEN_TEXT) + list(VERDICT) + ["재개", "중단", "진행"]:
+                self.assertNotIn(word, t, word)
+
+    def test_visible_numbers_subtract(self):
+        # 보이는 소수 한 자리끼리 뺀다 — 27.64 − 17.46 = 10.18(10.2)이 아니라 27.6 − 17.5 = 10.1
+        ops = fb.parse_ops(json.dumps({"treasury": {"auctions": [op("2026-07-20", 27.64)]}}))
+        w = fb.rmp_window((2026, 7), ops, dict(mbs_series({D(2026, 7, 29): 17460})), D(2026, 9, 1))
+        self.assertEqual((w["bn"], w["red_bn"], w["rmp_bn"]), (27.64, 17.46, 10.1))
+        self.assertIn("매입 1번 27.6bn(2026-07-20) − 2026-07 MBS 상환 17.5bn", fb._win_long(w))
+        self.assertTrue(fb._win_long(w).endswith("= +10.1bn."))
+        w = fb.rmp_window((2026, 7), ops, dict(mbs_series({D(2026, 7, 29): 27640})), D(2026, 9, 1))
+        self.assertEqual(w["rmp_bn"], 0.0)
+        self.assertEqual(fb._win_short(w), "2026-07 0.0bn")                              # 0이면 부호 없이
+
+    def test_no_paydown_leaves_the_estimate_empty(self):
+        S = rmp_world()
+        S["WSHOMCB"] = [p for p in S["WSHOMCB"] if p[0] <= D(2026, 9, 23)]               # 09-30 수요일 관측이 아직 없다
+        ws = fb.calc_rmp(S, NOW.date(), fb.parse_ops(OPS_BLOB))["values"]["windows"]
+        self.assertEqual([w["rmp_bn"] for w in ws], [1.5, -0.7, None, None])
+        line, extra = fb.texts("rmp", {"windows": ws, "mbs_ok": True}, "2026-10-29")
+        self.assertIn("2026-09 매입 11.0bn · 상환 —", line)
+        self.assertIn("WSHOMCB 2026-08-26·2026-09-30 두 수요일 관측이 다 있지 않아 상환·추정을 비웠다", extra[2])
+        del S["WSHOMCB"]                                                                # MBS 보유를 받지 못함 — 매입은 싣는다
+        core = fb.compute(S, {"WSHOMCB": "fetch"}, NOW.date(), ops=fb.parse_ops(OPS_BLOB))["rmp"]
+        self.assertFalse(core["values"]["mbs_ok"])
+        self.assertEqual([w["bn"] for w in core["values"]["windows"]], [12.0, 8.0, 11.0, 4.2])
+        self.assertTrue(all(w["red_bn"] is None and w["rmp_bn"] is None for w in core["values"]["windows"]))
+        line, extra = fb.texts("rmp", core["values"], core["date"])
+        self.assertIn(fb.RMP_NO_MBS, extra)
+        self.assertTrue(fb.values_ok(fb.BY_KEY["rmp"], core["values"], {}))
+
+    def test_parse_ops_shapes(self):
+        rows = [op("2026-07-20", 1.0), op("2026-07-20", 1.0, oid="A"), op("2026-07-20", 2.0, oid="A"),   # 같은 ID는 나중 것
+                {**op("2026-07-21", 0), "totalParAmtAccepted": "1,500,000,000"}, {**op("2026-07-22", 0), "totalParAmtAccepted": 2 * B},
+                {"auctionStatus": "Announcement", "totalParAmtAccepted": "?"}]
+        got = fb.parse_ops(json.dumps({"treasury": {"auctions": rows}}).encode())
+        self.assertEqual(got, [(D(2026, 7, 20), "P", 1.0 * B), (D(2026, 7, 20), "P", 2.0 * B), (D(2026, 7, 21), "P", 1.5 * B),
+                               (D(2026, 7, 22), "P", 2.0 * B)])
+        bad = [b"{", b"[]", json.dumps({"treasury": {}}).encode(), json.dumps({"treasury": {"auctions": {}}}).encode(),
+               json.dumps({"treasury": {"auctions": ["x"]}}).encode(), "\udcff".encode("utf-8", "surrogatepass")]
+        for row in ({**op("2026-07-20", 1.0), "operationDate": "07/20/2026"}, {**op("2026-07-20", 1.0), "operationDirection": "X"},
+                    {**op("2026-07-20", 1.0), "totalParAmtAccepted": "abc"}, {**op("2026-07-20", 1.0), "totalParAmtAccepted": "-5"},
+                    {**op("2026-07-20", 1.0), "totalParAmtAccepted": True}, {**op("2026-07-20", 1.0), "totalParAmtAccepted": ""},
+                    {**op("2026-07-20", 1.0), "totalParAmtAccepted": str(fb.OP_MAX + 1)}):   # 운영 하나가 터무니없이 크면 단위 의심
+            bad.append(json.dumps({"treasury": {"auctions": [row]}}).encode())
+        for blob in bad:
+            with self.assertRaises(fb.ItemError, msg=blob[:60]) as e:
+                fb.parse_ops(blob)
+            self.assertEqual(e.exception.code, "format")
+        with self.assertRaises(fb.ItemError):                                           # 결과 운영이 하나도 없으면 셈할 것이 없다
+            fb.calc_rmp(rmp_world(), NOW.date(), fb.parse_ops(json.dumps({"treasury": {"auctions": []}})))
+
+    def test_load_ops_requests_once_and_never_falls_back_to_cache(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        ops = FakeOps(OPS_BLOB)
+        got = fb.load_ops(tmp, D(2026, 11, 3), ops_load=ops)
+        self.assertEqual(len(got), 14)                                                  # 결과 운영만, 같은 operationId는 한 번
+        self.assertEqual(ops.calls, [fb.OPS_URL + "?startDate=2026-06-01&endDate=2026-11-03"])
+        with open(os.path.join(tmp, fb.CACHE, fb.OPS_CACHE), "rb") as f:
+            self.assertEqual(f.read(), OPS_BLOB)
+        e = fb.load_ops(tmp, D(2026, 11, 4), ops_load=FakeOps(fail=True))                # 받지 못하면 캐시로 대신하지 않는다
+        self.assertEqual((type(e), e.code), (fb.ItemError, "fetch"))
+        e = fb.load_ops(tmp, D(2026, 11, 4), ops_load=FakeOps(blob=b"<html>"))
+        self.assertEqual(e.code, "format")
+        with open(os.path.join(tmp, fb.CACHE, fb.OPS_CACHE), "rb") as f:
+            self.assertEqual(f.read(), OPS_BLOB)                                        # 깨진 응답은 캐시를 덮지 않는다
+        with mock.patch.object(cf.urllib.request, "urlopen", side_effect=AssertionError("요청")):
+            self.assertEqual(len(fb.load_ops(tmp, D(2026, 11, 4), offline=True)), 14)   # --offline은 캐시만
+            self.assertEqual(fb.load_ops(os.path.join(tmp, "없음"), D(2026, 11, 4), offline=True).code, "fetch")
+
+    def test_new_york_fed_request_keeps_its_host_and_budget(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        seen = []
+
+        class Resp(io.BytesIO):
+            def __init__(self, body, url):
+                super().__init__(body)
+                self.url = url
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def geturl(self):
+                return self.url
+
+        def opener(req, timeout=None):
+            seen.append((req.get_header("User-agent"), timeout))
+            return Resp(OPS_BLOB, "https://elsewhere.invalid/x")                        # 다른 곳으로 넘겨짐
+        self.assertEqual(fb.load_ops(tmp, D(2026, 11, 3), opener=opener).code, "fetch")
+        self.assertEqual(seen, [(cf.UA, cf.REQ_TIMEOUT)])
+        t = [0.0]
+
+        def clock():
+            t[0] += 7.0
+            return t[0]
+        seen.clear()                                                                    # 예산(OPS_BUDGET초)을 다 쓰면 요청하지 않는다
+        self.assertEqual(fb.load_ops(tmp, D(2026, 11, 3), clock=clock, opener=opener, budget=5).code, "fetch")
+        self.assertEqual(seen, [])
+        self.assertLessEqual(fb.BUDGET + fb.OPS_BUDGET, 90)                              # 단계 제한 2분 안
+
+    def test_compute_without_ops_leaves_the_item_out(self):
+        # 운영 결과를 넘기지 않는 호출(비공개 쪽 짝 테스트 등)은 rmp를 셈하지 않고 파일에도 넣지 않는다
+        core = fb.compute(world(), {}, NOW.date())
+        self.assertNotIn("rmp", core)
+        data = fb.build(core, {}, NOW)
+        self.assertNotIn("rmp", data["items"])
+        self.assertEqual(data["order"], ["reserves", "dec", "spread", "srf", "rrp", "week"])
+        self.assertTrue(all(it["ok"] for it in data["items"].values()))
+        core = fb.compute(world(), {}, NOW.date(), ops=fb.ItemError("fetch"))
+        self.assertEqual(core["rmp"].code, "fetch")
+
+    def test_windows_check_rejects_odd_carried_values(self):
+        good = calc("rmp")["values"]["windows"]
+        self.assertTrue(fb._windows_ok(good))
+        cases = [lambda w: w.pop(1),                                                    # 달이 이어지지 않는다
+                 lambda w: w[0].update(ended=False),                                    # 끝나지 않은 창이 앞에
+                 lambda w: w[0].update(rmp_bn=1.6),                                     # 매입 − 상환과 다르다
+                 lambda w: w[3].update(red_bn=1.0, rmp_bn=_t(w[3])),                    # 끝나지 않은 창에 상환
+                 lambda w: w[1]["ops"].append("2026-12-01"),                            # 운영일이 창 밖·수가 다르다
+                 lambda w: w[1].update(n=3),
+                 lambda w: w[2].update(bn=-1.0),
+                 lambda w: w[0].update(extra=1),
+                 lambda w: w[0].update(month="2026-13"),
+                 lambda w: w.extend(json.loads(json.dumps(w[:2])))]                      # 다섯 창
+        for i, f in enumerate(cases):
+            ws = json.loads(json.dumps(good))
+            f(ws)
+            self.assertFalse(fb._windows_ok(ws), i)
+
+    def test_main_ops_failure_only_stales_its_item(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        out, work = os.path.join(tmp, "data"), os.path.join(tmp, ".work")
+        run = lambda ops, now, fred=None: fb.main(["--out", out, "--work", work], fred_load=fred or FakeFred(rmp_world()),
+                                                   now=now, ops_load=ops)
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            self.assertEqual(run(FakeOps(), NOW), 0)
+            self.assertEqual(run(FakeOps(fail=True), NOW + TD(days=1)), 0)
+        with open(os.path.join(out, fb.FILE), encoding="utf-8") as f:
+            items = json.load(f)["items"]
+        r = items["rmp"]
+        self.assertEqual((r["ok"], r["stale"], r["error"], r["failed_since"], r["retrieved"]),
+                         (False, True, "수신 실패", "2026-10-31", "2026-10-30"))
+        self.assertIn("2026-07 +1.5bn", r["line"])                                      # 직전 숫자에서 다시 만든 문구
+        self.assertTrue(all(it["ok"] for k, it in items.items() if k != "rmp"))
+        self.assertIn("::warning::연준 재무상태표 참고 rmp 받지 못함: 수신 실패", buf.getvalue())
+        self.assertNotIn("xyz-77", buf.getvalue() + json.dumps(items, ensure_ascii=False))
+
+
+def _t(w):
+    return fb._t1(fb._t1(w["bn"]) - fb._t1(1.0))
 
 
 class LicenceTest(unittest.TestCase):
@@ -483,6 +793,11 @@ class LicenceTest(unittest.TestCase):
             self.assertIn(rp.NOT_AFFILIATED, nt)
             self.assertNotIn(rp.SOFR_NOTICE, nt)                                       # 참조금리 고지는 SOFR 칸만
         self.assertIn(fb.SRF_DERIVED, fb.notices("srf", "2026-11-03"))
+        rm = fb.notices("rmp", "2027-01-04")                                             # 국채 운영 결과 — 수급 카드 딜러와 같은 꼴
+        for t in (fb.RMP_DERIVED, fb.RMP_DERIVED_EN, rp.nyfed_attribution("2027"), rp.NOT_AFFILIATED):
+            self.assertIn(t, rm)
+        self.assertNotIn(rp.SOFR_NOTICE, rm)
+        self.assertIn("국채 매입 운영 결과", rp.DATA_LICENSE)                               # 꼬리말의 뉴욕 연은 자료 목록
         for key in ("reserves", "dec", "week"):
             self.assertFalse([t for t in fb.notices(key, "2026-11-03") if "New York" in t], key)
         self.assertIn("newyorkfed.org 이용약관", rp.DATA_LICENSE)
@@ -498,12 +813,13 @@ class MainTest(unittest.TestCase):
         self.path = os.path.join(self.out, fb.FILE)
         self.S = world()
 
-    def run_main(self, fred=None, now=NOW, extra=(), clock=None):
+    def run_main(self, fred=None, now=NOW, extra=(), clock=None, ops=None):
         fred = fred or FakeFred(self.S)
         buf = io.StringIO()
         kw = {"clock": clock} if clock else {}
         with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
-            code = fb.main(["--out", self.out, "--work", self.work, *extra], fred_load=fred, now=now, **kw)
+            code = fb.main(["--out", self.out, "--work", self.work, *extra], fred_load=fred, now=now,
+                           ops_load=ops or FakeOps(), **kw)
         return code, buf.getvalue()
 
     def saved(self):
@@ -519,15 +835,23 @@ class MainTest(unittest.TestCase):
         self.assertEqual(code, 0, log)
         js = self.saved()
         self.assertEqual(set(js), {"schema", "generated_at", "notice", "order", "items"})
-        self.assertEqual(js["order"], ["reserves", "dec", "spread", "srf", "rrp", "week"])
+        self.assertEqual(js["order"], ["reserves", "dec", "rmp", "spread", "srf", "rrp", "week"])
         for key, it in js["items"].items():
             self.assertTrue(it["ok"], key)
             want = {"ok", "stale", "error", "failed_since", "key", "name", "date", "values", "retrieved", "line", "extra",
                     "notices", "sources"} | ({"chart"} if key == "reserves" else set())
             self.assertEqual(set(it), want, key)
             self.assertEqual(it["retrieved"], "2026-10-30")
-            self.assertEqual([s["series"] for s in it["sources"]], fb.BY_KEY[key]["series"])
+            self.assertEqual([s["series"] for s in it["sources"]],
+                             fb.BY_KEY[key]["series"] + ([fb.OPS] if key == "rmp" else []))
             for src in it["sources"]:
+                if src["series"] == fb.OPS:                                            # 뉴욕 연은에서 직접 — FRED가 아니다
+                    self.assertEqual((src["licence"], src["url"], src["name"]),
+                                     ("nyfed-terms", fb.OPS_URL, "Federal Reserve Bank of New York"))
+                    self.assertEqual(src["citation"], "Federal Reserve Bank of New York, Treasury Securities Operations, "
+                                     "results summary, retrieved from https://markets.newyorkfed.org/api/tsy/all/results/"
+                                     "summary/search.json, October 30, 2026.")
+                    continue
                 self.assertEqual(src["licence"], fb.LICENCE[src["series"]])
                 self.assertTrue(src["citation"].startswith(fb.SOURCES[src["series"]][0]))
                 self.assertTrue(src["citation"].endswith("October 30, 2026."))
@@ -547,7 +871,7 @@ class MainTest(unittest.TestCase):
         self.assertEqual((d["ok"], d["stale"], d["error"], d["failed_since"]), (False, True, fb.REASONS["fetch"], "2026-10-31"))
         self.assertEqual(d["retrieved"], "2026-10-30")
         self.assertIn("재무부 현금(TGA) -30/-80", d["line"])                             # 직전 숫자에서 다시 만든 문구
-        self.assertTrue(all(items[k]["ok"] for k in ("reserves", "spread", "srf", "rrp", "week")))
+        self.assertTrue(all(items[k]["ok"] for k in ("reserves", "rmp", "spread", "srf", "rrp", "week")))
         self.assertIn("::warning::연준 재무상태표 참고 dec 받지 못함", log)
         self.assertNotIn("xyz-77", log)
         self.run_main(fred=FakeFred(self.S, fail={"IORB", "WRESBAL"}), now=NOW + TD(days=2))
@@ -571,6 +895,8 @@ class MainTest(unittest.TestCase):
         for sid, s in self.S.items():
             with open(os.path.join(cache, f"{sid}.csv"), "w", encoding="utf-8") as f:
                 f.write("observation_date," + sid + "\n" + "".join(f"{d.isoformat()},{v}\n" for d, v in s))
+        with open(os.path.join(cache, fb.OPS_CACHE), "wb") as f:
+            f.write(OPS_BLOB)
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf), mock.patch.object(ai.urllib.request, "urlopen", side_effect=AssertionError("요청")):
             code = fb.main(["--out", self.out, "--work", self.work, "--offline"], now=NOW)
@@ -578,6 +904,7 @@ class MainTest(unittest.TestCase):
         items = self.saved()["items"]
         self.assertTrue(all(it["ok"] for it in items.values()))
         self.assertAlmostEqual(items["dec"]["values"]["other13"], -20)
+        self.assertEqual([w["bn"] for w in items["rmp"]["values"]["windows"]], [12.0, 8.0, 11.0, 4.2])   # 받아 둔 운영 결과
 
     def test_online_fetch_goes_through_the_bounded_reader(self):
         bodies = {sid: ("observation_date," + sid + "\n" + "".join(f"{d.isoformat()},{v}\n" for d, v in s)).encode()
@@ -594,25 +921,43 @@ class MainTest(unittest.TestCase):
                 return self.read(n)
         seen = []
 
-        def opener(url, timeout=None):
-            self.assertTrue(url.startswith("https://fred.stlouisfed.org/graph/fredgraph.csv?id="), url)
-            sid = url.split("id=")[1]
-            seen.append((sid, timeout))
-            return Resp(bodies[sid])
+        def opener(req, timeout=None):
+            if isinstance(req, str):                                                    # FRED — 주소 글자만(머리글 없음)
+                self.assertTrue(req.startswith("https://fred.stlouisfed.org/graph/fredgraph.csv?id="), req)
+                sid = req.split("id=")[1]
+                seen.append((sid, timeout))
+                return Resp(bodies[sid])
+            # 뉴욕 연은 — 이 프로젝트를 밝히는 User-Agent(credit_fetch와 같은 글, 이메일 없음), 요청 하나엔 min(10초, 남은 예산)
+            self.assertEqual(req.get_header("User-agent"), cf.UA)
+            self.assertNotIn("@", cf.UA)
+            self.assertEqual(req.full_url, fb.OPS_URL + "?startDate=2026-05-01&endDate=2026-10-30")
+            seen.append((fb.OPS, timeout))
+            r = Resp(OPS_BLOB)
+            r.geturl = lambda: req.full_url
+            return r
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             code = fb.main(["--out", self.out, "--work", self.work], now=NOW, opener=opener)
         self.assertEqual(code, 0, buf.getvalue())
-        self.assertEqual([s for s, _ in seen], fb.SERIES)                               # 시리즈마다 한 번, 14번
+        self.assertEqual([s for s, _ in seen], fb.SERIES + [fb.OPS])                    # FRED 시리즈마다 한 번 + 뉴욕 연은 한 번
         self.assertTrue(all(0 < t <= ai.TIMEOUT for _, t in seen))
+        self.assertTrue(0 < seen[-1][1] <= cf.REQ_TIMEOUT)
         self.assertTrue(os.path.exists(os.path.join(self.work, fb.CACHE, "WSHOMCB.csv")))
+        with open(os.path.join(self.work, fb.CACHE, fb.OPS_CACHE), "rb") as f:
+            self.assertEqual(f.read(), OPS_BLOB)                                        # 받은 원문을 캐시에
+        self.assertTrue(self.saved()["items"]["rmp"]["ok"])
 
     def test_requests_carry_no_custom_headers(self):
-        # FRED는 사용자 정의 User-Agent를 붙이면 응답을 멈춘다 — 주소 글자만 넘기고 Request 객체·머리글을 만들지 않는다
+        # FRED는 사용자 정의 User-Agent를 붙이면 응답을 멈춘다 — 이 파일은 주소 글자만 넘기고 Request 객체·머리글을 만들지
+        # 않는다. 뉴욕 연은 요청만 credit_fetch.fetch_bytes(이 프로젝트를 밝히는 UA)로 — 실제 머리글은 위 opener 테스트가 본다
         with open(os.path.join(SCRIPTS, "fedbs_fetch.py"), encoding="utf-8") as f:
             src = f.read()
+        code = re.sub(r'(?s)^#![^\n]*\n""".*?"""', "", src)                         # 머리말은 뺀다(설명에 이름이 나온다)
+        code = re.sub(r"#[^\n]*", "", code)
         for tok in ("User-Agent", "Request(", "headers", "urlopen"):
-            self.assertNotIn(tok, src)
+            self.assertNotIn(tok, code)
+        self.assertEqual(code.count("cf.fetch_bytes("), 1)
+        self.assertIn("fetch_bytes(url, OPS_HOST,", code)
 
     def test_older_data_is_not_taken(self):
         self.run_main()
@@ -675,8 +1020,9 @@ class MainTest(unittest.TestCase):
         js["items"]["reserves"]["chart"]["lines"][0]["points"][0][1] = "9"              # 그래프 점이 숫자가 아니다
         js["items"]["rrp"]["values"]["tag"] = "<b>"                                     # 정해 둔 표시가 아니다
         js["items"]["srf"]["values"]["extra"] = 1.0                                     # 모르는 값
+        js["items"]["rmp"]["values"]["windows"][0]["rmp_bn"] = 99.9                     # 매입 − 상환과 다르다
         self.save(js)
-        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + TD(days=1))
+        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + TD(days=1), ops=FakeOps(fail=True))
         items = self.saved()["items"]
         for key in fb.BY_KEY:
             self.assertEqual((items[key]["ok"], items[key]["stale"]), (False, False), key)
@@ -693,7 +1039,7 @@ class MainTest(unittest.TestCase):
             it["name"] = "바뀐 이름"
         js["items"]["reserves"]["chart"]["note"] = "바깥 글"
         self.save(js)
-        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + TD(days=1))
+        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + TD(days=1), ops=FakeOps(fail=True))
         dump = json.dumps(self.saved(), ensure_ascii=False)
         for bad in ("bad.invalid", "매수", "바깥 글", "바뀐 이름"):
             self.assertNotIn(bad, dump)
@@ -727,7 +1073,7 @@ class MainTest(unittest.TestCase):
         self.assertIn("::warning::", log)
 
     def test_nothing_fetched_exits_1(self):
-        code, log = self.run_main(fred=FakeFred(self.S, fail=set(self.S)))
+        code, log = self.run_main(fred=FakeFred(self.S, fail=set(self.S)), ops=FakeOps(fail=True))
         self.assertEqual(code, 1, log)
         self.assertTrue(all(not it["ok"] for it in self.saved()["items"].values()))
 
@@ -753,13 +1099,13 @@ class MainTest(unittest.TestCase):
         self.assertEqual(os.listdir(self.out), [fb.FILE])
 
     def test_every_string_is_fixed_text_without_verdict_words(self):
-        runs = [(FakeFred(self.S, fail={"IORB"}), NOW),                                  # 직전 값 없는 첫 실패
-                (FakeFred(self.S), NOW + TD(days=1)),
-                (FakeFred(self.S, fail={"WRESBAL", "WSHOMCB"}), NOW + TD(days=2)),      # 직전 값을 이어 싣는 실패
-                (FakeFred(self.S, cache={"SOFR"}), NOW + TD(days=3))]
+        runs = [(FakeFred(self.S, fail={"IORB"}), NOW, FakeOps(fail=True)),             # 직전 값 없는 첫 실패
+                (FakeFred(self.S), NOW + TD(days=1), FakeOps()),
+                (FakeFred(self.S, fail={"WRESBAL", "WSHOMCB"}), NOW + TD(days=2), FakeOps()),   # 직전 값 이어 싣기·상환 비움
+                (FakeFred(self.S, cache={"SOFR"}), NOW + TD(days=3), FakeOps(fail=True))]
         urls, errors = set(), set()
-        for fred, now in runs:                                                          # 실행마다 파일 전체를 본다
-            self.run_main(fred=fred, now=now)
+        for fred, now, ops in runs:                                                     # 실행마다 파일 전체를 본다
+            self.run_main(fred=fred, now=now, ops=ops)
             dump = json.dumps(self.saved(), ensure_ascii=False)
             body = dump
             for ok in TOPIC:
@@ -773,7 +1119,7 @@ class MainTest(unittest.TestCase):
             nested = re.compile(r"\([^()]*\(")                                         # 겹 괄호 없음('미수신(까닭)'이 겹치지 않게)
             for t in re.findall(r'"((?:[^"\\]|\\.)*)"', dump):
                 self.assertIsNone(nested.search(t), t)
-        self.assertEqual(urls, {f"https://fred.stlouisfed.org/series/{sid}" for sid in fb.SERIES})
+        self.assertEqual(urls, {f"https://fred.stlouisfed.org/series/{sid}" for sid in fb.SERIES} | {fb.OPS_URL})
         self.assertEqual(errors, {fb.REASONS["fetch"], fb.REASONS["cache"]})          # 정해 둔 문구만
 
 
@@ -841,6 +1187,8 @@ class StaticTest(unittest.TestCase):
         for sent in filter(None, re.split(r"(?<=\.)\s+", about)):
             self.assertTrue(sent.endswith("니다."), sent)
         for mine, theirs in (("규칙 수에 들지 않습니다", "규칙 점검에 쓰지 않는"),
+                             ("뉴욕 연은 국채 매입 운영 결과로 거꾸로 셈한 것이고 공식 수치가 아닙니다",
+                              "뉴욕 연은 국채 매입 운영 결과로 거꾸로 셈한 것이고 공식 수치가 아니다"),
                              ("H.4.1 주간 대차대조표와 단기자금 시장의 공개 통계", "H.4.1 주간 대차대조표와 단기자금 시장의 공개 통계"),
                              ("'지준과 통화승수'의 지준/GDP와 지준·재정 카드의 13주 나눔을 주간으로 읽는 재료",
                               "'지준과 통화승수'의 지준/GDP와 지준·재정 카드의 13주 나눔을 주간으로 읽는 재료"),
@@ -852,6 +1200,8 @@ class StaticTest(unittest.TestCase):
         js = self.read("site", "fedbs.js")
         card = re.findall(r'"(\w+)"', js[js.index("const CARD = ["):].split("]")[0])
         self.assertEqual(card, [s["key"] for s in fb.ITEMS])
+        self.assertIn(f'const OPS = "{fb.OPS}";', js)
+        self.assertIn('const OPTIONAL = ["rmp"];', js)
         reasons = re.findall(r'"([^"]+)"', js[js.index("const REASONS = ["):].split("];")[0])
         self.assertEqual(reasons, list(fb.REASONS.values()))
         self.assertIn('const LABEL = "참고 — 예측 아님";', js)
@@ -868,25 +1218,42 @@ class StaticTest(unittest.TestCase):
         self.assertIn("window.FedBsCard = ", js)
 
     def test_policy_quotes_match_the_checked_primary_text(self):
-        # 정책 사실은 2026-11-03 연준 원문(보도자료 monetary20251029a · a1 · 20251210a)에서 옮긴 그대로 — 글자를 바꾸지 않는다
+        # 정책 사실 칸(접힌 읽는 법 밖) — 2026-11-03 연준·뉴욕 연은 원문(보도자료 monetary20251029a · a1 · 20251210a ·
+        # 20261028a, 뉴욕 연은 운영 방침 251210a, 의장 기자회견 예비 녹취록)에서 옮긴 그대로 — 글자를 바꾸지 않는다
         js = self.read("site", "fedbs.js")
-        flat = "".join(re.findall(r'"([^"]*)"', js[js.index('["정책 사실(1차 출처)"'):].split("]", 1)[0]))
+        flat = "".join(re.findall(r'"([^"]*)"', js[js.index("const POLICY = ["):].split("\n  ];", 1)[0]))
         for quote in ("The Committee decided to conclude the reduction of its aggregate securities holdings on December 1.",
                       "Beginning on December 1, reinvest all principal payments from the Federal Reserve's holdings of agency "
                       "securities into Treasury bills.",
                       "will initiate purchases of shorter-term Treasury securities as needed to maintain an ample supply of "
                       "reserves on an ongoing basis.",
-                      "monetary20251029a", "monetary20251029a1", "monetary20251210a"):
+                      "on or around the ninth business day of each month",
+                      "the pace of total purchases will likely be significantly reduced",
+                      "The Committee is continuing its policy of maintaining ample reserves in the banking system.",
+                      "will be fed into the FOMC probably early in the first quarter, but don't hold me exactly to that timing.",
+                      "federalreserve.gov/newsevents/pressreleases/monetary20251029a.htm", "monetary20251029a1.htm",
+                      "federalreserve.gov/newsevents/pressreleases/monetary20251210a.htm",
+                      "federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm",
+                      "newyorkfed.org/markets/opolicy/operating_policy_251210a",
+                      "federalreserve.gov/mediacenter/files/FOMCpresconf20261028.pdf",
+                      "2025-12-01", "3-3/4~4%", "약 $40bn", "2027년 1분기 초쯤", "단정하지 않았습니다"):
             self.assertIn(quote, flat)
-        est = "".join(re.findall(r'"([^"]*)"', js[js.index('["측정 기록 — 추정"'):].split("]", 1)[0]))
-        for word in ("추정", "공식 수치가 아닙니다", "2026-11-03", "8·9월 창", "아직 끝나지 않은 창", "늘려 잡"):
-            self.assertIn(word, est)
-        self.assertNotIn("8·9·10월", est)                                              # 검토 F3: 10월 창은 끝나지 않았다
+        self.assertNotIn("https://", flat)                                              # 주소는 글자로(링크 아님)
+        self.assertIn('const POLICY_HEAD = "연준 대차대조표 정책 — 1차 출처";', js)
+        self.assertIn('const POLICY_ASOF = "2026-11-03";', js)                          # 사람이 고치는 고정 글의 기준일
+        self.assertIn("자동으로 갱신하지 않습니다", js)
+        code = re.sub(r"/\*.*?\*/|//[^\n]*", "", js, flags=re.S)
+        self.assertLess(code.index("...CARD.map(k => row(items[k], k))"), code.index("policy(),"))   # 줄 뒤, 접힌 읽는 법 앞
+        self.assertLess(code.index("policy(),"), code.index('el("details"'))
+        guide = js[js.index("const GUIDE = ["):js.index("const POLICY_HEAD")]
+        for gone in ("conclude the reduction", "will initiate purchases", "8·9월 창", "늘려 잡"):   # 정책 사실·손 셈은 GUIDE에 두 번 없다
+            self.assertNotIn(gone, guide)
+        self.assertIn("'연준 대차대조표 정책 — 1차 출처' 칸", guide)                       # GUIDE는 가리키기만
+        self.assertIn("'RMP 추정' 줄", guide)
         fomc = "".join(re.findall(r'"([^"]*)"', js[js.index('["FOMC 뒤 첫 H.4.1"'):].split("]", 1)[0]))
         for word in ("2026-10-28 갱신", "확정되기 전까지 잠정", "FOMCpresconf20261028", "14:00 미 동부"):
             self.assertIn(word, fomc)
         self.assertNotIn("2차 보도", fomc)
-
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
