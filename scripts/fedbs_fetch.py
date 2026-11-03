@@ -24,17 +24,40 @@
             날짜 이하 IORB가 3일보다 멀면 그날은 비우고 m에서 뺀다)·월말·15일 표시
   srf       상시 레포(SRF) 이용(RPONTTLD) 최근 5영업일 최대 bn과 날짜
   rrp       익일물 역레포(RRPONTSYD) 마지막 값
-  rmp       지준 관리 매입(RMP) 추정 — 이 카드에만 있는 칸(2026-11-03 사용자 결정 '정책 사실 + RMP 추정 둘 다', 비공개 메일
-            줄에는 없다). 뉴욕 연은 Markets API 국채 운영 결과(요청 1번)를 월 일정 창마다 더해 그 달 MBS 상환(WSHOMCB)을 뺀다:
+  rmp_plan  지준 관리 매입(RMP) 공식 계획 — 이 카드에만 있는 칸(2026-11-03 사용자 결정 '앞에 2개 실행': 뉴욕 연은이 공지한
+            계획 금액을 싣고, 운영 결과로 거꾸로 셈한 값은 아래 대조 칸으로 남긴다. 비공개 메일 줄에는 없다). 뉴욕 연은
+            'Treasury Securities Operational Details' 페이지(PLAN_URL — 정적 HTML)의 표(머리 Period · Planned Operation Amount
+            …, 탭 이름 'Operation Period Details')를 1번 받아 행마다 기간과 계획 문장을 읽는다:
+              기간    'M/D/YYYY - M/D/YYYY'(날짜 하나면 그 하루). 날짜 꼴이 아님·없는 날·끝이 시작보다 이름·PLAN_SPAN_MAX일 넘음은
+                      그 행을 버리고 버린 수를 상세에 싣는다
+              문장    정해 둔 꼴(PLAN_FORM) 하나만 읽는다 — 'The Desk plans to conduct approximately $X billion in reinvestment
+                      purchases and' 다음에 'no reserve management purchases'(RMP 0) 또는 '(an additional )?approximately $Y
+                      billion in reserve management purchases', 끝은 'over the noted monthly period.'(conduct 자리에 purchase도 —
+                      화면 글 PLAN_FORMS도 둘 다 적는다).
+                      다른 꼴(소액 시험 운영·운영 없음·쿠폰 배분 문장·두 문장 등)은 '형식 모름' — 숫자를 짓지 않는다. 금액은
+                      페이지의 숫자 글 그대로(소수 자리까지)
+              글      태그를 벗기고(<br>은 한 칸) &nbsp;·줄바꿈·여분 공백을 한 칸으로. 같은 기간이 여러 번이면 하나로 — 읽은 숫자가
+                      다르면 형식 모름. 표가 없으면 이 칸만 실패(table), PLAN_MAX바이트보다 크면 받지 않는다
+              창      대조 칸과 같은 네 달(오늘이 든 창과 그 앞의 끝난 창 셋) — M월 창 = 시작일이 M월인 기간 하나(여럿이면 형식
+                      모름, 없으면 '페이지에 없음'). 오늘이 그 기간 안이면 '지금 창'. 칸 날짜는 실은 창 가운데 마지막 시작일
+            계획이다 — 실제 매입은 운영 결과(대조 칸)이고, 계획과 다를 수 있다. 판정 낱말 없이 숫자만
+  rmp       지준 관리 매입(RMP) 대조 — 운영 결과로 거꾸로 셈한 값(매입 − 그 달 MBS 상환), 이 카드에만 있는 칸(2026-11-03 처음엔
+            '추정' 줄 — 공식 계획 칸이 생기며 대조로 이름을 바꿨다). 뉴욕 연은 Markets API 국채 운영 결과(요청 1번)를 월 일정 창마다
+            더해 그 달 MBS 상환(WSHOMCB)을 뺀다:
               매입    운영 결과(auctionStatus 'Results')가 나온 매입(operationDirection 'P') 운영의 받아들인 금액
                       (totalParAmtAccepted, 달러) 합 — 1억 달러(SMALL_MIN) 미만은 소액 시험 운영(small value exercise —
                       2026-06-23 FRN 매입 2,500만 달러처럼 따로 공지)이라 빼고(뺀 수는 상세에), 매각('S')은 세지 않는다. 잔존
                       3년 이하 이표채로 옮긴 매입도 든다. 같은 operationId는 하나
-              창      M월 창 = 운영일이 M월 9영업일(RMP_BDAY) 뒤이고 M+1월 9영업일 이하인 운영 — 뉴욕 연은은 월 매입 금액을 그 달
-                      9영업일께 다음 약 30일 치 일정과 함께 발표한다(운영 방침 2025-12-10). 영업일 = 평일 − 연방 공휴일
-                      (fed_holidays — 새해·MLK·대통령의 날·메모리얼·준틴스·독립기념일·노동절·콜럼버스·재향군인·추수감사절·
-                      성탄. 일요일이면 월요일 대체, 토요일이면 대체 없음 — 연준은 그 앞 금요일에 연다). 창이 끝났다 = 오늘이 M+1월
-                      9영업일보다 뒤. 오늘이 든 창(끝나지 않은 창)과 그 앞의 끝난 창 셋을 싣는다
+              창      M월 창 = 공식 계획 칸의 페이지에 M월에 시작하는 기간이 하나 있으면 그 기간(시작~끝, 양 끝 포함 — bound
+                      'plan'), 없으면(페이지를 받지 못함·그 달 기간이 없거나 여럿) 운영일이 M월 9영업일(RMP_BDAY) 뒤이고 M+1월
+                      9영업일 이하인 운영(bound 'rule') — 뉴욕 연은은 월 매입 금액을 그 달 9영업일께 다음 약 30일 치 일정과 함께
+                      발표한다(운영 방침 2025-12-10). 2025-12~2026-10 열한 창의 공식 기간은 이 규칙과 같았다(2026-11-03). 영업일 =
+                      평일 − 연방 공휴일(fed_holidays — 새해·MLK·대통령의 날·메모리얼·준틴스·독립기념일·노동절·콜럼버스·
+                      재향군인·추수감사절·성탄. 일요일이면 월요일 대체, 토요일이면 대체 없음 — 연준은 그 앞 금요일에 연다). 이웃
+                      창이 겹치거나 사이에 영업일이 비면(반 달씩 나눈 행 같은 꼴 — 2020-06~2021-02 페이지에 있다) 네 창 모두
+                      규칙으로 — 마지막 창은 그다음 달의 창과도 사이가 비는지 본다(plan_bounds·bday_gap). 공식 기간 행의 문장이 형식
+                      모름이어도 기간은 경계로 쓴다. 창이 끝났다 = 오늘이 창의 끝 날보다 뒤. 오늘이 든
+                      창(달은 9영업일 규칙으로 고른다 — running_month)과 그 앞의 끝난 창 셋을 싣는다
               상환    M월 MBS 상환 = WSHOMCB(M−1월 상환 수요일) − WSHOMCB(M월 상환 수요일). 상환 수요일(paydown_wed) = 그 달
                       25일 이후 첫 수요일(25일이 수요일이면 그날) — 지니메이 20일·패니메이·프레디맥 25일 상환이 한 번씩 든다.
                       25일이 주말·연방 공휴일이면 패니메이·프레디맥 상환이 다음 영업일에 결제되므로 그날부터 센다 — 달라지는 것은
@@ -42,23 +65,23 @@
                       든다 — 2024-12 실자료: 12-25 주 3.3bn·01-01 주 12.2bn). 그 수요일 관측이 아직 없거나 WSHOMCB를 받지
                       못하면 비운다. WSHOMCB는 H.4.1 MBS 보유 = 기관 MBS + 기관 CMBS다(뉴욕 연은 SOMA 요약의 두 칸 합과 같다 —
                       2026-11-03 확인)
-              추정    끝난 창만 — RMP 추정 = 보이는 소수 한 자리의 매입 − 보이는 소수 한 자리의 상환(보이는 숫자끼리 뺄셈이 맞게).
+              대조    끝난 창만 — 보이는 소수 한 자리의 매입 − 보이는 소수 한 자리의 상환(보이는 숫자끼리 뺄셈이 맞게).
                       끝나지 않은 창은 운영 수·합·마지막 운영일만 싣고 상환과 견주지 않으며 늘려 잡지 않는다
-            한계(화면에도 — RMP_LIMITS): 공식 나눔 수치가 아니라 운영 결과로 거꾸로 셈한 추정이다(뉴욕 연은은 월 일정 창마다
-            재투자·RMP 계획 금액을 'Treasury Securities Operational Details' 페이지와 일정 CSV에 따로 싣지만 이 카드는 그것을
-            받지 않는다 — 계획 금액을 싣는 것은 새 수신원·화면 칸이라 사용자 결정으로 미뤘다. 2026-11-03 그 페이지의 공식 나눔
-            — 6·7월 창 RMP 10 · 8·9·10월 창 0 — 은 이 추정과 맞았다), 재투자는 기관채·MBS는 그 달 예상 상환,
-            기관 CMBS는 전달 실제 상환 기준이다(뉴욕 연은 FAQ) — 그래서 MBS는 예상과 실제 상환이 어긋날 수 있고, 기관 CMBS
-            상환은 WSHOMCB에 들어 있지만 재투자가 한 달 늦게 따라온다(작다), 기관채 상환은 WSHOMCB에 없어 빠진다(H.4.1 연방
-            기관채 보유 약 2.3bn — 2026-07~10 변화 없음), 창 경계는 9영업일 규칙의 근사다. 판정 낱말 없이 숫자와 뺄셈만.
-            compute에 운영 결과(ops)를 넘기지 않는 호출(비공개 쪽 짝 테스트 등)에서는 이 칸을 셈하지 않고 파일에도 넣지 않는다
+            한계(화면에도 — RMP_LIMITS): 공식 수치가 아니라 운영 결과로 거꾸로 셈한 대조다(공식 계획은 위 rmp_plan 칸 — 뉴욕 연은
+            'Treasury Securities Operational Details' 페이지의 계획 문장. 2026-11-03 그 페이지의 계획 — 6·7월 창 RMP 10 ·
+            8·9·10월 창 0 — 은 이 대조와 맞았다), 재투자는 기관채·MBS는 그 달 예상 상환, 기관 CMBS는 전달 실제 상환
+            기준이다(뉴욕 연은 FAQ) — 그래서 MBS는 예상과 실제 상환이 어긋날 수 있고, 기관 CMBS 상환은 WSHOMCB에 들어 있지만
+            재투자가 한 달 늦게 따라온다(작다), 기관채 상환은 WSHOMCB에 없어 빠진다(H.4.1 연방 기관채 보유 약 2.3bn —
+            2026-07~10 변화 없음), 공식 기간이 없는 달의 창 경계는 9영업일 규칙의 근사다. 판정 낱말 없이 숫자와 뺄셈만.
+            compute에 운영 결과(ops)·공식 계획(plan)을 넘기지 않는 호출(비공개 쪽 짝 테스트 등)에서는 두 칸을 셈하지 않고
+            파일에도 넣지 않는다(ops만 넘기면 rmp만 — 창은 규칙으로)
   week      그 H.4.1 주(목~수)가 15일·월말·FOMC 결정일을 품는지('FOMC 뒤 첫 H.4.1' — 결정일(수)이 그 주 마지막 날이라 그 주
             숫자는 시행 전 값)와 다음 FOMC 결정일(실행 시각에 아직 성명 — 결정일 14:00 미 동부 — 이 나오지 않은 첫 회의: 예약
             실행 UTC 22:17은 결정일에도 성명 뒤라 그날 회의는 '다음'이 아니다). FOMC 일정은 이 파일의 FOMC 표(2026년은
             site/people-data.js의 회의 장부와 같다, 테스트가 견준다. 2027년은 연준 FOMC 일정 페이지(2026-10-28 갱신)의 여덟
             회의 — 연준 고지대로 각 회의는 직전 회의에서 확정되기 전까지 잠정이라 '(잠정)')
-산식은 비공개 파이프라인의 fed_bs.py와 같다(저장소를 넘어 가져오지 않고 여기서 따로 쓴다 — 고치면 양쪽을 같이 — rmp 칸은
-이 카드에만 있다). 비공개 쪽과 다른 곳: 상태 파일이 없다 — 날마다 받고, '분모 바뀜'은 직전 fedbs.json의 주를 처음 실을 때의
+산식은 비공개 파이프라인의 fed_bs.py와 같다(저장소를 넘어 가져오지 않고 여기서 따로 쓴다 — 고치면 양쪽을 같이 — rmp_plan·rmp
+칸은 이 카드에만 있다). 비공개 쪽과 다른 곳: 상태 파일이 없다 — 날마다 받고, '분모 바뀜'은 직전 fedbs.json의 주를 처음 실을 때의
 GDP와 견준다(비공개는 메일로 실은 주의 GDP와 — 같은 뜻, 같은 주를 다시 실을 때도 그 견줌을 보인다).
 화면(site/fedbs.js)에는 이 파일 밖의 고정 글 '연준 대차대조표 정책 — 1차 출처'(기준일 2026-11-03, 사람이 고친다)도 있다.
 같은 주를 다시 실을 때 '싣는 때' 규칙(새 주 한 번·보완·미수신 한 줄)은 없다 — 카드는 늘 마지막으로 받은 값을 보인다.
@@ -72,13 +95,18 @@ GDP와 견준다(비공개는 메일로 실은 주의 GDP와 — 같은 뜻, 같
   같은 문구, render_public). 그 밖의 조건이 붙은 시리즈는 이 파일에 넣지 않는다(테스트가 목록을 고정한다).
   뉴욕 연은 국채 운영 결과(Markets API — rmp 칸): newyorkfed.org 이용약관 — 수급 카드의 딜러 통계와 같은 꼴로 기본 출처
   형식(© 연도)·관계없음 고지·계산값 표시(한·영)를 싣고, 권장 인용은 sources[].citation(licence 'nyfed-terms')에 글자로.
+  뉴욕 연은 공식 계획 페이지(rmp_plan 칸): 같은 이용약관 — 기본 출처 형식·관계없음 고지에 '정해 둔 꼴만 옮겼다'는 표시(한·영,
+  PLAN_COPIED), 권장 인용 'Federal Reserve Bank of New York, Treasury Securities Operational Details, retrieved from <주소>,
+  <날짜>.'(licence 'nyfed-terms'). 주소는 글자로만(사이트는 FRED·GitHub에만 링크를 건다).
 
 수신: FRED CSV 14개(기본 머리글 그대로 — 머리글을 더하면 FRED가 응답을 멈춘다, ai_invest_fetch.load_series), 요청마다 min(15초, 남은 예산),
-수신 전체 BUDGET초(응답을 읽는 동안에도 본다). 그 뒤 뉴욕 연은 국채 운영 결과 1번(OPS_URL?startDate=…&endDate=… — 이번 달 앞
-OPS_MONTHS달의 1일 ~ 오늘, 약 6개월) — credit_fetch.fetch_bytes로(이 프로젝트를 밝히는 User-Agent·이메일 없음, https·같은
-호스트만, 다른 곳으로 넘겨지면 받지 않음), FRED와 따로 OPS_BUDGET초(요청 하나엔 min(10초, 남은 예산)). 받으면 원문을
-<work>/fedbs/tsy_ops.json에 둔다(--offline이면 이것만 읽는다). 온라인에서 받지 못하면 캐시로 대신하지 않는다 — rmp 칸만
-직전 값 + '받지 못함'. 주간·일간 모두 실행마다 받는다(공개 쪽은 하루 1회 실행 — 상태 파일 없음).
+수신 전체 BUDGET초(응답을 읽는 동안에도 본다). 그 뒤 뉴욕 연은 2번 — 국채 운영 결과(OPS_URL?startDate=…&endDate=… — 이번 달 앞
+OPS_MONTHS달의 1일 ~ 오늘, 약 6개월)와 공식 계획 페이지(PLAN_URL) — 둘 다 credit_fetch.fetch_bytes로(이 프로젝트를 밝히는
+User-Agent·이메일 없음, https·같은 호스트만, 다른 곳으로 넘겨지면 받지 않음), FRED와 따로 두 요청을 합쳐 OPS_BUDGET초(요청 하나엔
+min(10초, 남은 예산) — 운영 결과가 늦으면 계획 페이지는 남은 시간만). 받으면 원문을 <work>/fedbs/tsy_ops.json·tsy_plan.html에
+둔다(공개 data에는 싣지 않는다, --offline이면 이것만 읽는다). 온라인에서 받지 못하면 캐시로 대신하지 않는다 — 그 칸만 직전 값 +
+'받지 못함'(계획 페이지를 받지 못하면 대조 칸의 창은 9영업일 규칙으로). 주간·일간 모두 실행마다 받는다(공개 쪽은 하루 1회 실행
+— 상태 파일 없음).
 H.4.1은 목요일 16:30(미 동부)에 나오고 FRED에 몇 분 안에 들어온다 — 예약 실행(UTC 22:17, 미 동부 같은 날 17:17·18:17)이 같은
 날 받는다(국경일이 끼면 하루 늦게 나온다).
 
@@ -90,7 +118,7 @@ H.4.1은 목요일 16:30(미 동부)에 나오고 FRED에 몇 분 안에 들어�
 
 사용법: python scripts/fedbs_fetch.py [--out data] [--work .work] [--offline]
 """
-import os, re, sys, json, time, argparse, datetime, urllib.parse
+import os, re, sys, json, time, argparse, datetime, urllib.parse, html.parser
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
@@ -172,7 +200,8 @@ DECISION_HOUR = 14                            # FOMC 성명 시각(미 동부) �
 
 NOTICE = ("이 사이트의 규칙 점검에 쓰지 않는 참고 자료다. 연준 H.4.1 주간 대차대조표와 단기자금 시장의 공개 통계로 계산한 "
           "산술만 싣는다. 규칙 카드 '지준과 통화승수'의 지준/GDP와 지준·재정 카드의 13주 나눔을 주간으로 읽는 재료다. "
-          "지준 관리 매입(RMP) 추정 줄은 뉴욕 연은 국채 매입 운영 결과로 거꾸로 셈한 것이고 공식 수치가 아니다. "
+          "지준 관리 매입(RMP)은 뉴욕 연은 월 일정 공지의 계획 금액을 싣고, 국채 매입 운영 결과로 거꾸로 셈한 대조 줄을 함께 둔다 — "
+          "계획은 계획이고 대조 줄은 공식 수치가 아니다. "
           "금리나 자금 여건을 예측하지 않는다.")
 COMPUTED_NOTICE = ("지준/GDP·하한 대비 차·4주 평균·분모 바뀜·4주/13주 차·5영업일 최대는 macro-regime-check가 원자료로 "
                    "계산한 값이다.")
@@ -192,6 +221,7 @@ REASONS = {
     "cache": "수신 실패 · 묵은 캐시는 싣지 않음",
     "format": "계산할 자료가 모자람",
     "older": "받은 자료가 직전 자료보다 오래됨",
+    "table": "공식 페이지에서 계획 표를 찾지 못함",
 }
 
 # 지준 관리 매입(RMP) 추정 — 뉴욕 연은 국채 운영 결과(2026-11-03 이 샌드박스에서 응답 꼴 확인: {"treasury": {"auctions":
@@ -204,7 +234,8 @@ OPS_URL = f"https://{OPS_HOST}/api/tsy/all/results/summary/search.json"
 OPS_TITLE = "Treasury Securities Operations, results summary"
 OPS_LICENCE = "nyfed-terms"
 OPS_CACHE = "tsy_ops.json"                    # <work>/fedbs/tsy_ops.json — 받은 원문
-OPS_BUDGET = 20                               # 뉴욕 연은 요청 한 번(초) — FRED 수신(BUDGET)과 따로. 합쳐도 단계 제한 2분 안
+OPS_BUDGET = 25                               # 뉴욕 연은 요청 두 번(운영 결과 · 공식 계획 페이지)의 합(초) — FRED 수신(BUDGET)과
+                                              # 따로. 합쳐도 단계 제한 2분 안
 OPS_MONTHS = 5                                # 요청 범위: 이번 달 앞 5개월의 1일 ~ 오늘(약 6개월 — 실을 창 넷을 늘 덮는다)
 RMP_BDAY = 9                                  # 뉴욕 연은이 월 매입 금액을 발표하는 그 달 '9영업일께'(운영 방침 2025-12-10)
 SMALL_MIN = 100_000_000                       # 달러 — 받아들인 금액이 이보다 작은 매입은 소액 시험 운영으로 뺀다
@@ -212,24 +243,59 @@ OP_MAX = 200_000_000_000                      # 달러 — 운영 하나가 이�
 RMP_ENDED = 3                                 # 끝난 창 가운데 최근 셋 + 끝나지 않은 창 하나
 MBS_DAY = 25                                  # 그 달 MBS 상환 = 전달 상환 수요일 − 그 달 상환 수요일(WSHOMCB, paydown_wed)
 MBS = "WSHOMCB"
-RMP_DERIVED = ("월 일정 창의 매입 합·그 달 MBS 상환·RMP 추정은 macro-regime-check가 뉴욕 연은 국채 운영 결과(Markets API)와 "
+RMP_DERIVED = ("월 일정 창의 매입 합·그 달 MBS 상환·RMP 대조값은 macro-regime-check가 뉴욕 연은 국채 운영 결과(Markets API)와 "
                "연준 H.4.1 MBS 보유(WSHOMCB, FRED 경유)로 계산한 값이다. 뉴욕 연은이 발표한 값이 아니다.")
-RMP_DERIVED_EN = ("Window purchase totals, monthly MBS paydowns and the RMP estimate are computed by macro-regime-check from "
+RMP_DERIVED_EN = ("Window purchase totals, monthly MBS paydowns and the RMP cross-check are computed by macro-regime-check from "
                   "New York Fed Treasury securities operation results (Markets API) and Federal Reserve H.4.1 MBS holdings "
                   "(WSHOMCB) via FRED; they are not published by the New York Fed.")
-RMP_METHOD = ("셈: 월 일정 창 = 그 달 9영업일(평일 − 연방 공휴일) 다음 날부터 다음 달 9영업일까지의 운영일 — 뉴욕 연은은 월 매입 "
-              "금액을 그 달 9영업일께 다음 약 30일 치 일정과 함께 발표한다. 매입 = 결과가 나온 매입 운영의 받아들인 금액 합(1억 달러 "
-              "미만의 소액 시험 운영은 빼고, 매각 운영은 세지 않는다 — 잔존 3년 이하 이표채로 옮긴 매입도 든다). 그 달 MBS 상환 = "
-              "WSHOMCB(전달 25일 이후 첫 수요일) − WSHOMCB(그 달 25일 이후 첫 수요일) — 지니메이 20일·패니메이·프레디맥 25일 상환이 "
-              "한 번씩 든다. 25일이 주말·연방 공휴일이면 다음 영업일부터 센다(성탄이 수요일인 해의 12월은 다음 수요일). "
-              "RMP 추정 = 보이는 소수 한 자리의 매입 − 상환.")
-RMP_LIMITS = ("한계: 공식 나눔 수치가 아니라 운영 결과로 거꾸로 셈한 추정이다 — 뉴욕 연은은 월 일정 창마다 재투자·RMP 계획 "
-              "금액을 'Treasury Securities Operational Details' 페이지와 일정 CSV에 따로 싣지만 이 카드는 그것을 받지 않는다. "
-              "재투자는 기관채·MBS는 그 달 예상 상환, 기관 CMBS는 전달 실제 상환 기준이다(뉴욕 연은 FAQ). 그래서 MBS는 예상 상환과 "
-              "실제 상환이 어긋날 수 있고, 기관 CMBS는 WSHOMCB에 들어 있지만 재투자가 한 달 늦게 따라온다(작다). 기관채 상환은 "
-              "WSHOMCB에 없어 빠진다 — H.4.1 연방 기관채 보유는 약 2.3bn이고 2026-07~10 변하지 않았다. 창 경계는 9영업일 규칙의 "
-              "근사다. 끝나지 않은 창은 상환과 견주지 않고 늘려 잡지 않는다.")
-RMP_NO_MBS = "이번 갱신에 MBS 보유(WSHOMCB)를 받지 못해 상환·추정 칸은 비웠다."
+RMP_METHOD = ("셈: 월 일정 창 = 위 계획 줄의 공식 기간(시작~끝, 양 끝 포함)이 있는 달이면 그 기간, 없으면 그 달 9영업일"
+              "(평일 − 연방 공휴일) 다음 날부터 다음 달 9영업일까지의 운영일 — 뉴욕 연은은 월 매입 금액을 그 달 9영업일께 다음 "
+              "약 30일 치 일정과 함께 발표한다. 공식 페이지를 받지 못했거나 그 달에 시작하는 기간이 하나가 아니면 그 달은 규칙으로 "
+              "잡고, 이웃 창이 겹치거나 사이에 영업일이 비면(지금 창은 다음 달 창과의 사이도 본다) 네 창 모두 규칙으로 잡는다 — 창마다 "
+              "어느 쪽인지 적는다. 매입 = 결과가 나온 매입 운영의 받아들인 금액 합(1억 달러 미만의 소액 시험 운영은 빼고, 매각 운영은 "
+              "세지 않는다 — 잔존 3년 이하 이표채로 옮긴 매입도 든다). 그 달 MBS 상환 = WSHOMCB(전달 25일 이후 첫 수요일) − "
+              "WSHOMCB(그 달 25일 이후 첫 수요일) — 지니메이 20일·패니메이·프레디맥 25일 상환이 한 번씩 든다. 25일이 주말·연방 "
+              "공휴일이면 다음 영업일부터 센다(성탄이 수요일인 해의 12월은 다음 수요일). RMP 대조 = 보이는 소수 한 자리의 매입 − 상환.")
+RMP_LIMITS = ("한계: 이 줄은 운영 결과로 거꾸로 셈한 대조이고 공식 수치가 아니다 — 공식 계획은 위 계획 줄이다(뉴욕 연은 'Treasury "
+              "Securities Operational Details' 페이지의 계획 문장). 계획과 실제 매입은 다를 수 있다. 재투자는 기관채·MBS는 그 달 "
+              "예상 상환, 기관 CMBS는 전달 실제 상환 기준이다(뉴욕 연은 FAQ). 그래서 MBS는 예상 상환과 실제 상환이 어긋날 수 있고, "
+              "기관 CMBS는 WSHOMCB에 들어 있지만 재투자가 한 달 늦게 따라온다(작다). 기관채 상환은 WSHOMCB에 없어 빠진다 — H.4.1 "
+              "연방 기관채 보유는 약 2.3bn이고 2026-07~10 변하지 않았다. 공식 기간이 없는 달의 창 경계는 9영업일 규칙의 근사다. "
+              "끝나지 않은 창은 상환과 견주지 않고 늘려 잡지 않는다.")
+RMP_NO_MBS = "이번 갱신에 MBS 보유(WSHOMCB)를 받지 못해 상환·대조 칸은 비웠다."
+BOUND_NAME = {"plan": "공식 기간", "rule": "9영업일 규칙"}
+
+# 지준 관리 매입(RMP) 공식 계획 — 뉴욕 연은 'Treasury Securities Operational Details' 페이지(2026-11-03 이 샌드박스에서 이
+# 프로젝트의 User-Agent로 HTTP 200, 정적 HTML 약 190KB — 표 id 'pagination-table', 머리 Period · Planned Operation Amount ·
+# Tentative Schedule · Results · Next Schedule Release, 행마다 '10/15/2026 -<br>11/13/2026' · 'The Desk plans to conduct
+# approximately $14.6 billion in reinvestment purchases and no reserve management purchases over the noted monthly period.' …)
+PLAN = "TSYPLAN"                              # 이 파일 안의 이름(sources[].series) — 뉴욕 연은 시리즈 ID가 아니다
+PLAN_HOST = "www.newyorkfed.org"
+PLAN_URL = (f"https://{PLAN_HOST}/markets/domestic-market-operations/monetary-policy-implementation/treasury-securities/"
+            "treasury-securities-operational-details")
+PLAN_TITLE = "Treasury Securities Operational Details"
+PLAN_CACHE = "tsy_plan.html"                  # <work>/fedbs/tsy_plan.html — 받은 원문(공개 data에는 싣지 않는다)
+PLAN_MAX = 2_000_000                          # 바이트 — 이보다 큰 응답은 받지 않는다
+PLAN_SPAN_MAX = 62                            # 기간 하나의 길이 상한(일) — 넘으면 그 행의 기간을 읽지 못한 것으로
+PLAN_ROWS_MAX = 1000                          # 표의 기간 수 상한(꼴 검사)
+_AMT = r"(\d{1,4}(?:\.\d{1,2})?)"
+# 정해 둔 계획 문장 꼴 — 이 꼴이 아니면 '형식 모름'(숫자를 짓지 않는다). 2026-11-03 페이지의 2025-12 ~ 2026-10 열한 창이 이 꼴
+PLAN_FORM = re.compile(r"The Desk plans to (?:conduct|purchase) approximately \$" + _AMT + r" billion in reinvestment purchases "
+                       r"and (?:(no) reserve management purchases|(?:an additional )?approximately \$" + _AMT +
+                       r" billion in reserve management purchases) over the noted monthly period\.")
+_MDY = r"(\d{1,2})/(\d{1,2})/(\d{4})"
+PLAN_PERIOD = re.compile(_MDY + r"(?:\s*[-\u2013\u2014]\s*" + _MDY + r")?")
+PLAN_COPIED = ("공식 계획 줄의 금액은 macro-regime-check가 뉴욕 연은 'Treasury Securities Operational Details' 페이지의 월 일정 "
+               "창 계획 문장에서 정해 둔 꼴만 옮긴 것이다. 고치거나 셈하지 않았다.")
+PLAN_COPIED_EN = ("Planned amounts are transcribed by macro-regime-check from the monthly-period sentences on the New York "
+                  "Fed's Treasury Securities Operational Details page (fixed sentence forms only); they are not altered.")
+PLAN_ABOUT = ("뉴욕 연은이 월 일정 창마다 'Treasury Securities Operational Details' 페이지에 싣는 계획 문장의 금액이다 — 재투자는 "
+              "MBS·기관채 상환분의 단기채 재투자, RMP는 지준 관리 매입이다. 계획이다: 실제 매입은 운영 결과이고, 아래 대조 줄이 운영 "
+              "결과로 거꾸로 셈한다. 지금 창은 오늘이 그 기간 안인 창이다.")
+PLAN_FORMS = ("읽는 문장 꼴은 정해 둔 하나뿐이다: 'The Desk plans to conduct(또는 purchase) approximately $X billion in reinvestment "
+              "purchases and' 다음에 'no reserve management purchases' 또는 '(an additional) approximately $Y billion in "
+              "reserve management purchases', 끝은 'over the noted monthly period.'. 다른 꼴의 창은 '형식 모름'으로 두고 숫자를 짓지 "
+              "않는다 — 소액 시험 운영·운영 없음·쿠폰 배분 문장 같은 꼴이다.")
 
 
 class ItemError(Exception):
@@ -552,19 +618,52 @@ def _t1(v):
     return None if v is None else float(f"{v:.1f}") + 0.0
 
 
-def rmp_window(ym, ops, mbs, today):
+def rule_bounds(ym):
+    """9영업일 규칙의 M월 창 — (첫 운영일 후보 = M월 9영업일 다음 날, 끝 = M+1월 9영업일, 'rule')."""
+    return bday_n(*ym) + TD(days=1), bday_n(*_shift(ym, 1)), "rule"
+
+
+def bday_gap(a, b):
+    """a와 b 사이(양 끝 빼고)에 영업일(평일 − fed_holidays)이 하나라도 있으면 True — 이웃 창 사이가 빈 것."""
+    d = a + TD(days=1)
+    while d < b:
+        if d.weekday() < 5 and d not in fed_holidays(d.year):
+            return True
+        d += TD(days=1)
+    return False
+
+
+def plan_bounds(months, plan):
+    """대조 칸의 창 경계 — 달마다 공식 계획에 그 달에 시작하는 기간이 하나 있으면 그 기간(시작~끝, 양 끝 포함, 'plan'), 없으면
+    9영업일 규칙. 이웃 창이 겹치거나(끝 ≥ 다음 시작) 사이가 비면(끝과 다음 시작 사이에 영업일이 있음 — 반 달씩 나눈 행 같은 꼴,
+    빈 날의 운영이 어느 창에도 들지 않는다) 네 창 모두 규칙으로. 마지막 창은 그다음 달의 창(같은 규칙으로 고른 것)과도 사이가
+    비는지 본다 — 지금 창이 반 달짜리 행에서 끝나 오늘까지의 운영이 빠지지 않게. plan이 없으면(받지 못함) 규칙."""
+    rule = [rule_bounds(ym) for ym in months]
+    if not plan:
+        return rule
+    out = []
+    for ym in [*months, _shift(months[-1], 1)]:
+        c = [p for p in plan["periods"] if (p[0].year, p[0].month) == ym]
+        out.append((c[0][0], c[0][1], "plan") if len(c) == 1 else rule_bounds(ym))
+    shown = out[:-1]
+    if any(a[1] >= b[0] or bday_gap(a[1], b[0]) for a, b in zip(shown, shown[1:])) or bday_gap(shown[-1][1], out[-1][0]):
+        return rule
+    return shown
+
+
+def rmp_window(ym, ops, mbs, today, bounds=None):
     """한 달의 월 일정 창 — 매입(운영 수·합·운영일)·뺀 소액 시험 운영 수·셈하지 않은 매각 수, 끝난 창이면 그 달 MBS 상환과
-    RMP 추정(보이는 소수 한 자리끼리). 끝나지 않은 창은 상환·추정을 비운다."""
-    after, until = bday_n(*ym), bday_n(*_shift(ym, 1))
+    RMP 대조값(보이는 소수 한 자리끼리). 끝나지 않은 창은 상환·대조를 비운다. bounds = (시작, 끝, 'plan'|'rule') — 없으면 규칙."""
+    start, until, how = bounds or rule_bounds(ym)
     ended = today > until
-    inside = [o for o in ops if after < o[0] <= until]
+    inside = [o for o in ops if start <= o[0] <= until]
     buys = [o for o in inside if o[1] == "P" and o[2] >= SMALL_MIN]
     bn = _r(sum(o[2] for o in buys) / 1e9)
     red_from, red_to = paydown_wed(*_shift(ym, -1)), paydown_wed(*ym)
     red = None
     if ended and red_from in mbs and red_to in mbs:
         red = _r((mbs[red_from] - mbs[red_to]) / 1000)
-    return {"month": f"{ym[0]:04d}-{ym[1]:02d}", "from": _iso(after + TD(days=1)), "until": _iso(until), "ended": ended,
+    return {"month": f"{ym[0]:04d}-{ym[1]:02d}", "from": _iso(start), "until": _iso(until), "bound": how, "ended": ended,
             "n": len(buys), "bn": bn, "ops": [_iso(o[0]) for o in buys],
             "small": sum(1 for o in inside if o[1] == "P" and o[2] < SMALL_MIN),
             "sales": sum(1 for o in inside if o[1] == "S"),
@@ -572,15 +671,181 @@ def rmp_window(ym, ops, mbs, today):
             "rmp_bn": None if red is None else _t1(_t1(bn) - _t1(red))}
 
 
-def calc_rmp(S, today, ops):
-    """오늘이 든 창과 그 앞의 끝난 창 셋. 칸 날짜는 오늘 이하 마지막 결과 운영일. WSHOMCB가 없으면 상환·추정만 비운다."""
+def rmp_months(today):
+    """싣는 네 달 — 오늘이 든 창의 달(9영업일 규칙, running_month)과 그 앞 셋, 차례대로."""
+    run = running_month(today)
+    return [_shift(run, -k) for k in range(RMP_ENDED, -1, -1)]
+
+
+def calc_rmp(S, today, ops, plan=None):
+    """오늘이 든 창과 그 앞의 끝난 창 셋. 칸 날짜는 오늘 이하 마지막 결과 운영일. WSHOMCB가 없으면 상환·대조만 비운다.
+    plan(공식 계획 — parse_plan)이 있으면 창 경계를 그 기간으로(plan_bounds)."""
     ops = [o for o in ops if o[0] <= today]
     if not ops:
         raise ItemError("format")
     mbs = dict(S.get(MBS) or [])
-    run = running_month(today)
-    wins = [rmp_window(_shift(run, -k), ops, mbs, today) for k in range(RMP_ENDED, -1, -1)]
+    months = rmp_months(today)
+    wins = [rmp_window(ym, ops, mbs, today, b) for ym, b in zip(months, plan_bounds(months, plan))]
     return {"date": _iso(ops[-1][0]), "values": {"windows": wins, "mbs_ok": bool(mbs)}, "lines": {}}
+
+
+# ---------- 지준 관리 매입(RMP) 공식 계획 ----------
+
+class _Tables(html.parser.HTMLParser):
+    """HTML의 표마다 행마다 칸의 글 — 태그를 벗기고(<br>은 한 칸), 문자 참조(&nbsp; 등)를 풀고, 공백·줄바꿈을 한 칸으로.
+    닫는 태그가 빠진 칸·행은 다음 칸·행·표 끝에서 닫는다. 표 안의 표는 따로 센다. script·style 안의 글은 보지 않는다."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.tables, self._st = [], []           # _st: 열린 표마다 {"rows", "row", "cell"}
+
+    def _close_cell(self, t):
+        if t["cell"] is not None and t["row"] is not None:
+            t["row"].append(" ".join("".join(t["cell"]).split()))
+        t["cell"] = None
+
+    def _close_row(self, t):
+        self._close_cell(t)
+        if t["row"] is not None:
+            t["rows"].append(t["row"])
+        t["row"] = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "table":
+            self._st.append({"rows": [], "row": None, "cell": None})
+        elif not self._st:
+            return
+        elif tag == "tr":
+            self._close_row(self._st[-1])
+            self._st[-1]["row"] = []
+        elif tag in ("td", "th"):
+            t = self._st[-1]
+            self._close_cell(t)
+            if t["row"] is None:
+                t["row"] = []
+            t["cell"] = []
+        elif tag == "br" and self._st[-1]["cell"] is not None:
+            self._st[-1]["cell"].append(" ")
+
+    def handle_endtag(self, tag):
+        if not self._st:
+            return
+        t = self._st[-1]
+        if tag in ("td", "th"):
+            self._close_cell(t)
+        elif tag == "tr":
+            self._close_row(t)
+        elif tag == "table":
+            self._close_row(t)
+            self.tables.append(self._st.pop()["rows"])
+
+    def handle_data(self, data):
+        if self._st and self._st[-1]["cell"] is not None:
+            self._st[-1]["cell"].append(data)
+
+    def close(self):
+        super().close()
+        while self._st:                          # 닫히지 않은 표도 센다
+            t = self._st.pop()
+            self._close_row(t)
+            self.tables.append(t["rows"])
+
+
+def _plan_table(text):
+    """머리가 Period · Planned Operation Amount인 첫 표의 행(머리 뒤) — 없으면 None."""
+    p = _Tables()
+    try:
+        p.feed(text)
+        p.close()
+    except Exception:                            # html.parser가 깨진 꼴에 뜻밖의 오류를 내도 표 없음으로
+        return None
+    for rows in p.tables:
+        if rows and len(rows[0]) >= 2 and rows[0][0].lower() == "period" \
+                and rows[0][1].lower().startswith("planned operation amount"):
+            return rows[1:]
+    return None
+
+
+def _period(text):
+    """기간 칸 → (시작, 끝) 또는 None — 'M/D/YYYY - M/D/YYYY'(날짜 하나면 그 하루), 없는 날·끝 < 시작·PLAN_SPAN_MAX일 넘음은 None."""
+    m = PLAN_PERIOD.fullmatch(text)
+    if not m:
+        return None
+    g = m.groups()
+    try:
+        a = D(int(g[2]), int(g[0]), int(g[1]))
+        b = D(int(g[5]), int(g[3]), int(g[4])) if g[3] else a
+    except ValueError:
+        return None
+    if b < a or (b - a).days > PLAN_SPAN_MAX:
+        return None
+    return a, b
+
+
+def _plan_sentence(text):
+    """계획 문장 → (재투자 글, RMP 글) 또는 (None, None)(형식 모름). 'no reserve management purchases'는 RMP '0'."""
+    m = PLAN_FORM.fullmatch(text)
+    if not m:
+        return None, None
+    reinvest, no, rmp = m.groups()
+    return reinvest, ("0" if no else rmp)
+
+
+def parse_plan(blob):
+    """공식 계획 페이지 원문 → {"periods": [(시작, 끝, 재투자 글|None, RMP 글|None)] 시작 차례, "dropped": 기간을 읽지 못한 행 수}.
+    재투자·RMP가 None이면 형식 모름. 같은 기간이 여러 번이면 하나로 — 읽은 숫자가 다르면 형식 모름. PLAN_MAX바이트보다 크면
+    받지 않은 것으로(fetch), 표가 없으면 table, 기간이 하나도 없으면 format."""
+    if isinstance(blob, bytes):
+        if len(blob) > PLAN_MAX:
+            raise ItemError("fetch")
+        text = blob.decode("utf-8", errors="replace")
+    elif isinstance(blob, str):
+        if len(blob.encode("utf-8", errors="replace")) > PLAN_MAX:
+            raise ItemError("fetch")
+        text = blob
+    else:
+        raise ItemError("format")
+    rows = _plan_table(text)
+    if rows is None:
+        raise ItemError("table")
+    seen, dropped = {}, 0
+    for r in rows:
+        per = _period(r[0]) if len(r) >= 2 else None
+        if per is None:
+            dropped += 1
+            continue
+        got = _plan_sentence(r[1])
+        if per in seen and seen[per] != got:
+            got = (None, None)                   # 같은 기간에 다른 숫자 — 어느 쪽인지 고르지 않는다
+        seen[per] = got
+    if not seen or len(seen) > PLAN_ROWS_MAX:
+        raise ItemError("format")
+    return {"periods": sorted((a, b, *v) for (a, b), v in seen.items()), "dropped": dropped}
+
+
+def plan_window(ym, periods, today):
+    """한 달의 공식 계획 — 시작일이 그 달인 기간 하나: form 'ok'(숫자를 읽음)·'unknown'(형식 모름 — 기간이 여럿이면 날짜도
+    비운다)·'missing'(페이지에 없음). now = 오늘이 그 기간 안."""
+    c = [p for p in periods if (p[0].year, p[0].month) == ym]
+    w = {"month": f"{ym[0]:04d}-{ym[1]:02d}", "from": None, "until": None, "form": "missing", "reinvest": None,
+         "rmp": None, "now": False}
+    if len(c) > 1:
+        w["form"] = "unknown"
+    elif c:
+        a, b, reinvest, rmp = c[0]
+        w.update({"from": _iso(a), "until": _iso(b), "form": "ok" if reinvest is not None else "unknown",
+                  "reinvest": reinvest, "rmp": rmp, "now": a <= today <= b})
+    return w
+
+
+def calc_plan(S, today, plan):
+    """대조 칸과 같은 네 달의 공식 계획. 칸 날짜 = 실은 창 가운데 마지막 시작일. 네 달 모두 페이지에 날짜가 없으면 format."""
+    wins = [plan_window(ym, plan["periods"], today) for ym in rmp_months(today)]
+    starts = [w["from"] for w in wins if w["from"]]
+    if not starts:
+        raise ItemError("format")
+    return {"date": max(starts), "values": {"windows": wins, "rows": len(plan["periods"]), "dropped": plan["dropped"]},
+            "lines": {}}
 
 
 # ---------- 칸 정의 (차례 = 화면 차례) ----------
@@ -612,15 +877,28 @@ def _dec_ok(v):
     return seen
 
 
-WIN_KEYS = ("month", "from", "until", "ended", "n", "bn", "ops", "small", "sales", "red_from", "red_to", "red_bn", "rmp_bn")
+WIN_KEYS = ("month", "from", "until", "bound", "ended", "n", "bn", "ops", "small", "sales", "red_from", "red_to", "red_bn",
+            "rmp_bn")
+
+
+def _bound_ok(w, ym):
+    """창 경계 — 규칙이면 그 달 규칙의 날짜 그대로, 공식 기간이면 시작일이 그 달(끝은 시작 뒤 PLAN_SPAN_MAX일 안)."""
+    if w["bound"] == "rule":
+        a, b, _ = rule_bounds(ym)
+        return (w["from"], w["until"]) == (_iso(a), _iso(b))
+    if w["bound"] == "plan":
+        a, b = _day(w["from"]), _day(w["until"])
+        return (a.year, a.month) == ym and (b - a).days <= PLAN_SPAN_MAX
+    return False
 
 
 def _windows_ok(ws):
-    """rmp 칸의 창 목록 — 1~4개, 달이 이어지고, 끝나지 않은 창은 마지막에만, 운영일은 창 안의 날짜 차례, 운영이 없으면 합 0,
-    끝나지 않은 창은 상환·추정이 비고, 추정은 보이는 소수 한 자리의 매입 − 상환과 같다(이어 싣는 값도 다시 맞춰 본다)."""
+    """rmp 칸의 창 목록 — 1~4개, 달이 이어지고, 창이 겹치지 않고 사이에 영업일이 비지 않고, 경계가 규칙·공식 기간의 꼴이고,
+    끝나지 않은 창은 마지막에만, 운영일은 창 안의 날짜 차례, 운영이 없으면 합 0, 끝나지 않은 창은 상환·대조가 비고, 대조값은
+    보이는 소수 한 자리의 매입 − 상환과 같다(이어 싣는 값도 다시 맞춰 본다)."""
     if not isinstance(ws, list) or not 1 <= len(ws) <= RMP_ENDED + 1:
         return False
-    prev = None
+    prev, last_until = None, None
     for i, w in enumerate(ws):
         if not isinstance(w, dict) or set(w) != set(WIN_KEYS):
             return False
@@ -632,6 +910,11 @@ def _windows_ok(ws):
             return False
         prev = ym
         days = [w[k] for k in ("from", "until", "red_from", "red_to")]
+        if not all(ai._is_day(x) for x in days) or w["bound"] not in ("plan", "rule") or not _bound_ok(w, ym):
+            return False
+        if last_until is not None and (not last_until < w["from"] or bday_gap(_day(last_until), _day(w["from"]))):
+            return False
+        last_until = w["until"]
         ints = [w[k] for k in ("n", "small", "sales")]
         if not (all(ai._is_day(x) for x in days) and all(type(x) is int and x >= 0 for x in ints)
                 and type(w["ended"]) is bool and ai._is_num(w["bn"]) and w["bn"] >= 0
@@ -649,6 +932,72 @@ def _windows_ok(ws):
     return True
 
 
+PLAN_KEYS = ("month", "from", "until", "form", "reinvest", "rmp", "now")
+_PLAN_AMT = re.compile(r"\d{1,4}(\.\d{1,2})?")
+
+
+def _plan_windows_ok(ws):
+    """rmp_plan 칸의 창 목록 — 1~4개, 달이 이어지고, 꼴(ok: 날짜·숫자 글 둘 · unknown: 숫자 없음, 날짜는 둘 다 있거나 둘 다 없음 ·
+    missing: 모두 없음), 시작일이 그 달, 창이 겹치지 않는다(이어 싣는 값도 다시 맞춰 본다)."""
+    if not isinstance(ws, list) or not 1 <= len(ws) <= RMP_ENDED + 1:
+        return False
+    prev, last_until = None, None
+    amt = lambda v: isinstance(v, str) and _PLAN_AMT.fullmatch(v) is not None
+    for w in ws:
+        if not isinstance(w, dict) or set(w) != set(PLAN_KEYS):
+            return False
+        m = w["month"]
+        if not (isinstance(m, str) and re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", m)):
+            return False
+        ym = (int(m[:4]), int(m[5:]))
+        if prev is not None and ym != _shift(prev, 1):
+            return False
+        prev = ym
+        if type(w["now"]) is not bool or w["form"] not in ("ok", "unknown", "missing"):
+            return False
+        dated = w["from"] is not None
+        if dated != (w["until"] is not None):
+            return False
+        if w["form"] == "ok" and not (dated and amt(w["reinvest"]) and amt(w["rmp"])):
+            return False
+        if w["form"] != "ok" and (w["reinvest"] is not None or w["rmp"] is not None):
+            return False
+        if w["form"] == "missing" and dated:
+            return False
+        if not dated:
+            if w["now"]:
+                return False
+            continue
+        if not (ai._is_day(w["from"]) and ai._is_day(w["until"]) and w["from"] <= w["until"]):
+            return False
+        a, b = _day(w["from"]), _day(w["until"])
+        if (a.year, a.month) != ym or (b - a).days > PLAN_SPAN_MAX:
+            return False
+        if last_until is not None and not last_until < w["from"]:
+            return False
+        last_until = w["until"]
+    return any(w["from"] for w in ws)
+
+
+def _upgrade_rmp(vals):
+    """bound 칸이 생기기 전(2026-11-03 첫 공개)의 rmp 창 — 그때 창은 모두 9영업일 규칙이었다. 규칙 날짜와 같은 창에만 'rule'을
+    붙여 이어 실을 수 있게 하고, 아니면 그대로 둔다(꼴 검사에서 걸린다)."""
+    try:
+        ws = vals["windows"]
+        if not isinstance(ws, list) or not all(isinstance(w, dict) and "bound" not in w for w in ws):
+            return vals
+        out = []
+        for w in ws:
+            ym = (int(w["month"][:4]), int(w["month"][5:]))
+            a, b, _ = rule_bounds(ym)
+            if (w.get("from"), w.get("until")) != (_iso(a), _iso(b)):
+                return vals
+            out.append({**w, "bound": "rule"})
+        return {**vals, "windows": out}
+    except (KeyError, TypeError, ValueError, IndexError):
+        return vals
+
+
 ITEMS = [
     {"key": "reserves", "title": "지준과 규칙 하한 (주 평균 · 지준/명목GDP)", "series": [RES_AVG, "GDP"],
      "calc": calc_reserves,
@@ -661,7 +1010,10 @@ ITEMS = [
      "lines": [_l("res", "주 평균 지준", "main", [RES_AVG]), _l("low", "규칙 하한 × 마지막 분기 GDP", "ref", [RES_AVG, "GDP"])]},
     {"key": "dec", "title": "지준 변화의 나눔 4주/13주 (수요일 수준)", "series": list(BS.values()), "calc": calc_dec,
      "values": _dec_values(), "check": _dec_ok},
-    {"key": "rmp", "title": "지준 관리 매입(RMP) 추정 (월 일정 창의 매입 − 그 달 MBS 상환)", "series": [MBS], "ext": OPS,
+    {"key": "rmp_plan", "title": "RMP 공식 계획 — 뉴욕 연은 월 일정 공지의 계획(재투자 + RMP)", "series": [], "ext": PLAN,
+     "calc": calc_plan, "values": {"windows": "plan_windows", "rows": "int", "dropped": "int"},
+     "check": lambda v: v["rows"] <= PLAN_ROWS_MAX and v["dropped"] <= 10 * PLAN_ROWS_MAX},
+    {"key": "rmp", "title": "운영 결과로 거꾸로 셈한 대조(매입 − 그 달 MBS 상환)", "series": [MBS], "ext": OPS,
      "calc": calc_rmp, "values": {"windows": "windows", "mbs_ok": "bool"}},
     {"key": "spread", "title": "SOFR − IORB (최근 5영업일)", "series": ["SOFR", "IORB"], "calc": calc_spread,
      "values": {"from": "day", "max_bp": "num", "max_date": "day", "max_tag": "tag", "pos": "int", "n": "int",
@@ -682,7 +1034,7 @@ BY_KEY = {it["key"]: it for it in ITEMS}
 TAGS = ("", "월말", "분기말", "15일")
 _KIND = dict(ai._KIND, tag=lambda v: isinstance(v, str) and v in TAGS, bool=lambda v: type(v) is bool,
              days=lambda v: isinstance(v, list) and len(v) <= 3 and all(ai._is_day(x) for x in v) and v == sorted(set(v)),
-             windows=_windows_ok)
+             windows=_windows_ok, plan_windows=_plan_windows_ok)
 
 
 # ---------- 문구 ----------
@@ -747,8 +1099,9 @@ def _win_short(w):
 
 
 def _win_long(w):
-    """창 하나의 덧붙이는 줄 — 창의 운영일 범위, 매입(운영 수·합·첫/마지막 운영일), 상환(WSHOMCB 두 수요일), 추정, 뺀 운영."""
-    head = f"{w['month']} 창(운영일 {w['from']}~{w['until']}): "
+    """창 하나의 덧붙이는 줄 — 창의 운영일 범위와 경계(공식 기간·9영업일 규칙), 매입(운영 수·합·첫/마지막 운영일), 상환(WSHOMCB
+    두 수요일), 대조값, 뺀 운영."""
+    head = f"{w['month']} 창(운영일 {w['from']}~{w['until']} · {BOUND_NAME[w['bound']]}): "
     if w["n"]:
         span = w["ops"][0] if w["ops"][0] == w["ops"][-1] else f"{w['ops'][0]}~{w['ops'][-1]}"
         buys = f"매입 {w['n']}번 {_bn1(w['bn'])}({span})"
@@ -761,10 +1114,24 @@ def _win_long(w):
         return head + _running(w) + " — 끝나기 전에는 상환과 견주지 않는다" + tail + "."
     red = f"{w['month']} MBS 상환"
     if w["red_bn"] is None:
-        return (head + f"{buys} − {red} — WSHOMCB {w['red_from']}·{w['red_to']} 두 수요일 관측이 다 있지 않아 상환·추정을 "
+        return (head + f"{buys} − {red} — WSHOMCB {w['red_from']}·{w['red_to']} 두 수요일 관측이 다 있지 않아 상환·대조를 "
                        "비웠다" + tail + ".")
     return (head + f"{buys} − {red} {_bn1(w['red_bn'])}(WSHOMCB {w['red_from']}~{w['red_to']} 사이 줄어든 몫) = "
             f"{_s(w['rmp_bn'], 1)}bn" + tail + ".")
+
+
+def _plan_amt(v, rmp=False):
+    return "없음" if rmp and float(v) == 0 else f"약 {v}bn"
+
+
+def _plan_short(w):
+    """공식 계획 창 하나 — '2026-10-15~2026-11-13(지금 창) 재투자 약 14.6bn · RMP 없음'."""
+    if w["from"] is None:
+        return f"{w['month']} 창 " + ("형식 모름 — 그 달에 시작하는 기간이 여럿" if w["form"] == "unknown" else "페이지에 없음")
+    head = f"{w['from']}~{w['until']}" + ("(지금 창)" if w["now"] else "")
+    if w["form"] != "ok":
+        return f"{head} 형식 모름"
+    return f"{head} 재투자 {_plan_amt(w['reinvest'])} · RMP {_plan_amt(w['rmp'], True)}"
 
 
 def texts(key, v, date):
@@ -806,9 +1173,16 @@ def texts(key, v, date):
         extra.append("13주 칸은 위 지준·재정 카드의 13주 나눔과 같은 규칙으로 낸 값이다 — 그 카드의 역레포는 익일물 + 해외 "
                      "공적 역레포, 그 카드의 '그 밖'은 연준 MBS + 현금 통화 + 이 카드의 '그 밖'이다.")
         return line, extra
+    if key == "rmp_plan":
+        line = " / ".join(_plan_short(w) for w in v["windows"])
+        extra = [PLAN_ABOUT, f"페이지 표의 기간 {v['rows']}개 가운데 이 카드의 네 달 창만 싣는다 — 시작일이 그 달인 기간 하나를 그 "
+                             "달 창으로 본다."]
+        if v["dropped"]:
+            extra.append(f"표의 행 가운데 기간 날짜를 읽지 못한 {v['dropped']}개는 뺐다.")
+        return line, extra + [PLAN_FORMS]
     if key == "rmp":
         ws = v["windows"]
-        line = "RMP 추정(월 일정 창의 매입 − 그 달 MBS 상환): " + " · ".join(_win_short(w) for w in ws)
+        line = "거꾸로 셈한 RMP(월 일정 창의 매입 − 그 달 MBS 상환): " + " · ".join(_win_short(w) for w in ws)
         extra = [_win_long(w) for w in ws]
         if not v["mbs_ok"]:
             extra.append(RMP_NO_MBS)
@@ -855,10 +1229,13 @@ def citation(sid, retrieved):
             f"{rp.FRED_URL.format(sid)}, {ai._MONTHS[d.month - 1]} {d.day}, {d.year}.")
 
 
-def ops_citation(retrieved):
-    """뉴욕 연은 국채 운영 결과의 인용(tp_fetch의 ACM과 같은 꼴 — 'retrieved from <주소>, <날짜>.')."""
+def ops_citation(retrieved, title=OPS_TITLE, url=OPS_URL):
+    """뉴욕 연은 국채 운영 결과·공식 계획 페이지의 인용(tp_fetch의 ACM과 같은 꼴 — 'retrieved from <주소>, <날짜>.')."""
     d = datetime.date.fromisoformat(retrieved)
-    return f"{_NYFED}, {OPS_TITLE}, retrieved from {OPS_URL}, {ai._MONTHS[d.month - 1]} {d.day}, {d.year}."
+    return f"{_NYFED}, {title}, retrieved from {url}, {ai._MONTHS[d.month - 1]} {d.day}, {d.year}."
+
+
+EXT = {OPS: (OPS_URL, OPS_TITLE), PLAN: (PLAN_URL, PLAN_TITLE)}
 
 
 def sources_of(spec, retrieved=None):
@@ -869,9 +1246,10 @@ def sources_of(spec, retrieved=None):
             s["citation"] = citation(sid, retrieved)
         out.append(s)
     if spec.get("ext"):
-        s = {"series": OPS, "name": _NYFED, "url": OPS_URL, "licence": OPS_LICENCE}
+        url, title = EXT[spec["ext"]]
+        s = {"series": spec["ext"], "name": _NYFED, "url": url, "licence": OPS_LICENCE}
         if retrieved:
-            s["citation"] = ops_citation(retrieved)
+            s["citation"] = ops_citation(retrieved, title, url)
         out.append(s)
     return out
 
@@ -889,6 +1267,8 @@ def notices(key, retrieved):
         return [WEEK_NOTICE]
     if key == "rmp":
         return [RMP_DERIVED, RMP_DERIVED_EN, rp.nyfed_attribution(year), rp.NOT_AFFILIATED]
+    if key == "rmp_plan":
+        return [PLAN_COPIED, PLAN_COPIED_EN, rp.nyfed_attribution(year), rp.NOT_AFFILIATED]
     return [COMPUTED_NOTICE]
 
 
@@ -927,6 +1307,8 @@ def core_of(item, key):
     spec = BY_KEY[key]
     try:
         vals = item["values"]
+        if key == "rmp":
+            vals = _upgrade_rmp(vals)
         lines = {ln["key"]: ln["points"] for ln in item["chart"]["lines"]} if spec.get("lines") else {}
         ok = ai._is_day(item["date"]) and ai._is_day(item["retrieved"]) and values_ok(spec, vals, lines)
         if ok:
@@ -1026,21 +1408,26 @@ def load_all(work, offline=False, fred_load=None, clock=time.monotonic, budget=B
     return data, errors
 
 
-def compute(data, errors, today, now=None, ops=None):
+def compute(data, errors, today, now=None, ops=None, plan=None):
     """칸마다 계산 — now(실행 시각, UTC)는 '다음 FOMC'를 고르는 주 칸만 쓴다(없으면 today 0시). ops는 뉴욕 연은 국채 운영
-    결과(load_ops — 목록 또는 ItemError)로 rmp 칸만 쓴다. 넘기지 않으면(None) rmp 칸은 셈하지 않는다(결과에 없다). rmp는
-    WSHOMCB가 없어도 매입은 싣는다(상환·추정만 빈다)."""
+    결과(load_ops — 목록 또는 ItemError)로 rmp 칸만, plan은 공식 계획(load_plan — dict 또는 ItemError)으로 rmp_plan 칸과 rmp
+    칸의 창 경계에 쓴다. 넘기지 않은(None) 쪽의 칸은 셈하지 않는다(결과에 없다 — rmp는 ops만 있으면 창을 규칙으로 셈한다).
+    rmp는 WSHOMCB가 없어도 매입은 싣는다(상환·대조만 빈다)."""
     S = {sid: [(d, v) for d, v in s if d <= today] for sid, s in data.items()}
     out = {}
     for spec in ITEMS:
         if spec.get("ext"):
-            if ops is None:
+            src = ops if spec["ext"] == OPS else plan
+            if src is None:
                 continue
-            if isinstance(ops, ItemError):
-                out[spec["key"]] = ops
+            if isinstance(src, ItemError):
+                out[spec["key"]] = src
                 continue
             try:
-                out[spec["key"]] = spec["calc"](S, today, ops)
+                if spec["ext"] == OPS:
+                    out[spec["key"]] = spec["calc"](S, today, src, plan if isinstance(plan, dict) else None)
+                else:
+                    out[spec["key"]] = spec["calc"](S, today, src)
             except ItemError as e:
                 out[spec["key"]] = e
             except Exception as e:              # 계산 쪽 뜻밖의 오류도 그 칸만 실패로
@@ -1090,6 +1477,34 @@ def load_ops(work, today, offline=False, clock=time.monotonic, opener=None, ops_
     return ops
 
 
+def load_plan(work, offline=False, clock=time.monotonic, opener=None, plan_load=None, budget=OPS_BUDGET):
+    """뉴욕 연은 공식 계획 페이지 → parse_plan의 dict 또는 ItemError. 온라인이면 요청 1번(PLAN_URL — credit_fetch.fetch_bytes:
+    이 프로젝트를 밝히는 UA·https·같은 호스트, 다른 곳으로 넘겨지면 받지 않음, 요청 하나엔 min(10초, 남은 예산)), 표를 읽으면
+    원문을 <work>/fedbs/tsy_plan.html에 둔다. 받지 못하면 캐시로 대신하지 않는다('fetch'). --offline이면 캐시만.
+    plan_load(주소, 마감)는 테스트가 바꿔 끼운다."""
+    path = os.path.join(work, CACHE, PLAN_CACHE)
+    try:
+        if offline:
+            with open(path, "rb") as f:
+                blob = f.read(PLAN_MAX + 1)
+        else:
+            deadline = clock() + budget
+            blob = plan_load(PLAN_URL, deadline) if plan_load else cf.fetch_bytes(PLAN_URL, PLAN_HOST, deadline, clock, opener)
+    except Exception:
+        return ItemError("fetch")
+    try:
+        plan = parse_plan(blob)
+    except ItemError as e:
+        return e
+    if not offline:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            ai._atomic_write(path, blob.decode("utf-8", errors="replace") if isinstance(blob, bytes) else blob)
+        except OSError:
+            pass
+    return plan
+
+
 # ---------- 쓰기 ----------
 
 def differs(out, data):
@@ -1107,7 +1522,7 @@ def write(out, data):
     ai._atomic_write(os.path.join(out, FILE), json.dumps(data, ensure_ascii=False, separators=(",", ":")))
 
 
-def main(argv=None, fred_load=None, now=None, clock=time.monotonic, opener=None, ops_load=None):
+def main(argv=None, fred_load=None, now=None, clock=time.monotonic, opener=None, ops_load=None, plan_load=None):
     ap = argparse.ArgumentParser(description="FRED 공개 통계 → 연준 재무상태표 참고 자료(<out>/fedbs.json)")
     ap.add_argument("--out", default=DEFAULT_OUT, help="사이트 데이터 폴더 (기본: 저장소의 data/)")
     ap.add_argument("--work", default=DEFAULT_WORK, help="작업 폴더 — 원문 캐시는 <work>/fedbs/ (기본: 저장소의 .work/)")
@@ -1116,8 +1531,10 @@ def main(argv=None, fred_load=None, now=None, clock=time.monotonic, opener=None,
     out, work = os.path.abspath(a.out), os.path.abspath(a.work)
     now = now or datetime.datetime.now(datetime.timezone.utc)
     data, errors = load_all(work, a.offline, fred_load, clock, opener=opener)
+    t0 = clock()                               # 뉴욕 연은 두 요청은 OPS_BUDGET초를 함께 쓴다
     ops = load_ops(work, now.date(), a.offline, clock, opener=opener, ops_load=ops_load)
-    data = build(compute(data, errors, now.date(), now, ops=ops), previous(out), now)
+    plan = load_plan(work, a.offline, clock, opener=opener, plan_load=plan_load, budget=OPS_BUDGET - (clock() - t0))
+    data = build(compute(data, errors, now.date(), now, ops=ops, plan=plan), previous(out), now)
     for key, it in data["items"].items():      # Actions 로그 — 날짜와 정해 둔 사유만(값은 찍지 않는다)
         if it["ok"]:
             print(f"[fedbs_fetch] {key} {it['date']} 기준")

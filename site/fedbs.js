@@ -7,27 +7,33 @@
    그래프(최근 52주 지준과 규칙 하한 × 마지막 분기 GDP)는 charts.js의 MacroCharts.lineChart로 — 없거나 깨지면 그래프만 뺀다.
    인용이 필요한 자료(licence 'citation-required' — 뉴욕 연은 SOFR · 상시 레포 · 익일물 역레포)는 FRED 권장 인용을 글자로 싣는다.
    카드 머리 안내는 ABOUT 하나(합니다체)다 — 자료 파일의 notice(한다체, 같은 뜻)는 겹쳐 싣지 않는다.
-   지준 관리 매입(RMP) 추정 줄(rmp — 2026-11-03)은 이 카드에만 있다: 뉴욕 연은 국채 운영 결과를 월 일정 창마다 더해 그 달 MBS
-   상환을 뺀 추정이고, 그 칸이 없던 때의 자료 파일이면 줄을 두지 않는다(OPTIONAL). 그 출처는 FRED가 아니라 뉴욕 연은에서 직접 받은
-   것이라 링크 없이 글자로 싣고 권장 인용(licence 'nyfed-terms')도 글자로 싣는다.
+   지준 관리 매입(RMP) 두 줄은 이 카드에만 있다(2026-11-03): 공식 계획 줄(rmp_plan — 뉴욕 연은 'Treasury Securities
+   Operational Details' 페이지의 월 일정 창 계획 문장에서 정해 둔 꼴만 옮긴 재투자·RMP 금액)과 그 아래 대조 줄(rmp — 뉴욕 연은
+   국채 운영 결과를 월 일정 창마다 더해 그 달 MBS 상환을 뺀 값, 공식 수치가 아님). 그 칸이 없던 때의 자료 파일이면 줄을 두지
+   않는다(OPTIONAL). 둘 다 FRED가 아니라 뉴욕 연은에서 직접 받은 것이라 링크 없이 이름을 글자로 싣고 권장 인용(licence
+   'nyfed-terms')도 글자로 싣는다.
    '연준 대차대조표 정책 — 1차 출처'(POLICY)는 접힌 읽는 법 밖에 보이는 짧은 칸이다 — 운영자가 연준·뉴욕 연은 원문을 확인해
    적은 고정 글(기준일 POLICY_ASOF, 자동 갱신 아님, 사람이 고친다). 짧은 영어 인용은 원문 그대로, 주소는 글자로만. */
 "use strict";
 window.FedBsCard = (() => {
   // 카드의 칸 차례 — 자료 파일의 order와 같다(scripts/test_fedbs_fetch.py가 견준다)
-  const CARD = ["reserves", "dec", "rmp", "spread", "srf", "rrp", "week"];
+  const CARD = ["reserves", "dec", "rmp_plan", "rmp", "spread", "srf", "rrp", "week"];
   // 그 칸이 없던 때의 자료 파일이면 줄을 두지 않는 칸(나머지는 칸이 없으면 '자료 없음')
-  const OPTIONAL = ["rmp"];
-  // 뉴욕 연은 국채 운영 결과 — 자료 파일 sources[].series의 이름(scripts/fedbs_fetch.py의 OPS와 같다 — 테스트가 견준다)
+  const OPTIONAL = ["rmp_plan", "rmp"];
+  // 뉴욕 연은에서 직접 받는 두 출처 — 자료 파일 sources[].series의 이름(scripts/fedbs_fetch.py의 OPS·PLAN과 같다 — 테스트가 견준다)
   const OPS = "TSYOPS";
-  const OPS_LABEL = "뉴욕 연은 국채 운영 결과(Markets API, 직접)";
+  const PLAN = "TSYPLAN";
+  const DIRECT = { [PLAN]: "뉴욕 연은 Treasury Securities Operational Details(월 일정 계획, 직접)",
+    [OPS]: "뉴욕 연은 국채 운영 결과(Markets API, 직접)" };
   // 자료 파일의 실패 사유 — 이 목록의 글만 싣는다(scripts/fedbs_fetch.py의 REASONS와 같다 — 테스트가 견준다)
-  const REASONS = ["수신 실패", "수신 실패 · 묵은 캐시는 싣지 않음", "계산할 자료가 모자람", "받은 자료가 직전 자료보다 오래됨"];
+  const REASONS = ["수신 실패", "수신 실패 · 묵은 캐시는 싣지 않음", "계산할 자료가 모자람", "받은 자료가 직전 자료보다 오래됨",
+    "공식 페이지에서 계획 표를 찾지 못함"];
   const LABEL = "참고 — 예측 아님";
   // 카드 머리 안내 — fedbs_fetch.NOTICE의 뜻을 모두 담는다(테스트가 견준다). 자료 파일의 notice는 따로 싣지 않는다
   const ABOUT = "연준 H.4.1 주간 대차대조표와 단기자금 시장의 공개 통계와 그 산술입니다. 위 규칙 카드 '지준과 통화승수'의 지준/GDP와 " +
-    "지준·재정 카드의 13주 나눔을 주간으로 읽는 재료이고, 규칙 수에 들지 않습니다. 지준 관리 매입(RMP) 추정 줄은 뉴욕 연은 " +
-    "국채 매입 운영 결과로 거꾸로 셈한 것이고 공식 수치가 아닙니다. 금리나 자금 여건을 예측하지 않습니다.";
+    "지준·재정 카드의 13주 나눔을 주간으로 읽는 재료이고, 규칙 수에 들지 않습니다. 지준 관리 매입(RMP)은 뉴욕 연은 월 일정 공지의 " +
+    "계획 금액을 싣고, 국채 매입 운영 결과로 거꾸로 셈한 대조 줄을 함께 둡니다. 계획은 계획이고 대조 줄은 공식 수치가 아닙니다. " +
+    "금리나 자금 여건을 예측하지 않습니다.";
   const GUIDE = [
     ["거리는 4주 평균과 함께", "규칙 하한까지의 거리는 한 주의 숫자보다 4주 평균과 함께 읽습니다. 최신 주가 하한 아래여도 4주 평균이 " +
       "위면 한 주의 재무부 현금 흔들림일 수 있습니다. 운영자가 2026-11-03에 최근 52주(주 평균 지준)로 재 본 바로는 주간 지준 변화의 " +
@@ -41,7 +47,7 @@ window.FedBsCard = (() => {
     ["연준 단기채와 MBS는 짝으로", "연준 단기채 칸은 지준 관리 매입(RMP)만이 아닙니다. 보유 축소(QT)가 끝난 뒤(위 '연준 " +
       "대차대조표 정책' 칸) MBS 상환분은 단기채로 재투자되므로, 단기채 증가는 RMP와 재투자의 합이고 MBS 칸의 감소와 거의 " +
       "상쇄됩니다. 나눔 칸에서는 RMP를 단기채 + MBS의 순증으로 대략 봅니다(상환 기록일·재투자 시차로 4주 창에서는 흔들립니다). " +
-      "월 일정 창으로 셈한 RMP 추정은 위 'RMP 추정' 줄입니다."],
+      "월 일정 창의 RMP는 위 '공식 계획' 줄(뉴욕 연은 공지)과 그 아래 대조 줄(운영 결과로 거꾸로 셈한 값)입니다."],
     ["창의 출발일", "4주·13주 창의 출발 수요일에 월말·분기말·15일 표시가 있으면 그날 하루 튄 역레포·재무부 현금의 되돌림이 그 칸에 " +
       "섞여 있습니다. 창은 옮기지 않고 표시만 합니다. 1주 변화는 15일·월말 하루에 크게 흔들려 싣지 않습니다."],
     ["FOMC 뒤 첫 H.4.1", "FOMC 결정일(수)이 그 주의 마지막 날이라 그 주의 지준·나눔·주 평균은 결정이 시행되기 전 값입니다. IORB·" +
@@ -55,8 +61,9 @@ window.FedBsCard = (() => {
       "단기자금이 빠듯해지는 경계라는 근거는 약합니다."],
     ["정책 사실", "보유 축소 종료·지준 관리 매입 시작·태스크포스 같은 정책 사실은 위 '연준 대차대조표 정책 — 1차 출처' 칸에 " +
       "원문 인용·날짜·출처 주소와 함께 있습니다."],
-    ["RMP 추정 줄", "위 'RMP 추정' 줄은 실행마다 뉴욕 연은 운영 결과와 H.4.1 MBS 보유로 다시 셉니다 — 창·매입·상환의 셈과 한계는 " +
-      "그 줄 아래에 있습니다. 공식 수치가 아닙니다."]
+    ["RMP 계획과 대조", "위 '공식 계획' 줄은 뉴욕 연은이 월 일정 창마다 공지한 재투자·RMP 계획 금액이고, 계획일 뿐 실제 매입은 " +
+      "운영 결과입니다. 그 아래 대조 줄은 실행마다 뉴욕 연은 운영 결과와 H.4.1 MBS 보유로 다시 셉니다 — 공식 기간이 있는 달은 그 " +
+      "기간을 창으로 씁니다. 창·매입·상환의 셈과 한계는 그 줄 아래에 있습니다. 대조 줄은 공식 수치가 아닙니다."]
   ];
   // 연준 대차대조표 정책 — 1차 출처(접힌 읽는 법 밖에 보이는 칸). 운영자가 2026-11-03 원문을 받아 확인한 고정 글 — 자동 갱신 아님.
   // 영어 인용은 원문 그대로(scripts/test_fedbs_fetch.py가 견준다), 주소는 글자로만(링크는 FRED·GitHub에만 건다)
@@ -131,23 +138,23 @@ window.FedBsCard = (() => {
     return el("p", { class: "muted fedbs-head" }, `기준 주(수요일) ${it.date}` + (got ? ` · 받은 날 ${got}` : ""));
   }
   // 출처 — 칸마다의 FRED 시리즈 링크(link()는 FRED 주소만 링크로 건다)와 권장 인용은 자료 파일(sources[].citation)에.
-  // 뉴욕 연은 국채 운영 결과(OPS)는 FRED가 아니라 직접 받은 것이라 링크 없이 이름만 글자로
+  // 뉴욕 연은에서 직접 받은 것(DIRECT — 공식 계획 페이지·국채 운영 결과)은 FRED가 아니라 링크 없이 이름만 글자로
   function sourceLine(items) {
-    const seen = new Map();
-    let ops = false;
+    const seen = new Map(), direct = new Set();
     for (const k of CARD) {
       const it = items[k];
       if (!usable(it, k)) continue;
       for (const s of Array.isArray(it.sources) ? it.sources : []) {
         if (!isObj(s) || typeof s.series !== "string" || !/^[A-Z0-9]+$/.test(s.series)) continue;
-        if (s.series === OPS) ops = true;
+        if (Object.prototype.hasOwnProperty.call(DIRECT, s.series)) direct.add(s.series);
         else if (!seen.has(s.series)) seen.set(s.series, s.url);
       }
     }
-    if (!seen.size && !ops) return null;
+    if (!seen.size && !direct.size) return null;
     const parts = [...seen].flatMap(([sid, url], i) => (i ? [" · ", link(sid, url)] : [link(sid, url)]));
+    const names = [PLAN, OPS].filter(x => direct.has(x)).map(x => DIRECT[x]).join(" · ");
     return el("p", { class: "source-link" }, "자료(연준 이사회 H.4.1 · 뉴욕 연은 · BEA — FRED 경유): ", ...parts,
-      ops ? (seen.size ? " · " : "") + OPS_LABEL : null);
+      names ? (seen.size ? " · " : "") + names : null);
   }
   // 연준 대차대조표 정책 — 보이는 짧은 칸(고정 글)
   function policy() {
@@ -199,5 +206,5 @@ window.FedBsCard = (() => {
     return true;
   }
 
-  return Object.freeze({ render, CARD, REASONS, LABEL, ABOUT, OPS, POLICY_HEAD, POLICY_ASOF });
+  return Object.freeze({ render, CARD, REASONS, LABEL, ABOUT, OPS, PLAN, POLICY_HEAD, POLICY_ASOF });
 })();

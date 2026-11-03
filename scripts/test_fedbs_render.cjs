@@ -29,6 +29,7 @@ function load(opts={}){
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../site/fedbs.js'),'utf8'),sc);
  return {api:sc.window.FedBsCard,ids,calls};
 }
+const PLAN_URL='https://www.newyorkfed.org/markets/domestic-market-operations/monetary-policy-implementation/treasury-securities/treasury-securities-operational-details';
 const src=(sid,lic='public-domain')=>({series:sid,name:'X',url:'https://fred.stlouisfed.org/series/'+sid,licence:lic,
  citation:`X, Title [${sid}], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/${sid}, November 3, 2026.`});
 function item(key,extra={}){
@@ -36,7 +37,7 @@ function item(key,extra={}){
   values:{},retrieved:'2026-10-30',line:key+' 숫자 줄 -12bn',extra:[key+' 덧붙임'],notices:['계산값 고지'],sources:[src('GDP')]},extra);
 }
 function data(){
- const keys=['reserves','dec','rmp','spread','srf','rrp','week'];
+ const keys=['reserves','dec','rmp_plan','rmp','spread','srf','rrp','week'];
  const items=Object.fromEntries(keys.map(k=>[k,item(k)]));
  items.reserves.sources=['WRESBAL','GDP'].map(s=>src(s));
  items.reserves.chart={key:'fedbs_reserves',title:'지준 차트',unit:'bn',zero:false,threshold:null,note:'n',source_note:'s',notices:[],
@@ -49,6 +50,10 @@ function data(){
  items.week.date='2026-10-28';items.week.retrieved='2026-10-31';items.week.sources=[src('WRESBAL')];
  items.rmp.date='2026-10-29';items.rmp.notices=['계산값 고지','뉴욕 연은 기본 출처'];
  items.rmp.extra=['2026-07 창 덧붙임','셈 줄','한계 줄'];
+ items.rmp_plan.date='2026-10-15';items.rmp_plan.notices=['옮긴 값 고지','뉴욕 연은 기본 출처'];
+ items.rmp_plan.line='2026-10-15~2026-11-13(지금 창) 재투자 약 9.0bn · RMP 없음';items.rmp_plan.extra=['계획 덧붙임','꼴 줄'];
+ items.rmp_plan.sources=[{series:'TSYPLAN',name:'Federal Reserve Bank of New York',url:PLAN_URL,licence:'nyfed-terms',
+  citation:'Federal Reserve Bank of New York, Treasury Securities Operational Details, retrieved from '+PLAN_URL+', November 3, 2026.'}];
  items.rmp.sources=[src('WSHOMCB'),{series:'TSYOPS',name:'Federal Reserve Bank of New York',
   url:'https://markets.newyorkfed.org/api/tsy/all/results/summary/search.json',licence:'nyfed-terms',
   citation:'Federal Reserve Bank of New York, Treasury Securities Operations, results summary, retrieved from https://markets.newyorkfed.org/api/tsy/all/results/summary/search.json, November 3, 2026.'}];
@@ -61,7 +66,7 @@ test('card draws every row in order with the fixed label, head and no stray word
  const card=ids['fedbs-slot'].kids[0], text=card.textContent;
  const rows=cls(card,'fedbs-row').map(r=>cls(r,'oil-name')[0].textContent.split(' 이름')[0]);
  assert.deepEqual(rows,[...api.CARD]);
- assert.deepEqual([...api.CARD],['reserves','dec','rmp','spread','srf','rrp','week']);
+ assert.deepEqual([...api.CARD],['reserves','dec','rmp_plan','rmp','spread','srf','rrp','week']);
  assert.equal(api.LABEL,'참고 — 예측 아님');
  assert.equal(cls(card,'reference-label')[0].textContent,'참고 — 예측 아님');
  assert.ok(text.startsWith('연준 재무상태표(H.4.1 주간)참고 — 예측 아님'),text.slice(0,40));
@@ -70,12 +75,12 @@ test('card draws every row in order with the fixed label, head and no stray word
  assert.ok(!text.includes('참고 자료다.'));                                                     // 자료 파일의 notice(한다체)는 겹쳐 싣지 않는다
  for(const t of api.ABOUT.split(/(?<=\.)\s+/).filter(Boolean))assert.ok(/니다\.$/.test(t),t);
  assert.ok(!/undefined|NaN|null/.test(text));
- assert.deepEqual(cls(card,'notices')[0].kids.map(k=>k.textContent),['계산값 고지','뉴욕 연은 기본 출처','SOFR 고지']);   // 겹치는 고지는 한 번
- // 링크는 FRED 시리즈만 — 뉴욕 연은 국채 운영 결과는 링크 없이 이름 글자로
+ assert.deepEqual(cls(card,'notices')[0].kids.map(k=>k.textContent),['계산값 고지','옮긴 값 고지','뉴욕 연은 기본 출처','SOFR 고지']);   // 겹치는 고지는 한 번
+ // 링크는 FRED 시리즈만 — 뉴욕 연은에서 직접 받은 둘(공식 계획 페이지·국채 운영 결과)은 링크 없이 이름 글자로
  assert.deepEqual(walk(card,n=>n.tag==='a').map(a=>a.textContent),['WRESBAL','GDP','WSHOMCB','SOFR','IORB','RPONTTLD','RRPONTSYD']);
  const srcLine=cls(card,'source-link')[0].textContent;
- assert.ok(srcLine.endsWith(' · 뉴욕 연은 국채 운영 결과(Markets API, 직접)'),srcLine);
- assert.ok(!srcLine.includes('TSYOPS'));
+ assert.ok(srcLine.endsWith(' · 뉴욕 연은 Treasury Securities Operational Details(월 일정 계획, 직접) · 뉴욕 연은 국채 운영 결과(Markets API, 직접)'),srcLine);
+ assert.ok(!srcLine.includes('TSYOPS')&&!srcLine.includes('TSYPLAN')&&!srcLine.includes('https://'));
  assert.ok(cls(card,'oil-card').length===1&&cls(card,'fedbs-card').length===1);
 });
 
@@ -86,9 +91,12 @@ test('citation-required sources carry their FRED citation as text, once per seri
  api.render(d);
  const cites=cls(ids['fedbs-slot'],'cite-lines')[0].kids.map(k=>k.textContent);
  assert.deepEqual(cites.filter(c=>/\[\w+\]/.test(c)).map(c=>c.match(/\[(\w+)\]/)[1]),['SOFR','RPONTTLD','RRPONTSYD']);   // 공공 자료(IORB·GDP·WSHOMCB)는 인용 줄 없음
- assert.deepEqual(cites.filter(c=>!/\[\w+\]/.test(c)),['권장 인용: Federal Reserve Bank of New York, Treasury Securities Operations, '+
+ assert.deepEqual(cites.filter(c=>!/\[\w+\]/.test(c)),['권장 인용: Federal Reserve Bank of New York, Treasury Securities Operational Details, '+
+  'retrieved from '+PLAN_URL+', November 3, 2026.',
+  '권장 인용: Federal Reserve Bank of New York, Treasury Securities Operations, '+
   'results summary, retrieved from https://markets.newyorkfed.org/api/tsy/all/results/summary/search.json, November 3, 2026.']);   // 뉴욕 연은 이용약관 자료도 글자로
- assert.equal(cites.length,4);
+ assert.equal(cites.length,5);
+ assert.equal(walk(cls(ids['fedbs-slot'],'cite-lines')[0],n=>n.tag==='a').length,0);                 // 인용 속 주소는 글자로
 });
 
 test('the reserves row carries the chart with the bn format; no charts tool means no figure',()=>{
@@ -123,10 +131,12 @@ test('the guide carries the definitions, policy facts and the measurement record
  assert.ok(g.textContent.startsWith('읽는 법 — 정의·측정 기록'));
  const heads=g.kids.filter(k=>k.tag==='p').map(p=>p.kids[0].textContent);
  assert.deepEqual(heads,['거리는 4주 평균과 함께','분모 바뀜','재무부 현금(TGA)','연준 단기채와 MBS는 짝으로','창의 출발일',
-  'FOMC 뒤 첫 H.4.1','단기자금','정책 사실','RMP 추정 줄']);
+  'FOMC 뒤 첫 H.4.1','단기자금','정책 사실','RMP 계획과 대조']);
  const ps=g.kids.filter(k=>k.tag==='p');
  assert.ok(ps[7].textContent.includes("'연준 대차대조표 정책 — 1차 출처' 칸"),ps[7].textContent);   // 정책 사실은 가리키기만
- assert.ok(ps[8].textContent.includes('공식 수치가 아닙니다'),ps[8].textContent);
+ assert.ok(ps[8].textContent.includes('대조 줄은 공식 수치가 아닙니다'),ps[8].textContent);
+ assert.ok(ps[8].textContent.includes('계획일 뿐 실제 매입은 운영 결과'),ps[8].textContent);
+ assert.ok(ps[3].textContent.includes("'공식 계획' 줄"),ps[3].textContent);
  assert.ok(!g.textContent.includes('conclude the reduction'));                                 // 같은 사실을 두 번 싣지 않는다
  const fomc=g.kids.filter(k=>k.tag==='p')[5].textContent;
  assert.ok(fomc.includes('시행되기 전 값')&&fomc.includes('다음 주 숫자'),fomc);
@@ -146,9 +156,11 @@ test('each failed row shows a fixed reason only, never remote text',()=>{
  d.items.srf={key:'srf',ok:false,stale:false,error:'받은 자료가 직전 자료보다 오래됨',name:'SRF 이름'};
  d.items.rrp=item('rrp',{notices:[]});                                                         // 고지가 없으면 숫자를 싣지 않는다
  d.items.rmp={key:'rmp',ok:false,stale:false,error:'계산할 자료가 모자람',name:'RMP 이름'};
+ d.items.rmp_plan={key:'rmp_plan',ok:false,stale:false,error:'공식 페이지에서 계획 표를 찾지 못함',name:'계획 이름'};
  assert.equal(api.render(d),true);
  const text=ids['fedbs-slot'].textContent;
  assert.ok(text.includes('RMP 이름 — 미수신(계산할 자료가 모자람)'));
+ assert.ok(text.includes('계획 이름 — 미수신(공식 페이지에서 계획 표를 찾지 못함)'));
  assert.ok(text.includes('나눔 이름 — 미수신(수신 실패 · 묵은 캐시는 싣지 않음)'));
  assert.ok(text.includes('SOFR 이름 — 자료 없음'));
  assert.ok(text.includes('SRF 이름 — 미수신(받은 자료가 직전 자료보다 오래됨)'));
@@ -189,7 +201,7 @@ test('rows with a wrong key, bad date or empty line are not drawn as numbers',()
  assert.ok(text.includes('dec 이름 — 자료 없음'));
  assert.ok(text.includes('srf 이름 — 자료 없음'));
  assert.ok(!text.includes('2026-13-45'));
- const rrp=cls(ids['fedbs-slot'],'fedbs-row')[5];
+ const rrp=cls(ids['fedbs-slot'],'fedbs-row')[6];
  assert.deepEqual(cls(rrp,'muted').map(n=>n.textContent),['남는 줄']);                            // 글이 아닌 줄은 뺀다
  assert.ok(!/null|undefined/.test(text));
 });
@@ -233,26 +245,41 @@ test('no card when the page has no slot',()=>{
  assert.equal(t.api.render(data()),false);
 });
 
-test('the RMP row sits after the decomposition and shows its window lines; old files without it draw no row',()=>{
+test('the RMP rows sit after the decomposition (plan, then cross-check) and show their lines; old files without them draw no row',()=>{
  const {api,ids}=load();
  const d=data();
  api.render(d);
  const rows=cls(ids['fedbs-slot'],'fedbs-row');
- assert.equal(rows.length,7);
- const r=rows[2];
+ assert.equal(rows.length,8);
+ const p=rows[2];
+ assert.equal(cls(p,'oil-name')[0].textContent,'rmp_plan 이름 2026-10-15');                    // 공식 계획이 위
+ assert.equal(cls(p,'oil-num')[0].textContent,'2026-10-15~2026-11-13(지금 창) 재투자 약 9.0bn · RMP 없음');
+ assert.deepEqual(cls(p,'muted').map(n=>n.textContent),['계획 덧붙임','꼴 줄']);
+ const r=rows[3];
  assert.equal(cls(r,'oil-name')[0].textContent,'rmp 이름 2026-10-29');
  assert.equal(cls(r,'oil-num')[0].textContent,'rmp 숫자 줄 -12bn');
  assert.deepEqual(cls(r,'muted').map(n=>n.textContent),['2026-07 창 덧붙임','셈 줄','한계 줄']);
  assert.equal(walk(r,n=>n.tag==='figure').length,0);                                         // 그래프 없음
- const old=data();delete old.items.rmp;                                                       // 그 칸이 없던 때의 자료 파일
+ const older=data();delete older.items.rmp_plan;                                              // 계획 칸이 없던 때(2026-11-03 첫 공개)
+ api.render(older);
+ assert.equal(cls(ids['fedbs-slot'],'fedbs-row').length,7);
+ assert.ok(!ids['fedbs-slot'].textContent.includes('rmp_plan')&&!ids['fedbs-slot'].textContent.includes('Operational Details'));
+ assert.ok(ids['fedbs-slot'].textContent.includes('rmp 숫자 줄'));
+ const old=data();delete old.items.rmp;delete old.items.rmp_plan;                               // 그 칸이 없던 때의 자료 파일
  api.render(old);
  const t=ids['fedbs-slot'].textContent;
  assert.equal(cls(ids['fedbs-slot'],'fedbs-row').length,6);
  assert.ok(!t.includes('rmp — 자료 없음')&&!t.includes('TSYOPS'));
  assert.ok(!t.includes('뉴욕 연은 국채 운영 결과(Markets API, 직접)'));                       // 그린 칸의 출처만
- const failed=data();failed.items.rmp={key:'rmp',ok:false,stale:false,error:'수신 실패',name:'지준 관리 매입(RMP) 추정'};
+ const failed=data();failed.items.rmp={key:'rmp',ok:false,stale:false,error:'수신 실패',name:'운영 결과로 거꾸로 셈한 대조'};
  api.render(failed);
- assert.ok(ids['fedbs-slot'].textContent.includes('지준 관리 매입(RMP) 추정 — 미수신(수신 실패)'));
+ assert.ok(ids['fedbs-slot'].textContent.includes('운영 결과로 거꾸로 셈한 대조 — 미수신(수신 실패)'));
+ assert.ok(cls(ids['fedbs-slot'],'source-link')[0].textContent.endsWith('Operational Details(월 일정 계획, 직접)'));   // 그린 칸(계획)의 출처만
+ const stale=data();Object.assign(stale.items.rmp_plan,{ok:false,stale:true,error:'수신 실패',failed_since:'2026-11-04'});
+ api.render(stale);                                                                            // 받지 못한 날 — 직전 계획 + 받지 못함
+ const pr=cls(ids['fedbs-slot'],'fedbs-row')[2];
+ assert.ok(pr.textContent.includes('재투자 약 9.0bn'));
+ assert.equal(cls(pr,'oil-late')[0].textContent,'이번 갱신의 값을 싣지 못해 직전에 받은 값을 싣습니다 (2026-11-04부터)');
  const bad=data();bad.items.rmp=null;                                                          // 칸이 있는데 깨졌으면 '자료 없음'
  api.render(bad);
  assert.ok(ids['fedbs-slot'].textContent.includes('rmp — 자료 없음'));

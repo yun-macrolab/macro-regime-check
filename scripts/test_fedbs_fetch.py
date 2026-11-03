@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """연준 재무상태표 참고 자료(fedbs_fetch) 테스트 — 산식(손으로 셀 수 있는 합성 자료), 지준/GDP가 규칙 카드와 같은 값, 4주 평균의
 정의, 분모 바뀜(새 분기·개정·같은 주), 4주/13주 나눔의 합·창·표시와 13주가 지준·재정 카드와 같은 값, 단기자금 5영업일(최대·이른
-날·n/m·월말·15일), 주의 꼬리표와 FOMC 표(연준 인물 페이지의 회의 장부와 같다), 지준 관리 매입(RMP) 추정(연방 공휴일과 9영업일
+날·n/m·월말·15일), 주의 꼬리표와 FOMC 표(연준 인물 페이지의 회의 장부와 같다), 지준 관리 매입(RMP) 대조(연방 공휴일과 9영업일
 창 규칙·경계일·소액 시험 운영과 매각 제외·끝나지 않은 창·MBS 상환 수요일·보이는 숫자끼리 뺄셈·뉴욕 연은 응답 꼴·요청 머리글과
-예산), 칸마다 실패·직전 값 이어 싣기, 이용 조건 목록, 문구 원칙(판정 낱말 없음), 화면·워크플로 연결, 정책 사실 칸의 원문 인용.
+예산)와 공식 계획(뉴욕 연은 Operational Details 페이지의 표 읽기 — 두 문장 꼴·형식 모름·깨진 날짜·태그·&nbsp;·차례·같은 기간·
+옛 창·크기 상한·표 없음, 공식 기간으로 잡는 대조 창과 규칙으로 잡는 창, 요청 꼴·예산·캐시), 칸마다 실패·직전 값 이어 싣기, 이용
+조건 목록, 문구 원칙(판정 낱말 없음), 화면·워크플로 연결, 정책 사실 칸의 원문 인용.
 
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
-네트워크 불필요 — FRED는 가짜 loader 또는 합성 캐시(--offline), 뉴욕 연은 국채 운영 결과는 가짜 ops_load·가짜 opener.
-숫자는 모두 지어낸 것이다(실자료 숫자를 넣지 않는다).
+네트워크 불필요 — FRED는 가짜 loader 또는 합성 캐시(--offline), 뉴욕 연은 국채 운영 결과·공식 계획 페이지는 가짜 ops_load·
+plan_load·가짜 opener. 숫자와 계획 페이지 HTML은 모두 지어낸 것이다(실자료 숫자를 넣지 않는다).
 """
 import os, sys, io, re, json, datetime, tempfile, unittest, shutil, contextlib
 from unittest import mock
@@ -149,6 +151,45 @@ class FakeOps:
     """가짜 뉴욕 연은 요청(fedbs_fetch.main의 ops_load) — 부른 주소를 적고, 정해 둔 원문을 돌려주거나 실패한다."""
     def __init__(self, blob=None, fail=False):
         self.blob, self.fail, self.calls = MAIN_BLOB if blob is None else blob, fail, []
+
+    def __call__(self, url, deadline):
+        self.calls.append(url)
+        if self.fail:
+            raise OSError("원문 사유 https://bad.invalid/xyz-77")
+        return self.blob
+
+
+def plan_text(reinvest, rmp=None, verb="conduct", additional=True):
+    """지어낸 계획 문장 — 정해 둔 꼴(rmp None이면 'no reserve management purchases')."""
+    tail = ("no reserve management purchases" if rmp is None else
+            ("an additional " if additional else "") + f"approximately ${rmp} billion in reserve management purchases")
+    return (f"The Desk plans to {verb} approximately ${reinvest} billion in reinvestment purchases and {tail} over the "
+            "noted monthly period.")
+
+
+def plan_html(rows, head=("Period", "Planned Operation Amount", "Tentative Schedule", "Results", "Next Schedule Release"),
+              before="", after=""):
+    """지어낸 공식 계획 페이지 — rows [(기간 칸 HTML, 문장 칸 HTML)]. 페이지처럼 script 안의 '<table>' 글과 머리 행이 있다."""
+    body = "".join(f"\n\t <tr>\n  <td>{p}</td>\n  <td>{t}</td>\n  <td><a class=\"pdf\" href=\"/x.pdf\">Schedule</a></td>"
+                   "\n  <td></td>\n  <td>&nbsp;</td>\n </tr>" for p, t in rows)
+    return ("<html><head><script>var table = $('<table></table>');</script></head><body>" + before +
+            "<table class=\"nyfed-table\" id=\"pagination-table\"><thead><tr>" + "".join(f"<th>{h}</th>" for h in head) +
+            "</tr></thead><tbody id=\"data-container\">" + body + "</tbody></table>" + after + "</body></html>").encode()
+
+
+# 지어낸 계획(숫자는 실자료가 아니다) — 기간은 9영업일 규칙과 같다(MainTest의 대조 숫자가 규칙으로 셈한 것과 같게)
+PLAN_ROWS = [("6/12/2026 -<br>7/13/2026", plan_text("10.1", "3")),
+             ("7/14/2026 -<br>8/13/2026", plan_text("11.1", "5")),
+             ("8/14/2026 -<br>9/14/2026", plan_text("12.2")),
+             ("9/15/2026 -<br>10/14/2026", plan_text("13.3", "2.5", additional=False)),
+             ("10/15/2026 -<br>11/13/2026", plan_text("9.0"))]
+PLAN_BLOB = plan_html(list(reversed(PLAN_ROWS)))                                  # 페이지처럼 새 창이 위
+
+
+class FakePlan:
+    """가짜 뉴욕 연은 공식 계획 요청(fedbs_fetch.main의 plan_load) — 부른 주소를 적고, 정해 둔 원문을 돌려주거나 실패한다."""
+    def __init__(self, blob=None, fail=False):
+        self.blob, self.fail, self.calls = PLAN_BLOB if blob is None else blob, fail, []
 
     def __call__(self, url, deadline):
         self.calls.append(url)
@@ -494,7 +535,7 @@ class ArithmeticTest(unittest.TestCase):
         self.assertEqual(out["spread"]["values"]["max_bp"], 8.0)
 
     def test_every_item_computes_and_texts_have_no_verdict_words(self):
-        core = fb.compute(rmp_world(), {}, NOW.date(), ops=fb.parse_ops(OPS_BLOB))
+        core = fb.compute(rmp_world(), {}, NOW.date(), ops=fb.parse_ops(OPS_BLOB), plan=fb.parse_plan(PLAN_BLOB))
         for spec in fb.ITEMS:
             c = core[spec["key"]]
             self.assertNotIsInstance(c, fb.ItemError, spec["key"])
@@ -502,7 +543,8 @@ class ArithmeticTest(unittest.TestCase):
             self.assertTrue(fb.values_ok(spec, c["values"], c["lines"]), spec["key"])
             line, extra = fb.texts(spec["key"], c["values"], c["date"])
             for t in [line, *extra, spec["title"], fb.NOTICE, fb.COMPUTED_NOTICE, fb.WEEK_NOTICE, fb.SPREAD_DERIVED,
-                      fb.SRF_DERIVED, fb.RMP_DERIVED, fb.RMP_NO_MBS, *[ln["label"] for ln in spec.get("lines", ())],
+                      fb.SRF_DERIVED, fb.RMP_DERIVED, fb.RMP_NO_MBS, fb.PLAN_COPIED, fb.PLAN_ABOUT, fb.PLAN_FORMS,
+                      *[ln["label"] for ln in spec.get("lines", ())],
                       spec.get("chart", {}).get("note", "")]:
                 self.assertNotIn("None", t)
                 body = t
@@ -513,8 +555,9 @@ class ArithmeticTest(unittest.TestCase):
 
 
 class RmpTest(unittest.TestCase):
-    """지준 관리 매입(RMP) 추정 — 창 규칙(9영업일, 연방 공휴일·대체일·토요일 공휴일), 경계일 운영, 소액 시험 운영·매각 제외, 이표채
-    매입 포함, 끝나지 않은 창, 상환 수요일, 상환 없음, 보이는 숫자끼리 뺄셈, 응답 꼴, 요청·예산, 칸만 실패. 운영·금액은 지어낸 것."""
+    """지준 관리 매입(RMP) 대조 — 창 규칙(9영업일, 연방 공휴일·대체일·토요일 공휴일), 경계일 운영, 소액 시험 운영·매각 제외, 이표채
+    매입 포함, 끝나지 않은 창, 상환 수요일, 상환 없음, 보이는 숫자끼리 뺄셈, 응답 꼴, 요청·예산, 칸만 실패. 운영·금액은 지어낸 것.
+    (공식 계획이 없을 때 — 규칙으로 잡는 창. 공식 기간으로 잡는 창은 PlanTest)"""
 
     def test_fed_holidays_follow_the_rules(self):
         self.assertEqual(sorted(fb.fed_holidays(2026)),
@@ -589,6 +632,7 @@ class RmpTest(unittest.TestCase):
         self.assertEqual([(w["month"], w["from"], w["until"], w["ended"]) for w in ws],
                          [("2026-07", "2026-07-14", "2026-08-13", True), ("2026-08", "2026-08-14", "2026-09-14", True),
                           ("2026-09", "2026-09-15", "2026-10-14", True), ("2026-10", "2026-10-15", "2026-11-13", False)])
+        self.assertEqual({w["bound"] for w in ws}, {"rule"})                            # 공식 계획을 넘기지 않으면 규칙
         self.assertEqual([w["ops"] for w in ws],
                          [["2026-07-14", "2026-07-28", "2026-08-13"],                    # 07-13(9영업일 그날)은 앞 창, 08-13은 이 창
                           ["2026-08-14", "2026-09-14"],                                  # 소액 시험 운영·매각은 빠진다
@@ -603,19 +647,25 @@ class RmpTest(unittest.TestCase):
     def test_text_line_and_extras(self):
         c = calc("rmp")
         line, extra = fb.texts("rmp", c["values"], c["date"])
-        self.assertEqual(line, "RMP 추정(월 일정 창의 매입 − 그 달 MBS 상환): 2026-07 +1.5bn · 2026-08 -0.7bn · 2026-09 +0.1bn · "
-                               "2026-10 아직 끝나지 않은 창 — 2번 운영, 합 4.2bn(2026-10-29까지)")
-        self.assertEqual(extra[0], "2026-07 창(운영일 2026-07-14~2026-08-13): 매입 3번 12.0bn(2026-07-14~2026-08-13) − "
-                                   "2026-07 MBS 상환 10.5bn(WSHOMCB 2026-07-01~2026-07-29 사이 줄어든 몫) = +1.5bn.")
+        self.assertEqual(line, "거꾸로 셈한 RMP(월 일정 창의 매입 − 그 달 MBS 상환): 2026-07 +1.5bn · 2026-08 -0.7bn · "
+                               "2026-09 +0.1bn · 2026-10 아직 끝나지 않은 창 — 2번 운영, 합 4.2bn(2026-10-29까지)")
+        self.assertEqual(extra[0], "2026-07 창(운영일 2026-07-14~2026-08-13 · 9영업일 규칙): 매입 3번 12.0bn(2026-07-14~"
+                                   "2026-08-13) − 2026-07 MBS 상환 10.5bn(WSHOMCB 2026-07-01~2026-07-29 사이 줄어든 몫) = +1.5bn.")
         self.assertTrue(extra[1].endswith("= -0.7bn · 소액 시험 운영 1번 뺌 · 매각 운영 1번 셈하지 않음."), extra[1])
-        self.assertEqual(extra[3], "2026-10 창(운영일 2026-10-15~2026-11-13): 아직 끝나지 않은 창 — 2번 운영, 합 4.2bn"
-                                   "(2026-10-29까지) — 끝나기 전에는 상환과 견주지 않는다.")
+        self.assertEqual(extra[3], "2026-10 창(운영일 2026-10-15~2026-11-13 · 9영업일 규칙): 아직 끝나지 않은 창 — 2번 운영, "
+                                   "합 4.2bn(2026-10-29까지) — 끝나기 전에는 상환과 견주지 않는다.")
         self.assertNotIn("상환 8.0", extra[3])
         self.assertEqual(extra[-2:], [fb.RMP_METHOD, fb.RMP_LIMITS])
-        for word in ("공식 나눔 수치가 아니라", "거꾸로 셈한 추정", "예상 상환", "기관 CMBS는 WSHOMCB에 들어 있지만",
-                     "전달 실제 상환", "기관채 상환은 WSHOMCB에 없어", "Treasury Securities Operational Details",
-                     "9영업일 규칙의 근사", "늘려 잡지 않는다"):
+        for word in ("운영 결과로 거꾸로 셈한 대조이고 공식 수치가 아니다", "공식 계획은 위 계획 줄", "계획과 실제 매입은 다를 수",
+                     "예상 상환", "기관 CMBS는 WSHOMCB에 들어 있지만", "전달 실제 상환", "기관채 상환은 WSHOMCB에 없어",
+                     "Treasury Securities Operational Details", "공식 기간이 없는 달의 창 경계는 9영업일 규칙의 근사",
+                     "늘려 잡지 않는다"):
             self.assertIn(word, fb.RMP_LIMITS)
+        for word in ("공식 나눔 수치가 아니라", "이 카드는 그것을 받지 않는다", "추정"):                     # 옛 문장
+            self.assertNotIn(word, fb.RMP_LIMITS + fb.RMP_METHOD)
+        for word in ("위 계획 줄의 공식 기간", "9영업일", "어느 쪽인지 적는다", "이웃 창이 겹치거나 사이에 영업일이 비면",
+                     "다음 달 창과의 사이도"):
+            self.assertIn(word, fb.RMP_METHOD)
         nested = re.compile(r"\([^()]*\(")
         for t in [line, *extra, fb.RMP_DERIVED, fb.RMP_DERIVED_EN, fb.RMP_NO_MBS]:
             self.assertIsNone(nested.search(t), t)
@@ -641,7 +691,7 @@ class RmpTest(unittest.TestCase):
         self.assertEqual([w["rmp_bn"] for w in ws], [1.5, -0.7, None, None])
         line, extra = fb.texts("rmp", {"windows": ws, "mbs_ok": True}, "2026-10-29")
         self.assertIn("2026-09 매입 11.0bn · 상환 —", line)
-        self.assertIn("WSHOMCB 2026-08-26·2026-09-30 두 수요일 관측이 다 있지 않아 상환·추정을 비웠다", extra[2])
+        self.assertIn("WSHOMCB 2026-08-26·2026-09-30 두 수요일 관측이 다 있지 않아 상환·대조를 비웠다", extra[2])
         del S["WSHOMCB"]                                                                # MBS 보유를 받지 못함 — 매입은 싣는다
         core = fb.compute(S, {"WSHOMCB": "fetch"}, NOW.date(), ops=fb.parse_ops(OPS_BLOB))["rmp"]
         self.assertFalse(core["values"]["mbs_ok"])
@@ -735,11 +785,20 @@ class RmpTest(unittest.TestCase):
         self.assertTrue(all(it["ok"] for it in data["items"].values()))
         core = fb.compute(world(), {}, NOW.date(), ops=fb.ItemError("fetch"))
         self.assertEqual(core["rmp"].code, "fetch")
+        self.assertNotIn("rmp_plan", core)                                               # 계획을 넘기지 않으면 그 칸도 없다
+        core = fb.compute(rmp_world(), {}, NOW.date(), plan=fb.parse_plan(PLAN_BLOB))
+        self.assertEqual((sorted(k for k in core if k.startswith("rmp"))), ["rmp_plan"])   # 계획만 넘기면 계획 칸만
 
     def test_windows_check_rejects_odd_carried_values(self):
         good = calc("rmp")["values"]["windows"]
         self.assertTrue(fb._windows_ok(good))
         cases = [lambda w: w.pop(1),                                                    # 달이 이어지지 않는다
+                 lambda w: w[0].pop("bound"),                                           # 경계 칸이 없다
+                 lambda w: w[0].update(bound="plan?"),
+                 lambda w: w[0].update(bound=["rule"]),
+                 lambda w: w[1].update(**{"from": "2026-08-15"}),                       # 규칙인데 규칙 날짜가 아니다
+                 lambda w: w[1].update(bound="plan", **{"from": "2026-07-31"}),          # 공식 기간인데 시작일이 그 달이 아니다
+                 lambda w: w[1].update(bound="plan", **{"from": "2026-08-13"}),          # 앞 창과 겹친다
                  lambda w: w[0].update(ended=False),                                    # 끝나지 않은 창이 앞에
                  lambda w: w[0].update(rmp_bn=1.6),                                     # 매입 − 상환과 다르다
                  lambda w: w[3].update(red_bn=1.0, rmp_bn=_t(w[3])),                    # 끝나지 않은 창에 상환
@@ -759,7 +818,7 @@ class RmpTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, tmp)
         out, work = os.path.join(tmp, "data"), os.path.join(tmp, ".work")
         run = lambda ops, now, fred=None: fb.main(["--out", out, "--work", work], fred_load=fred or FakeFred(rmp_world()),
-                                                   now=now, ops_load=ops)
+                                                   now=now, ops_load=ops, plan_load=FakePlan())
         with contextlib.redirect_stdout(io.StringIO()) as buf:
             self.assertEqual(run(FakeOps(), NOW), 0)
             self.assertEqual(run(FakeOps(fail=True), NOW + TD(days=1)), 0)
@@ -769,9 +828,384 @@ class RmpTest(unittest.TestCase):
         self.assertEqual((r["ok"], r["stale"], r["error"], r["failed_since"], r["retrieved"]),
                          (False, True, "수신 실패", "2026-10-31", "2026-10-30"))
         self.assertIn("2026-07 +1.5bn", r["line"])                                      # 직전 숫자에서 다시 만든 문구
+        self.assertTrue(items["rmp_plan"]["ok"])                                         # 계획 칸은 따로
         self.assertTrue(all(it["ok"] for k, it in items.items() if k != "rmp"))
         self.assertIn("::warning::연준 재무상태표 참고 rmp 받지 못함: 수신 실패", buf.getvalue())
         self.assertNotIn("xyz-77", buf.getvalue() + json.dumps(items, ensure_ascii=False))
+
+
+class PlanTest(unittest.TestCase):
+    """지준 관리 매입(RMP) 공식 계획 — 뉴욕 연은 Operational Details 페이지의 표 읽기(두 문장 꼴·형식 모름·깨진 날짜·태그·&nbsp;·
+    줄바꿈·차례·같은 기간·옛 창·크기 상한·표 없음), 네 달 창과 글, 대조 칸의 창을 공식 기간으로 잡을 때와 규칙으로 잡을 때, 요청 꼴
+    (User-Agent·다른 호스트로 넘김 거절·함께 쓰는 예산)·캐시, 칸만 실패, 옛 파일. 페이지 HTML·금액은 모두 지어낸 것."""
+
+    def periods(self, blob):
+        return [(a.isoformat(), b.isoformat(), x, y) for a, b, x, y in fb.parse_plan(blob)["periods"]]
+
+    def test_reads_the_two_forms_and_leaves_other_forms_unknown(self):
+        rows = [("10/15/2026 -<br>11/13/2026", plan_text("9.0")),                       # RMP 없음
+                ("9/15/2026 - 10/14/2026", plan_text("13.3", "2.5", additional=False)),  # 'an additional' 없이
+                ("8/14/2026 – 9/14/2026", plan_text("12.2", "7", verb="purchase")),   # 긴 줄표·purchase
+                ("<span>7/14/2026</span>\n   -\n   8/13/2026",                              # 태그·줄바꿈·&nbsp;·여분 공백
+                 "<strong>The Desk</strong> plans to conduct&nbsp;approximately $11.1 billion in\n    reinvestment purchases "
+                 "and an additional approximately <b>$5</b> billion in reserve management purchases over the noted monthly "
+                 "  period. "),
+                ("6/12/2026 - 7/13/2026", "The Desk plans to conduct small value operations of approximately $150 million "
+                                          "over the monthly period from 6/12/2026 to 7/13/2026."),   # 소액 시험 운영 창
+                ("5/14/2026 - 6/11/2026", "The Desk will not conduct any Treasury securities operations over the monthly "
+                                          "period from 5/14/26 to 6/11/26."),                      # 운영 없음
+                ("4/14/2026 - 5/13/2026", plan_text("8.8", "4") + " Of the reserve management purchases, approximately $1 "
+                                          "billion will be in Treasury coupon securities."),       # 쿠폰 배분 문장이 붙음
+                ("3/13/2026 - 4/13/2026", "The Desk plans to purchase approximately $20.0 billion in reinvestment purchases "
+                                          "and an additional approximately $60.0 billion in reserve management purchases "
+                                          "of bills over the noted monthly period."),              # 옛 창의 꼴
+                ("2/13/2026 - 3/12/2026", plan_text("1,000")),                                     # 쉼표 금액 — 정해 둔 꼴 밖
+                ("3/16/2020", "The Desk plans to purchase approximately $40.0 billion in Treasury purchases."),   # 하루짜리 옛 행
+                ("13/40/2026 - 14/12/2026", plan_text("1.0")), ("TBD", plan_text("1.0")),          # 기간을 읽지 못하는 행
+                ("2/30/2026 - 3/12/2026", plan_text("1.0")), ("5/10/2026 - 4/10/2026", plan_text("1.0")),
+                ("1/1/2026 - 6/30/2026", plan_text("1.0")), ("11/1/26 - 11/30/26", plan_text("1.0"))]
+        got = fb.parse_plan(plan_html(rows))
+        self.assertEqual(got["dropped"], 6)
+        self.assertEqual(self.periods(plan_html(rows)), [
+            ("2020-03-16", "2020-03-16", None, None),
+            ("2026-02-13", "2026-03-12", None, None), ("2026-03-13", "2026-04-13", None, None),
+            ("2026-04-14", "2026-05-13", None, None), ("2026-05-14", "2026-06-11", None, None),
+            ("2026-06-12", "2026-07-13", None, None), ("2026-07-14", "2026-08-13", "11.1", "5"),
+            ("2026-08-14", "2026-09-14", "12.2", "7"), ("2026-09-15", "2026-10-14", "13.3", "2.5"),
+            ("2026-10-15", "2026-11-13", "9.0", "0")])
+        self.assertEqual(fb._period("12/12/2025 -  1/14/2026"), (D(2025, 12, 12), D(2026, 1, 14)))   # 해를 넘는 창
+        self.assertIsNone(fb._period("12/12/2025 - 1/14/2026 (tentative)"))
+
+    def test_same_period_twice_and_row_order(self):
+        rows = [("8/14/2026 - 9/14/2026", plan_text("12.2")), ("7/14/2026 - 8/13/2026", plan_text("11.1", "5")),
+                ("9/15/2026 - 10/14/2026", plan_text("13.3")), ("8/14/2026 - 9/14/2026", plan_text("12.2")),   # 같은 숫자
+                ("7/14/2026 - 8/13/2026", plan_text("11.1", "6")),                              # 같은 기간에 다른 숫자
+                ("10/15/2026 - 11/13/2026", "<td>stray cell")]                                 # 칸이 밀린 행 — 형식 모름
+        self.assertEqual(self.periods(plan_html(rows)),
+                         [("2026-07-14", "2026-08-13", None, None), ("2026-08-14", "2026-09-14", "12.2", "0"),
+                          ("2026-09-15", "2026-10-14", "13.3", "0"), ("2026-10-15", "2026-11-13", None, None)])
+
+    def test_finds_the_table_by_its_head(self):
+        decoy = ("<table><tr><th>Date</th><th>Amount</th></tr><tr><td>10/15/2026 - 11/13/2026</td><td>" + plan_text("99.0")
+                 + "</td></tr></table>")
+        got = self.periods(plan_html([("10/15/2026 - 11/13/2026", plan_text("9.0"))], before=decoy))
+        self.assertEqual(got, [("2026-10-15", "2026-11-13", "9.0", "0")])                # 머리가 다른 표는 보지 않는다
+        head = ("PERIOD", "Planned Operation Amount (USD)", "Tentative Schedule")           # 대소문자·덧붙인 말
+        self.assertEqual(self.periods(plan_html([("9/15/2026 - 10/14/2026", plan_text("13.3"))], head=head)),
+                         [("2026-09-15", "2026-10-14", "13.3", "0")])
+        loose = ("<table><tr><th>Period<th>Planned Operation Amount<tr><td>10/15/2026 - 11/13/2026<td>" + plan_text("9.0")
+                 + "<tr><td>9/15/2026 - 10/14/2026<td>" + plan_text("13.3", "1")).encode()    # 닫는 태그가 없는 표
+        self.assertEqual(self.periods(loose), [("2026-09-15", "2026-10-14", "13.3", "1"), ("2026-10-15", "2026-11-13", "9.0", "0")])
+        for blob, code in ((b"<html><body><p>no table</p><script>$('<table><tr><th>Period</th>')</script></body></html>", "table"),
+                           (plan_html([], head=("Date", "Amount")), "table"),
+                           (plan_html([]), "format"),                                            # 머리뿐
+                           (plan_html([("TBD", plan_text("1.0"))]), "format"),                   # 읽은 기간이 없다
+                           (None, "format"), ("\udcff<table", "table")):
+            with self.assertRaises(fb.ItemError, msg=repr(blob)[:60]) as e:
+                fb.parse_plan(blob)
+            self.assertEqual(e.exception.code, code)
+
+    def test_size_cap(self):
+        big = PLAN_BLOB + b"<!--" + b"x" * fb.PLAN_MAX + b"-->"
+        with self.assertRaises(fb.ItemError) as e:
+            fb.parse_plan(big)
+        self.assertEqual(e.exception.code, "fetch")
+        self.assertLessEqual(len(PLAN_BLOB), fb.PLAN_MAX)
+        self.assertEqual(fb.PLAN_MAX, 2_000_000)
+
+    def test_four_month_windows_and_text(self):
+        c = fb.calc_plan({}, NOW.date(), fb.parse_plan(PLAN_BLOB))
+        ws = c["values"]["windows"]
+        self.assertEqual(c["date"], "2026-10-15")                                       # 실은 창 가운데 마지막 시작일
+        self.assertEqual([w["month"] for w in ws], ["2026-07", "2026-08", "2026-09", "2026-10"])   # 대조 칸과 같은 네 달
+        self.assertEqual([w["now"] for w in ws], [False, False, False, True])
+        self.assertEqual((c["values"]["rows"], c["values"]["dropped"]), (5, 0))
+        self.assertTrue(fb.values_ok(fb.BY_KEY["rmp_plan"], c["values"], {}))
+        line, extra = fb.texts("rmp_plan", c["values"], c["date"])
+        self.assertEqual(line, "2026-07-14~2026-08-13 재투자 약 11.1bn · RMP 약 5bn / 2026-08-14~2026-09-14 재투자 약 12.2bn · "
+                               "RMP 없음 / 2026-09-15~2026-10-14 재투자 약 13.3bn · RMP 약 2.5bn / 2026-10-15~2026-11-13(지금 창) "
+                               "재투자 약 9.0bn · RMP 없음")
+        self.assertEqual(extra, [fb.PLAN_ABOUT, "페이지 표의 기간 5개 가운데 이 카드의 네 달 창만 싣는다 — 시작일이 그 달인 기간 "
+                                                "하나를 그 달 창으로 본다.", fb.PLAN_FORMS])
+        for word in ("계획이다", "실제 매입은 운영 결과", "대조 줄"):
+            self.assertIn(word, fb.PLAN_ABOUT)
+        for word in ("no reserve management purchases", "형식 모름", "숫자를 짓지", "쿠폰 배분 문장", "conduct(또는 purchase)"):
+            self.assertIn(word, fb.PLAN_FORMS)
+        for verb in ("conduct", "purchase"):                                            # 화면 글과 읽는 꼴이 같다
+            self.assertEqual(fb._plan_sentence(f"The Desk plans to {verb} approximately $5.0 billion in reinvestment purchases "
+                                               "and no reserve management purchases over the noted monthly period."), ("5.0", "0"))
+        odd = plan_html([("7/14/2026 - 8/13/2026", "The Desk will not conduct any Treasury securities operations."),
+                         ("8/14/2026 - 8/27/2026", plan_text("6.0")), ("8/28/2026 - 9/14/2026", plan_text("6.1")),
+                         ("10/15/2026 - 11/13/2026", plan_text("9.0", "3")), ("9/15/2026 - 13/14/2026", plan_text("1.0"))])
+        c = fb.calc_plan({}, NOW.date(), fb.parse_plan(odd))
+        self.assertTrue(fb.values_ok(fb.BY_KEY["rmp_plan"], c["values"], {}))
+        line, extra = fb.texts("rmp_plan", c["values"], c["date"])
+        self.assertEqual(line, "2026-07-14~2026-08-13 형식 모름 / 2026-08 창 형식 모름 — 그 달에 시작하는 기간이 여럿 / 2026-09 창 "
+                               "페이지에 없음 / 2026-10-15~2026-11-13(지금 창) 재투자 약 9.0bn · RMP 약 3bn")
+        self.assertIn("표의 행 가운데 기간 날짜를 읽지 못한 1개는 뺐다.", extra)
+        for t in [line, *extra, fb.PLAN_COPIED, fb.PLAN_COPIED_EN, fb.BY_KEY["rmp_plan"]["title"]]:
+            for word in list(FORBIDDEN_TEXT) + list(VERDICT) + ["재개", "중단", "None"]:
+                self.assertNotIn(word, t, word)
+            self.assertIsNone(re.search(r"\([^()]*\(", t), t)                            # 겹 괄호 없음
+        old = plan_html([("1/15/2026 - 2/12/2026", plan_text("1.0"))])                   # 네 달에 든 기간이 없다
+        with self.assertRaises(fb.ItemError) as e:
+            fb.calc_plan({}, NOW.date(), fb.parse_plan(old))
+        self.assertEqual(e.exception.code, "format")
+
+    def test_plan_window_check_rejects_odd_values(self):
+        good = fb.calc_plan({}, NOW.date(), fb.parse_plan(PLAN_BLOB))["values"]["windows"]
+        self.assertTrue(fb._plan_windows_ok(good))
+        cases = [lambda w: w.pop(1),                                                    # 달이 이어지지 않는다
+                 lambda w: w[0].update(rmp="10<b>"),                                    # 숫자 글이 아니다
+                 lambda w: w[0].update(rmp=10),
+                 lambda w: w[0].update(reinvest=None),                                  # ok인데 숫자가 없다
+                 lambda w: w[0].update(form="unknown"),                                 # 형식 모름인데 숫자가 있다
+                 lambda w: w[0].update(form="weird"),
+                 lambda w: w[1].update(**{"from": "2026-07-31"}),                       # 시작일이 그 달이 아니다
+                 lambda w: w[1].update(**{"from": "2026-08-13"}),
+                 lambda w: w[1].update(until=None),                                     # 날짜가 하나만
+                 lambda w: w[1].update(until="2026-12-31"),                             # 기간이 너무 길다·겹친다
+                 lambda w: w[2].update(form="missing", reinvest=None, rmp=None),        # 없는데 날짜가 있다
+                 lambda w: w[3].update(now="yes"),
+                 lambda w: w[0].update(extra=1),
+                 lambda w: [x.update(form="missing", reinvest=None, rmp=None, now=False, **{"from": None, "until": None})
+                            for x in w],                                                # 날짜가 하나도 없다
+                 lambda w: w.extend(json.loads(json.dumps(w[:1])))]                      # 다섯 창
+        for i, f in enumerate(cases):
+            ws = json.loads(json.dumps(good))
+            f(ws)
+            self.assertFalse(fb._plan_windows_ok(ws), i)
+
+    def test_rmp_windows_take_the_official_periods(self):
+        # 지어낸 공식 기간이 규칙과 하루 다르다 — 7월 창 07-14~08-12, 8월 창 08-13~09-14: 08-13 운영(3.0)이 규칙으로는 7월 창,
+        # 공식 기간으로는 8월 창에 든다
+        plan = fb.parse_plan(plan_html([("7/14/2026 - 8/12/2026", plan_text("11.1", "5")),
+                                        ("8/13/2026 - 9/14/2026", plan_text("12.2")),
+                                        ("9/15/2026 - 10/14/2026", "not a known sentence"),     # 형식 모름이어도 기간은 공식
+                                        ("10/15/2026 - 11/13/2026", plan_text("9.0"))]))
+        ops = fb.parse_ops(OPS_BLOB)
+        c = fb.calc_rmp(rmp_world(), NOW.date(), ops, plan)
+        ws = c["values"]["windows"]
+        self.assertEqual([(w["from"], w["until"], w["bound"]) for w in ws],
+                         [("2026-07-14", "2026-08-12", "plan"), ("2026-08-13", "2026-09-14", "plan"),
+                          ("2026-09-15", "2026-10-14", "plan"), ("2026-10-15", "2026-11-13", "plan")])
+        self.assertEqual([w["bn"] for w in ws], [9.0, 11.0, 11.0, 4.2])                   # 규칙으로는 12.0 · 8.0
+        self.assertEqual([w["rmp_bn"] for w in ws], [-1.5, 2.3, 0.1, None])
+        self.assertEqual(ws[1]["ops"], ["2026-08-13", "2026-08-14", "2026-09-14"])
+        self.assertTrue(fb._windows_ok(ws))
+        line, extra = fb.texts("rmp", c["values"], c["date"])
+        self.assertTrue(extra[0].startswith("2026-07 창(운영일 2026-07-14~2026-08-12 · 공식 기간): 매입 2번 9.0bn"), extra[0])
+        # 그 달 기간이 없거나 여럿이면 그 달만 규칙 — 이웃 창과 사이가 비지 않을 때
+        plan = fb.parse_plan(plan_html([("7/14/2026 - 8/13/2026", plan_text("11.1", "5")),
+                                        ("8/14/2026 - 8/27/2026", plan_text("6.0")), ("8/28/2026 - 9/14/2026", plan_text("6.1")),
+                                        ("10/15/2026 - 11/13/2026", plan_text("9.0"))]))
+        ws = fb.calc_rmp(rmp_world(), NOW.date(), ops, plan)["values"]["windows"]
+        self.assertEqual([w["bound"] for w in ws], ["plan", "rule", "rule", "plan"])
+        self.assertEqual([w["bn"] for w in ws], [12.0, 8.0, 11.0, 4.2])
+        self.assertTrue(fb._windows_ok(ws))
+        self.assertIn("· 9영업일 규칙): ", fb.texts("rmp", {"windows": ws, "mbs_ok": True}, "2026-10-29")[1][1])
+        # 공식 기간 끝(08-12)과 규칙으로 잡은 다음 창의 시작(08-14) 사이에 영업일(08-13 목)이 비면 네 창 모두 규칙 — 전엔 7월만
+        # 공식 기간으로 잡아 08-13 운영(3.0)이 어느 창에도 들지 않았다(검토 F1)
+        plan = fb.parse_plan(plan_html([("7/14/2026 - 8/12/2026", plan_text("11.1", "5")),
+                                        ("8/14/2026 - 8/27/2026", plan_text("6.0")), ("8/28/2026 - 9/14/2026", plan_text("6.1")),
+                                        ("10/15/2026 - 11/13/2026", plan_text("9.0"))]))
+        ws = fb.calc_rmp(rmp_world(), NOW.date(), ops, plan)["values"]["windows"]
+        self.assertEqual({w["bound"] for w in ws}, {"rule"})
+        self.assertEqual([w["bn"] for w in ws], [12.0, 8.0, 11.0, 4.2])
+        self.assertIn("2026-08-13", ws[0]["ops"])
+        # 공식 기간이 이웃 창과 겹치면 네 창 모두 규칙
+        plan = fb.parse_plan(plan_html([("7/14/2026 - 8/14/2026", plan_text("11.1")), ("8/14/2026 - 9/14/2026", plan_text("1"))]))
+        ws = fb.calc_rmp(rmp_world(), NOW.date(), ops, plan)["values"]["windows"]
+        self.assertEqual({w["bound"] for w in ws}, {"rule"})
+        self.assertEqual([w["bn"] for w in ws], [12.0, 8.0, 11.0, 4.2])
+        # 끝 날이 공식 기간이면 '끝난 창'도 그 날로 — 오늘이 공식 끝 날(규칙의 끝 날보다 이르다) 뒤면 끝남. 다음 달 기간이 바로
+        # 이어질 때만(10-30 금 → 11-02 월, 사이는 주말뿐) — 다음 달 기간이 아직 없으면 사이(10-30~11-13)가 비어 규칙으로(아래)
+        plan = fb.parse_plan(plan_html([("10/15/2026 - 10/30/2026", plan_text("9.0")), ("11/2/2026 - 11/27/2026", plan_text("8.0"))]))
+        weekday_ops = [o for o in ops if o[0] != D(2026, 10, 31)]                       # 지어낸 토요일 운영은 빼고
+        ws = fb.calc_rmp(rmp_world(), D(2026, 11, 1), weekday_ops, plan)["values"]["windows"]
+        self.assertEqual((ws[-1]["until"], ws[-1]["ended"], ws[-1]["bound"]), ("2026-10-30", True, "plan"))
+        self.assertTrue(fb._windows_ok(ws))
+        plan = fb.parse_plan(plan_html([("10/15/2026 - 10/29/2026", plan_text("9.0"))]))
+        ws = fb.calc_rmp(rmp_world(), NOW.date(), ops, plan)["values"]["windows"]
+        self.assertEqual((ws[-1]["until"], ws[-1]["ended"], ws[-1]["bound"]), ("2026-11-13", False, "rule"))
+        self.assertTrue(fb._windows_ok(ws))
+
+    def test_rmp_windows_fall_back_when_official_periods_leave_a_gap(self):
+        # 반 달씩 나눈 행(이 페이지의 2020-06~2021-02 꼴 — 'The Desk's current schedule covers purchases from …', 날짜·금액은
+        # 지어낸 것): 8월에 시작하는 행이 반 달짜리 하나뿐이면 그 행이 8월 창이 되고 다음 행(09-01~)은 9월 행이라 9월은 여럿 → 규칙.
+        # 8월 공식 끝(08-31)과 9월 규칙 시작(09-15) 사이가 비어 09-14 운영(2.0)이 빠지던 꼴 — 네 창 모두 규칙으로 돌아가야 한다
+        half = lambda a, b: f"The Desk's current schedule covers purchases from {a} to {b}."
+        ops = fb.parse_ops(OPS_BLOB)
+        rows = [("7/14/2026 - 7/31/2026", half("7/14", "7/31")), ("8/14/2026 - 8/31/2026", half("8/14", "8/31")),
+                ("9/1/2026 - 9/14/2026", half("9/1", "9/14")), ("9/15/2026 - 9/30/2026", half("9/15", "9/30")),
+                ("10/15/2026 - 11/13/2026", plan_text("9.0"))]
+        plan = fb.parse_plan(plan_html(rows))
+        months = fb.rmp_months(NOW.date())
+        self.assertEqual([b[2] for b in fb.plan_bounds(months, plan)], ["rule"] * 4)
+        ws = fb.calc_rmp(rmp_world(), NOW.date(), ops, plan)["values"]["windows"]
+        self.assertEqual([w["bn"] for w in ws], [12.0, 8.0, 11.0, 4.2])                   # 규칙 창 = 운영 결과 전부
+        self.assertTrue(fb._windows_ok(ws))
+        inside = sum(1 for o in ops if o[1] == "P" and o[2] >= fb.SMALL_MIN and o[0] <= NOW.date()
+                     and any(w["from"] <= o[0].isoformat() <= w["until"] for w in ws))
+        self.assertEqual(inside, sum(w["n"] for w in ws))
+        self.assertEqual(inside, 10)                                                    # 07-14 ~ 10-29의 매입 운영 열이 모두 든다
+        # 지금 창만 반 달짜리 — 공식 끝(10-23)과 다음 달 창(11월 기간이 없어 규칙: 11-14~) 사이가 비면 규칙으로. 전엔 지금 창이
+        # 10-23에 끝나 네 창이 모두 '끝난 창'이 되고 10-29 운영이 빠졌다
+        plan = fb.parse_plan(plan_html([("10/15/2026 - 10/23/2026", half("10/15", "10/23"))]))
+        self.assertEqual([b[2] for b in fb.plan_bounds(months, plan)], ["rule"] * 4)
+        ws = fb.calc_rmp(rmp_world(), NOW.date(), ops, plan)["values"]["windows"]
+        self.assertEqual((ws[-1]["from"], ws[-1]["until"], ws[-1]["ended"], ws[-1]["bn"]), ("2026-10-15", "2026-11-13", False, 4.2))
+        # 주말·연방 공휴일만 사이에 있으면 비지 않은 것 — 지금 창 10-15~10-30(금), 다음 달 창 11-02(월)~
+        plan = fb.parse_plan(plan_html([("10/15/2026 - 10/30/2026", plan_text("9.0")), ("11/2/2026 - 11/27/2026", plan_text("8.0"))]))
+        self.assertEqual([b[2] for b in fb.plan_bounds(months, plan)], ["rule", "rule", "rule", "plan"])
+        ws = fb.calc_rmp(rmp_world(), NOW.date(), ops, plan)["values"]["windows"]
+        self.assertEqual((ws[-1]["until"], ws[-1]["ended"]), ("2026-10-30", False))
+        self.assertTrue(fb._windows_ok(ws))
+        self.assertFalse(fb.bday_gap(D(2026, 11, 13), D(2026, 11, 16)))                   # 주말
+        self.assertFalse(fb.bday_gap(D(2026, 10, 9), D(2026, 10, 13)))                    # 주말 + 콜럼버스 데이(10-12)
+        self.assertTrue(fb.bday_gap(D(2026, 10, 9), D(2026, 10, 14)))                     # 10-13 화
+        self.assertTrue(fb.bday_gap(D(2026, 8, 12), D(2026, 8, 14)))                      # 08-13 목
+        self.assertFalse(fb.bday_gap(D(2026, 8, 13), D(2026, 8, 14)))                     # 바로 이어짐
+        self.assertFalse(fb.bday_gap(D(2026, 8, 14), D(2026, 8, 13)))                     # 겹침은 따로 본다
+        # 이어 싣는 값도 — 사이가 빈 창 목록은 받지 않는다
+        good = fb.calc_rmp(rmp_world(), NOW.date(), ops)["values"]["windows"]
+        ws = json.loads(json.dumps(good))
+        ws[0].update(bound="plan", until="2026-08-13")                                  # 규칙 날짜와 같은 공식 기간 — 받음
+        self.assertTrue(fb._windows_ok(ws))
+        ws[0].update(until="2026-08-11", ops=["2026-07-14", "2026-07-28"], n=2, bn=9.0, rmp_bn=-1.5)   # 08-12·08-13이 빔
+        self.assertFalse(fb._windows_ok(ws))
+        ws[0].update(until="2026-08-12", ops=["2026-07-14", "2026-07-28"], n=2, bn=9.0, rmp_bn=-1.5)   # 08-13 하루가 빔
+        self.assertFalse(fb._windows_ok(ws))
+
+    def test_load_plan_requests_once_caches_and_never_falls_back(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        pl = FakePlan()
+        got = fb.load_plan(tmp, plan_load=pl)
+        self.assertEqual(pl.calls, [fb.PLAN_URL])
+        self.assertEqual(len(got["periods"]), 5)
+        path = os.path.join(tmp, fb.CACHE, fb.PLAN_CACHE)
+        with open(path, "rb") as f:
+            self.assertEqual(f.read(), PLAN_BLOB)
+        self.assertEqual(fb.load_plan(tmp, plan_load=FakePlan(fail=True)).code, "fetch")   # 캐시로 대신하지 않는다
+        self.assertEqual(fb.load_plan(tmp, plan_load=FakePlan(b"<html>moved</html>")).code, "table")
+        self.assertEqual(fb.load_plan(tmp, plan_load=FakePlan(PLAN_BLOB + b"x" * fb.PLAN_MAX)).code, "fetch")
+        with open(path, "rb") as f:
+            self.assertEqual(f.read(), PLAN_BLOB)                                       # 깨진 응답은 캐시를 덮지 않는다
+        with mock.patch.object(cf.urllib.request, "urlopen", side_effect=AssertionError("요청")):
+            self.assertEqual(len(fb.load_plan(tmp, offline=True)["periods"]), 5)         # --offline은 캐시만
+            self.assertEqual(fb.load_plan(os.path.join(tmp, "없음"), offline=True).code, "fetch")
+
+    def test_plan_request_keeps_its_host_ua_and_shares_the_budget(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        seen = []
+
+        class Resp(io.BytesIO):
+            def __init__(self, body, url):
+                super().__init__(body)
+                self.url = url
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def geturl(self):
+                return self.url
+
+        def opener(req, timeout=None):
+            seen.append((req.full_url, req.get_header("User-agent"), timeout))
+            return Resp(PLAN_BLOB, "https://elsewhere.invalid/x")                       # 다른 곳으로 넘겨짐
+        self.assertEqual(fb.load_plan(tmp, opener=opener).code, "fetch")
+        self.assertEqual(seen, [(fb.PLAN_URL, cf.UA, cf.REQ_TIMEOUT)])
+        self.assertEqual(urllib_split(fb.PLAN_URL)[:2], ("https", fb.PLAN_HOST))
+        self.assertFalse(os.path.exists(os.path.join(tmp, fb.CACHE, fb.PLAN_CACHE)))
+        seen.clear()
+        self.assertEqual(fb.load_plan(tmp, opener=opener, budget=0.5).code, "fetch")    # 남은 예산이 없으면 요청하지 않는다
+        self.assertEqual(seen, [])
+        # main — 뉴욕 연은 두 요청이 OPS_BUDGET초를 함께 쓴다: 운영 결과에 쓴 만큼 계획 페이지의 예산이 준다
+        t = [0.0]
+
+        def clock():
+            t[0] += 4.0
+            return t[0]
+        budgets = []
+        real = fb.load_plan
+
+        def spy(*a, **kw):
+            budgets.append(kw["budget"])
+            return real(*a, **kw)
+        out = os.path.join(tmp, "data")
+        with mock.patch.object(fb, "load_plan", spy), contextlib.redirect_stdout(io.StringIO()):
+            fb.main(["--out", out, "--work", os.path.join(tmp, ".work")], fred_load=FakeFred(rmp_world()), now=NOW,
+                    clock=clock, ops_load=FakeOps(), plan_load=FakePlan())
+        self.assertEqual(len(budgets), 1)
+        self.assertTrue(0 < budgets[0] < fb.OPS_BUDGET, budgets)
+
+    def test_main_plan_failure_only_stales_its_item(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        out, work = os.path.join(tmp, "data"), os.path.join(tmp, ".work")
+        run = lambda plan, now: fb.main(["--out", out, "--work", work], fred_load=FakeFred(rmp_world()), now=now,
+                                        ops_load=FakeOps(), plan_load=plan)
+        load = lambda: read_json(os.path.join(out, fb.FILE))["items"]
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            self.assertEqual(run(FakePlan(), NOW), 0)
+            first = load()["rmp_plan"]
+            self.assertEqual(run(FakePlan(fail=True), NOW + TD(days=1)), 0)
+            items = load()
+            r = items["rmp_plan"]
+            self.assertEqual((r["ok"], r["stale"], r["error"], r["failed_since"], r["retrieved"], r["line"]),
+                             (False, True, "수신 실패", "2026-10-31", "2026-10-30", first["line"]))   # 직전 값 + 받지 못함
+            self.assertTrue(all(it["ok"] for k, it in items.items() if k != "rmp_plan"))
+            self.assertEqual({w["bound"] for w in items["rmp"]["values"]["windows"]}, {"rule"})   # 그날 대조 창은 규칙
+            self.assertEqual(run(FakePlan(b"<html>no table</html>"), NOW + TD(days=2)), 0)
+            r = load()["rmp_plan"]
+            self.assertEqual((r["stale"], r["error"], r["failed_since"]), (True, fb.REASONS["table"], "2026-10-31"))
+        self.assertIn("::warning::연준 재무상태표 참고 rmp_plan 받지 못함: 수신 실패", buf.getvalue())
+        self.assertNotIn("xyz-77", buf.getvalue() + json.dumps(load(), ensure_ascii=False))
+        self.assertEqual(sorted(os.listdir(out)), [fb.FILE])                             # 받은 HTML은 공개 data에 없다
+
+    def test_an_old_file_without_the_plan_or_bound_still_carries(self):
+        # 2026-11-03 첫 공개의 fedbs.json — rmp 창에 bound가 없고 rmp_plan 칸이 없다. 규칙 날짜의 창이면 이어 싣는다
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        out, work = os.path.join(tmp, "data"), os.path.join(tmp, ".work")
+        with contextlib.redirect_stdout(io.StringIO()):
+            fb.main(["--out", out, "--work", work], fred_load=FakeFred(rmp_world()), now=NOW, ops_load=FakeOps(),
+                    plan_load=FakePlan(fail=True))
+            path = os.path.join(out, fb.FILE)
+            js = read_json(path)
+            self.assertEqual((js["items"]["rmp_plan"]["ok"], js["items"]["rmp_plan"]["stale"]), (False, False))
+            self.assertNotIn("line", js["items"]["rmp_plan"])                            # 직전 값이 없으면 사유만
+            for w in js["items"]["rmp"]["values"]["windows"]:
+                del w["bound"]
+            del js["items"]["rmp_plan"]
+            js["order"].remove("rmp_plan")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(js, f, ensure_ascii=False)
+            fb.main(["--out", out, "--work", work], fred_load=FakeFred(rmp_world()), now=NOW + TD(days=1),
+                    ops_load=FakeOps(fail=True), plan_load=FakePlan())
+        items = read_json(path)["items"]
+        self.assertEqual((items["rmp"]["stale"], items["rmp"]["retrieved"]), (True, "2026-10-30"))
+        self.assertEqual({w["bound"] for w in items["rmp"]["values"]["windows"]}, {"rule"})
+        self.assertTrue(items["rmp_plan"]["ok"])
+        moved = json.loads(json.dumps(js["items"]["rmp"]["values"]))
+        moved["windows"][0]["from"] = "2026-07-15"                                      # 규칙 날짜가 아닌 옛 창은 그대로(걸린다)
+        self.assertFalse(fb.values_ok(fb.BY_KEY["rmp"], fb._upgrade_rmp(moved), {}))
+        self.assertIs(fb._upgrade_rmp(None), None)
+
+
+def urllib_split(url):
+    import urllib.parse
+    return urllib.parse.urlsplit(url)
+
+
+def read_json(path):
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def _t(w):
@@ -815,7 +1249,10 @@ class LicenceTest(unittest.TestCase):
         for t in (fb.RMP_DERIVED, fb.RMP_DERIVED_EN, rp.nyfed_attribution("2027"), rp.NOT_AFFILIATED):
             self.assertIn(t, rm)
         self.assertNotIn(rp.SOFR_NOTICE, rm)
+        pl = fb.notices("rmp_plan", "2027-01-04")                                        # 공식 계획 — 옮긴 것이라는 표시(한·영)
+        self.assertEqual(pl, [fb.PLAN_COPIED, fb.PLAN_COPIED_EN, rp.nyfed_attribution("2027"), rp.NOT_AFFILIATED])
         self.assertIn("국채 매입 운영 결과", rp.DATA_LICENSE)                               # 꼬리말의 뉴욕 연은 자료 목록
+        self.assertIn("국채 매입 월 일정 계획 페이지 'Treasury Securities Operational Details'", rp.DATA_LICENSE)
         for key in ("reserves", "dec", "week"):
             self.assertFalse([t for t in fb.notices(key, "2026-11-03") if "New York" in t], key)
         self.assertIn("newyorkfed.org 이용약관", rp.DATA_LICENSE)
@@ -831,13 +1268,13 @@ class MainTest(unittest.TestCase):
         self.path = os.path.join(self.out, fb.FILE)
         self.S = world()
 
-    def run_main(self, fred=None, now=NOW, extra=(), clock=None, ops=None):
+    def run_main(self, fred=None, now=NOW, extra=(), clock=None, ops=None, plan=None):
         fred = fred or FakeFred(self.S)
         buf = io.StringIO()
         kw = {"clock": clock} if clock else {}
         with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
             code = fb.main(["--out", self.out, "--work", self.work, *extra], fred_load=fred, now=now,
-                           ops_load=ops or FakeOps(), **kw)
+                           ops_load=ops or FakeOps(), plan_load=plan or FakePlan(), **kw)
         return code, buf.getvalue()
 
     def saved(self):
@@ -853,7 +1290,7 @@ class MainTest(unittest.TestCase):
         self.assertEqual(code, 0, log)
         js = self.saved()
         self.assertEqual(set(js), {"schema", "generated_at", "notice", "order", "items"})
-        self.assertEqual(js["order"], ["reserves", "dec", "rmp", "spread", "srf", "rrp", "week"])
+        self.assertEqual(js["order"], ["reserves", "dec", "rmp_plan", "rmp", "spread", "srf", "rrp", "week"])
         for key, it in js["items"].items():
             self.assertTrue(it["ok"], key)
             want = {"ok", "stale", "error", "failed_since", "key", "name", "date", "values", "retrieved", "line", "extra",
@@ -861,14 +1298,18 @@ class MainTest(unittest.TestCase):
             self.assertEqual(set(it), want, key)
             self.assertEqual(it["retrieved"], "2026-10-30")
             self.assertEqual([s["series"] for s in it["sources"]],
-                             fb.BY_KEY[key]["series"] + ([fb.OPS] if key == "rmp" else []))
+                             fb.BY_KEY[key]["series"] + {"rmp": [fb.OPS], "rmp_plan": [fb.PLAN]}.get(key, []))
             for src in it["sources"]:
-                if src["series"] == fb.OPS:                                            # 뉴욕 연은에서 직접 — FRED가 아니다
+                if src["series"] in (fb.OPS, fb.PLAN):                                 # 뉴욕 연은에서 직접 — FRED가 아니다
                     self.assertEqual((src["licence"], src["url"], src["name"]),
-                                     ("nyfed-terms", fb.OPS_URL, "Federal Reserve Bank of New York"))
-                    self.assertEqual(src["citation"], "Federal Reserve Bank of New York, Treasury Securities Operations, "
-                                     "results summary, retrieved from https://markets.newyorkfed.org/api/tsy/all/results/"
-                                     "summary/search.json, October 30, 2026.")
+                                     ("nyfed-terms", fb.OPS_URL if src["series"] == fb.OPS else fb.PLAN_URL,
+                                      "Federal Reserve Bank of New York"))
+                    self.assertEqual(src["citation"], {
+                        fb.OPS: "Federal Reserve Bank of New York, Treasury Securities Operations, results summary, retrieved "
+                                "from https://markets.newyorkfed.org/api/tsy/all/results/summary/search.json, October 30, 2026.",
+                        fb.PLAN: "Federal Reserve Bank of New York, Treasury Securities Operational Details, retrieved from "
+                                 "https://www.newyorkfed.org/markets/domestic-market-operations/monetary-policy-implementation/"
+                                 "treasury-securities/treasury-securities-operational-details, October 30, 2026."}[src["series"]])
                     continue
                 self.assertEqual(src["licence"], fb.LICENCE[src["series"]])
                 self.assertTrue(src["citation"].startswith(fb.SOURCES[src["series"]][0]))
@@ -889,7 +1330,7 @@ class MainTest(unittest.TestCase):
         self.assertEqual((d["ok"], d["stale"], d["error"], d["failed_since"]), (False, True, fb.REASONS["fetch"], "2026-10-31"))
         self.assertEqual(d["retrieved"], "2026-10-30")
         self.assertIn("재무부 현금(TGA) -30/-80", d["line"])                             # 직전 숫자에서 다시 만든 문구
-        self.assertTrue(all(items[k]["ok"] for k in ("reserves", "rmp", "spread", "srf", "rrp", "week")))
+        self.assertTrue(all(items[k]["ok"] for k in ("reserves", "rmp_plan", "rmp", "spread", "srf", "rrp", "week")))
         self.assertIn("::warning::연준 재무상태표 참고 dec 받지 못함", log)
         self.assertNotIn("xyz-77", log)
         self.run_main(fred=FakeFred(self.S, fail={"IORB", "WRESBAL"}), now=NOW + TD(days=2))
@@ -915,6 +1356,8 @@ class MainTest(unittest.TestCase):
                 f.write("observation_date," + sid + "\n" + "".join(f"{d.isoformat()},{v}\n" for d, v in s))
         with open(os.path.join(cache, fb.OPS_CACHE), "wb") as f:
             f.write(OPS_BLOB)
+        with open(os.path.join(cache, fb.PLAN_CACHE), "wb") as f:
+            f.write(PLAN_BLOB)
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf), mock.patch.object(ai.urllib.request, "urlopen", side_effect=AssertionError("요청")):
             code = fb.main(["--out", self.out, "--work", self.work, "--offline"], now=NOW)
@@ -923,6 +1366,8 @@ class MainTest(unittest.TestCase):
         self.assertTrue(all(it["ok"] for it in items.values()))
         self.assertAlmostEqual(items["dec"]["values"]["other13"], -20)
         self.assertEqual([w["bn"] for w in items["rmp"]["values"]["windows"]], [12.0, 8.0, 11.0, 4.2])   # 받아 둔 운영 결과
+        self.assertEqual({w["bound"] for w in items["rmp"]["values"]["windows"]}, {"plan"})                # 받아 둔 계획의 기간
+        self.assertEqual([w["reinvest"] for w in items["rmp_plan"]["values"]["windows"]], ["11.1", "12.2", "13.3", "9.0"])
 
     def test_online_fetch_goes_through_the_bounded_reader(self):
         bodies = {sid: ("observation_date," + sid + "\n" + "".join(f"{d.isoformat()},{v}\n" for d, v in s)).encode()
@@ -948,22 +1393,30 @@ class MainTest(unittest.TestCase):
             # 뉴욕 연은 — 이 프로젝트를 밝히는 User-Agent(credit_fetch와 같은 글, 이메일 없음), 요청 하나엔 min(10초, 남은 예산)
             self.assertEqual(req.get_header("User-agent"), cf.UA)
             self.assertNotIn("@", cf.UA)
-            self.assertEqual(req.full_url, fb.OPS_URL + "?startDate=2026-05-01&endDate=2026-10-30")
-            seen.append((fb.OPS, timeout))
-            r = Resp(OPS_BLOB)
+            if req.full_url == fb.PLAN_URL:                                             # 공식 계획 페이지 — 쿼리 없음
+                seen.append((fb.PLAN, timeout))
+                r = Resp(PLAN_BLOB)
+            else:
+                self.assertEqual(req.full_url, fb.OPS_URL + "?startDate=2026-05-01&endDate=2026-10-30")
+                seen.append((fb.OPS, timeout))
+                r = Resp(OPS_BLOB)
             r.geturl = lambda: req.full_url
             return r
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             code = fb.main(["--out", self.out, "--work", self.work], now=NOW, opener=opener)
         self.assertEqual(code, 0, buf.getvalue())
-        self.assertEqual([s for s, _ in seen], fb.SERIES + [fb.OPS])                    # FRED 시리즈마다 한 번 + 뉴욕 연은 한 번
+        self.assertEqual([s for s, _ in seen], fb.SERIES + [fb.OPS, fb.PLAN])           # FRED 시리즈마다 한 번 + 뉴욕 연은 두 번
         self.assertTrue(all(0 < t <= ai.TIMEOUT for _, t in seen))
-        self.assertTrue(0 < seen[-1][1] <= cf.REQ_TIMEOUT)
+        self.assertTrue(all(0 < t <= cf.REQ_TIMEOUT for _, t in seen[-2:]))
+        with open(os.path.join(self.work, fb.CACHE, fb.PLAN_CACHE), "rb") as f:
+            self.assertEqual(f.read(), PLAN_BLOB)                                       # 계획 페이지 원문도 캐시에(공개 data 밖)
+        self.assertEqual(os.listdir(self.out), [fb.FILE])
         self.assertTrue(os.path.exists(os.path.join(self.work, fb.CACHE, "WSHOMCB.csv")))
         with open(os.path.join(self.work, fb.CACHE, fb.OPS_CACHE), "rb") as f:
             self.assertEqual(f.read(), OPS_BLOB)                                        # 받은 원문을 캐시에
         self.assertTrue(self.saved()["items"]["rmp"]["ok"])
+        self.assertTrue(self.saved()["items"]["rmp_plan"]["ok"])
 
     def test_requests_carry_no_custom_headers(self):
         # FRED는 사용자 정의 User-Agent를 붙이면 응답을 멈춘다 — 이 파일은 주소 글자만 넘기고 Request 객체·머리글을 만들지
@@ -974,8 +1427,9 @@ class MainTest(unittest.TestCase):
         code = re.sub(r"#[^\n]*", "", code)
         for tok in ("User-Agent", "Request(", "headers", "urlopen"):
             self.assertNotIn(tok, code)
-        self.assertEqual(code.count("cf.fetch_bytes("), 1)
+        self.assertEqual(code.count("cf.fetch_bytes("), 2)
         self.assertIn("fetch_bytes(url, OPS_HOST,", code)
+        self.assertIn("fetch_bytes(PLAN_URL, PLAN_HOST,", code)
 
     def test_older_data_is_not_taken(self):
         self.run_main()
@@ -1039,8 +1493,10 @@ class MainTest(unittest.TestCase):
         js["items"]["rrp"]["values"]["tag"] = "<b>"                                     # 정해 둔 표시가 아니다
         js["items"]["srf"]["values"]["extra"] = 1.0                                     # 모르는 값
         js["items"]["rmp"]["values"]["windows"][0]["rmp_bn"] = 99.9                     # 매입 − 상환과 다르다
+        js["items"]["rmp_plan"]["values"]["windows"][0]["rmp"] = "열"                    # 숫자 글이 아니다
         self.save(js)
-        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + TD(days=1), ops=FakeOps(fail=True))
+        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + TD(days=1), ops=FakeOps(fail=True),
+                      plan=FakePlan(fail=True))
         items = self.saved()["items"]
         for key in fb.BY_KEY:
             self.assertEqual((items[key]["ok"], items[key]["stale"]), (False, False), key)
@@ -1057,7 +1513,8 @@ class MainTest(unittest.TestCase):
             it["name"] = "바뀐 이름"
         js["items"]["reserves"]["chart"]["note"] = "바깥 글"
         self.save(js)
-        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + TD(days=1), ops=FakeOps(fail=True))
+        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + TD(days=1), ops=FakeOps(fail=True),
+                      plan=FakePlan(fail=True))
         dump = json.dumps(self.saved(), ensure_ascii=False)
         for bad in ("bad.invalid", "매수", "바깥 글", "바뀐 이름"):
             self.assertNotIn(bad, dump)
@@ -1091,7 +1548,7 @@ class MainTest(unittest.TestCase):
         self.assertIn("::warning::", log)
 
     def test_nothing_fetched_exits_1(self):
-        code, log = self.run_main(fred=FakeFred(self.S, fail=set(self.S)), ops=FakeOps(fail=True))
+        code, log = self.run_main(fred=FakeFred(self.S, fail=set(self.S)), ops=FakeOps(fail=True), plan=FakePlan(fail=True))
         self.assertEqual(code, 1, log)
         self.assertTrue(all(not it["ok"] for it in self.saved()["items"].values()))
 
@@ -1117,13 +1574,17 @@ class MainTest(unittest.TestCase):
         self.assertEqual(os.listdir(self.out), [fb.FILE])
 
     def test_every_string_is_fixed_text_without_verdict_words(self):
-        runs = [(FakeFred(self.S, fail={"IORB"}), NOW, FakeOps(fail=True)),             # 직전 값 없는 첫 실패
-                (FakeFred(self.S), NOW + TD(days=1), FakeOps()),
-                (FakeFred(self.S, fail={"WRESBAL", "WSHOMCB"}), NOW + TD(days=2), FakeOps()),   # 직전 값 이어 싣기·상환 비움
-                (FakeFred(self.S, cache={"SOFR"}), NOW + TD(days=3), FakeOps(fail=True))]
+        odd = plan_html([("7/14/2026 - 8/13/2026", plan_text("11.1", "5")),             # 형식 모름·깨진 날짜·지금 창 없음
+                         ("8/14/2026 - 9/14/2026", "The Desk plans to conduct small value operations of approximately $150 "
+                                                   "million over the monthly period."),
+                         ("9/15/2026 - 13/40/2026", plan_text("13.3")), ("10/15/2026 - 11/13/2026", plan_text("9.0"))])
+        runs = [(FakeFred(self.S, fail={"IORB"}), NOW, FakeOps(fail=True), FakePlan(fail=True)),   # 직전 값 없는 첫 실패
+                (FakeFred(self.S), NOW + TD(days=1), FakeOps(), FakePlan()),
+                (FakeFred(self.S, fail={"WRESBAL", "WSHOMCB"}), NOW + TD(days=2), FakeOps(), FakePlan(odd)),   # 이어 싣기·상환 비움
+                (FakeFred(self.S, cache={"SOFR"}), NOW + TD(days=3), FakeOps(fail=True), FakePlan(fail=True))]
         urls, errors = set(), set()
-        for fred, now, ops in runs:                                                     # 실행마다 파일 전체를 본다
-            self.run_main(fred=fred, now=now, ops=ops)
+        for fred, now, ops, plan in runs:                                               # 실행마다 파일 전체를 본다
+            self.run_main(fred=fred, now=now, ops=ops, plan=plan)
             dump = json.dumps(self.saved(), ensure_ascii=False)
             body = dump
             for ok in TOPIC:
@@ -1137,7 +1598,7 @@ class MainTest(unittest.TestCase):
             nested = re.compile(r"\([^()]*\(")                                         # 겹 괄호 없음('미수신(까닭)'이 겹치지 않게)
             for t in re.findall(r'"((?:[^"\\]|\\.)*)"', dump):
                 self.assertIsNone(nested.search(t), t)
-        self.assertEqual(urls, {f"https://fred.stlouisfed.org/series/{sid}" for sid in fb.SERIES} | {fb.OPS_URL})
+        self.assertEqual(urls, {f"https://fred.stlouisfed.org/series/{sid}" for sid in fb.SERIES} | {fb.OPS_URL, fb.PLAN_URL})
         self.assertEqual(errors, {fb.REASONS["fetch"], fb.REASONS["cache"]})          # 정해 둔 문구만
 
 
@@ -1197,30 +1658,41 @@ class StaticTest(unittest.TestCase):
         self.assertRegex(line, r"^\s*try \{ if \(isObj\(fbs\) && window\.FedBsCard\)")   # 깨져도 그 카드만 빠진다
 
     def test_page_names_the_new_york_fed_operations_source(self):
-        # '출처와 자료 상태'의 'FRED 밖의 공개 자료' — RMP 추정 줄은 뉴욕 연은 Markets API에서 직접 받는다(카드의 출처 줄과 같은 뜻)
+        # '출처와 자료 상태'의 'FRED 밖의 공개 자료' — RMP 두 줄(공식 계획 페이지·Markets API 운영 결과)은 뉴욕 연은에서 직접
+        # 받는다(카드의 출처 줄과 같은 뜻)
         page = self.read("site", "index.html")
         art = page[page.index("<h3>FRED 밖의 공개 자료</h3>"):]
         art = art[:art.index("</article>")]
-        for word in ("지준 관리 매입(RMP) 추정 줄은 뉴욕 연은 Markets API", "국채 운영 결과를 직접 받고", "newyorkfed.org 이용약관",
-                     "공식 수치가 아닙니다", "'연준 대차대조표 정책 — 1차 출처' 칸"):
+        for word in ("지준 관리 매입(RMP) 두 줄은 뉴욕 연은에서 직접 받습니다", "'Treasury Securities Operational Details' 페이지",
+                     "정해 둔 꼴만 옮긴", "계획이지 실제 매입이 아닙니다", "Markets API(markets.newyorkfed.org)의 국채 운영 결과",
+                     "newyorkfed.org 이용약관", "공식 수치가 아닙니다", "'연준 대차대조표 정책 — 1차 출처' 칸"):
             self.assertIn(word, art)
         self.assertNotIn("<a ", art)
+        self.assertNotIn("RMP) 추정 줄", page)                                           # 옛 이름
         fred = page[page.index("<h3>미국 공개 자료 (FRED 경유)</h3>"):]
         fred = fred[:fred.index("</article>")]
-        self.assertIn("RMP) 추정 줄은 FRED 밖, 아래", fred)
+        self.assertIn("RMP) 공식 계획·대조 줄은 FRED 밖, 아래", fred)
 
     def test_limits_say_what_the_official_page_and_wshomcb_hold(self):
         # 2026-11-03 검토: 공식 계획 나눔은 정적 HTML·CSV에 있다('스크립트로 그려져 받지 않는다'가 아니다), WSHOMCB = 기관 MBS +
-        # 기관 CMBS(빠지는 것은 기관채뿐) — 화면 글·머리말·README가 같은 뜻이고 옛 문장이 남지 않는다
+        # 기관 CMBS(빠지는 것은 기관채뿐) — 화면 글·머리말·README가 같은 뜻이고 옛 문장이 남지 않는다. 같은 날 공식 계획을 싣게
+        # 되며(사용자 결정 '앞에 2개 실행') '이 카드는 받지 않는다' 문장도 없어졌다
         readme = self.read("README.md")
-        row = next(l for l in readme.splitlines() if l.startswith("| 지준 관리 매입(RMP) 추정"))
-        for text in (fb.RMP_LIMITS, fb.__doc__, row):
-            for gone in ("스크립트로 그려", "기관채·CMBS"):
+        row = next(l for l in readme.splitlines() if l.startswith("| 지준 관리 매입(RMP) 대조"))
+        plan_row = next(l for l in readme.splitlines() if l.startswith("| 지준 관리 매입(RMP) 공식 계획"))
+        for text in (fb.RMP_LIMITS, fb.__doc__, row, plan_row):
+            for gone in ("스크립트로 그려", "기관채·CMBS", "이 카드는 그것을 받지 않는다", "카드는 받지 않", "이 카드는 받지 않"):
                 self.assertNotIn(gone, text)
-            for word in ("Treasury Securities Operational Details", "전달 실제 상환", "기관 CMBS"):
+            self.assertIn("Treasury Securities Operational Details", text)
+        for text in (fb.RMP_LIMITS, fb.__doc__, row):
+            for word in ("전달 실제 상환", "기관 CMBS"):
                 self.assertIn(word, text)
         for text in (fb.RMP_METHOD, fb.__doc__, row):
             self.assertIn("성탄이 수요일인 해", text)
+        for text in (fb.__doc__, plan_row):                                             # 읽는 꼴·형식 모름·계획이라는 것
+            flat = " ".join(text.split())                                               # 머리말은 줄을 바꿔 쓴다
+            for word in ("no reserve management purchases", "reinvestment purchases", "형식 모름", "계획"):
+                self.assertIn(word, flat)
 
     def test_card_intro_is_one_register_and_covers_the_notice(self):
         js = self.read("site", "fedbs.js")
@@ -1231,8 +1703,9 @@ class StaticTest(unittest.TestCase):
         for sent in filter(None, re.split(r"(?<=\.)\s+", about)):
             self.assertTrue(sent.endswith("니다."), sent)
         for mine, theirs in (("규칙 수에 들지 않습니다", "규칙 점검에 쓰지 않는"),
-                             ("뉴욕 연은 국채 매입 운영 결과로 거꾸로 셈한 것이고 공식 수치가 아닙니다",
-                              "뉴욕 연은 국채 매입 운영 결과로 거꾸로 셈한 것이고 공식 수치가 아니다"),
+                             ("뉴욕 연은 월 일정 공지의 계획 금액을 싣고, 국채 매입 운영 결과로 거꾸로 셈한 대조 줄을 함께 둡니다",
+                              "뉴욕 연은 월 일정 공지의 계획 금액을 싣고, 국채 매입 운영 결과로 거꾸로 셈한 대조 줄을 함께 둔다"),
+                             ("계획은 계획이고 대조 줄은 공식 수치가 아닙니다", "계획은 계획이고 대조 줄은 공식 수치가 아니다"),
                              ("H.4.1 주간 대차대조표와 단기자금 시장의 공개 통계", "H.4.1 주간 대차대조표와 단기자금 시장의 공개 통계"),
                              ("'지준과 통화승수'의 지준/GDP와 지준·재정 카드의 13주 나눔을 주간으로 읽는 재료",
                               "'지준과 통화승수'의 지준/GDP와 지준·재정 카드의 13주 나눔을 주간으로 읽는 재료"),
@@ -1245,7 +1718,8 @@ class StaticTest(unittest.TestCase):
         card = re.findall(r'"(\w+)"', js[js.index("const CARD = ["):].split("]")[0])
         self.assertEqual(card, [s["key"] for s in fb.ITEMS])
         self.assertIn(f'const OPS = "{fb.OPS}";', js)
-        self.assertIn('const OPTIONAL = ["rmp"];', js)
+        self.assertIn(f'const PLAN = "{fb.PLAN}";', js)
+        self.assertIn('const OPTIONAL = ["rmp_plan", "rmp"];', js)
         reasons = re.findall(r'"([^"]+)"', js[js.index("const REASONS = ["):].split("];")[0])
         self.assertEqual(reasons, list(fb.REASONS.values()))
         self.assertIn('const LABEL = "참고 — 예측 아님";', js)
@@ -1293,7 +1767,9 @@ class StaticTest(unittest.TestCase):
         for gone in ("conclude the reduction", "will initiate purchases", "8·9월 창", "늘려 잡"):   # 정책 사실·손 셈은 GUIDE에 두 번 없다
             self.assertNotIn(gone, guide)
         self.assertIn("'연준 대차대조표 정책 — 1차 출처' 칸", guide)                       # GUIDE는 가리키기만
-        self.assertIn("'RMP 추정' 줄", guide)
+        self.assertIn("'공식 계획' 줄", guide)
+        self.assertIn("대조 줄", guide)
+        self.assertNotIn("RMP 추정", js)                                                 # 옛 이름(추정 줄)이 화면 글에 없다
         fomc = "".join(re.findall(r'"([^"]*)"', js[js.index('["FOMC 뒤 첫 H.4.1"'):].split("]", 1)[0]))
         for word in ("2026-10-28 갱신", "확정되기 전까지 잠정", "FOMCpresconf20261028", "14:00 미 동부"):
             self.assertIn(word, fomc)
