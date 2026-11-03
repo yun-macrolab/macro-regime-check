@@ -88,7 +88,10 @@
                       이름표와 단기자금 칸 가리킴을 함께 싣는다
             판정 낱말 없이 숫자·날짜·뺄셈만. 화면에서 뺀 셈 규칙(문장 꼴·창 경계·상환 수요일·소액 운영·한계)은 README 'RMP 칸의 셈
             규칙' 절에 있다. compute에 공식 계획(plan)을 넘기지 않는 호출(비공개 쪽 짝 테스트 등)에서는 이 칸을 셈하지 않고 파일에도
-            넣지 않는다. 운영 결과(ops)를 받지 못하면 대조 한 줄만 '미수신', FRED 시리즈를 받지 못하면 그 줄(시작 뒤 나눔·하한)만
+            넣지 않는다. 운영 결과(ops)를 받지 못하면 대조 한 줄만 '미수신', FRED 시리즈를 받지 못하면 그 줄(시작 뒤 나눔·하한 —
+            WSHOMCB면 대조 줄도)만 '미수신'. 계획 페이지를 받지 못해 직전 값을 다시 실을 때 화면(site/fedbs.js)은 그 알림을 칸
+            머리 바로 위에 둔다('지금 창'·다음 날짜도 그 값을 받은 날 기준). 마지막 창이 끝났는데 다음 달
+            행이 아직 없으면 머리가 그 달 창을 이름 붙이고, 방침상 공지일이 지났으면 '(방침상 공지일 MM-DD께 지남)'을 붙인다
   week      그 H.4.1 주(목~수)가 15일·월말·FOMC 결정일을 품는지('FOMC 뒤 첫 H.4.1' — 결정일(수)이 그 주 마지막 날이라 그 주
             숫자는 시행 전 값)와 다음 FOMC 결정일(실행 시각에 아직 성명 — 결정일 14:00 미 동부 — 이 나오지 않은 첫 회의: 예약
             실행 UTC 22:17은 결정일에도 성명 뒤라 그날 회의는 '다음'이 아니다). FOMC 일정은 이 파일의 FOMC 표(2026년은
@@ -784,7 +787,7 @@ def _period(text):
 
 
 def _plan_sentence(text):
-    """계획 문장 → (재투자 글, RMP 글) 또는 (None, None)(형식 모름). 'no reserve management purchases'는 RMP '0'."""
+    """계획 문장 → (재투자 글, RMP 글) 또는 (None, None)(꼴 모름). 'no reserve management purchases'는 RMP '0'."""
     m = PLAN_FORM.fullmatch(text)
     if not m:
         return None, None
@@ -1335,10 +1338,17 @@ def rmp_text(v, date):
     unknown = sum(1 for w in ws if w["form"] == "unknown")
     missing = sum(1 for w in ws if w["form"] == "missing")
     # 머리
-    if last["form"] != "ok":
+    if last["form"] != "ok" and last["from"] is None:          # plan_window가 날짜를 비우는 것은 그 달 기간이 여럿일 때뿐
+        head = [f"{lead} 계획 — 그 달에 시작하는 기간이 여럿이라 숫자를 짓지 않음"]
+    elif last["form"] != "ok":
         head = [f"{lead} 계획 문장 꼴 모름 — 숫자를 짓지 않음"]
     elif state == "between":
-        head = [f"{lead} RMP {last['rmp']}bn ({_mname(last['month'], year)} 창)", "다음 창 계획은 페이지에 아직 없음"]
+        # 다음 창의 공지일이 다음 날짜(오늘 이후만)에서 빠졌으면 이미 지난 것 — 기다리는 공지를 머리에서 이름 붙여 둔다
+        nm = _mstr(_shift((int(last["month"][:4]), int(last["month"][5:])), 1))
+        due = "" if any(x["kind"] == "plan" and x["month"] == nm for x in v["next"]) else \
+            f"(방침상 공지일 {_md(_iso(bday_n(int(nm[:4]), int(nm[5:]))), year)}께 지남)"
+        head = [f"{lead} RMP {last['rmp']}bn ({_mname(last['month'], year)} 창)",
+                f"{_mname(nm, year)} 창 계획은 페이지에 아직 없음{due}"]
     else:
         head = [f"{lead} RMP {last['rmp']}bn"]
         i0, i1, _ = groups[-1]
@@ -1647,7 +1657,7 @@ def item_failed(key, code, prev, today):
 
 
 def build(results, prev, now):
-    """칸마다 싣는다. results에 없는 칸(운영 결과를 넘기지 않은 compute의 rmp)은 파일에도 넣지 않는다."""
+    """칸마다 싣는다. results에 없는 칸(공식 계획 plan을 넘기지 않은 compute의 rmp_view)은 파일에도 넣지 않는다."""
     today = now.date()
     items = {}
     for spec in ITEMS:

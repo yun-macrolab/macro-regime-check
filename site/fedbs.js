@@ -159,8 +159,12 @@ window.FedBsCard = (() => {
       el("tbody", {}, ...t.rows.map(r => el("tr", {},
         el("th", { scope: "row" }, r.cells[0], r.note ? el("small", {}, r.note) : null),
         ...r.cells.slice(1).map(c => el("td", {}, c))))));
+    // 직전 값을 다시 실을 때 — 머리의 '지금 창'·다음 날짜는 그 값을 받은 날 기준이라 알림을 머리 바로 위에 둔다(긴 칸의 끝에
+    // 두면 화면 밖)
+    const old = it.stale === true;
     return el("div", { class: "oil-row fedbs-row fedbs-rmp" },
       el("p", { class: "oil-name" }, el("strong", {}, name), " ", el("small", {}, ...nw(v.window))),
+      old ? rmpStale(it) : null,
       el("p", { class: "oil-num rmp-head" }, el("strong", {}, ...nw(v.head[0])), ...v.head.slice(1).flatMap(h => [" · ", ...nw(h)])),
       v.dates ? el("p", { class: "rmp-dates" }, ...nw(v.dates)) : null,
       el("div", { class: "rmp-grid" },
@@ -169,8 +173,13 @@ window.FedBsCard = (() => {
         el("p", { class: "muted rmp-mean" }, ...nw(v.mean))),
       el("p", { class: "oil-num rmp-bridge" }, el("span", { class: "rmp-tag" }, v.bridge.tag), " ", ...nw(v.bridge.text)),
       el("p", { class: "oil-num rmp-floor" }, el("span", { class: "rmp-tag" }, v.floor.tag), " ", ...nw(v.floor.text)),
-      ...v.notes.map(n => el("p", { class: "muted" }, ...nw(n))),
-      stale(it));
+      ...v.notes.map(n => el("p", { class: "muted" }, ...nw(n))));
+  }
+  function rmpStale(it) {
+    const got = day(it.retrieved);
+    const since = day(it.failed_since) ? ` (${it.failed_since}부터)` : "";
+    return el("p", { class: "oil-late" }, ...nw((got ? `이번 갱신의 값을 싣지 못해 ${got}에 받은 값을 싣습니다 — 이 칸의 '지금 창'·'다음 날짜'도 그날 기준`
+      : "이번 갱신의 값을 싣지 못해 직전에 받은 값을 싣습니다 — 이 칸의 '지금 창'·'다음 날짜'도 그때 기준") + since));
   }
   function row(it, key) {
     if (it === undefined && OPTIONAL.includes(key)) return null;

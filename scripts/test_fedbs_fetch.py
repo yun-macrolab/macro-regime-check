@@ -216,6 +216,11 @@ def view_rows(plan=VIEW_PLAN, old=True):
 
 
 VIEW_BLOB = plan_html(view_rows())
+# 그 달에 시작하는 공식 기간이 둘인 10월(문장은 정해 둔 꼴) · 기간 날짜를 읽지 못한 행 하나가 낀 페이지
+VIEW_TWO = plan_html(list(reversed([(cell(*fb.rule_bounds(ym)[:2]), plan_text(r, x)) for ym, r, x in VIEW_PLAN[:-1]]
+                                   + [("10/15/2026 -<br>10/30/2026", plan_text("4.0")),
+                                      ("10/31/2026 -<br>11/13/2026", plan_text("5.0"))])))
+VIEW_DROPPED = plan_html([("13/45/2026 - 11/13/2026", plan_text("1.0"))] + view_rows())
 
 
 def _weekday_after(d, k):
@@ -759,6 +764,11 @@ class RmpTest(unittest.TestCase):
         self.assertEqual([w["bn"] for w in v["checks"]][-3:], [11.8, 13.4, 3.0])          # 매입은 그대로 남긴다
         t = fb.rmp_text(v, c["date"])
         self.assertIn(f"{fb.CHK_HEAD}: 미수신(수신 실패)", t["notes"][-1])
+        # WSHOMCB는 시작 뒤 나눔·나눔 칸의 시리즈이기도 하다 — 그 줄과 뜻 덧줄의 (4주/13주 …) 괄호도 빠진다(하한 크기는 그대로)
+        self.assertEqual((v["bridge"], v["bridge_why"]), (None, "fetch"))
+        self.assertEqual(t["bridge"]["text"], "— 미수신(수신 실패)")
+        self.assertNotIn("(4주/13주", t["mean"])
+        self.assertIsNotNone(v["floor"])
         self.assertTrue(fb.values_ok(fb.BY_KEY["rmp_view"], v, {}))
 
     def test_parse_ops_shapes(self):
@@ -898,8 +908,8 @@ class RmpTest(unittest.TestCase):
 
 
 class PlanTest(unittest.TestCase):
-    """지준 관리 매입(RMP) 공식 계획 — 뉴욕 연은 Operational Details 페이지의 표 읽기(두 문장 꼴·형식 모름·깨진 날짜·태그·&nbsp;·
-    줄바꿈·차례·같은 기간·옛 창·크기 상한·표 없음), 네 달 창과 글, 대조 칸의 창을 공식 기간으로 잡을 때와 규칙으로 잡을 때, 요청 꼴
+    """지준 관리 매입(RMP) 공식 계획 — 뉴욕 연은 Operational Details 페이지의 표 읽기(두 문장 꼴·꼴 모름·깨진 날짜·태그·&nbsp;·
+    줄바꿈·차례·같은 기간·옛 창·크기 상한·표 없음), plan_window의 꼴, 대조 칸의 창을 공식 기간으로 잡을 때와 규칙으로 잡을 때, 요청 꼴
     (User-Agent·다른 호스트로 넘김 거절·함께 쓰는 예산)·캐시, 칸만 실패, 옛 파일. 페이지 HTML·금액은 모두 지어낸 것."""
 
     def periods(self, blob):
@@ -943,7 +953,7 @@ class PlanTest(unittest.TestCase):
         rows = [("8/14/2026 - 9/14/2026", plan_text("12.2")), ("7/14/2026 - 8/13/2026", plan_text("11.1", "5")),
                 ("9/15/2026 - 10/14/2026", plan_text("13.3")), ("8/14/2026 - 9/14/2026", plan_text("12.2")),   # 같은 숫자
                 ("7/14/2026 - 8/13/2026", plan_text("11.1", "6")),                              # 같은 기간에 다른 숫자
-                ("10/15/2026 - 11/13/2026", "<td>stray cell")]                                 # 칸이 밀린 행 — 형식 모름
+                ("10/15/2026 - 11/13/2026", "<td>stray cell")]                                 # 칸이 밀린 행 — 꼴 모름
         self.assertEqual(self.periods(plan_html(rows)),
                          [("2026-07-14", "2026-08-13", None, None), ("2026-08-14", "2026-09-14", "12.2", "0"),
                           ("2026-09-15", "2026-10-14", "13.3", "0"), ("2026-10-15", "2026-11-13", None, None)])
@@ -1020,7 +1030,7 @@ class PlanTest(unittest.TestCase):
         # 공식 기간으로는 8월 창에 든다
         plan = fb.parse_plan(plan_html([("7/14/2026 - 8/12/2026", plan_text("11.1", "5")),
                                         ("8/13/2026 - 9/14/2026", plan_text("12.2")),
-                                        ("9/15/2026 - 10/14/2026", "not a known sentence"),     # 형식 모름이어도 기간은 공식
+                                        ("9/15/2026 - 10/14/2026", "not a known sentence"),     # 꼴 모름이어도 기간은 공식
                                         ("10/15/2026 - 11/13/2026", plan_text("9.0"))]))
         ops = fb.parse_ops(OPS_BLOB)
         ws = rule_checks(ops=ops, plan=plan)
@@ -1345,14 +1355,30 @@ class ViewTest(unittest.TestCase):
         between = D(2026, 11, 16)
         t, c = vtext(today=between, now=datetime.datetime(2026, 11, 16, 22, 17, tzinfo=datetime.timezone.utc))
         self.assertEqual(c["values"]["state"], "between")
-        self.assertEqual(t["head"], ["마지막 창 RMP 0bn (10월 창)", "다음 창 계획은 페이지에 아직 없음",
+        self.assertEqual(t["head"], ["마지막 창 RMP 0bn (10월 창)", "11월 창 계획은 페이지에 아직 없음(방침상 공지일 11-13께 지남)",
                                      "2025-12-12 창부터 계획 누적 142bn", "그 창 단기채 매입 계획 9.0bn은 모두 MBS 상환분 재투자"])
         self.assertEqual(t["window"], "마지막 창 2026-10-15~11-13")
         self.assertEqual(t["table"]["rows"][-1]["note"], "")
         self.assertEqual(t["dates"], "다음 날짜: FOMC 12-09(수) · 12월 계획 공지 12-11(금)께 · 2027년 1월 계획 공지 "
-                                     "2027-01-14(목)께")                                 # 지난 공지일은 빼고, 해가 다르면 해까지
+                                     "2027-01-14(목)께")                 # 지난 공지일은 다음 날짜에서 빼고(머리에 '지남'), 해가 다르면 해까지
         self.assertTrue(t["notes"][1].endswith("· 12-11·2027-01-14은 방침 '매달 9영업일께'로 센 날(공식 표의 다음 공지 칸은 비어 "
                                                "있음)."), t["notes"][1])
+        # 창이 공지일보다 먼저 끝난 공식 기간 — 창 사이여도 다음 창 공지일(11-13)이 아직 앞이면 '지남' 없이 다음 날짜에 그대로
+        early = plan_html(list(reversed([(cell(*fb.rule_bounds(ym)[:2]), plan_text(r, x)) for ym, r, x in VIEW_PLAN[:-1]]
+                                        + [("10/15/2026 -<br>11/10/2026", plan_text("9.0"))])))
+        t, c = vtext(plan=early, today=D(2026, 11, 11), now=datetime.datetime(2026, 11, 11, 22, 17, tzinfo=datetime.timezone.utc))
+        self.assertEqual(c["values"]["state"], "between")
+        self.assertEqual(t["head"][:2], ["마지막 창 RMP 0bn (10월 창)", "11월 창 계획은 페이지에 아직 없음"])
+        self.assertEqual(t["dates"], "다음 날짜: 11월 계획 공지 11-13(금)께 · FOMC 12-09(수) · 12월 계획 공지 12-11(금)께")
+        # 그 달에 시작하는 공식 기간이 둘 — 문장이 정해 둔 꼴이어도 숫자를 짓지 않고, 까닭을 그대로 적는다
+        t, c = vtext(plan=VIEW_TWO)
+        last = c["values"]["windows"][-1]
+        self.assertEqual((last["form"], last["from"], c["values"]["state"]), ("unknown", None, "unknown"))
+        self.assertEqual(t["head"], ["10월 창 계획 — 그 달에 시작하는 기간이 여럿이라 숫자를 짓지 않음",
+                                     "2025-12-12 창부터 계획 누적 —(꼴 모름 창 1개)"])
+        self.assertEqual(t["window"], "10월 창")
+        self.assertEqual(c["values"]["checks"][-1]["bound"], "rule")                     # 대조 창은 그 달만 9영업일 규칙
+        self.assertTrue(fb.values_ok(fb.BY_KEY["rmp_view"], c["values"], {}))
         odd = "The Desk plans to conduct approximately $9.0 billion in reinvestment purchases over the noted monthly period."
         t, c = vtext(plan=plan_with({(2026, 10): (odd, None)}))
         self.assertEqual(t["head"], ["지금 창 계획 문장 꼴 모름 — 숫자를 짓지 않음", "2025-12-12 창부터 계획 누적 —(꼴 모름 창 1개)"])
@@ -1370,6 +1396,16 @@ class ViewTest(unittest.TestCase):
                                      "2027-01-14(목)께")
         self.assertEqual([fb._nth(k) for k in (2, 3, 10, 11)], ["두 창째", "세 창째", "열 창째", "11창째"])
         self.assertEqual(fb.window_state({"from": None, "until": None}, NOW.date()), "unknown")
+
+    def test_dropped_rows_get_a_third_note(self):
+        # 기간 날짜를 읽지 못한 행은 빼고, 셋째 덧줄에 그 수만 — 나머지 글은 그대로
+        t, c = vtext(plan=VIEW_DROPPED)
+        self.assertEqual(c["values"]["dropped"], 1)
+        self.assertEqual(len(t["notes"]), 3)
+        self.assertEqual(t["notes"][2], "페이지 표의 행 가운데 기간 날짜를 읽지 못한 1개는 뺐다.")
+        base, _ = vtext()
+        self.assertEqual((t["head"], t["table"], t["notes"][:2]), (base["head"], base["table"], base["notes"]))
+        self.assertTrue(fb.values_ok(fb.BY_KEY["rmp_view"], c["values"], {}))
 
     def test_next_announcement_dates(self):
         # 다음 공지 칸에 날짜가 있으면 그 날('께' 없이, 덧줄에 '공식 표의 다음 공지 칸 날짜'), 없으면 9영업일로 센 날에 '께'
@@ -1496,7 +1532,8 @@ class ViewTest(unittest.TestCase):
         cases = [{}, {"plan": plan_with({(2026, 10): ("9.0", "6")})}, between, {"plan": plan_with({(2026, 10): (odd, None)})},
                  {"plan": plan_with(drop=[(2026, 3)])}, {"ops": fb.ItemError("fetch")}, {"S": S},
                  {"plan": plan_with(extra=[((2026, 11), "8.0", None)]), "today": D(2026, 11, 13)},
-                 {"plan": VIEW_BLOB.replace(b"<td>&nbsp;</td>", b"<td>11/12/2026</td>", 1)}]
+                 {"plan": VIEW_BLOB.replace(b"<td>&nbsp;</td>", b"<td>11/12/2026</td>", 1)},
+                 {"plan": VIEW_TWO}, {"plan": VIEW_DROPPED}]
         nested = re.compile(r"\([^()]*\(")
         for kw in cases:
             c = view(**kw)
@@ -1940,7 +1977,7 @@ class MainTest(unittest.TestCase):
         self.assertEqual(os.listdir(self.out), [fb.FILE])
 
     def test_every_string_is_fixed_text_without_verdict_words(self):
-        odd = plan_html([("7/14/2026 - 8/13/2026", plan_text("11.1", "5")),             # 형식 모름·깨진 날짜·지금 창 없음
+        odd = plan_html([("7/14/2026 - 8/13/2026", plan_text("11.1", "5")),             # 꼴 모름·깨진 날짜·지금 창 없음
                          ("8/14/2026 - 9/14/2026", "The Desk plans to conduct small value operations of approximately $150 "
                                                    "million over the monthly period."),
                          ("9/15/2026 - 13/40/2026", plan_text("13.3")), ("10/15/2026 - 11/13/2026", plan_text("9.0"))])
