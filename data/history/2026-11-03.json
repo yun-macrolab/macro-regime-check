@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-11-03",
-  "generated_at": "2026-11-03T03:30:18+00:00",
+  "generated_at": "2026-11-03T07:35:01+00:00",
   "notice": "공개 통계에 사전에 정한 규칙을 적용한 결과다. 투자 판단이나 권유가 아니다.",
   "attribution": [
     "Source: FRED®, Federal Reserve Bank of St. Louis (https://fred.stlouisfed.org/).",
@@ -11,7 +11,7 @@
     "전년비·3개월 변화·상관·비율은 이 저장소 코드가 원자료로 계산한 값이다.",
     "macro-regime-check (github.com/yun-macrolab) is not affiliated with the New York Fed. The New York Fed does not sanction, endorse, or recommend any products or services offered by macro-regime-check (github.com/yun-macrolab). It is not sponsored by, affiliated with, or endorsed by the Federal Reserve Bank of St. Louis or FRED®.",
     "©2017, Moody's Corporation, Moody's Investors Service, Inc., Moody's Analytics, Inc. and/or their licensors and affiliates (collectively, \"Moody's\"). All rights reserved. Moody's ratings and other information (\"Moody's Information\") are proprietary to Moody's and/or its licensors and are protected by copyright and other intellectual property laws. Moody's Information is licensed to Client by Moody's. MOODY'S INFORMATION MAY NOT BE COPIED OR OTHERWISE REPRODUCED, REPACKAGED, FURTHER TRANSMITTED, TRANSFERRED, DISSEMINATED, REDISTRIBUTED OR RESOLD, OR STORED FOR SUBSEQUENT USE FOR ANY SUCH PURPOSE, IN WHOLE OR IN PART, IN ANY FORM OR MANNER OR BY ANY MEANS WHATSOEVER, BY ANY PERSON WITHOUT MOODY'S PRIOR WRITTEN CONSENT.",
-    "코드는 MIT 라이선스지만 자료와 그것으로 계산한 값은 그 대상이 아니다 — 각 출처의 이용 조건을 따른다. FRED 경유 자료는 FRED 이용약관과 시리즈별 저작권·인용 표시(시카고 연은 NFCI 신용 하위 지수와 세인트루이스 연은이 계산한 시리즈는 인용 필요, IMF 두바이 유가는 © International Monetary Fund), Moody's Baa−10년 스프레드는 FRED 경유 인용 필요 자료(FRED 권장 인용과 Moody's 저작권 고지를 값 곁과 이 꼬리말에 함께), 나스닥100·Nasdaq CTA AI 지수의 고점 대비 낙폭(정수 %)은 FRED 경유 저작권 자료(FRED 페이지의 저작권 표시와 권장 인용을 그 카드에 함께), 연준 이사회 웹 사이트의 초과 채권 프리미엄(EBP)은 미 정부 공개 자료, 뉴욕 연은 자료(SOFR·프라이머리 딜러 통계·ACM 기간 프리미엄·회사채 시장 스트레스 지수 CMDI)는 newyorkfed.org 이용약관, 단일종목 CDS 건수·호가는 DTCC가 SEC 규정 Reg SBSR에 따라 공개 배포한 거래 보고, 하이퍼스케일러 조달 숫자는 미 정부 공개 자료인 SEC EDGAR 공시에서 계산한다. FRED 시리즈의 권장 인용은 공개 JSON 파일의 citation 칸에 싣고, 인용 필요 시리즈는 그 값을 싣는 카드에도 싣는다."
+    "코드는 MIT 라이선스지만 자료와 그것으로 계산한 값은 그 대상이 아니다 — 각 출처의 이용 조건을 따른다. FRED 경유 자료는 FRED 이용약관과 시리즈별 저작권·인용 표시(시카고 연은 NFCI 신용 하위 지수와 세인트루이스 연은이 계산한 시리즈는 인용 필요, IMF 두바이 유가는 © International Monetary Fund), Moody's Baa−10년 스프레드는 FRED 경유 인용 필요 자료(FRED 권장 인용과 Moody's 저작권 고지를 값 곁과 이 꼬리말에 함께), 나스닥100·Nasdaq CTA AI 지수의 고점 대비 낙폭(정수 %)은 FRED 경유 저작권 자료(FRED 페이지의 저작권 표시와 권장 인용을 그 카드에 함께), 연준 이사회 웹 사이트의 초과 채권 프리미엄(EBP)은 미 정부 공개 자료, 뉴욕 연은 자료(SOFR·상시 레포·익일물 역레포·국채 매입 운영 결과·프라이머리 딜러 통계·ACM 기간 프리미엄·회사채 시장 스트레스 지수 CMDI)는 newyorkfed.org 이용약관, 단일종목 CDS 건수·호가는 DTCC가 SEC 규정 Reg SBSR에 따라 공개 배포한 거래 보고, 하이퍼스케일러 조달 숫자는 미 정부 공개 자료인 SEC EDGAR 공시에서 계산한다. FRED 시리즈의 권장 인용은 공개 JSON 파일의 citation 칸에 싣고, 인용 필요 시리즈는 그 값을 싣는 카드에도 싣는다."
   ],
   "summary": {
     "total": 13,
