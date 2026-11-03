@@ -92,8 +92,8 @@ class PageTest(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(REPO, "site", src)), src)
 
     def test_reference_cards_fail_alone(self):
-        # 참고 카드(2026-10-30 더한 넷 포함)는 그리기가 깨져도 그 카드만 빠진다 — 부르는 줄마다 try 안, 스크립트가 없어도 부르지 않는다
-        for name in ("OilEnergy", "TpCard", "LiquidityCard", "CreditCard", "CdsCard"):
+        # 참고 카드(2026-10-30 더한 넷 · 2026-11-03 연준 재무상태표 포함)는 그리기가 깨져도 그 카드만 빠진다 — 부르는 줄마다 try 안, 스크립트가 없어도 부르지 않는다
+        for name in ("OilEnergy", "TpCard", "LiquidityCard", "FedBsCard", "CreditCard", "CdsCard"):
             line = next(l for l in self.page.splitlines() if f"window.{name}.render(" in l)
             self.assertRegex(line, rf"^\s*try \{{ if \(isObj\(\w+\) && window\.{name}\b", name)
         # 신용 긴축·CDS 절은 처음에 숨어 있고, 둘 중 하나라도 그렸을 때 AI 투자 화면에서만 열린다

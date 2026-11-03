@@ -20,6 +20,8 @@
 #             SEC 공시 조달(sec.json — SEC EDGAR XBRL, 연락처는 비밀 SEC_USER_AGENT에서만, 그 단계에만 넘긴다)
 #             → 신용 긴축(credit.json — FRED + 연준 이사회 EBP · 뉴욕 연은 CMDI, sec.json을 읽으므로 SEC 다음)
 #             · 지준·재정(liquidity.json — FRED)
+#             · 연준 재무상태표(fedbs.json — FRED: 연준 이사회 H.4.1 주간 열·IORB·BEA GDP + 뉴욕 연은 SOFR·상시 레포·익일물
+#             역레포, 2026-11-03 더함. H.4.1은 목 16:30 미 동부에 나와 이 예약 실행(UTC 22:17)이 같은 날 받는다)
 #             · 기간 프리미엄 모형 대조(tp.json — FRED Kim-Wright + 뉴욕 연은 ACM) · 단일종목 CDS(cds.json·cds_days.json —
 #             DTCC 공개 거래 보고 하루 파일, 빠진 날만 이어 받는다)
 #   deploy  data/·site/만 Pages로. 스크립트·원자료(.work/)는 배포하지 않는다.
@@ -76,6 +78,7 @@ jobs:
           node --test scripts/test_ai_invest_render.cjs
           node --test scripts/test_tp_render.cjs
           node --test scripts/test_liquidity_render.cjs
+          node --test scripts/test_fedbs_render.cjs
           node --test scripts/test_credit_render.cjs
           node --test scripts/test_cds_render.cjs
 
@@ -84,7 +87,7 @@ jobs:
     # main에서만 — 다른 브랜치에서 수동 실행하면 그 브랜치 커밋이 main으로 밀려 올라간다
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30        # 참고 자료 단계 제한의 합(국고채 2 + 수급 2 + AI 2 + SEC 2 + 신용 2 + 지준 2 + 기간 프리미엄 2 + CDS 2 + 유가 2 + 한국 4 = 22분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다
+    timeout-minutes: 30        # 참고 자료 단계 제한의 합(국고채 2 + 수급 2 + AI 2 + SEC 2 + 신용 2 + 지준 2 + 연준 재무상태표 2 + 기간 프리미엄 2 + CDS 2 + 유가 2 + 한국 4 = 24분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다
     permissions:
       contents: write   # 봇이 data/를 커밋한다
     outputs:
@@ -160,6 +163,13 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/liquidity_fetch.py
+      # 참고 자료 — 연준 재무상태표(H.4.1 주간 · FRED 공개 통계 + 뉴욕 연은 인용 필요 시리즈, 요청 14회, 전체 60초 상한). 규칙
+      # 판정에 쓰지 않고, 실패해도 알림 없음
+      - name: 연준 재무상태표 참고 자료 받기
+        id: fedbs
+        continue-on-error: true
+        timeout-minutes: 2
+        run: python scripts/fedbs_fetch.py
       # 참고 자료 — 기간 프리미엄 모형 대조(FRED Kim-Wright 2회 + 뉴욕 연은 ACM 1회, 전체 45초 상한). 실패해도 알림 없음
       - name: 기간 프리미엄 모형 대조 참고(Kim-Wright · ACM)
         id: tp
