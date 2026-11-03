@@ -9,7 +9,8 @@
    카드 머리 안내는 ABOUT 하나(합니다체)다 — 자료 파일의 notice(한다체, 같은 뜻)는 겹쳐 싣지 않는다.
    지준 관리 매입(RMP) 칸(rmp_view)은 이 카드에만 있다(2026-11-03 — 처음의 계획 줄·대조 줄 두 칸을 같은 날 한 칸으로): 자료 파일의
    view(머리 토막·다음 날짜·묶음 표·뜻 덧줄·시작 뒤 나눔·하한 달러 크기·덧줄 — 모두 그 스크립트가 숫자로 만든 정해 둔 글)를 나눠
-   그린다. 표는 .ai-table 꼴, 1280 폭에서는 표 옆에 머리 글과 뜻 덧줄을 두고 좁은 폭에서는 위아래로 쌓는다(dashboard.css의 rmp-*).
+   그린다. 표는 .ai-table 꼴, 900px 이상이면 표 옆에 머리 글(caption)만 두고 좁은 폭에서는 위아래로 쌓는다(dashboard.css의 rmp-*) —
+   뜻 덧줄은 칸 끝의 접는 설명에.
    숫자·날짜 토막은 줄 중간에서 끊지 않게 span.nw로 감싼다(글자는 그대로 — 감싸기만). view의 꼴이 어긋나면 숫자 줄과 덧줄만
    그린다. 그 칸이 없던 때의 자료 파일이면(옛 rmp_plan·rmp 칸뿐이어도) 줄을 두지 않는다(OPTIONAL). 계획 페이지·운영 결과는 FRED가
    아니라 뉴욕 연은에서 직접 받은 것이라 링크 없이 이름을 글자로 싣고 권장 인용(licence 'nyfed-terms')도 글자로 싣는다.
@@ -37,7 +38,8 @@ window.FedBsCard = (() => {
   const ABOUT = "연준 H.4.1 주간 대차대조표와 단기자금 시장의 공개 통계와 그 산술입니다. 위 규칙 카드 '지준과 통화승수'의 지준/GDP와 " +
     "지준·재정 카드의 13주 나눔을 주간으로 읽는 재료이고, 규칙 수에 들지 않습니다. 지준 관리 매입(RMP)은 뉴욕 연은 월 일정 공지의 " +
     "계획 금액이고, 운영 결과로 셈한 대조(공식 수치 아님)는 차 한 줄로만 둡니다. 금리나 자금 여건을 예측하지 않습니다.";
-  // 읽는 법의 'RMP 칸' 항목이 가리키는 저장소 README 절(link()는 FRED·GitHub 주소만 링크로 건다)
+  // RMP 칸의 접는 설명(RMP_GUIDE)이 링크로 거는 저장소 README 절 — 그 칸을 그리지 못한 날은 카드 읽는 법의 'RMP 칸' 항목이
+  // 대신 건다(link()는 FRED·GitHub 주소만 링크로 건다)
   const README_URL = "https://github.com/yun-macrolab/macro-regime-check#rmp-칸의-셈-규칙";
   const README_LABEL = "저장소 README의 'RMP 칸의 셈 규칙' 절";
   const GUIDE = [
@@ -51,7 +53,7 @@ window.FedBsCard = (() => {
       "2026-11-03에 최근 52주 수요일 수준으로 재 본 바로는 주간 지준 변화를 재무부 현금 변화로 설명하는 R²가 0.91이었습니다(104주로 " +
       "늘리면 0.57 — 기간에 따라 다릅니다, 측정 기록)."],
     ["RMP 칸", "재투자와 RMP의 흐름도, '시작 뒤 지준'의 셈, 계획과 대조의 뜻, 셈 규칙(저장소 README)으로 가는 길은 그 칸 끝의 " +
-      "'읽는 법 — RMP 흐름도'에 있습니다."],
+      "'읽는 법 — RMP 흐름도'에 있습니다."],                 // 그 접는 설명을 그리지 못한 날은 card()가 RMP_GUIDE_ALT로 바꾼다
     ["창의 출발일", "4주·13주 창의 출발 수요일에 월말·분기말·15일 표시가 있으면 그날 하루 튄 역레포·재무부 현금의 되돌림이 그 칸에 " +
       "섞여 있습니다. 창은 옮기지 않고 표시만 합니다. 1주 변화는 15일·월말 하루에 크게 흔들려 싣지 않습니다."],
     ["FOMC 뒤 첫 H.4.1", "FOMC 결정일(수)이 그 주의 마지막 날이라 그 주의 지준·나눔·주 평균은 결정이 시행되기 전 값입니다. IORB·" +
@@ -66,6 +68,9 @@ window.FedBsCard = (() => {
     ["정책 사실", "보유 축소 종료·지준 관리 매입 시작·태스크포스 같은 정책 사실은 위 '연준 대차대조표 정책 — 1차 출처' 칸에 " +
       "원문 인용·날짜·출처 주소와 함께 있습니다."]
   ];
+  // RMP 칸이 접는 설명 없이 그려진 날(꼴이 어긋난 view·받지 못함)의 카드 읽는 법 'RMP 칸' 항목 — 셈 규칙 README 링크를 여기서 건다
+  const RMP_GUIDE_ALT = ["RMP 칸", "창 경계·상환 수요일을 정하고 소액 운영을 빼는 규칙과 읽는 계획 문장 꼴은 ",
+    [README_LABEL, README_URL, "에 있습니다."]];
   // 연준 대차대조표 정책 — 1차 출처(접힌 읽는 법 밖에 보이는 칸). 운영자가 2026-11-03 원문을 받아 확인한 고정 글 — 자동 갱신 아님.
   // 영어 인용은 원문 그대로(scripts/test_fedbs_fetch.py가 견준다), 주소는 글자로만(링크는 FRED·GitHub에만 건다)
   const POLICY_HEAD = "연준 대차대조표 정책 — 1차 출처";
@@ -245,7 +250,7 @@ window.FedBsCard = (() => {
       "+17.1bn이었습니다(측정 기록). 단기채+MBS가 계획 누적보다 조금 낮게 나올 수 있는 것은 시작 앞 네 주에 보유 축소 때의 마지막 " +
       "MBS 상환 전 수요일이, 최근 네 주에 결제가 다 되기 전의 재투자가 들어 있어서입니다."],
     ["계획과 대조", "계획 금액은 뉴욕 연은 공지 문장을 옮긴 것이지 실제 매입이 아닙니다. 운영 결과 대조는 창 안 매입 운영 결과의 " +
-      "합에서 그 달 MBS 상환을 뺀 이 사이트의 셈이고 공식 수치가 아닙니다. 창 경계·상환 수요일·소액 운영을 빼는 규칙은 ",
+      "합에서 그 달 MBS 상환을 뺀 이 사이트의 셈이고 공식 수치가 아닙니다. 창 경계·상환 수요일을 정하고 소액 운영을 빼는 규칙은 ",
       [README_LABEL, README_URL, "에 있습니다."]]
   ];
   function rmpGuide(v) {
@@ -355,6 +360,13 @@ window.FedBsCard = (() => {
     return el("div", { class: "cite-lines" }, ...[...best.values()].map(x => el("p", { class: "muted" }, "권장 인용: " + x.text)));
   }
 
+  // 카드 읽는 법의 항목 — 'RMP 칸'은 그 칸의 접는 설명을 그렸으면 가리키기만, 그 칸이 있는데 접는 설명이 없으면(꼴이 어긋남·
+  // 받지 못함) 셈 규칙 링크를 단 RMP_GUIDE_ALT, 그 칸이 없는 옛 자료 파일이면 뺀다
+  function guideItems(items) {
+    const it = items.rmp_view;
+    const drew = usable(it, "rmp_view") && rmpView(it.view) !== null;
+    return GUIDE.flatMap(g => (g[0] !== "RMP 칸" ? [g] : drew ? [g] : it === undefined ? [] : [RMP_GUIDE_ALT]));
+  }
   function card(d) {
     const items = d.items, notices = [];   // 머리 안내는 ABOUT만 — d.notice는 같은 뜻의 한다체라 싣지 않는다
     for (const k of CARD) if (usable(items[k], k)) for (const t of texts(items[k].notices)) if (!notices.includes(t)) notices.push(t);
@@ -365,7 +377,7 @@ window.FedBsCard = (() => {
       ...CARD.map(k => row(items[k], k)),
       policy(),
       el("details", { class: "rule-detail rule-guide" }, el("summary", {}, "읽는 법 — 정의·측정 기록"),
-        ...GUIDE.map(([h, text, to]) => el("p", {}, el("strong", {}, h), " · ", text, ...(to ? [link(to[0], to[1]), to[2]] : [])))),
+        ...guideItems(items).map(([h, text, to]) => el("p", {}, el("strong", {}, h), " · ", text, ...(to ? [link(to[0], to[1]), to[2]] : [])))),
       notices.length ? el("div", { class: "notices" }, ...notices.map(t => el("p", {}, t))) : null,
       sourceLine(items),
       citeLines(items));

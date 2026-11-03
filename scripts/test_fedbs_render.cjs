@@ -26,6 +26,7 @@ function load(opts={}){
  const win={};
  if(opts.charts!==false)win.MacroCharts={lineChart:(spec,o)=>{calls.push({spec,o});if(opts.chartThrows)throw new Error('x');return el('figure',{class:'ch'},String(spec.title));}};
  const sc={window:win,document:{getElementById:id=>ids[id]||null},el,link};
+ if(opts.svgThrows)sc.svgEl=()=>{throw new Error('x');};
  if(opts.svg)sc.svgEl=(tag,attrs,text)=>{const n=new El(tag);n.ns='svg';for(const [k,v] of Object.entries(attrs||{}))n.setAttribute(k,v);  // index.html의 svgEl과 같은 꼴
   if(text!==undefined)n.append(String(text));n.appendChild=c=>{n.kids.push(c);return c;};return n;};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../site/fedbs.js'),'utf8'),sc);
@@ -182,7 +183,7 @@ test('each failed row shows a fixed reason only, never remote text',()=>{
  assert.ok(!text.includes('bad.invalid'));
  assert.ok(!text.includes('rrp 숫자 줄'));
  assert.ok(!/undefined|NaN|null/.test(text));
- assert.deepEqual(walk(ids['fedbs-slot'],n=>n.tag==='a').map(a=>a.textContent),['WRESBAL','GDP']);   // 그린 칸의 출처만, 시리즈마다 한 번(README 링크는 RMP 칸의 접는 설명에만)
+ assert.deepEqual(walk(ids['fedbs-slot'],n=>n.tag==='a').map(a=>a.textContent),[README,'WRESBAL','GDP']);   // 그린 칸의 출처만, 시리즈마다 한 번 — RMP 칸을 못 그린 날은 읽는 법이 README를 건다
  const cites=cls(ids['fedbs-slot'],'cite-lines');
  assert.equal(cites.length,0);                                                                  // 인용 필요 칸을 하나도 그리지 않았다
  const all=data();for(const k of api.CARD)all.items[k]={key:k,ok:false,error:'수신 실패',name:k};
@@ -438,7 +439,30 @@ test('the RMP toggle draws the flow diagram with svgEl — fixed concept words, 
  assert.ok(cap.textContent.startsWith('개념도 — 뉴욕 연은 운영 방침(2025-12-10)'));
  assert.ok(texts(gd).every(t=>typeof t==='string'));
  // svgEl이 깨지면 그림만 빼고 글은 그대로
- const t2=load({svg:true});t2.api.render(data());
- const broken=load();broken.api.render(data());
- assert.equal(cls(broken.ids['fedbs-slot'],'rmp-guide')[0].kids.filter(k=>k.tag==='p').length,3);
+ const broken=load({svgThrows:true});
+ assert.equal(broken.api.render(data()),true);
+ const bg=cls(broken.ids['fedbs-slot'],'rmp-guide')[0];
+ assert.equal(walk(bg,n=>n.tag==='figure').length,0);
+ assert.equal(bg.kids.filter(k=>k.tag==='p').length,3);
+});
+
+test("the card guide's RMP item points to the row toggle, carries the README link when the toggle is missing, and goes with the row",()=>{
+ const {api,ids}=load();
+ const item=()=>{const g=cls(ids['fedbs-slot'],'rule-guide').find(x=>!(x.attrs.class||'').includes('rmp-guide'));
+  return g.kids.filter(k=>k.tag==='p').find(p=>p.kids[0].textContent==='RMP 칸');};
+ api.render(data());                                                                           // 접는 설명을 그렸다 — 가리키기만
+ assert.ok(item().textContent.includes("'읽는 법 — RMP 흐름도'"));
+ assert.equal(walk(item(),n=>n.tag==='a').length,0);
+ for(const set of [d=>{d.items.rmp_view.view={};},                                             // 꼴이 어긋남 — 숫자 줄과 덧줄만
+                   d=>{d.items.rmp_view={key:'rmp_view',ok:false,stale:false,error:'수신 실패',name:'RMP 이름'};}]){   // 받지 못함
+  const d=data();set(d);api.render(d);
+  assert.equal(cls(ids['fedbs-slot'],'rmp-guide').length,0);
+  assert.ok(!item().textContent.includes('RMP 흐름도'));
+  const a=walk(item(),n=>n.tag==='a');
+  assert.equal(a.length,1);
+  assert.equal(a[0].textContent,README);
+  assert.ok(item().textContent.startsWith('RMP 칸 · 창 경계·상환 수요일을 정하고 소액 운영을 빼는 규칙'));
+ }
+ const old=data();delete old.items.rmp_view;api.render(old);                                   // 그 칸이 없는 옛 파일 — 항목도 없다
+ assert.equal(item(),undefined);
 });

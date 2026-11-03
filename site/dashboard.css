@@ -304,7 +304,7 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .oil-row figure.ch { margin-top: 8px; }
 .korea-oil { margin-top: 12px; }
 /* 연준 재무상태표 카드의 RMP 칸(site/fedbs.js rmpRow) — 숫자·날짜 토막은 끊지 않고(span.nw), 한글은 낱말 단위로 접는다.
-   묶음 표는 .ai-table 꼴, 900px 이상이면 표 옆에 머리 글·뜻 덧줄, 그보다 좁으면 위아래로 */
+   묶음 표는 .ai-table 꼴, 900px 이상이면 표 옆에 머리 글(caption)만, 그보다 좁으면 위아래로 — 뜻 덧줄은 칸 끝의 접는 설명에 */
 .nw { white-space: nowrap; }
 .fedbs-rmp p { word-break: keep-all; overflow-wrap: break-word; }
 .rmp-head strong { font-weight: 600; font-size: 13.5px; }

@@ -1285,7 +1285,7 @@ class ViewTest(unittest.TestCase):
             {"cells": ["2026-03~2026-04", "20 × 2창", "130", "9.5~10.0"], "note": ""},
             {"cells": ["2026-05~2026-07", "4 × 3창", "142", "8.8~11.1"], "note": ""},
             {"cells": ["2026-08~2026-10", "0 × 3창", "142", "9.0~13.3"], "note": "지금 창까지"}])
-        self.assertEqual(t["mean"], fb.RMP_MEAN + " 위 나눔 칸의 연준 단기채(4주/13주 +30/+60)는 둘의 합이다.")
+        self.assertEqual(t["mean"], fb.RMP_MEAN + " 위 나눔 칸의 연준 단기채(4주/13주 +30/+60)는 둘의 합입니다.")
         self.assertEqual(t["bridge"], {"tag": "RMP 시작 뒤 지준", "text": "-100bn = 연준 단기채+MBS -53 · 재무부 현금(TGA) -80 · "
                                        "현금 통화 -15 · 역레포 +8 · 그 밖 +40 (수요일 수준 네 주 평균의 차, 부호는 지준 쪽)"})
         self.assertEqual(t["floor"], {"tag": "같은 기간 규칙 하한의 달러 크기",
@@ -1412,7 +1412,7 @@ class ViewTest(unittest.TestCase):
         # 공식 날짜만 지나고 9영업일은 아직 앞 — 지난 칸 날짜는 쓰지 않고 9영업일(창은 아직 지금 창)
         t, c = at(D(2026, 11, 11), plan=rel("11/10/2026"))
         self.assertEqual((c["values"]["state"], c["values"]["late"]), ("now", []))
-        self.assertTrue(t["dates"].startswith("다음 날짜: 11월 계획 공지 11-13(수)께") or t["dates"].startswith("다음 날짜: 11월 계획 공지 11-13(금)께"))
+        self.assertTrue(t["dates"].startswith("다음 날짜: 11월 계획 공지 11-13(금)께"), t["dates"])
         self.assertTrue(t["notes"][1].endswith("· 11-13·12-11은 방침 '매달 9영업일께'로 센 날."), t["notes"][1])
         # 지금 창 안에서도 페이지의 공지일과 9영업일이 둘 다 지났으면 머리에 — 지금 창의 끝(11-13) 날
         early = plan_html(list(reversed([(cell(*fb.rule_bounds(ym)[:2]), plan_text(r, x)) for ym, r, x in VIEW_PLAN[:-1]]
@@ -1452,6 +1452,36 @@ class ViewTest(unittest.TestCase):
         v = json.loads(json.dumps(c["values"]))
         v["late"].append({"kind": "fomc", "date": "2026-12-09", "tentative": False})
         self.assertFalse(fb.values_ok(fb.BY_KEY["rmp_view"], v, {}))
+
+    def test_page_date_later_than_the_next_rule_date_is_not_used(self):
+        # 페이지의 다음 공지 칸 날짜가 다음 달 9영업일(12-11)보다 늦으면 쓰지 않는다 — 지난 공지·다음 날짜의 차례가 뒤집히거나
+        # 한 달이 어디에도 없게 되지 않게
+        utc = lambda d: datetime.datetime(d.year, d.month, d.day, 22, 17, tzinfo=datetime.timezone.utc)
+        for cell_, today in (("12/12/2026", D(2026, 12, 15)), ("12/20/2026", D(2026, 12, 15))):
+            body = VIEW_BLOB.replace(b"<td>&nbsp;</td>", f"<td>{cell_}</td>".encode(), 1)
+            t, c = vtext(plan=body, today=today, now=utc(today))
+            v = c["values"]
+            self.assertEqual([(x["month"], x["date"], x["official"]) for x in v["late"]],
+                             [("2026-11", "2026-11-13", False), ("2026-12", "2026-12-11", False)], cell_)
+            self.assertEqual([x["month"] for x in v["next"] if x["kind"] == "plan"], ["2027-01", "2027-02"])
+            self.assertTrue(fb.values_ok(fb.BY_KEY["rmp_view"], v, {}), cell_)
+        # 다음 달 9영업일 이하면 그대로 쓴다(지난 공지를 페이지의 날짜로)
+        body = VIEW_BLOB.replace(b"<td>&nbsp;</td>", b"<td>12/10/2026</td>", 1)
+        _, c = vtext(plan=body, today=D(2026, 12, 15), now=utc(D(2026, 12, 15)))
+        self.assertEqual(c["values"]["late"][0], {"kind": "plan", "month": "2026-11", "date": "2026-12-10", "official": True})
+
+    def test_a_month_split_into_two_periods_after_a_run_is_not_older(self):
+        # 10월이 한 기간이던 날 실은 뒤 다음 날 두 기간으로 나뉘어도 칸 날짜가 뒤로 가지 않는다 — 기간 여럿 머리가 실린다
+        d1 = datetime.datetime(2026, 10, 30, 22, 17, tzinfo=datetime.timezone.utc)
+        d2 = datetime.datetime(2026, 10, 31, 22, 17, tzinfo=datetime.timezone.utc)
+        first = fb.build({"rmp_view": view(today=d1.date(), now=d1)}, {}, d1)
+        self.assertTrue(first["items"]["rmp_view"]["ok"])
+        prev = json.loads(json.dumps(first))["items"]
+        c2 = view(plan=VIEW_TWO, today=d2.date(), now=d2)
+        self.assertEqual(c2["date"], "2026-10-31")                                     # 나뉜 둘째 기간의 시작
+        it = fb.build({"rmp_view": c2}, prev, d2)["items"]["rmp_view"]
+        self.assertTrue(it["ok"], it.get("error"))
+        self.assertEqual(it["view"]["head"][0], "10월 창 계획 — 그 달에 시작하는 기간이 여럿이라 숫자를 짓지 않음")
 
     def test_months_with_several_periods_say_so(self):
         # 그 달에 시작하는 기간이 여럿인 창은 '꼴 모름'이 아니라 '기간 여럿' — 마지막 창이어도 아니어도
@@ -1557,7 +1587,7 @@ class ViewTest(unittest.TestCase):
         self.assertEqual((v["bills4"], v["bills13"]), (None, None))                       # 나눔 칸과 같이 비운다
         t = fb.rmp_text(v, "2026-10-15")
         self.assertEqual(t["bridge"]["text"], "— 미수신(수신 실패 · 묵은 캐시는 싣지 않음)")
-        self.assertEqual(t["mean"], fb.RMP_MEAN + " 위 나눔 칸의 연준 단기채는 둘의 합이다.")
+        self.assertEqual(t["mean"], fb.RMP_MEAN + " 위 나눔 칸의 연준 단기채는 둘의 합입니다.")
         self.assertTrue(t["notes"][0].startswith("GDP는 현재 개정치. 9.0%는"), t["notes"][0])
         self.assertTrue(fb.values_ok(fb.BY_KEY["rmp_view"], v, {}))
 
@@ -2261,7 +2291,7 @@ class StaticTest(unittest.TestCase):
         cardf = code[code.index("function card(d)"):]
         self.assertLess(cardf.index("...CARD.map(k => row(items[k], k))"), cardf.index("policy(),"))   # 줄 뒤, 접힌 읽는 법 앞
         self.assertLess(cardf.index("policy(),"), cardf.index('el("details"'))
-        guide = js[js.index("const GUIDE = ["):js.index("const POLICY_HEAD")]
+        guide = js[js.index("const GUIDE = ["):js.index("const RMP_GUIDE_ALT")]
         for gone in ("conclude the reduction", "will initiate purchases", "8·9월 창", "늘려 잡"):   # 정책 사실·손 셈은 GUIDE에 두 번 없다
             self.assertNotIn(gone, guide)
         self.assertIn("'연준 대차대조표 정책 — 1차 출처' 칸", guide)                       # GUIDE는 가리키기만
@@ -2271,6 +2301,8 @@ class StaticTest(unittest.TestCase):
         self.assertIn('["RMP 칸", ', guide)
         self.assertIn("그 칸 끝의 '읽는 법 — RMP 흐름도'", flatg)
         self.assertNotIn("README_URL", guide)                                           # README 링크는 그 칸의 접는 설명에 하나
+        alt = js[js.index("const RMP_GUIDE_ALT"):js.index("const POLICY_HEAD")]           # 그 칸이 접는 설명 없이 그려진 날만
+        self.assertIn("[README_LABEL, README_URL, \"에 있습니다.\"]", alt)
         for gone in ("연준 단기채와 MBS는 짝으로", "RMP 계획과 대조", "'공식 계획' 줄", "대조 줄", "-78.5bn", "+17.1bn",
                      "공식 수치가 아닙니다"):
             self.assertNotIn(gone, guide)

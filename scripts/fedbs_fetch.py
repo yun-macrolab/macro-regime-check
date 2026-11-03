@@ -92,8 +92,10 @@
             규칙' 절에 있다. compute에 공식 계획(plan)을 넘기지 않는 호출(비공개 쪽 짝 테스트 등)에서는 이 칸을 셈하지 않고 파일에도
             넣지 않는다. 운영 결과(ops)를 받지 못하면 대조 한 줄만 '미수신', FRED 시리즈를 받지 못하면 그 줄(시작 뒤 나눔·하한 —
             WSHOMCB면 대조 줄도)만 '미수신'. 계획 페이지를 받지 못해 직전 값을 다시 실을 때 화면(site/fedbs.js)은 그 알림을 칸
-            머리 바로 위에 둔다('지금 창'·다음 날짜도 그 값을 받은 날 기준). 마지막 창이 끝났는데 다음 달
-            행이 아직 없으면 머리가 그 달 창을 이름 붙이고, 방침상 공지일이 지났으면 '(방침상 공지일 MM-DD께 지남)'을 붙인다
+            머리 바로 위에 둔다('창 표시·다음 날짜도 그 값을 받은 날 기준'). 다음 달부터 공지일이 지났는데 페이지에
+            행이 없는 달(late_dates, LATE_MAX까지)은 창이 무엇이든 머리에 '(공지일 MM-DD께 지남)' — 페이지의 날짜면 '께' 없이,
+            셋까지 이름, 넷부터 'M월~N월 창 k달 …(첫 공지일 …)'. 마지막 창이 끝났는데 공지일은 아직 앞이면 'M월 창 계획은 페이지에
+            아직 없음'만. 칸 끝의 접는 설명(site/fedbs.js rmpGuide)은 뜻 덧줄(view.mean — 합니다체)을 싣는다
   week      그 H.4.1 주(목~수)가 15일·월말·FOMC 결정일을 품는지('FOMC 뒤 첫 H.4.1' — 결정일(수)이 그 주 마지막 날이라 그 주
             숫자는 시행 전 값)와 다음 FOMC 결정일(실행 시각에 아직 성명 — 결정일 14:00 미 동부 — 이 나오지 않은 첫 회의: 예약
             실행 UTC 22:17은 결정일에도 성명 뒤라 그날 회의는 '다음'이 아니다). FOMC 일정은 이 파일의 FOMC 표(2026년은
@@ -278,8 +280,8 @@ RMP_NAME = "지준 관리 매입(RMP) — 뉴욕 연은 월 일정 계획"
 TABLE_HEAD = ("창(시작 달)", "RMP 계획", "RMP 누적", "재투자 계획")
 BRIDGE_TAG = "RMP 시작 뒤 지준"
 FLOOR_TAG = "같은 기간 규칙 하한의 달러 크기"
-RMP_MEAN = ("재투자는 MBS 상환분만큼 단기채를 되사는 보유 교체라 MBS 감소와 합하면 지준에 대략 0이고, 지준을 늘리는 몫은 "
-            "RMP다.")
+RMP_MEAN = ("재투자는 MBS 상환분만큼 단기채를 사들이는 보유 교체라 MBS 감소와 합하면 지준에 대략 0이고, 지준을 늘리는 몫은 "
+            "RMP입니다.")                    # 칸 끝의 접는 설명(합니다체) 첫 항목
 AMPLE = ("는 이 사이트 규칙 카드의 추정값이고 연준이 말하는 'ample'의 기준이 아니다(단기자금 여건은 아래 SOFR − IORB·상시 "
          "레포 칸).")
 CHK_HEAD = "운영 결과 대조(이 사이트의 셈 — 창의 매입 합 − 그 달 MBS 상환)"
@@ -896,10 +898,11 @@ def window_state(w, today):
 def _notice_day(ym, k, release, today):
     """마지막 시작 달 뒤 k번째 달(ym)의 계획 공지일 — 그 달 RMP_BDAY영업일('께'). 첫 달(k == 0)만 페이지의 다음 공지 칸 날짜를
     'official'로 쓴다: 오늘부터 RELEASE_AHEAD일 안이면, 또는 그 날과 9영업일이 둘 다 지났으면(지난 공지를 페이지의 날짜로 — 9영업일이
-    아직 앞이면 지난 칸 날짜는 쓰지 않고 9영업일)."""
+    아직 앞이면 지난 칸 날짜는 쓰지 않고 9영업일). 다만 그 날이 다음 달의 9영업일보다 늦으면 쓰지 않는다(공지일 차례가 뒤집히거나
+    한 달이 다음 날짜와 지난 공지 어디에도 없게 되지 않게)."""
     rule = bday_n(*ym)
-    if k == 0 and release is not None and (today <= release <= today + TD(days=RELEASE_AHEAD)
-                                           or (release < today and rule < today)):
+    if k == 0 and release is not None and release <= bday_n(*_shift(ym, 1)) and (
+            today <= release <= today + TD(days=RELEASE_AHEAD) or (release < today and rule < today)):
         return release, True
     return rule, False
 
@@ -983,9 +986,11 @@ def calc_view(S, today, plan, ops=None, errors=None, now=None):
     if not months or len(months) > PLAN_ROWS_MAX:
         raise ItemError("format")
     wins = [plan_window(ym, plan["periods"]) for ym in months]
-    starts = [w["from"] for w in wins if w["from"]]
-    if not starts:
+    if not any(w["from"] for w in wins):
         raise ItemError("format")
+    # 칸 날짜 = RMP_FROM 이상인 기간의 마지막 시작일 — 기간이 여럿이라 날짜를 비운 달도 센다(그 달이 한 기간에서 둘로 나뉘어도
+    # 날짜가 뒤로 가지 않게 — 아니면 'older'로 새 값을 받지 않는다)
+    starts = [_iso(p[0]) for p in plan["periods"] if p[0] >= RMP_FROM]
     checks, chk_why = None, None
     if isinstance(ops, list):
         got = [o for o in ops if o[0] <= today]
@@ -1456,7 +1461,7 @@ def rmp_text(v, date):
     if v["bills4"] is not None or v["bills13"] is not None:
         r = lambda x: None if x is None else round(x)
         pair = f"(4주/13주 {_pair(r(v['bills4']), r(v['bills13']))})"
-    mean = RMP_MEAN + f" 위 나눔 칸의 연준 단기채{pair}는 둘의 합이다."
+    mean = RMP_MEAN + f" 위 나눔 칸의 연준 단기채{pair}는 둘의 합입니다."
     # 시작 뒤 나눔·하한
     br = v["bridge"]
     if br:
