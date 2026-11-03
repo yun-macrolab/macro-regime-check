@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-11-03",
-  "generated_at": "2026-11-03T09:00:29+00:00",
+  "generated_at": "2026-11-03T17:50:28+00:00",
   "notice": "공개 통계에 사전에 정한 규칙을 적용한 결과다. 투자 판단이나 권유가 아니다.",
   "attribution": [
     "Source: FRED®, Federal Reserve Bank of St. Louis (https://fred.stlouisfed.org/).",
@@ -322,7 +322,7 @@
       "rule": "SOFR이 3개월 전보다 0.25%p 이상 높아지면 충족",
       "status": "met",
       "scenario": "A, D",
-      "reading": "SOFR 3.95% (3개월 +0.29) → 재상승 = 2021 빈티지 이자보상 재악화·PIK 증가",
+      "reading": "SOFR 3.95% (3개월 +0.30) → 재상승 = 2021 빈티지 이자보상 재악화·PIK 증가",
       "observations": [
         {
           "label": "SOFR",
@@ -333,7 +333,7 @@
           "derived": false,
           "computed": false,
           "value": 3.95,
-          "asof": "2026-10-30"
+          "asof": "2026-11-02"
         },
         {
           "label": "3개월 변화",
@@ -343,8 +343,8 @@
           ],
           "derived": false,
           "computed": true,
-          "value": 0.29,
-          "asof": "2026-10-30"
+          "value": 0.3,
+          "asof": "2026-11-02"
         }
       ],
       "restricted_series": [],
@@ -841,8 +841,8 @@
       "label": "HY OAS",
       "owner": "ICE Data Indices",
       "url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2",
-      "last": "2026-10-30",
-      "age_days": 4,
+      "last": "2026-11-02",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "status_only",
@@ -854,8 +854,8 @@
       "label": "IG OAS",
       "owner": "ICE Data Indices",
       "url": "https://fred.stlouisfed.org/series/BAMLC0A0CM",
-      "last": "2026-10-30",
-      "age_days": 4,
+      "last": "2026-11-02",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "status_only",
@@ -958,8 +958,8 @@
       "label": "SOFR",
       "owner": "FRBNY",
       "url": "https://fred.stlouisfed.org/series/SOFR",
-      "last": "2026-10-30",
-      "age_days": 4,
+      "last": "2026-11-02",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "value",
