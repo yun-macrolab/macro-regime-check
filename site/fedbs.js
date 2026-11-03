@@ -1,6 +1,6 @@
 /* 연준 재무상태표(H.4.1 주간) 참고 — data/fedbs.json(scripts/fedbs_fetch.py)을 그린다 (2026-11-03). 이 사이트의 규칙 점검에 쓰지 않는 숫자 묶음이다.
    한 곳: 유동성 묶음에서 지준·재정 카드 바로 뒤의 참고 카드(#fedbs-slot — index.html의 renderPublic이 둔다).
-   index.html의 el() · link()를 쓴다(부를 때 이미 정의돼 있다). 글자는 전부 el()의 텍스트로만 넣는다(자료를 HTML로 해석하지 않는다).
+   index.html의 el() · link() · svgEl()을 쓴다(부를 때 이미 정의돼 있다 — svgEl은 RMP 흐름도만, 없으면 그림만 뺀다). 글자는 전부 el()의 텍스트로만 넣는다(자료를 HTML로 해석하지 않는다).
    카드 이름·안내·읽는 법 문구는 이 파일에 정해 둔 것이고, 칸의 숫자 줄·덧붙이는 줄·고지는 자료 파일에 정해 둔 문구다(그 스크립트가 숫자로 만든다).
    형식이 어긋났거나 고지(notices)가 없는 칸은 숫자를 싣지 않고 '미수신(까닭)' 또는 '자료 없음' 한 줄로 둔다.
    자료 파일이 없으면(첫 자동 실행 전) 아무것도 그리지 않는다. 바깥 요청은 없다. 겉모양은 유가 카드의 클래스를 함께 쓴다.
@@ -13,7 +13,9 @@
    숫자·날짜 토막은 줄 중간에서 끊지 않게 span.nw로 감싼다(글자는 그대로 — 감싸기만). view의 꼴이 어긋나면 숫자 줄과 덧줄만
    그린다. 그 칸이 없던 때의 자료 파일이면(옛 rmp_plan·rmp 칸뿐이어도) 줄을 두지 않는다(OPTIONAL). 계획 페이지·운영 결과는 FRED가
    아니라 뉴욕 연은에서 직접 받은 것이라 링크 없이 이름을 글자로 싣고 권장 인용(licence 'nyfed-terms')도 글자로 싣는다.
-   읽는 법의 'RMP 칸' 항목은 화면에서 뺀 셈 규칙이 있는 저장소 README(GitHub)를 link()로 가리킨다.
+   RMP 칸 끝에는 닫힌 접는 설명('읽는 법 — RMP 흐름도', 2026-11-03 사용자 요청 '토글 달고 꼭 필요한 설명을 도식화')이 있다: 기간
+   프리미엄 흐름도(index.html tpFlowFigure)와 같은 꼴의 개념도(svgEl — 숫자 없음), 뜻 덧줄(자료 파일의 글), 정해 둔 두 항목과 화면에서
+   뺀 셈 규칙이 있는 저장소 README(GitHub)로의 link(). 카드의 읽는 법 'RMP 칸' 항목은 그 접는 설명을 가리키기만 한다.
    '연준 대차대조표 정책 — 1차 출처'(POLICY)는 접힌 읽는 법 밖에 보이는 짧은 칸이다 — 운영자가 연준·뉴욕 연은 원문을 확인해
    적은 고정 글(기준일 POLICY_ASOF, 자동 갱신 아님, 사람이 고친다). 짧은 영어 인용은 원문 그대로, 주소는 글자로만. */
 "use strict";
@@ -48,16 +50,8 @@ window.FedBsCard = (() => {
     ["재무부 현금(TGA)", "나눔의 재무부 현금 칸이 지준 변화 대부분을 설명하면 재무부의 현금 흐름이지 연준의 운용이 아닙니다. 운영자가 " +
       "2026-11-03에 최근 52주 수요일 수준으로 재 본 바로는 주간 지준 변화를 재무부 현금 변화로 설명하는 R²가 0.91이었습니다(104주로 " +
       "늘리면 0.57 — 기간에 따라 다릅니다, 측정 기록)."],
-    ["RMP 칸", "창은 뉴욕 연은 계획 페이지의 월 일정 기간이고 시작 달로 부릅니다(예: 2026년 10월 창 = 2026-10-15~11-13). 재투자는 " +
-      "MBS 상환분을 단기채로 바꾸는 보유 교체이고 RMP는 그 위에 더 사는 몫이라, 나눔 칸의 연준 단기채는 둘의 합입니다 — RMP는 " +
-      "단기채 + MBS의 순증으로 봅니다. 'RMP 시작 뒤 지준' 줄은 네 수요일 평균의 차입니다. 한 주 끝점으로 셈하면 재무부 현금 한 " +
-      "주치에 크게 흔들립니다 — 운영자가 2026-11-03에 재 본 바로는 2025-12-10에서 2026-10-28로 셈하면 지준 -78.5bn, 출발을 한 주 앞 " +
-      "12-03으로 옮기면 +17.1bn이었습니다(재무부 현금이 12-10에 805.8bn, 10-28에 1,015.6bn — 측정 기록). 그 줄의 단기채+MBS가 계획 " +
-      "누적보다 조금 낮게 나올 수 있는 것은 시작 앞 네 주에 보유 축소 때의 마지막 MBS 상환 전 수요일(2025-11-19)이, 최근 네 주에 " +
-      "재투자 결제가 다 되기 전의 수요일들이 들어 있어서입니다(같은 날 +207 대 215). '그 밖'은 연준 이표채·TIPS(같은 날 약 +10)와 " +
-      "대출·기타 부채 등의 나머지입니다. 운영 결과 대조는 창 안 매입 운영 결과의 합에서 그 달 MBS 상환(WSHOMCB)을 뺀 이 사이트의 " +
-      "셈이고 공식 수치가 아닙니다. 창 경계·상환 수요일·소액 운영을 빼는 규칙과 읽는 계획 문장 꼴은 ",
-      [README_LABEL, README_URL, "에 있습니다."]],
+    ["RMP 칸", "재투자와 RMP의 흐름도, '시작 뒤 지준'의 셈, 계획과 대조의 뜻, 셈 규칙(저장소 README)으로 가는 길은 그 칸 끝의 " +
+      "'읽는 법 — RMP 흐름도'에 있습니다."],
     ["창의 출발일", "4주·13주 창의 출발 수요일에 월말·분기말·15일 표시가 있으면 그날 하루 튄 역레포·재무부 현금의 되돌림이 그 칸에 " +
       "섞여 있습니다. 창은 옮기지 않고 표시만 합니다. 1주 변화는 15일·월말 하루에 크게 흔들려 싣지 않습니다."],
     ["FOMC 뒤 첫 H.4.1", "FOMC 결정일(수)이 그 주의 마지막 날이라 그 주의 지준·나눔·주 평균은 결정이 시행되기 전 값입니다. IORB·" +
@@ -149,6 +143,119 @@ window.FedBsCard = (() => {
         !v.table.rows.every(r => isObj(r) && strs(r.cells, 4, 4) && typeof r.note === "string")) return null;
     return v;
   }
+  // RMP 칸의 흐름도 — 기간 프리미엄 흐름도(index.html tpFlowFigure)와 같은 꼴: .tp-flow·.tpf-* 클래스, viewBox 440, 글자 13 이상,
+  // 왼쪽은 개념 상자, 오른쪽은 '지준 쪽으로 보면' 표, 잇는 흰 점선은 직각으로만. 숫자는 싣지 않는 개념도다(숫자는 칸의 줄에) —
+  // 판정에 쓰지 않는다. SVG 마디는 index.html의 svgEl()로만 만든다(글자는 textContent) — 없는 곳에서는 그림만 뺀다
+  const RMP_FLOW_TABLES = [   // [제목, 부제, 위 y, [[이름, 값, 값 종류]]] — 값 종류: s 지준을 늘림(금색) · c 줄임(흰색) · n 대략 0·설명(회색)
+    ["재투자가 하는 일", "(보유 교체)", 58, [["MBS 보유", "↓ 상환분", "n"], ["단기채 보유", "↑ 같은 만큼", "n"], ["지준", "≈ 0", "n"]]],
+    ["RMP가 하는 일", "(그 위에 더 사기)", 208, [["단기채 보유", "↑", "n"], ["지준", "↑ 같은 만큼", "s"]]],
+    ["지준을 움직이는 것", "(부호는 지준 쪽)", 342, [["단기채+MBS 순증", "+ (≈ RMP)", "s"], ["재무부 현금(TGA)↑", "−", "c"],
+      ["현금 통화↑", "−", "c"], ["역레포↑", "−", "c"], ["그 밖(이표채·대출 등)", "±", "n"]]],
+    ["지준과 견주는 선", "(이 사이트 규칙 카드)", 538, [["명목 GDP가 자라면", "하한도 ↑", "n"], ["연준 'ample' 기준", "아님", "n"]]]
+  ];
+  const RMP_FLOW_BOXES = [    // [위 y, 높이, 큰 글, 작은 글들] — 왼쪽 개념 상자(16~148)
+    [136, 50, "재투자", ["MBS 상환분만큼"]], [206, 50, "RMP", ["지준 관리 매입"]], [340, 50, "지준 변화", ["수요일 수준"]],
+    [525, 72, "규칙 하한", ["하한(%) × 명목 GDP", "이 사이트 추정값"]]
+  ];
+  const RMP_FLOW_LINKS = [    // 상자 오른쪽 테두리 → 표 왼쪽 테두리(머리 칸 가운데). 점은 테두리가 칠해지는 화소 — 그릴 때 0.5를 더한다
+    [[147, 161], [186, 161], [186, 81], [224, 81]],                   // 재투자 → 재투자가 하는 일
+    [[147, 231], [224, 231]],                                         // RMP → RMP가 하는 일
+    [[147, 365], [224, 365]],                                         // 지준 변화 → 지준을 움직이는 것
+    [[147, 561], [224, 561]]                                          // 규칙 하한 → 지준과 견주는 선
+  ];
+  function rmpFlowFigure() {
+    if (typeof svgEl !== "function") return null;
+    const W = 440, H = 872, mk = svgEl;
+    const svg = mk("svg", { viewBox: `0 0 ${W} ${H}`, class: "tpf", role: "img", "aria-label": "지준 관리 매입(RMP) 흐름도. 연준의 단기채 " +
+      "매입은 재투자와 RMP의 합이다. 재투자는 MBS 상환분만큼 단기채를 사는 보유 교체라 지준에 대략 0이고, RMP는 그 위에 더 사서 지준을 " +
+      "늘린다. 지준은 재무부 현금·현금 통화·역레포가 늘면 준다. 규칙 하한은 이 사이트의 추정값이다." });
+    const put = (tag, attrs, text) => svg.appendChild(mk(tag, attrs, text));
+    const box = (x, y, w, h, cls) => put("rect", { x: x + .5, y: y + .5, width: w - 1, height: h - 1, class: cls });
+    const say = (x, y, text, cls, anchor) => put("text", { x, y, class: cls || "", "text-anchor": anchor || "start" }, text);
+    const dash = ([x1, y1], [x2, y2]) => {                          // 선분 4 + 빈칸 약 5 — 흐름도와 같은 점선
+      const len = Math.abs(x2 - x1) + Math.abs(y2 - y1), n = Math.max(2, Math.round((len + 5) / 9));
+      put("path", { class: "tpf-link", d: `M${x1 + .5} ${y1 + .5}L${x2 + .5} ${y2 + .5}`,
+        "stroke-dasharray": `4 ${((len - 4 * n) / (n - 1)).toFixed(2)}` });
+    };
+    const arrow = (cx, up) => {                                     // 속이 빈 굵은 화살표(위 98 ~ 아래 128)
+      const [tip, base, end] = up ? [98, 110, 128] : [128, 116, 98];
+      put("path", { class: "tpf-arrow", d: `M${cx} ${tip}L${cx + 11} ${base}H${cx + 4.5}V${end}H${cx - 4.5}V${base}H${cx - 11}Z` });
+    };
+    put("title", {}, "지준 관리 매입(RMP) 흐름");
+    put("desc", {}, "연준 단기채 매입 = 재투자 + RMP. 재투자: MBS 보유가 상환분만큼 줄고 단기채 보유가 같은 만큼 늘어 지준은 대략 0. " +
+      "RMP: 단기채 보유가 늘고 지준이 같은 만큼 는다. 지준 변화(부호는 지준 쪽): 단기채+MBS 순증(대략 RMP)은 +, 재무부 현금·현금 " +
+      "통화·역레포가 늘면 −, 그 밖(이표채·대출 등)은 ±. 규칙 하한 = 하한(%) × 명목 GDP — 이 사이트 규칙 카드의 추정값이고 연준의 " +
+      "'ample' 기준이 아니며 GDP가 자라면 함께 자란다. 한 달의 순서: 그 달 9영업일께 계획 공지, 약 한 달의 창에 매입, 다음 달 " +
+      "9영업일께 다음 공지. 대조 = 창의 매입 합 − 그 달 MBS 상환 ≈ 계획 RMP(이 사이트의 셈). 자료: 뉴욕 연은 운영 방침(2025-12-10)·" +
+      "월 일정 계획, 연준 H.4.1. 개념도이며 이 사이트의 규칙 점검에 쓰지 않는다.");
+    say(16, 34, "RMP 흐름", "tpf-title");
+    box(224, 14, 200, 32, "tpf-frame");
+    say(324, 35, "지준 쪽으로 보면", "tpf-head", "middle");
+    // 왼쪽 — 매입의 두 몫, 지준 변화, 규칙 하한
+    box(16, 58, 132, 32, "tpf-dash");
+    say(82, 79, "연준 단기채 매입", "tpf-head", "middle");
+    arrow(64, true); arrow(100, false);
+    say(120, 110, "= 재투자", "tpf-sub"); say(120, 127, "+ RMP", "tpf-sub");
+    say(82, 202, "+", "tpf-plus", "middle");
+    for (const [y, h, big, small] of RMP_FLOW_BOXES) {
+      box(16, y, 132, h, "tpf-box");
+      say(82, y + 22, big, big === "RMP" ? "tpf-unit" : "tpf-head", "middle");
+      small.forEach((t, i) => say(82, y + 41 + i * 19, t, i === small.length - 1 ? "tpf-sub" : "", "middle"));
+    }
+    // 오른쪽 — 표(머리 칸 + 이름 …… 값)
+    for (const [title, sub, y, rows] of RMP_FLOW_TABLES) {
+      box(224, y, 200, 58 + rows.length * 24, "tpf-frame");
+      box(224, y, 200, 46, "tpf-th");
+      say(324, y + 20, title, "tpf-head", "middle");
+      say(324, y + 38, sub, "tpf-sub", "middle");
+      rows.forEach(([name, value, kind], i) => {
+        say(234, y + 69 + i * 24, name);
+        say(414, y + 69 + i * 24, value, "tpf-" + kind, "end");
+      });
+    }
+    for (const pts of RMP_FLOW_LINKS) for (let i = 1; i < pts.length; i++) dash(pts[i - 1], pts[i]);
+    // RMP의 지준 몫이 '단기채+MBS 순증'으로 — 영향이 아니라 같은 돈이라 금색 실선
+    put("path", { class: "tpf-obs", d: "M324.5 314.5V342.5" });
+    say(332, 333, "같은 몫", "tpf-sub");
+    // 아래 — 한 달의 순서와 대조
+    say(16, 668, "한 달의 순서", "tpf-head");
+    put("path", { class: "tpf-obs", d: "M40.5 704.5H400.5" });
+    put("circle", { cx: 40.5, cy: 704.5, r: 4, class: "tpf-dot" });
+    put("circle", { cx: 400.5, cy: 704.5, r: 4, class: "tpf-dot" });
+    say(16, 692, "9영업일께 공지"); say(424, 692, "다음 공지", "", "end");
+    say(220, 692, "창 — 약 한 달 매입", "tpf-sub", "middle");
+    say(16, 724, "계획 금액", "tpf-sub"); say(424, 724, "다음 창 계획", "tpf-sub", "end");
+    say(16, 754, "대조 = 창의 매입 합 − 그 달 MBS 상환");
+    say(16, 774, "≈ 계획 RMP (이 사이트의 셈 · 공식 수치 아님)", "tpf-sub");
+    // 범례·출처
+    say(16, 808, "늘림", "tpf-s"); say(52, 808, "지준 ↑ 쪽", "tpf-sub");
+    say(136, 808, "줄임", "tpf-c"); say(172, 808, "지준 ↓ 쪽", "tpf-sub");
+    dash([256, 803], [284, 803]); say(292, 808, "이어짐", "tpf-sub");
+    say(16, 840, "자료: 뉴욕 연은 운영 방침·월 일정 계획, 연준 H.4.1", "tpf-src");
+    say(16, 858, "개념도 · 규칙 점검에 쓰지 않음", "tpf-src");
+    return el("figure", { class: "tp-flow rmp-flow" }, svg,
+      el("figcaption", {}, el("p", {}, "개념도 — 뉴욕 연은 운영 방침(2025-12-10)과 월 일정 계획, 연준 H.4.1의 항목을 그린 것이며 " +
+        "이 사이트의 규칙 점검에 쓰지 않습니다. 숫자는 위 줄에 있습니다.")));
+  }
+  // RMP 칸 끝의 접는 설명 — 흐름도, 그 뒤 꼭 필요한 덧줄(뜻 덧줄은 자료 파일의 글, 나머지는 이 파일에 정해 둔 글)
+  const RMP_GUIDE_HEAD = "읽는 법 — RMP 흐름도";
+  const RMP_GUIDE = [
+    ["시작 뒤 지준", "RMP 시작 앞 네 수요일과 최근 네 수요일의 평균 차입니다. 한 주 끝점은 재무부 현금 한 주치에 크게 흔들립니다 — " +
+      "운영자가 2026-11-03에 재 본 바로는 2025-12-10에서 2026-10-28로 셈하면 지준 -78.5bn, 출발을 한 주 앞 12-03으로 옮기면 " +
+      "+17.1bn이었습니다(측정 기록). 단기채+MBS가 계획 누적보다 조금 낮게 나올 수 있는 것은 시작 앞 네 주에 보유 축소 때의 마지막 " +
+      "MBS 상환 전 수요일이, 최근 네 주에 결제가 다 되기 전의 재투자가 들어 있어서입니다."],
+    ["계획과 대조", "계획 금액은 뉴욕 연은 공지 문장을 옮긴 것이지 실제 매입이 아닙니다. 운영 결과 대조는 창 안 매입 운영 결과의 " +
+      "합에서 그 달 MBS 상환을 뺀 이 사이트의 셈이고 공식 수치가 아닙니다. 창 경계·상환 수요일·소액 운영을 빼는 규칙은 ",
+      [README_LABEL, README_URL, "에 있습니다."]]
+  ];
+  function rmpGuide(v) {
+    let fig = null;
+    try { fig = rmpFlowFigure(); } catch (e) { fig = null; }     // 그림이 깨져도 글은 그대로
+    return el("details", { class: "rule-detail rule-guide rmp-guide" }, el("summary", {}, RMP_GUIDE_HEAD),
+      fig,
+      el("p", {}, el("strong", {}, "재투자와 RMP"), " · ", ...nw(v.mean)),
+      ...RMP_GUIDE.map(([h, text, to]) => el("p", {}, el("strong", {}, h), " · ", text, ...(to ? [link(to[0], to[1]), to[2]] : []))));
+  }
   function rmpRow(it, name) {
     const v = rmpView(it.view);
     if (!v) return null;
@@ -169,11 +276,11 @@ window.FedBsCard = (() => {
       v.dates ? el("p", { class: "rmp-dates" }, ...nw(v.dates)) : null,
       el("div", { class: "rmp-grid" },
         el("p", { class: "muted rmp-cap" }, ...nw(v.caption)),
-        el("div", { class: "ai-table-wrap rmp-wrap" }, table),
-        el("p", { class: "muted rmp-mean" }, ...nw(v.mean))),
+        el("div", { class: "ai-table-wrap rmp-wrap" }, table)),
       el("p", { class: "oil-num rmp-bridge" }, el("span", { class: "rmp-tag" }, v.bridge.tag), " ", ...nw(v.bridge.text)),
       el("p", { class: "oil-num rmp-floor" }, el("span", { class: "rmp-tag" }, v.floor.tag), " ", ...nw(v.floor.text)),
-      ...v.notes.map(n => el("p", { class: "muted" }, ...nw(n))));
+      ...v.notes.map(n => el("p", { class: "muted" }, ...nw(n))),
+      rmpGuide(v));
   }
   function rmpStale(it) {
     const got = day(it.retrieved);

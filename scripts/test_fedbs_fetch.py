@@ -2258,22 +2258,29 @@ class StaticTest(unittest.TestCase):
         self.assertIn('const POLICY_ASOF = "2026-11-03";', js)                          # 사람이 고치는 고정 글의 기준일
         self.assertIn("자동으로 갱신하지 않습니다", js)
         code = re.sub(r"/\*.*?\*/|//[^\n]*", "", js, flags=re.S)
-        self.assertLess(code.index("...CARD.map(k => row(items[k], k))"), code.index("policy(),"))   # 줄 뒤, 접힌 읽는 법 앞
-        self.assertLess(code.index("policy(),"), code.index('el("details"'))
+        cardf = code[code.index("function card(d)"):]
+        self.assertLess(cardf.index("...CARD.map(k => row(items[k], k))"), cardf.index("policy(),"))   # 줄 뒤, 접힌 읽는 법 앞
+        self.assertLess(cardf.index("policy(),"), cardf.index('el("details"'))
         guide = js[js.index("const GUIDE = ["):js.index("const POLICY_HEAD")]
         for gone in ("conclude the reduction", "will initiate purchases", "8·9월 창", "늘려 잡"):   # 정책 사실·손 셈은 GUIDE에 두 번 없다
             self.assertNotIn(gone, guide)
         self.assertIn("'연준 대차대조표 정책 — 1차 출처' 칸", guide)                       # GUIDE는 가리키기만
-        # RMP는 'RMP 칸' 한 항목(전엔 '연준 단기채와 MBS는 짝으로'·'RMP 계획과 대조' 둘) — 끝점 민감도는 날짜를 단 측정 기록,
-        # 셈 규칙은 README를 GitHub 링크로 가리킨다
+        # RMP는 카드의 읽는 법에 'RMP 칸' 한 항목 — 그 칸 끝의 접는 설명(RMP 흐름도)을 가리키고 셈 규칙은 README(GitHub)로.
+        # 끝점 민감도(날짜를 단 측정 기록)·대조가 이 사이트의 셈이라는 것은 그 칸의 접는 설명(RMP_GUIDE)에 한 번만
         flatg = "".join(re.findall(r'"([^"]*)"', guide))
         self.assertIn('["RMP 칸", ', guide)
-        for gone in ("연준 단기채와 MBS는 짝으로", "RMP 계획과 대조", "'공식 계획' 줄", "대조 줄"):
+        self.assertIn("그 칸 끝의 '읽는 법 — RMP 흐름도'", flatg)
+        self.assertNotIn("README_URL", guide)                                           # README 링크는 그 칸의 접는 설명에 하나
+        for gone in ("연준 단기채와 MBS는 짝으로", "RMP 계획과 대조", "'공식 계획' 줄", "대조 줄", "-78.5bn", "+17.1bn",
+                     "공식 수치가 아닙니다"):
             self.assertNotIn(gone, guide)
-        for word in ("나눔 칸의 연준 단기채는 둘의 합", "단기채 + MBS의 순증", "네 수요일 평균의 차", "운영자가 2026-11-03에 재 본 바로는",
-                     "-78.5bn", "+17.1bn", "805.8bn", "1,015.6bn", "이 사이트의 셈이고 공식 수치가 아닙니다"):
-            self.assertIn(word, flatg, word)
-        self.assertIn("[README_LABEL, README_URL, \"에 있습니다.\"]", guide)
+        rg = js[js.index("const RMP_GUIDE = ["):js.index("function rmpGuide(v)")]
+        flatr = "".join(re.findall(r'"([^"]*)"', rg))
+        for word in ("네 수요일의 평균 차", "운영자가 2026-11-03에 재 본 바로는", "-78.5bn", "+17.1bn", "실제 매입이 아닙니다",
+                     "이 사이트의 셈이고 공식 수치가 아닙니다"):
+            self.assertIn(word, flatr, word)
+        self.assertIn("[README_LABEL, README_URL, \"에 있습니다.\"]", rg)
+        self.assertIn('const RMP_GUIDE_HEAD = "읽는 법 — RMP 흐름도";', js)
         self.assertNotIn("RMP 추정", js)                                                 # 옛 이름(추정 줄)이 화면 글에 없다
         fomc = "".join(re.findall(r'"([^"]*)"', js[js.index('["FOMC 뒤 첫 H.4.1"'):].split("]", 1)[0]))
         for word in ("2026-10-28 갱신", "확정되기 전까지 잠정", "FOMCpresconf20261028", "14:00 미 동부"):

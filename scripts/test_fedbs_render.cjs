@@ -26,6 +26,8 @@ function load(opts={}){
  const win={};
  if(opts.charts!==false)win.MacroCharts={lineChart:(spec,o)=>{calls.push({spec,o});if(opts.chartThrows)throw new Error('x');return el('figure',{class:'ch'},String(spec.title));}};
  const sc={window:win,document:{getElementById:id=>ids[id]||null},el,link};
+ if(opts.svg)sc.svgEl=(tag,attrs,text)=>{const n=new El(tag);n.ns='svg';for(const [k,v] of Object.entries(attrs||{}))n.setAttribute(k,v);  // index.html의 svgEl과 같은 꼴
+  if(text!==undefined)n.append(String(text));n.appendChild=c=>{n.kids.push(c);return c;};return n;};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../site/fedbs.js'),'utf8'),sc);
  return {api:sc.window.FedBsCard,ids,calls};
 }
@@ -138,21 +140,19 @@ test('the reserves row carries the chart with the bn format; no charts tool mean
 test('the guide carries the definitions, policy facts and the measurement records',()=>{
  const {ids,api}=load();
  api.render(data());
- const g=cls(ids['fedbs-slot'],'rule-guide')[0];
+ const gs=cls(ids['fedbs-slot'],'rule-guide');
+ assert.equal(gs.length,2);                                                                    // RMP 칸의 접는 설명 + 카드의 읽는 법
+ const g=gs.find(x=>!(x.attrs.class||'').includes('rmp-guide'));
  assert.ok(g.textContent.startsWith('읽는 법 — 정의·측정 기록'));
  const heads=g.kids.filter(k=>k.tag==='p').map(p=>p.kids[0].textContent);
  assert.deepEqual(heads,['거리는 4주 평균과 함께','분모 바뀜','재무부 현금(TGA)','RMP 칸','창의 출발일',
   'FOMC 뒤 첫 H.4.1','단기자금','정책 사실']);                                                 // 'RMP 칸' 한 항목(전엔 둘)
  const ps=g.kids.filter(k=>k.tag==='p');
  assert.ok(ps[7].textContent.includes("'연준 대차대조표 정책 — 1차 출처' 칸"),ps[7].textContent);   // 정책 사실은 가리키기만
- const rmp=ps[3];
- for(const w of ['나눔 칸의 연준 단기채는 둘의 합','네 수요일 평균의 차','-78.5bn','+17.1bn','이 사이트의 셈이고 공식 수치가 아닙니다'])
-  assert.ok(rmp.textContent.includes(w),w);
- const a=walk(rmp,n=>n.tag==='a');                                                             // 셈 규칙은 README를 GitHub 링크로
- assert.equal(a.length,1);
- assert.equal(a[0].textContent,README);
- assert.equal(a[0].attrs.href,'https://github.com/yun-macrolab/macro-regime-check#rmp-칸의-셈-규칙');
- assert.ok(rmp.textContent.endsWith(README+'에 있습니다.'),rmp.textContent.slice(-40));
+ const rmp=ps[3];                                                                               // RMP는 그 칸의 접는 설명을 가리키기만
+ assert.ok(rmp.textContent.includes("그 칸 끝의 '읽는 법 — RMP 흐름도'"),rmp.textContent);
+ assert.equal(walk(rmp,n=>n.tag==='a').length,0);
+ for(const w of ['-78.5bn','+17.1bn','공식 수치가 아닙니다'])assert.ok(!g.textContent.includes(w),w);   // 한 번만 — 그 칸에
  assert.ok(!g.textContent.includes('conclude the reduction'));                                 // 같은 사실을 두 번 싣지 않는다
  const fomc=g.kids.filter(k=>k.tag==='p')[5].textContent;
  assert.ok(fomc.includes('시행되기 전 값')&&fomc.includes('다음 주 숫자'),fomc);
@@ -182,7 +182,7 @@ test('each failed row shows a fixed reason only, never remote text',()=>{
  assert.ok(!text.includes('bad.invalid'));
  assert.ok(!text.includes('rrp 숫자 줄'));
  assert.ok(!/undefined|NaN|null/.test(text));
- assert.deepEqual(walk(ids['fedbs-slot'],n=>n.tag==='a').map(a=>a.textContent),[README,'WRESBAL','GDP']);           // 그린 칸의 출처만, 시리즈마다 한 번
+ assert.deepEqual(walk(ids['fedbs-slot'],n=>n.tag==='a').map(a=>a.textContent),['WRESBAL','GDP']);   // 그린 칸의 출처만, 시리즈마다 한 번(README 링크는 RMP 칸의 접는 설명에만)
  const cites=cls(ids['fedbs-slot'],'cite-lines');
  assert.equal(cites.length,0);                                                                  // 인용 필요 칸을 하나도 그리지 않았다
  const all=data();for(const k of api.CARD)all.items[k]={key:k,ok:false,error:'수신 실패',name:k};
@@ -273,9 +273,8 @@ test('the RMP row sits after the decomposition as one row: bold head, dates, tab
  assert.equal(head.kids[0].textContent,'지금 창 RMP 0bn');
  assert.equal(cls(r,'rmp-dates')[0].textContent,VIEW.dates);
  const grid=cls(r,'rmp-grid')[0];
- assert.deepEqual(grid.kids.map(k=>(k.attrs.class||'').split(' ').pop()),['rmp-cap','rmp-wrap','rmp-mean']);
+ assert.deepEqual(grid.kids.map(k=>(k.attrs.class||'').split(' ').pop()),['rmp-cap','rmp-wrap']);   // 뜻 덧줄은 접는 설명으로
  assert.equal(cls(grid,'rmp-cap')[0].textContent,VIEW.caption);
- assert.equal(cls(grid,'rmp-mean')[0].textContent,VIEW.mean);
  const table=walk(grid,n=>n.tag==='table')[0];
  assert.deepEqual((table.attrs.class||'').split(' '),['ai-table','rmp-table']);              // 기존 .ai-table 꼴
  assert.equal(walk(table,n=>n.tag==='caption')[0].textContent,'창마다의 계획 금액(bn)');
@@ -292,6 +291,24 @@ test('the RMP row sits after the decomposition as one row: bold head, dates, tab
  assert.equal(cls(r,'rmp-floor')[0].textContent,VIEW.floor.tag+' '+VIEW.floor.text);
  const muted=r.kids.filter(k=>k instanceof El&&(k.attrs.class||'')==='muted').map(k=>k.textContent);
  assert.deepEqual(muted,VIEW.notes);
+ // 칸 끝의 접는 설명 — 닫힌 채로, 뜻 덧줄(자료 파일의 글)과 정해 둔 두 항목, README 링크 하나. svgEl이 없으면 그림만 뺀다
+ const gd=r.kids[r.kids.length-1];
+ assert.equal(gd.tag,'details');
+ assert.deepEqual((gd.attrs.class||'').split(' '),['rule-detail','rule-guide','rmp-guide']);
+ assert.ok(!('open' in gd.attrs));
+ assert.equal(gd.kids[0].tag,'summary');
+ assert.equal(gd.kids[0].textContent,'읽는 법 — RMP 흐름도');
+ assert.equal(walk(gd,n=>n.tag==='figure').length,0);
+ const gp=gd.kids.filter(k=>k.tag==='p');
+ assert.deepEqual(gp.map(p=>p.kids[0].textContent),['재투자와 RMP','시작 뒤 지준','계획과 대조']);
+ assert.equal(gp[0].textContent,'재투자와 RMP · '+VIEW.mean);
+ for(const w of ['네 수요일의 평균 차','-78.5bn','+17.1bn','실제 매입이 아닙니다','이 사이트의 셈이고 공식 수치가 아닙니다'])
+  assert.ok(gd.textContent.includes(w),w);
+ const ga=walk(gd,n=>n.tag==='a');
+ assert.equal(ga.length,1);
+ assert.equal(ga[0].textContent,README);
+ assert.equal(ga[0].attrs.href,'https://github.com/yun-macrolab/macro-regime-check#rmp-칸의-셈-규칙');
+ assert.ok(gp[2].textContent.endsWith(README+'에 있습니다.'));
  assert.ok(!r.textContent.includes('날짜 덧줄'));                                               // view를 그리면 덧줄(extra)은 겹쳐 싣지 않는다
  assert.equal(walk(r,n=>n.tag==='figure').length,0);
  // 숫자·날짜 토막은 span.nw로 — 글자는 그대로, 감싸기만
@@ -390,4 +407,38 @@ test('the policy box is visible outside the folded guide, dated and with address
  assert.ok(texts(box[0]).every(t=>typeof t==='string'));
  const all=data();for(const k of api.CARD)all.items[k]={key:k,ok:false,error:'수신 실패',name:k};
  assert.equal(api.render(all),false);                                                         // 그린 칸이 없으면 정책 칸만으로 카드를 두지 않는다
+});
+
+test('the RMP toggle draws the flow diagram with svgEl — fixed concept words, no data numbers, a caption',()=>{
+ const {api,ids}=load({svg:true});
+ api.render(data());
+ const gd=cls(ids['fedbs-slot'],'rmp-guide')[0];
+ const fig=walk(gd,n=>n.tag==='figure');
+ assert.equal(fig.length,1);
+ assert.deepEqual((fig[0].attrs.class||'').split(' '),['tp-flow','rmp-flow']);                 // 기간 프리미엄 흐름도와 같은 꼴
+ assert.equal(gd.kids[1],fig[0]);                                                              // summary 바로 뒤에 그림
+ const svg=fig[0].kids[0];
+ assert.equal(svg.tag,'svg');
+ assert.equal(svg.attrs.viewBox,'0 0 440 872');
+ assert.equal(svg.attrs.class,'tpf');
+ assert.equal(svg.attrs.role,'img');
+ assert.ok(svg.attrs['aria-label'].startsWith('지준 관리 매입(RMP) 흐름도.'));
+ const words=walk(svg,n=>n.tag==='text').map(n=>n.textContent);
+ for(const w of ['RMP 흐름','지준 쪽으로 보면','연준 단기채 매입','재투자','RMP','지준 변화','규칙 하한','재투자가 하는 일','RMP가 하는 일',
+  '지준을 움직이는 것','지준과 견주는 선','≈ 0','↑ 같은 만큼','+ (≈ RMP)','재무부 현금(TGA)↑','아님','같은 몫','한 달의 순서','9영업일께 공지',
+  '다음 공지','대조 = 창의 매입 합 − 그 달 MBS 상환','늘림','줄임','개념도 · 규칙 점검에 쓰지 않음'])
+  assert.ok(words.includes(w),w);
+ for(const w of words)assert.ok(!/\d{2,}/.test(w.replace('9영업일',''))||w.startsWith('자료'),w);   // 숫자는 칸의 줄에(그림엔 없음)
+ const titles=walk(svg,n=>n.tag==='title'||n.tag==='desc');
+ assert.equal(titles.length,2);
+ assert.ok(titles[1].textContent.includes('이 사이트의 규칙 점검에 쓰지 않는다'));
+ assert.equal(walk(svg,n=>n.tag==='path'&&n.attrs.class==='tpf-link').length,7);              // 직각 점선 토막(링크 6 + 범례 1)
+ for(const p of walk(svg,n=>n.tag==='path'&&n.attrs.class==='tpf-link'))assert.match(p.attrs.d,/^M[\d.]+ [\d.]+L[\d.]+ [\d.]+$/);
+ const cap=walk(fig[0],n=>n.tag==='figcaption')[0];
+ assert.ok(cap.textContent.startsWith('개념도 — 뉴욕 연은 운영 방침(2025-12-10)'));
+ assert.ok(texts(gd).every(t=>typeof t==='string'));
+ // svgEl이 깨지면 그림만 빼고 글은 그대로
+ const t2=load({svg:true});t2.api.render(data());
+ const broken=load();broken.api.render(data());
+ assert.equal(cls(broken.ids['fedbs-slot'],'rmp-guide')[0].kids.filter(k=>k.tag==='p').length,3);
 });

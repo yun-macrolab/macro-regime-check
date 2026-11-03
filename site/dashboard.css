@@ -319,10 +319,12 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .rmp-table td:nth-child(2) { color: var(--amber); }
 .rmp-table th[scope="row"] small { display: block; color: var(--key); font-size: 11px; line-height: 1.3; }
 @media (min-width: 900px) {
-  .rmp-grid { grid-template-columns: max-content minmax(0, 34rem); grid-template-areas: "t c" "t m"; grid-template-rows: auto 1fr;
-    column-gap: 28px; align-items: start; }
-  .rmp-cap { grid-area: c; } .rmp-wrap { grid-area: t; } .rmp-mean { grid-area: m; }
+  .rmp-grid { grid-template-columns: max-content minmax(0, 34rem); grid-template-areas: "t c"; column-gap: 28px; align-items: start; }
+  .rmp-cap { grid-area: c; } .rmp-wrap { grid-area: t; }
 }
+/* RMP 칸 끝의 접는 설명(site/fedbs.js rmpGuide) — 흐름도는 기간 프리미엄 흐름도와 같은 .tp-flow·.tpf-* 꼴 */
+.rmp-guide { margin-top: 8px; }
+.tpf .tpf-dot { fill: var(--gold); stroke: none; }
 /* 신용 긴축 참고(site/credit.js) — AI 투자 화면 아래 절. 유가 카드와 같은 틀이고, 단계 줄 바로 뒤의 정의 문단만 색이 다르다.
    기간 프리미엄(tp.js)·지준·재정(liquidity.js)·단일종목 CDS(cds.js) 카드는 위 oil-* 틀을 그대로 쓴다 */
 .credit-slot:empty { display: none; }
