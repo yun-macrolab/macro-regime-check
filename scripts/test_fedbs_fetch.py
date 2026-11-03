@@ -565,6 +565,22 @@ class RmpTest(unittest.TestCase):
         self.assertEqual((w["red_from"], w["red_to"]), ("2026-10-28", "2026-11-25"))
         self.assertEqual(w["red_bn"], 0.0)                                              # 그 사이 줄어든 것이 없으면 0
 
+    def test_paydown_wednesday_moves_past_a_holiday_25th(self):
+        # 패니메이·프레디맥 25일 상환은 25일이 주말·연방 공휴일이면 다음 영업일에 결제된다 — 성탄(12-25)이 수요일인 해엔 그날
+        # 수요일 수준에 지니메이 몫만 들어, 그 달 상환 수요일은 다음 수요일이다(2024-12 실자료의 꼴: 12-25 주 작게, 01-01 주 크게)
+        self.assertEqual(fb.paydown_wed(2030, 12), D(2031, 1, 1))
+        self.assertEqual(fb.paydown_wed(2024, 12), D(2025, 1, 1))
+        self.assertEqual(fb.paydown_wed(2026, 11), D(2026, 11, 25))                       # 25일이 영업일인 수요일이면 그날
+        moved = [(y, m) for y in range(2020, 2046) for m in range(1, 13)
+                 if fb.paydown_wed(y, m) != fb.first_wed(D(y, m, fb.MBS_DAY))]
+        self.assertEqual(moved, [(2024, 12), (2030, 12), (2041, 12)])                   # 다른 달은 25일 이후 첫 수요일 그대로
+        drops = {D(2030, 12, 4): 1000, D(2030, 12, 25): 3000, D(2031, 1, 1): 12000, D(2031, 1, 29): 9000}
+        mbs = dict(mbs_series(drops, start=D(2030, 10, 2), end=D(2031, 3, 5)))
+        dec, jan = (fb.rmp_window(ym, [], mbs, D(2031, 3, 31)) for ym in ((2030, 12), (2031, 1)))
+        self.assertEqual((dec["red_from"], dec["red_to"], dec["red_bn"]), ("2030-11-27", "2031-01-01", 16.0))
+        self.assertEqual((jan["red_from"], jan["red_to"], jan["red_bn"]), ("2031-01-01", "2031-01-29", 9.0))
+        self.assertTrue(fb._windows_ok([dec, jan]))
+
     def test_windows_count_purchases_with_the_rules(self):
         c = calc("rmp")
         ws = c["values"]["windows"]
@@ -596,7 +612,9 @@ class RmpTest(unittest.TestCase):
                                    "(2026-10-29까지) — 끝나기 전에는 상환과 견주지 않는다.")
         self.assertNotIn("상환 8.0", extra[3])
         self.assertEqual(extra[-2:], [fb.RMP_METHOD, fb.RMP_LIMITS])
-        for word in ("공식 나눔 수치가 아니라", "거꾸로 셈한 추정", "예상 상환", "기관채·CMBS", "9영업일 규칙의 근사", "늘려 잡지 않는다"):
+        for word in ("공식 나눔 수치가 아니라", "거꾸로 셈한 추정", "예상 상환", "기관 CMBS는 WSHOMCB에 들어 있지만",
+                     "전달 실제 상환", "기관채 상환은 WSHOMCB에 없어", "Treasury Securities Operational Details",
+                     "9영업일 규칙의 근사", "늘려 잡지 않는다"):
             self.assertIn(word, fb.RMP_LIMITS)
         nested = re.compile(r"\([^()]*\(")
         for t in [line, *extra, fb.RMP_DERIVED, fb.RMP_DERIVED_EN, fb.RMP_NO_MBS]:
@@ -1177,6 +1195,32 @@ class StaticTest(unittest.TestCase):
         self.assertLess(page.index('<script src="charts.js"></script>'), page.index('<script src="fedbs.js"></script>'))
         line = next(l for l in page.splitlines() if "window.FedBsCard.render(" in l)
         self.assertRegex(line, r"^\s*try \{ if \(isObj\(fbs\) && window\.FedBsCard\)")   # 깨져도 그 카드만 빠진다
+
+    def test_page_names_the_new_york_fed_operations_source(self):
+        # '출처와 자료 상태'의 'FRED 밖의 공개 자료' — RMP 추정 줄은 뉴욕 연은 Markets API에서 직접 받는다(카드의 출처 줄과 같은 뜻)
+        page = self.read("site", "index.html")
+        art = page[page.index("<h3>FRED 밖의 공개 자료</h3>"):]
+        art = art[:art.index("</article>")]
+        for word in ("지준 관리 매입(RMP) 추정 줄은 뉴욕 연은 Markets API", "국채 운영 결과를 직접 받고", "newyorkfed.org 이용약관",
+                     "공식 수치가 아닙니다", "'연준 대차대조표 정책 — 1차 출처' 칸"):
+            self.assertIn(word, art)
+        self.assertNotIn("<a ", art)
+        fred = page[page.index("<h3>미국 공개 자료 (FRED 경유)</h3>"):]
+        fred = fred[:fred.index("</article>")]
+        self.assertIn("RMP) 추정 줄은 FRED 밖, 아래", fred)
+
+    def test_limits_say_what_the_official_page_and_wshomcb_hold(self):
+        # 2026-11-03 검토: 공식 계획 나눔은 정적 HTML·CSV에 있다('스크립트로 그려져 받지 않는다'가 아니다), WSHOMCB = 기관 MBS +
+        # 기관 CMBS(빠지는 것은 기관채뿐) — 화면 글·머리말·README가 같은 뜻이고 옛 문장이 남지 않는다
+        readme = self.read("README.md")
+        row = next(l for l in readme.splitlines() if l.startswith("| 지준 관리 매입(RMP) 추정"))
+        for text in (fb.RMP_LIMITS, fb.__doc__, row):
+            for gone in ("스크립트로 그려", "기관채·CMBS"):
+                self.assertNotIn(gone, text)
+            for word in ("Treasury Securities Operational Details", "전달 실제 상환", "기관 CMBS"):
+                self.assertIn(word, text)
+        for text in (fb.RMP_METHOD, fb.__doc__, row):
+            self.assertIn("성탄이 수요일인 해", text)
 
     def test_card_intro_is_one_register_and_covers_the_notice(self):
         js = self.read("site", "fedbs.js")
