@@ -22,8 +22,9 @@
 #             · 지준·재정(liquidity.json — FRED)
 #             · 연준 재무상태표(fedbs.json — FRED: 연준 이사회 H.4.1 주간 열·IORB·BEA GDP + 뉴욕 연은 SOFR·상시 레포·익일물
 #             역레포, 2026-11-03 더함. H.4.1은 목 16:30 미 동부에 나와 이 예약 실행(UTC 22:17)이 같은 날 받는다. 같은 날 더한
-#             RMP 두 줄(공식 계획 = Operational Details 페이지 1번 · 대조 = Markets API 국채 운영 결과 1번, 둘이 합쳐 25초)은
-#             뉴욕 연은에서 직접 받는다 — 실패하면 그 줄만 직전 값)
+#             RMP 칸(rmp_view — 계획 = Operational Details 페이지 1번 · 대조 = Markets API 국채 운영 결과 1번(RMP 시작 달
+#             2025-12부터), 둘이 합쳐 25초)은 뉴욕 연은에서 직접 받는다 — 계획을 못 받으면 그 칸만 직전 값, 운영 결과를 못
+#             받으면 그 칸의 대조 한 줄만 미수신)
 #             · 기간 프리미엄 모형 대조(tp.json — FRED Kim-Wright + 뉴욕 연은 ACM) · 단일종목 CDS(cds.json·cds_days.json —
 #             DTCC 공개 거래 보고 하루 파일, 빠진 날만 이어 받는다)
 #   deploy  data/·site/만 Pages로. 스크립트·원자료(.work/)는 배포하지 않는다.
@@ -166,7 +167,8 @@ jobs:
         timeout-minutes: 2
         run: python scripts/liquidity_fetch.py
       # 참고 자료 — 연준 재무상태표(H.4.1 주간 · FRED 공개 통계 + 뉴욕 연은 인용 필요 시리즈, FRED 요청 14회 · 전체 60초 상한 +
-      # 뉴욕 연은 2회 — 국채 운영 결과 · RMP 공식 계획 페이지, 둘이 합쳐 25초 상한). 규칙 판정에 쓰지 않고, 실패해도 알림 없음
+      # 뉴욕 연은 2회 — RMP 칸(rmp_view)의 공식 계획 페이지 · 국채 운영 결과(RMP 시작 달부터), 둘이 합쳐 25초 상한).
+      # 규칙 판정에 쓰지 않고, 실패해도 알림 없음
       - name: 연준 재무상태표 참고 자료 받기
         id: fedbs
         continue-on-error: true

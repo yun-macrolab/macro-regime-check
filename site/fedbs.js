@@ -7,19 +7,21 @@
    그래프(최근 52주 지준과 규칙 하한 × 마지막 분기 GDP)는 charts.js의 MacroCharts.lineChart로 — 없거나 깨지면 그래프만 뺀다.
    인용이 필요한 자료(licence 'citation-required' — 뉴욕 연은 SOFR · 상시 레포 · 익일물 역레포)는 FRED 권장 인용을 글자로 싣는다.
    카드 머리 안내는 ABOUT 하나(합니다체)다 — 자료 파일의 notice(한다체, 같은 뜻)는 겹쳐 싣지 않는다.
-   지준 관리 매입(RMP) 두 줄은 이 카드에만 있다(2026-11-03): 공식 계획 줄(rmp_plan — 뉴욕 연은 'Treasury Securities
-   Operational Details' 페이지의 월 일정 창 계획 문장에서 정해 둔 꼴만 옮긴 재투자·RMP 금액)과 그 아래 대조 줄(rmp — 뉴욕 연은
-   국채 운영 결과를 월 일정 창마다 더해 그 달 MBS 상환을 뺀 값, 공식 수치가 아님). 그 칸이 없던 때의 자료 파일이면 줄을 두지
-   않는다(OPTIONAL). 둘 다 FRED가 아니라 뉴욕 연은에서 직접 받은 것이라 링크 없이 이름을 글자로 싣고 권장 인용(licence
-   'nyfed-terms')도 글자로 싣는다.
+   지준 관리 매입(RMP) 칸(rmp_view)은 이 카드에만 있다(2026-11-03 — 처음의 계획 줄·대조 줄 두 칸을 같은 날 한 칸으로): 자료 파일의
+   view(머리 토막·다음 날짜·묶음 표·뜻 덧줄·시작 뒤 나눔·하한 달러 크기·덧줄 — 모두 그 스크립트가 숫자로 만든 정해 둔 글)를 나눠
+   그린다. 표는 .ai-table 꼴, 1280 폭에서는 표 옆에 머리 글과 뜻 덧줄을 두고 좁은 폭에서는 위아래로 쌓는다(dashboard.css의 rmp-*).
+   숫자·날짜 토막은 줄 중간에서 끊지 않게 span.nw로 감싼다(글자는 그대로 — 감싸기만). view의 꼴이 어긋나면 숫자 줄과 덧줄만
+   그린다. 그 칸이 없던 때의 자료 파일이면(옛 rmp_plan·rmp 칸뿐이어도) 줄을 두지 않는다(OPTIONAL). 계획 페이지·운영 결과는 FRED가
+   아니라 뉴욕 연은에서 직접 받은 것이라 링크 없이 이름을 글자로 싣고 권장 인용(licence 'nyfed-terms')도 글자로 싣는다.
+   읽는 법의 'RMP 칸' 항목은 화면에서 뺀 셈 규칙이 있는 저장소 README(GitHub)를 link()로 가리킨다.
    '연준 대차대조표 정책 — 1차 출처'(POLICY)는 접힌 읽는 법 밖에 보이는 짧은 칸이다 — 운영자가 연준·뉴욕 연은 원문을 확인해
    적은 고정 글(기준일 POLICY_ASOF, 자동 갱신 아님, 사람이 고친다). 짧은 영어 인용은 원문 그대로, 주소는 글자로만. */
 "use strict";
 window.FedBsCard = (() => {
   // 카드의 칸 차례 — 자료 파일의 order와 같다(scripts/test_fedbs_fetch.py가 견준다)
-  const CARD = ["reserves", "dec", "rmp_plan", "rmp", "spread", "srf", "rrp", "week"];
+  const CARD = ["reserves", "dec", "rmp_view", "spread", "srf", "rrp", "week"];
   // 그 칸이 없던 때의 자료 파일이면 줄을 두지 않는 칸(나머지는 칸이 없으면 '자료 없음')
-  const OPTIONAL = ["rmp_plan", "rmp"];
+  const OPTIONAL = ["rmp_view"];
   // 뉴욕 연은에서 직접 받는 두 출처 — 자료 파일 sources[].series의 이름(scripts/fedbs_fetch.py의 OPS·PLAN과 같다 — 테스트가 견준다)
   const OPS = "TSYOPS";
   const PLAN = "TSYPLAN";
@@ -32,8 +34,10 @@ window.FedBsCard = (() => {
   // 카드 머리 안내 — fedbs_fetch.NOTICE의 뜻을 모두 담는다(테스트가 견준다). 자료 파일의 notice는 따로 싣지 않는다
   const ABOUT = "연준 H.4.1 주간 대차대조표와 단기자금 시장의 공개 통계와 그 산술입니다. 위 규칙 카드 '지준과 통화승수'의 지준/GDP와 " +
     "지준·재정 카드의 13주 나눔을 주간으로 읽는 재료이고, 규칙 수에 들지 않습니다. 지준 관리 매입(RMP)은 뉴욕 연은 월 일정 공지의 " +
-    "계획 금액을 싣고, 국채 매입 운영 결과로 거꾸로 셈한 대조 줄을 함께 둡니다. 계획은 계획이고 대조 줄은 공식 수치가 아닙니다. " +
-    "금리나 자금 여건을 예측하지 않습니다.";
+    "계획 금액이고, 운영 결과로 셈한 대조(공식 수치 아님)는 차 한 줄로만 둡니다. 금리나 자금 여건을 예측하지 않습니다.";
+  // 읽는 법의 'RMP 칸' 항목이 가리키는 저장소 README 절(link()는 FRED·GitHub 주소만 링크로 건다)
+  const README_URL = "https://github.com/yun-macrolab/macro-regime-check#rmp-칸의-셈-규칙";
+  const README_LABEL = "저장소 README의 'RMP 칸의 셈 규칙' 절";
   const GUIDE = [
     ["거리는 4주 평균과 함께", "규칙 하한까지의 거리는 한 주의 숫자보다 4주 평균과 함께 읽습니다. 최신 주가 하한 아래여도 4주 평균이 " +
       "위면 한 주의 재무부 현금 흔들림일 수 있습니다. 운영자가 2026-11-03에 최근 52주(주 평균 지준)로 재 본 바로는 주간 지준 변화의 " +
@@ -44,10 +48,16 @@ window.FedBsCard = (() => {
     ["재무부 현금(TGA)", "나눔의 재무부 현금 칸이 지준 변화 대부분을 설명하면 재무부의 현금 흐름이지 연준의 운용이 아닙니다. 운영자가 " +
       "2026-11-03에 최근 52주 수요일 수준으로 재 본 바로는 주간 지준 변화를 재무부 현금 변화로 설명하는 R²가 0.91이었습니다(104주로 " +
       "늘리면 0.57 — 기간에 따라 다릅니다, 측정 기록)."],
-    ["연준 단기채와 MBS는 짝으로", "연준 단기채 칸은 지준 관리 매입(RMP)만이 아닙니다. 보유 축소(QT)가 끝난 뒤(위 '연준 " +
-      "대차대조표 정책' 칸) MBS 상환분은 단기채로 재투자되므로, 단기채 증가는 RMP와 재투자의 합이고 MBS 칸의 감소와 거의 " +
-      "상쇄됩니다. 나눔 칸에서는 RMP를 단기채 + MBS의 순증으로 대략 봅니다(상환 기록일·재투자 시차로 4주 창에서는 흔들립니다). " +
-      "월 일정 창의 RMP는 위 '공식 계획' 줄(뉴욕 연은 공지)과 그 아래 대조 줄(운영 결과로 거꾸로 셈한 값)입니다."],
+    ["RMP 칸", "창은 뉴욕 연은 계획 페이지의 월 일정 기간이고 시작 달로 부릅니다(예: 2026년 10월 창 = 2026-10-15~11-13). 재투자는 " +
+      "MBS 상환분을 단기채로 바꾸는 보유 교체이고 RMP는 그 위에 더 사는 몫이라, 나눔 칸의 연준 단기채는 둘의 합입니다 — RMP는 " +
+      "단기채 + MBS의 순증으로 봅니다. 'RMP 시작 뒤 지준' 줄은 네 수요일 평균의 차입니다. 한 주 끝점으로 셈하면 재무부 현금 한 " +
+      "주치에 크게 흔들립니다 — 운영자가 2026-11-03에 재 본 바로는 2025-12-10에서 2026-10-28로 셈하면 지준 -78.5bn, 출발을 한 주 앞 " +
+      "12-03으로 옮기면 +17.1bn이었습니다(재무부 현금이 12-10에 805.8bn, 10-28에 1,015.6bn — 측정 기록). 그 줄의 단기채+MBS가 계획 " +
+      "누적보다 조금 낮게 나올 수 있는 것은 시작 앞 네 주에 보유 축소 때의 마지막 MBS 상환 전 수요일(2025-11-19)이, 최근 네 주에 " +
+      "재투자 결제가 다 되기 전의 수요일들이 들어 있어서입니다(같은 날 +207 대 215). '그 밖'은 연준 이표채·TIPS(같은 날 약 +10)와 " +
+      "대출·기타 부채 등의 나머지입니다. 운영 결과 대조는 창 안 매입 운영 결과의 합에서 그 달 MBS 상환(WSHOMCB)을 뺀 이 사이트의 " +
+      "셈이고 공식 수치가 아닙니다. 창 경계·상환 수요일·소액 운영을 빼는 규칙과 읽는 계획 문장 꼴은 ",
+      [README_LABEL, README_URL, "에 있습니다."]],
     ["창의 출발일", "4주·13주 창의 출발 수요일에 월말·분기말·15일 표시가 있으면 그날 하루 튄 역레포·재무부 현금의 되돌림이 그 칸에 " +
       "섞여 있습니다. 창은 옮기지 않고 표시만 합니다. 1주 변화는 15일·월말 하루에 크게 흔들려 싣지 않습니다."],
     ["FOMC 뒤 첫 H.4.1", "FOMC 결정일(수)이 그 주의 마지막 날이라 그 주의 지준·나눔·주 평균은 결정이 시행되기 전 값입니다. IORB·" +
@@ -60,10 +70,7 @@ window.FedBsCard = (() => {
     ["단기자금", "단기자금의 빠듯함은 지준/GDP보다 SOFR − IORB와 상시 레포(SRF) 이용으로 직접 봅니다. 규칙 하한 9%는 추정값이고, " +
       "단기자금이 빠듯해지는 경계라는 근거는 약합니다."],
     ["정책 사실", "보유 축소 종료·지준 관리 매입 시작·태스크포스 같은 정책 사실은 위 '연준 대차대조표 정책 — 1차 출처' 칸에 " +
-      "원문 인용·날짜·출처 주소와 함께 있습니다."],
-    ["RMP 계획과 대조", "위 '공식 계획' 줄은 뉴욕 연은이 월 일정 창마다 공지한 재투자·RMP 계획 금액이고, 계획일 뿐 실제 매입은 " +
-      "운영 결과입니다. 그 아래 대조 줄은 실행마다 뉴욕 연은 운영 결과와 H.4.1 MBS 보유로 다시 셉니다 — 공식 기간이 있는 달은 그 " +
-      "기간을 창으로 씁니다. 창·매입·상환의 셈과 한계는 그 줄 아래에 있습니다. 대조 줄은 공식 수치가 아닙니다."]
+      "원문 인용·날짜·출처 주소와 함께 있습니다."]
   ];
   // 연준 대차대조표 정책 — 1차 출처(접힌 읽는 법 밖에 보이는 칸). 운영자가 2026-11-03 원문을 받아 확인한 고정 글 — 자동 갱신 아님.
   // 영어 인용은 원문 그대로(scripts/test_fedbs_fetch.py가 견준다), 주소는 글자로만(링크는 FRED·GitHub에만 건다)
@@ -118,11 +125,62 @@ window.FedBsCard = (() => {
     try { return window.MacroCharts.lineChart(spec, { height: 190, caption: false, notices: false, format: bn0 }); }
     catch (e) { return null; }
   }
+  // 숫자·날짜 토막(부호·쉼표·소수·날짜 범위·bn·bp·%·바로 붙은 짧은 괄호·'께')을 span.nw로 — 글자는 그대로, 줄 중간에서만 끊지 않게
+  const NUM = /[+-]?\d[\d,.]*(?:[-~/][+-]?\d[\d,.]*)*(?:bn|bp|%p|%)?(?:\([^()\s]{1,8}\))?(?:께)?/g;
+  function nw(t) {
+    const out = [];
+    let at = 0;
+    for (const m of String(t).matchAll(NUM)) {
+      if (m.index > at) out.push(t.slice(at, m.index));
+      out.push(el("span", { class: "nw" }, m[0]));
+      at = m.index + m[0].length;
+    }
+    if (at < t.length) out.push(t.slice(at));
+    return out;
+  }
+  // RMP 칸의 view — 정해 둔 꼴(글자열·줄 수 상한)일 때만 나눠 그린다. 아니면 null(숫자 줄과 덧줄만 그린다)
+  function rmpView(v) {
+    const str = x => typeof x === "string" && x !== "" && x.length <= 400;
+    const strs = (a, lo, hi) => Array.isArray(a) && a.length >= lo && a.length <= hi && a.every(str);
+    const pair = x => isObj(x) && str(x.tag) && str(x.text);
+    if (!isObj(v) || !str(v.window) || !strs(v.head, 1, 5) || typeof v.dates !== "string" || !str(v.caption) || !str(v.mean) ||
+        !pair(v.bridge) || !pair(v.floor) || !strs(v.notes, 1, 4) || !isObj(v.table) || !strs(v.table.head, 4, 4) ||
+        !Array.isArray(v.table.rows) || v.table.rows.length < 1 || v.table.rows.length > 6 ||
+        !v.table.rows.every(r => isObj(r) && strs(r.cells, 4, 4) && typeof r.note === "string")) return null;
+    return v;
+  }
+  function rmpRow(it, name) {
+    const v = rmpView(it.view);
+    if (!v) return null;
+    const t = v.table;
+    const table = el("table", { class: "ai-table rmp-table" },
+      el("caption", { class: "sr" }, v.caption.split(" — ")[0]),
+      el("thead", {}, el("tr", {}, ...t.head.map(h => el("th", { scope: "col" }, h)))),
+      el("tbody", {}, ...t.rows.map(r => el("tr", {},
+        el("th", { scope: "row" }, r.cells[0], r.note ? el("small", {}, r.note) : null),
+        ...r.cells.slice(1).map(c => el("td", {}, c))))));
+    return el("div", { class: "oil-row fedbs-row fedbs-rmp" },
+      el("p", { class: "oil-name" }, el("strong", {}, name), " ", el("small", {}, ...nw(v.window))),
+      el("p", { class: "oil-num rmp-head" }, el("strong", {}, ...nw(v.head[0])), ...v.head.slice(1).flatMap(h => [" · ", ...nw(h)])),
+      v.dates ? el("p", { class: "rmp-dates" }, ...nw(v.dates)) : null,
+      el("div", { class: "rmp-grid" },
+        el("p", { class: "muted rmp-cap" }, ...nw(v.caption)),
+        el("div", { class: "ai-table-wrap rmp-wrap" }, table),
+        el("p", { class: "muted rmp-mean" }, ...nw(v.mean))),
+      el("p", { class: "oil-num rmp-bridge" }, el("span", { class: "rmp-tag" }, v.bridge.tag), " ", ...nw(v.bridge.text)),
+      el("p", { class: "oil-num rmp-floor" }, el("span", { class: "rmp-tag" }, v.floor.tag), " ", ...nw(v.floor.text)),
+      ...v.notes.map(n => el("p", { class: "muted" }, ...nw(n))),
+      stale(it));
+  }
   function row(it, key) {
     if (it === undefined && OPTIONAL.includes(key)) return null;
     const name = isObj(it) && typeof it.name === "string" && it.name ? it.name : key;
     if (!usable(it, key))
       return el("div", { class: "oil-row fedbs-row" }, el("p", { class: "oil-name" }, el("strong", {}, name), " — ", missing(it)));
+    if (key === "rmp_view") {
+      const r = rmpRow(it, name);
+      if (r) return r;
+    }
     return el("div", { class: "oil-row fedbs-row" },
       el("p", { class: "oil-name" }, el("strong", {}, name), " ", el("small", {}, it.date)),
       el("p", { class: "oil-num" }, it.line),
@@ -191,7 +249,7 @@ window.FedBsCard = (() => {
       ...CARD.map(k => row(items[k], k)),
       policy(),
       el("details", { class: "rule-detail rule-guide" }, el("summary", {}, "읽는 법 — 정의·측정 기록"),
-        ...GUIDE.map(([h, text]) => el("p", {}, el("strong", {}, h), " · ", text))),
+        ...GUIDE.map(([h, text, to]) => el("p", {}, el("strong", {}, h), " · ", text, ...(to ? [link(to[0], to[1]), to[2]] : [])))),
       notices.length ? el("div", { class: "notices" }, ...notices.map(t => el("p", {}, t))) : null,
       sourceLine(items),
       citeLines(items));

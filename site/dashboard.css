@@ -303,6 +303,26 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .oil-late { color: var(--alert); }
 .oil-row figure.ch { margin-top: 8px; }
 .korea-oil { margin-top: 12px; }
+/* 연준 재무상태표 카드의 RMP 칸(site/fedbs.js rmpRow) — 숫자·날짜 토막은 끊지 않고(span.nw), 한글은 낱말 단위로 접는다.
+   묶음 표는 .ai-table 꼴, 900px 이상이면 표 옆에 머리 글·뜻 덧줄, 그보다 좁으면 위아래로 */
+.nw { white-space: nowrap; }
+.fedbs-rmp p { word-break: keep-all; overflow-wrap: break-word; }
+.rmp-head strong { font-weight: 600; font-size: 13.5px; }
+.rmp-dates, .rmp-tag { color: var(--ink); }
+.rmp-tag { font-weight: 500; }
+.rmp-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+.rmp-wrap { margin-top: 6px; }
+.rmp-table { width: auto; }
+.rmp-table th, .rmp-table td { padding: 3px 14px 3px 0; }
+.rmp-table th:last-child, .rmp-table td:last-child { padding-right: 2px; }
+.rmp-table td { font-family: var(--f-mono); }
+.rmp-table td:nth-child(2) { color: var(--amber); }
+.rmp-table th[scope="row"] small { display: block; color: var(--key); font-size: 11px; line-height: 1.3; }
+@media (min-width: 900px) {
+  .rmp-grid { grid-template-columns: max-content minmax(0, 34rem); grid-template-areas: "t c" "t m"; grid-template-rows: auto 1fr;
+    column-gap: 28px; align-items: start; }
+  .rmp-cap { grid-area: c; } .rmp-wrap { grid-area: t; } .rmp-mean { grid-area: m; }
+}
 /* 신용 긴축 참고(site/credit.js) — AI 투자 화면 아래 절. 유가 카드와 같은 틀이고, 단계 줄 바로 뒤의 정의 문단만 색이 다르다.
    기간 프리미엄(tp.js)·지준·재정(liquidity.js)·단일종목 CDS(cds.js) 카드는 위 oil-* 틀을 그대로 쓴다 */
 .credit-slot:empty { display: none; }
