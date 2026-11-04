@@ -243,7 +243,9 @@ class BoundaryTest(WorkflowCase):
         for out in ("needs.publish.outputs.publish == 'true'", "needs.takedown.outputs.publish == 'true'",
                     "needs.watch.outputs.redeploy == 'true'", "always()", "needs.check.result == 'success'"):
             self.assertIn(out, condition(job))
-        self.assertEqual(run_blocks(job), run_blocks(morning))                  # site/ + data/만 조립한다
+        gate = [b for b in run_blocks(morning) if "FETCH_HEAD" in b]            # 아침 push 실행만 보는 'main이 앞서 나갔는지' 단계
+        self.assertEqual(len(gate), 1)                                          # (저녁에는 push로 배포하는 길이 없다 — 2026-11-04 push-4)
+        self.assertEqual(run_blocks(job), [b for b in run_blocks(morning) if b not in gate])   # site/ + data/만 조립한다
         self.assertEqual(uses(job), uses(morning))
         self.assertEqual(permissions(job), permissions(morning))
 

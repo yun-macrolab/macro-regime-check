@@ -87,31 +87,53 @@ class ScriptTest(unittest.TestCase):
         for word in ("Invoke-Expression", "iex ", "DownloadString", "Invoke-WebRequest", "token", "password", "git push", "-Force origin"):
             self.assertNotIn(word.lower(), code.lower(), word)
 
-    def test_people_step_is_separate_and_cannot_change_the_result(self):
-        """연준 인물 발언 게시(scripts/people_push.py, 2026-11-04) — 저녁판이 끝나고 결과(종료코드 · 오류 파일)가 정해진 뒤에 따로 돈다.
-        제 try/catch 안에서만, 스위치와 무관하게(스위치를 읽지 않는다), 파일이 아직 없으면 조용히 건너뛴다."""
+    def test_people_step_runs_first_and_cannot_change_the_result(self):
+        """연준 인물 발언 게시(scripts/people_push.py, 2026-11-04) — 저녁판 앞에 따로 돈다(2026-11-04 검토 push-3: 그 sync가 끊긴 앞
+        실행의 잔재 — 제 파일과 저녁판 파일 — 를 되돌리고, 멈추면 제 파일을 되돌리므로 저녁판의 picks_push.sync가 dirty로 막히지 않는다).
+        제 try/catch 안에서만, 스위치와 무관하게(스위치를 읽지 않는다), 준비(폴더 · Python · PATH)가 끝났을 때만, 파일이 아직 없으면
+        조용히 건너뛴다. 종료코드 · 오류 파일은 그 뒤의 저녁판만 정한다."""
         code = self.code
         start = code.index('$people = Join-Path $repo "scripts\\people_push.py"')
-        block = code[code.rindex("try {", 0, start):code.rindex("exit $code")]
-        self.assertLess(code.index("Set-Content -LiteralPath $ErrorFile"), start)          # 저녁판의 결과를 다 적은 뒤
-        self.assertLess(code.index("$code = $p.ExitCode"), start)
-        self.assertIn("if ($py -and (Test-Path -LiteralPath $people)) {", block)            # 그 폴더에 아직 없으면 건너뛴다
+        block_at = code.rindex("try {", 0, start)
+        block = code[block_at:code.index("\ntry {", start)].rstrip()                       # 다음 try(저녁판) 앞까지 — 제 try/catch 하나
+        evening = code.index("$p = Start-Process -FilePath $py -ArgumentList $argList")
+        self.assertLess(code.index("$ready = $true"), block_at)                              # 준비가 끝난 뒤
+        self.assertLess(block_at, evening)                                                   # 저녁판보다 먼저
+        self.assertLess(start, code.index('$script = Join-Path $repo "scripts\\evening\\evening_llm.py"'))
+        self.assertLess(evening, code.index("if ($code -eq 0)"))                             # 결과는 저녁판의 것으로 정한다
+        self.assertIn("if ($ready) {", block)
+        self.assertIn("if (Test-Path -LiteralPath $people) {", block)                       # 그 폴더에 아직 없으면 건너뛴다
         self.assertIn('$source = Join-Path $NotesDir "people-remarks.json"', block)
         self.assertIn('@("-X", "utf8", (\'"{0}"\' -f $people), "--repo-dir", (\'"{0}"\' -f $repo), "--source", (\'"{0}"\' -f $source))', block)
         self.assertIn("Start-Process -FilePath $py -ArgumentList $peopleArgs -WindowStyle Hidden -Wait -PassThru", block)
         self.assertRegex(block, r"^try \{")
-        self.assertRegex(block, r"\} catch \{\s*\}\s*$")                                     # 실패는 삼킨다 — 저녁판 종료코드에 닿지 않는다
+        self.assertRegex(block, r"\} catch \{\s*\}$")                                       # 실패는 삼킨다 — 저녁판 종료코드에 닿지 않는다
         self.assertNotRegex(block, r"\$code\s*=")
-        for word in ("$ErrorFile", "EVENING_ENABLED", "switch", "exit"):
+        for word in ("$ErrorFile", "EVENING_ENABLED", "switch", "exit", "throw"):
             self.assertNotIn(word, block, word)
-        self.assertEqual(code.count("people_push.py"), 1)
+        self.assertEqual(code.count('Join-Path $repo "scripts\\people_push.py"'), 1)
+        self.assertRegex(code, r"if \(-not \$ready\) \{ throw [^}]*\}\s*\$script = ")      # 준비가 안 됐으면 저녁판은 실패(1)로
         self.assertRegex(code, r"\}\s*exit \$code\s*$")                                       # 끝은 그대로 저녁판의 종료코드
+
+    def test_unschedule_says_it_also_stops_the_people_publisher(self):
+        """작업을 지우면 연준 인물 게시도(내리기 포함) 멈춘다 — 지우는 출력 · 머리말이 그렇게 말하고, 저녁판만 멈추려면 스위치를 끄라고
+        한다(2026-11-04 검토 push-2)."""
+        block = self.code[self.code.index("if ($Unschedule) {"):self.code.index("if ($Schedule) {")]
+        removed = block[block.index('Write-Output "removed task $TaskName"'):block.index("} else {")]
+        for word in ("Fed people remark publisher", "takedowns included", "stays on people.html", "EVENING_ENABLED off",
+                     "data/people_remarks.json", "scripts/people_push.py"):
+            self.assertIn(word, removed, word)
+        head = self.text.split("#>", 1)[0]
+        for word in ("ALSO STOPS THE FED PEOPLE REMARK PUBLISHER", "takedowns included", "keep the task",
+                     "the people step runs regardless of the switch", "first delete data/people_remarks.json"):
+            self.assertIn(word, head, word)
 
     def test_header_says_which_copy_to_register(self):
         head = self.text.split("#>", 1)[0]
         for word in ("INSIDE the publish-only folder", "-Schedule -RepoDir", "-Unschedule", "-Yes -RepoDir", "evening-summary.log",
                      "evening-summary-error.txt", "EVENING_ENABLED", "only when it is due", "AND run -Unschedule", "three triggers",
-                     "SEPARATE step runs scripts\\people_push.py", "people-remarks.json", "people-push.log", "whether"):
+                     "SEPARATE step runs scripts\\people_push.py", "BEFORE the evening run", "people-remarks.json", "people-push.log",
+                     "whether"):
             self.assertIn(word, head, word)
 
 

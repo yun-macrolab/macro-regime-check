@@ -26,6 +26,10 @@
   The repository variable EVENING_ENABLED is read first. If it is not "true" nothing is started, read or
   asked (sentences that are already up are replaced by an empty layer). Taking the evening edition down
   for good: switch the variable off AND run -Unschedule.
+  -Unschedule ALSO STOPS THE FED PEOPLE REMARK PUBLISHER below, takedowns included: a remark the operator
+  marks N in the private log would then stay on people.html. To stop only the evening edition, switch
+  EVENING_ENABLED off and keep the task - the people step runs regardless of the switch. To stop both,
+  first delete data/people_remarks.json and scripts/people_push.py on main, then run -Unschedule.
 
   The run is hidden (no console window) and its exit code is passed on:
     0  published, or nothing to do (also when the switch is off)
@@ -37,11 +41,14 @@
   The publish-only folder also needs the local .blind_patterns file (it is not in git): the pre-publish check
   refuses to commit without it.
 
-  Fed people remarks: after the evening run a SEPARATE step runs scripts\people_push.py with the same Python
+  Fed people remarks: BEFORE the evening run a SEPARATE step runs scripts\people_push.py with the same Python
   and PATH (--repo-dir <folder> --source %USERPROFILE%\.macro-notes\people-remarks.json). It publishes only
   data/people_remarks.json (the automatic classification written by the private pipeline), runs whether
   EVENING_ENABLED is on or off (people_push.py moves the folder to origin/main itself), never changes the
   exit code or the error file above, and is skipped quietly while the folder does not hold that script yet.
+  It goes first because its sync undoes what an interrupted earlier run of either publisher left behind
+  (its own file and the evening one) and it restores its file whenever it stops - so a people run that was
+  killed half way (shutdown, the 40-minute limit) never makes the evening publish stop as "dirty".
   It adds one line per run to %USERPROFILE%\.macro-notes\people-push.log (codes and counts only).
 #>
 [CmdletBinding()]
@@ -86,6 +93,10 @@ if ($Unschedule) {
     if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
         Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
         Write-Output "removed task $TaskName"
+        Write-Output "note: this also stopped the Fed people remark publisher (scripts\people_push.py), takedowns included:"
+        Write-Output "  a remark marked N in the private log now stays on people.html."
+        Write-Output "  to stop only the evening edition: switch EVENING_ENABLED off and register the task again with -Schedule."
+        Write-Output "  to stop both: delete data/people_remarks.json and scripts/people_push.py on main."
     } else {
         Write-Output "no task named $TaskName"
     }
@@ -124,6 +135,7 @@ if (-not $Yes) {
 }
 
 $code = 1
+$ready = $false
 try {
     $repo = Resolve-Repo $RepoDir
     $py = Find-Python
@@ -136,6 +148,32 @@ try {
         (Join-Path $env:ProgramFiles "Git\cmd")
     ) | Where-Object { Test-Path -LiteralPath $_ }
     $env:PATH = (@($extra) + @($env:PATH)) -join ";"
+    $ready = $true
+} catch {
+    $code = 1
+}
+
+# Fed people remarks - a separate step with its own try/catch, BEFORE the evening step: its sync undoes the
+# leftovers of an interrupted earlier run (its own file and the evening one) and it restores its file whenever it
+# stops, so the evening publish below never finds the folder dirty because of it. It never touches $code or the
+# error file, it runs even when the evening switch is off (people_push.py does its own sync to origin/main), and it
+# is skipped quietly while the folder does not hold the script yet. Its result goes to people-push.log only.
+try {
+    if ($ready) {
+        $people = Join-Path $repo "scripts\people_push.py"
+        if (Test-Path -LiteralPath $people) {
+            $source = Join-Path $NotesDir "people-remarks.json"
+            $peopleArgs = @("-X", "utf8", ('"{0}"' -f $people), "--repo-dir", ('"{0}"' -f $repo), "--source", ('"{0}"' -f $source))
+            $q = Start-Process -FilePath $py -ArgumentList $peopleArgs -WindowStyle Hidden -Wait -PassThru
+            [void]$q.ExitCode
+        }
+    }
+} catch {
+}
+
+# The evening summary - its exit code is the exit code of this script
+try {
+    if (-not $ready) { throw "setup failed" }
     $script = Join-Path $repo "scripts\evening\evening_llm.py"
     $argList = @("-X", "utf8", ('"{0}"' -f $script), "run", "--repo-dir", ('"{0}"' -f $repo), "--dispatch")
     $p = Start-Process -FilePath $py -ArgumentList $argList -WindowStyle Hidden -Wait -PassThru
@@ -170,17 +208,4 @@ if ($code -eq 0) {
     }
 }
 
-# Fed people remarks - a separate step with its own try/catch. It never touches $code or the error file,
-# it runs even when the evening switch is off (people_push.py does its own sync to origin/main), and it is
-# skipped quietly while the folder does not hold the script yet. Its result goes to people-push.log only.
-try {
-    $people = Join-Path $repo "scripts\people_push.py"
-    if ($py -and (Test-Path -LiteralPath $people)) {
-        $source = Join-Path $NotesDir "people-remarks.json"
-        $peopleArgs = @("-X", "utf8", ('"{0}"' -f $people), "--repo-dir", ('"{0}"' -f $repo), "--source", ('"{0}"' -f $source))
-        $q = Start-Process -FilePath $py -ArgumentList $peopleArgs -WindowStyle Hidden -Wait -PassThru
-        [void]$q.ExitCode
-    }
-} catch {
-}
 exit $code

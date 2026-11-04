@@ -2,22 +2,22 @@
  * 사실·출처는 인물별 조사에서, 위치 눈금·흐름은 운영자 해석, 지도(map)는 미리 계산한 주 경계 그림.
  * 고칠 때: scripts/test_people_site.py가 꼴(사람 수·칸·범위·출처 주소)을 본다. */
 window.PEOPLE_DATA = {
- "asof": "2026-10-31",
+ "asof": "2026-11-04",
  "review": "draft",
  "notes": [
-  "초안 — 사람이 확인하기 전이다. 연준 원문을 직접 열지 못해 1차 자료는 제3자 사본·검색 조각이고, 나머지는 2차 보도다.",
+  "초안이 섞여 있다 — 2026년 투표권자 12명(워시·제퍼슨·보먼·월러·바·쿡·파월·윌리엄스·폴슨·해맥·카시카리·로건)의 기준선과 사실은 2026-11-04 1차 출처(연준·뉴욕 연은 원문은 직접, 지역 연은 원문은 검색 조각)로 다시 확인해 운영자가 승인했다(사람마다 ‘확인함’). 나머지 7명은 아직 초안이다(‘초안’) — 그쪽 1차 자료는 제3자 사본·검색 조각이고, 나머지는 2차 보도다.",
   "사실은 인물별 조사와 2026 회의 기록에서만 옮겼다. 장소의 도시·좌표와 연준 지구 경계만 일반 지식(대략값)이다.",
   "진영 꼬리표(매파·중도·비둘기·스윙·미상)는 언론·관찰자가 붙인 평판을 줄인 것이고 계산값이 아니다. 그런 라벨이 없으면 미상.",
-  "기준선(평소·놀랄 일)과 ‘다음 확인’은 운영자가 조사에서 정리한 초안이다 — 예측이 아니라 새 발언을 견줄 틀이다.",
+  "기준선(평소·놀랄 일)과 ‘다음 확인’은 운영자가 조사에서 정리한 것이다(2026 투표권자 12명은 확인함, 나머지는 초안) — 예측이 아니라 새 발언을 견줄 틀이다. 목록 항목은 지우거나 순서를 바꾸지 않고, 고칠 때는 그 자리에서 고치거나 끝에 더한다.",
   "위치 눈금(−2 비둘기 … +2 매파)과 올해의 흐름·위치 근거는 운영자 해석이다. 빈 칸은 판단할 수 없다는 뜻이다(베너블·데일리 — 2026 금리 발언 없음).",
   "지구는 주 단위 근사다 — 실제로는 나뉜 주(CT·NJ·PA·KY·WV·TN·MS·LA·IL·IN·MI·WI·MO·NM)를 한 지구에 통째로 넣었다. 지구마다 근사 설명이 붙어 있다.",
   "걸어온 길의 좌표는 캠퍼스·본사 도시의 대략값이다. ‘위치 추정’은 조사에 장소가 없어 추정한 점(나라 중심 포함)이고, 연도가 빈 칸은 조사에 연도가 없는 것이다. ‘사전 지식’ 표시는 확인하지 않은 것이다.",
-  "인용 문구는 조사에 옮겨진 그대로다 — 2차 보도가 옮긴 것이면 원문과 다를 수 있다.",
+  "인용 문구는 조사에 옮겨진 그대로다 — 2차 보도가 옮긴 것이면 원문과 다를 수 있다. 2026 투표권자 12명의 인용은 2026-11-04 원문(또는 검색 조각)과 다시 맞췄다.",
   "애틀랜타는 임시 총재(베너블)이고 정식 후임은 발표 전이다(10-31 기준). 마이런(전 이사)은 반대표 기록에만 나온다.",
   "글은 이 저장소가 공개 자료(연준·연은 자료 — 사본·검색 조각 포함, 보도)를 읽고 쓴 요약이다. 인용은 짧게, 같은 날짜의 출처와 함께 싣는다. 사람 사진·기관 로고는 싣지 않는다.",
   "지도의 주 경계는 folium 예제 자료(us-states.json, MIT 라이선스 — 저작권 표시는 저장소의 THIRD_PARTY_NOTICES.md)를 앨버스 투영으로 미리 계산한 그림이다.",
-  "‘새 발언 — 기준선 대비(자동 분류)’ 칸과 머리의 최근 발언 띠만 매일 자동으로 붙는다 — 운영 규칙이 새 발언을 그 사람의 기준선(기준일·확인함/초안 표시)에 견준 결과이고, 사람 확인 없이 올라간다. 예측이 아니다. 인용은 발언자 본인의 말을 15단어 이내로 옮긴 것이다. 위의 프로필 칸은 사람이 고친다.",
-  "참고 — 예측 아님. 이 사이트의 규칙 판정·점검표에 쓰지 않고, 매일 갱신하지 않는다(머리의 기준일을 본다)."
+  "‘새 발언 — 기준선 대비(자동 분류)’ 칸과 머리의 최근 발언 띠만 매일 자동으로 붙는다 — 언어 모델(AI)이 기사를 읽고 새 발언을 그 사람의 기준선(기준일·확인함/초안 표시)에 견준 결과이고, 사람 확인 없이 매일 올라간다. 틀릴 수 있고, 예측이 아니다. 인용은 언어 모델이 기사에서 발언자 본인의 말로 보고 15단어 이내로 옮긴 것이다. 위의 프로필 칸은 사람이 고친다.",
+  "참고 — 예측 아님. 이 사이트의 규칙 판정·점검표에 쓰지 않는다. 프로필 칸은 매일 갱신하지 않는다(머리의 기준일을 본다) — 매일 붙는 것은 자동 분류 칸뿐이다."
  ],
  "stance_scale": {
   "min": -2,
@@ -302,7 +302,7 @@ window.PEOPLE_DATA = {
    "decision": "동결 3.50~3.75%",
    "vote": "12-0",
    "dissents": [],
-   "note": "워시 첫 회의. 성명 축약·완화 편향 삭제, 점도표에서 2026 인하 사라짐 [2차, 한 목록은 10-2]",
+   "note": "워시 첫 회의. 성명 축약·완화 편향 삭제, 점도표 2026 중간값 3.8%(인상 쪽) [성명·의사록 1차: 12-0]",
    "chair": "warsh"
   },
   {
@@ -374,7 +374,7 @@ window.PEOPLE_DATA = {
   },
   {
    "date": "2026-05-13",
-   "text": "상원, 워시 의장 인준(54-45 — 보도에 따라 55-45)",
+   "text": "상원, 워시 의장 인준 54-45(이사 인준 05-12 51-45)",
    "keys": [
     "warsh"
    ],
@@ -389,18 +389,18 @@ window.PEOPLE_DATA = {
   },
   {
    "date": "2026-05-15",
-   "text": "파월 의장 임기 종료, 임시 의장",
+   "text": "파월 의장 임기 종료, 이사회가 임시 의장 지명",
    "keys": [
     "powell"
    ],
    "src": [
     {
-     "outlet": "Orrick InfoBytes",
+     "outlet": "연준 보도자료",
      "date": "2026-05-15",
-     "url": "https://infobytes.orrick.com/2026-05-15/u-s-senate-confirms-kevin-warsh-to-serve-as-fed-chair/"
+     "url": "https://www.federalreserve.gov/newsevents/pressreleases/other20260515a.htm"
     }
    ],
-   "cert": "2차"
+   "cert": "1차"
   },
   {
    "date": "2026-05-22",
@@ -440,9 +440,9 @@ window.PEOPLE_DATA = {
    ],
    "src": [
     {
-     "outlet": "AP(ADN 재게재)",
+     "outlet": "연준 연설",
      "date": "2026-08-28",
-     "url": "https://www.adn.com/nation-world/2026/08/28/fed-chair-warsh-signals-rate-hikes-may-be-needed-with-inflation-stubbornly-elevated/"
+     "url": "https://www.federalreserve.gov/newsevents/speech/warsh20260828a.htm"
     }
    ],
    "cert": "1차"
@@ -644,20 +644,21 @@ window.PEOPLE_DATA = {
     },
     {
      "date": "2026-08-28",
-     "text": "잭슨홀: 인상 필요할 수 있다, 행동 기준 제시"
+     "text": "잭슨홀: '결정 아닌 규율', 행동 기준('분명히, 충분한 속도로')"
     }
    ],
    "baseline": {
     "usual": [
-     "'물가 너무 높고 너무 오래'·'2% PCE, 연성 목표 없음'",
+     "'물가 너무 높고 너무 오래'·'2% PCE, 연성 목표 없음'·'물가안정 반드시 달성'",
      "가이던스·점 없음, 회의마다 판단",
-     "성장이 물가 원인은 아님(생산성)",
-     "제도 개편은 이번 국면 영향 작음"
+     "성장이 물가 원인 아님(생산성)·'고용 해칠 필요 없다'",
+     "제도 개편은 이번 국면 영향 작음",
+     "'interrogate reality'·데이터 한 점 아닌 추세"
     ],
     "hawk_surprise": [
      "12월·연속 인상 미리 약속",
      "50bp·'훨씬 더 긴축해야'",
-     "수요 과열·AI 투자를 물가 원인으로",
+     "'과열' 단정·AI 투자가 물가 올린다고 명시",
      "인상 쪽 반대 가담·점 제출"
     ],
     "dove_surprise": [
@@ -667,28 +668,29 @@ window.PEOPLE_DATA = {
      "트럼프 인하 요구에 맞추는 말투"
     ]
    },
+   "review": "approved",
    "watch": "11-16 생산성 청문회, 12월 FOMC 금융여건 문구·점 미제출 유지",
-   "conf": "회견·성명은 1차 사본(제3자 미러), 경력·인준 표수는 2차",
+   "conf": "회견·성명·의사록·약력·잭슨홀 연설은 federalreserve.gov 직접 확인(2026-11-04), 쿠팡·UPS·인준 표수는 2차",
    "sources": [
     {
-     "outlet": "연준 기자회견 녹취(1차 사본)",
+     "outlet": "연준 기자회견 녹취(1차)",
      "date": "2026-10-28",
      "url": "https://www.federalreserve.gov/mediacenter/files/FOMCpresconf20261028.pdf"
     },
     {
-     "outlet": "연준 기자회견 녹취(1차 사본)",
+     "outlet": "연준 기자회견 녹취(1차)",
      "date": "2026-09-16",
      "url": "https://www.federalreserve.gov/mediacenter/files/FOMCpresconf20260916.pdf"
     },
     {
-     "outlet": "AP(ADN 재게재)",
+     "outlet": "연준 연설(1차)",
      "date": "2026-08-28",
-     "url": "https://www.adn.com/nation-world/2026/08/28/fed-chair-warsh-signals-rate-hikes-may-be-needed-with-inflation-stubbornly-elevated/"
+     "url": "https://www.federalreserve.gov/newsevents/speech/warsh20260828a.htm"
     },
     {
-     "outlet": "CNN",
+     "outlet": "연준 보도자료",
      "date": "2026-05-22",
-     "url": "https://www.cnn.com/2026/05/22/economy/kevin-warsh-sworn-in-fed-chair"
+     "url": "https://www.federalreserve.gov/newsevents/pressreleases/other20260522a.htm"
     },
     {
      "outlet": "24/7 Wall St",
@@ -747,7 +749,7 @@ window.PEOPLE_DATA = {
      "place": "Poughkeepsie, NY",
      "lat": 41.6868,
      "lon": -73.8964,
-     "note": "학사(졸업 1983은 2차)",
+     "note": "경제학 학사(졸업 1983은 2차)",
      "cert": "1차"
     },
     {
@@ -759,7 +761,7 @@ window.PEOPLE_DATA = {
      "place": "Charlottesville, VA",
      "lat": 38.0336,
      "lon": -78.508,
-     "note": "경제학 박사(석사는 2차)",
+     "note": "경제학 석사·박사",
      "cert": "1차"
     },
     {
@@ -771,8 +773,8 @@ window.PEOPLE_DATA = {
      "place": "Washington, DC",
      "lat": 38.8929,
      "lon": -77.0459,
-     "note": "스태프 이코노미스트(연도 미확인)",
-     "cert": "2차"
+     "note": "이코노미스트(연도 미확인)",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -807,8 +809,8 @@ window.PEOPLE_DATA = {
      "place": "Swarthmore, PA",
      "lat": 39.9021,
      "lon": -75.3499,
-     "note": "Centennial 교수·학과장",
-     "cert": "2차"
+     "note": "Centennial 교수·경제학과장",
+     "cert": "1차"
     },
     {
      "from": "2019",
@@ -819,8 +821,8 @@ window.PEOPLE_DATA = {
      "place": "Davidson, NC",
      "lat": 35.5007,
      "lon": -80.8456,
-     "note": "교무 부총장 겸 학장(미확인)",
-     "cert": "사전 지식"
+     "note": "교무 부총장·학장·Freeland 교수(연도 2019~22는 사전 지식)",
+     "cert": "1차"
     },
     {
      "from": "2022",
@@ -843,7 +845,7 @@ window.PEOPLE_DATA = {
    ],
    "phrases": [
     {
-     "text": "We do not have the luxury of considering each shock",
+     "text": "We do not have the luxury of considering each shock in a vacuum.",
      "date": "2026-07-16"
     }
    ],
@@ -869,7 +871,7 @@ window.PEOPLE_DATA = {
    "baseline": {
     "usual": [
      "'대응할 위치'·'지표·전망·위험 균형'",
-     "조건부 '한 번 더 인상 적절할 수 있다'",
+     "에너지 충격이 지속 물가·기대로 번질 위험 경계",
      "'시간을 갖고 판단'",
      "AI가 중립금리를 올리면 덜 긴축적"
     ],
@@ -882,20 +884,21 @@ window.PEOPLE_DATA = {
     "dove_surprise": [
      "'9월 인상으로 충분, 긴축 끝'",
      "'고용이 약해 받쳐줘야' 복귀",
-     "인하 가능성 언급",
+     "향후 인하 가능성 직접 언급(교과서식 설명 제외)",
      "지도부 인상안에 반대"
     ]
    },
-   "watch": "블랙아웃 전 '시간 더 걸릴 수'가 '한 번 더 적절'로 옮겨 가는지",
-   "conf": "연설·표결은 1차 사본, 경력 연도·데이비슨은 2차·사전 지식",
+   "review": "approved",
+   "watch": "12월 블랙아웃(11-28~) 전 '시간 더 걸릴 수'가 바뀌는지",
+   "conf": "연설·표결·약력은 연준 원문(11-04 확인), 경력 연도는 2차·사전 지식",
    "sources": [
     {
-     "outlet": "연준 연설(1차 사본)",
+     "outlet": "연준 연설",
      "date": "2026-10-01",
      "url": "https://www.federalreserve.gov/newsevents/speech/jefferson20261001a.htm"
     },
     {
-     "outlet": "연준 연설(1차 사본)",
+     "outlet": "연준 연설",
      "date": "2026-07-16",
      "url": "https://www.federalreserve.gov/newsevents/speech/jefferson20260716a.htm"
     },
@@ -905,9 +908,9 @@ window.PEOPLE_DATA = {
      "url": "https://www.spokesman.com/stories/2026/oct/01/fed-may-take-time-to-make-next-interest-rate-move-/"
     },
     {
-     "outlet": "Federal Reserve History",
-     "date": "—",
-     "url": "https://www.federalreservehistory.org/people/philip-jefferson"
+     "outlet": "연준 이사 약력",
+     "date": "2026-11-04",
+     "url": "https://www.federalreserve.gov/aboutthefed/bios/board/jefferson.htm"
     },
     {
      "outlet": "investinglive",
@@ -949,8 +952,8 @@ window.PEOPLE_DATA = {
      "place": "Lawrence, KS",
      "lat": 38.9543,
      "lon": -95.2558,
-     "note": "학사(전공은 미확인)",
-     "cert": "2차"
+     "note": "학사(전공 미기재)",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -962,7 +965,7 @@ window.PEOPLE_DATA = {
      "lat": 39.0337,
      "lon": -95.7018,
      "note": "JD",
-     "cert": "2차"
+     "cert": "1차"
     },
     {
      "from": null,
@@ -973,8 +976,8 @@ window.PEOPLE_DATA = {
      "place": "Washington, DC",
      "lat": 38.8899,
      "lon": -77.0091,
-     "note": "밥 돌 상원의원·하원 위원회 보좌진",
-     "cert": "2차"
+     "note": "밥 돌 상원의원 보좌·하원 위원회 법률고문",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -985,8 +988,8 @@ window.PEOPLE_DATA = {
      "place": "Washington, DC",
      "lat": 38.8857,
      "lon": -77.0219,
-     "note": "디렉터급(사전 지식)",
-     "cert": "사전 지식"
+     "note": "의회·정부간 업무 국장",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -998,7 +1001,7 @@ window.PEOPLE_DATA = {
      "lat": 38.9389,
      "lon": -77.0855,
      "note": "부차관보·리지 장관 정책 자문",
-     "cert": "2차"
+     "cert": "1차"
     },
     {
      "from": "2010",
@@ -1009,8 +1012,8 @@ window.PEOPLE_DATA = {
      "place": "Council Grove, KS",
      "lat": 38.6611,
      "lon": -96.4919,
-     "note": "가족 소유 지역은행 부행장",
-     "cert": "2차"
+     "note": "부행장 2010~17(가족 소유는 2차)",
+     "cert": "1차"
     },
     {
      "from": "2017",
@@ -1021,8 +1024,8 @@ window.PEOPLE_DATA = {
      "place": "Topeka, KS",
      "lat": 39.0483,
      "lon": -95.678,
-     "note": "은행감독청장",
-     "cert": "2차"
+     "note": "청장 2017-01~2018-11",
+     "cert": "1차"
     },
     {
      "from": "2018",
@@ -1058,8 +1061,8 @@ window.PEOPLE_DATA = {
    ],
    "phrases": [
     {
-     "text": "I don't feel any urgency for taking further action at this point",
-     "date": "2026-10-14"
+     "text": "I don’t currently see an urgent need for further action",
+     "date": "2026-10-01"
     },
     {
      "text": "unwarranted policy restraint",
@@ -1074,11 +1077,15 @@ window.PEOPLE_DATA = {
     },
     {
      "date": "2026-10-14",
-     "text": "방콕: SVB 뒤 감독 개편 연설, '추가 조치 급하지 않다'(2차)"
+     "text": "방콕: SVB 뒤 감독 개편 연설(원고에 금리 없음), 별도 문답 '지켜볼 시간 있다'(2차)"
     },
     {
      "date": "2026-10-06",
      "text": "감독 조직 5개 권역 재편, 자산 문턱 연내 갱신 검토"
+    },
+    {
+     "date": "2026-10-01",
+     "text": "애틀랜틱 카운슬: eSLR 연설, 문답 '지금 추가 조치 급히 필요 없다'(주최 측 인용)"
     },
     {
      "date": "2026-09-18",
@@ -1094,21 +1101,22 @@ window.PEOPLE_DATA = {
     ],
     "hawk_surprise": [
      "12월 인상 명시 지지",
-     "에너지 충격이 근원·기대로 번졌다고 인정",
+     "에너지 충격이 근원·기대로 번져 추가 인상 필요",
      "'아직 충분히 긴축적이지 않다'",
      "인상 쪽 반대표"
     ],
     "dove_surprise": [
      "12월 인상에 반대표(연설로 예고 가능)",
      "9월 인상 되돌림·2027 인하",
-     "'behind the curve'식 노동 경고 복귀"
+     "노동 약화로 'behind the curve'·인하 요구 복귀"
     ]
    },
-   "watch": "블랙아웃 전 '급하지 않다' 유지 여부, 바젤III 연내 확정",
-   "conf": "통화정책 연설은 1차 사본, 10-14 발언·학력·초기 경력은 2차",
+   "review": "approved",
+   "watch": "12월 블랙아웃(11-28~) 전 '급하지 않다' 유지 여부, 바젤III 연내 확정",
+   "conf": "통화정책 연설·표결·약력은 연준 원문(11-04 확인), 10-01·10-14 금리 문답은 2차(주최 측·보도)",
    "sources": [
     {
-     "outlet": "연준 연설(1차 사본)",
+     "outlet": "연준 연설",
      "date": "2026-05-29",
      "url": "https://www.federalreserve.gov/newsevents/speech/bowman20260529a.htm"
     },
@@ -1118,7 +1126,7 @@ window.PEOPLE_DATA = {
      "url": "https://money.usnews.com/investing/news/articles/2026-10-14/feds-bowman-says-theres-time-to-wait-and-see-before-any-more-action"
     },
     {
-     "outlet": "연준 보도자료(검색 조각)",
+     "outlet": "연준 보도자료",
      "date": "2025-06-09",
      "url": "https://www.federalreserve.gov/newsevents/pressreleases/other20250609a.htm"
     },
@@ -1136,6 +1144,21 @@ window.PEOPLE_DATA = {
      "outlet": "상원 은행위 소수당",
      "date": "2025-11-07",
      "url": "https://www.banking.senate.gov/newsroom/minority/warren-presses-fed-for-details-on-reported-30-cuts-to-supervision-and-regulation-team"
+    },
+    {
+     "outlet": "연준 이사 약력",
+     "date": "2026-11-04",
+     "url": "https://www.federalreserve.gov/aboutthefed/bios/board/bowman.htm"
+    },
+    {
+     "outlet": "Atlantic Council(주최 측 인용)",
+     "date": "2026-10-01",
+     "url": "https://www.atlanticcouncil.org/event/federal-reserve-vice-chair-michelle-bowman-on-modernizing-financial-regulation/"
+    },
+    {
+     "outlet": "연준 연설",
+     "date": "2026-10-01",
+     "url": "https://www.federalreserve.gov/newsevents/speech/bowman20261001a.htm"
     }
    ],
    "camp_src": [
@@ -1278,7 +1301,7 @@ window.PEOPLE_DATA = {
    "recent": [
     {
      "date": "2026-10-28",
-     "text": "동결 10-2, 다수 쪽(추론)"
+     "text": "동결 10-2 찬성(반대는 쿡·해맥뿐)"
     },
     {
      "date": "2026-10-08",
@@ -1298,31 +1321,32 @@ window.PEOPLE_DATA = {
      "'예상대로면 추가 인상, 연속 아님'",
      "다음 표를 특정 물가 발표에 건다",
      "AI = 성장 + 기술재 물가 압력",
-     "가이던스 불필요, SEP 신호 옹호"
+     "지금은 가이던스 부적절(워시 동의), SEP 신호 옹호"
     ],
     "hawk_surprise": [
      "데이터 전에 12월 인상 무조건 지지",
      "연속 인상·50bp",
      "인상 쪽 반대표",
-     "2~5년 기대 '이탈' 경보"
+     "2~5년 기대 '이미 상승·이탈' 판단(위험 우려는 평소)"
     ],
     "dove_surprise": [
      "'9월 한 번이면 충분'",
      "노동 약화가 지배적이라는 1월식 틀",
-     "2027 인하 언급",
-     "3개월 근원 둔화로 12월 보류"
+     "자기 전망으로 2027 인하 제시(점도표 해설 제외)",
+     "3개월 근원 둔화 확인으로 12월 동결 지지(조건문 제외)"
     ]
    },
+   "review": "approved",
    "watch": "11월 전망 연설: 12월 표를 걸 지표, '두 번'·'50bp' 언급",
-   "conf": "연설·성명은 1차 사본, 학력·초기 경력·3월 접은 반대는 2차",
+   "conf": "연설·성명·약력은 1차(연준 원문 2026-11-04 확인), 학력 연도·3월 접은 반대는 2차",
    "sources": [
     {
-     "outlet": "연준 연설(1차 사본)",
+     "outlet": "연준 연설(1차)",
      "date": "2026-10-08",
      "url": "https://www.federalreserve.gov/newsevents/speech/waller20261008a.htm"
     },
     {
-     "outlet": "연준 반대 설명문(1차 사본)",
+     "outlet": "연준 반대 설명문(1차)",
      "date": "2026-01-30",
      "url": "https://www.federalreserve.gov/newsevents/speech/waller20260130a.htm"
     },
@@ -1340,6 +1364,11 @@ window.PEOPLE_DATA = {
      "outlet": "Reuters ROI 칼럼 via Zawya",
      "date": "2026-07-16",
      "url": "https://www.zawya.com/en/web-section/insights/fed-flip-flops-make-case-for-less-talk-mike-dolan-394207"
+    },
+    {
+     "outlet": "연준 연설(1차)",
+     "date": "2026-09-03",
+     "url": "https://www.federalreserve.gov/newsevents/speech/waller20260903a.htm"
     }
    ],
    "camp_src": [
@@ -1376,8 +1405,8 @@ window.PEOPLE_DATA = {
      "place": "New Haven, CT",
      "lat": 41.3163,
      "lon": -72.9223,
-     "note": "BA(사전 지식)",
-     "cert": "사전 지식"
+     "note": "BA 역사",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -1388,8 +1417,8 @@ window.PEOPLE_DATA = {
      "place": "Oxford, United Kingdom",
      "lat": 51.7548,
      "lon": -1.2544,
-     "note": "MPhil, 로즈 장학생(사전 지식)",
-     "cert": "사전 지식"
+     "note": "MPhil 국제관계, 로즈 장학생(2차)",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -1400,20 +1429,20 @@ window.PEOPLE_DATA = {
      "place": "New Haven, CT",
      "lat": 41.3115,
      "lon": -72.9266,
-     "note": "JD(사전 지식)",
-     "cert": "사전 지식"
+     "note": "JD",
+     "cert": "1차"
     },
     {
-     "from": null,
-     "to": null,
+     "from": "1993",
+     "to": "1994",
      "org": "U.S. Supreme Court",
      "org_ko": "연방 대법원",
      "kind": "government",
      "place": "Washington, DC",
      "lat": 38.8906,
      "lon": -77.0044,
-     "note": "수터 대법관 재판연구원",
-     "cert": "사전 지식"
+     "note": "수터 대법관 재판연구원(1993 회기)",
+     "cert": "1차"
     },
     {
      "from": "1995",
@@ -1449,7 +1478,7 @@ window.PEOPLE_DATA = {
      "lat": 38.8987,
      "lon": -77.0342,
      "note": "금융기관 담당 차관보, 도드-프랭크",
-     "cert": "사전 지식"
+     "cert": "1차"
     },
     {
      "from": "2017",
@@ -1500,7 +1529,7 @@ window.PEOPLE_DATA = {
    "recent": [
     {
      "date": "2026-10-28",
-     "text": "동결 10-2 찬성(추론)"
+     "text": "동결 10-2 찬성(반대는 쿡·해맥뿐)"
     },
     {
      "date": "2026-09-29",
@@ -1530,28 +1559,44 @@ window.PEOPLE_DATA = {
     ],
     "dove_surprise": [
      "'인상 충분'·장기 동결",
-     "노동 하방·AI 일자리 대체로 보류",
+     "AI 일자리 대체·노동 하방을 근거로 인상 보류 주장",
      "금융안정 위험으로 인상 반대",
-     "인하 언급"
+     "인하 지지·시점 제시(조건·부정형 제외)"
     ]
    },
+   "review": "approved",
    "watch": "12월 전 '기본 시나리오 추가 조정' 유지 여부, 첫 반대표 여부",
-   "conf": "연설·표결은 1차 사본, 학력·직함 연도는 사전 지식(미검증)",
+   "conf": "연설·표결·학력·직함은 1차(연준 원문 2026-11-04 확인), 로즈 장학·미시간 재직 연도는 2차/사전 지식",
    "sources": [
     {
-     "outlet": "연준 연설(1차 사본)",
+     "outlet": "연준 연설(1차)",
      "date": "2026-09-29",
      "url": "https://www.federalreserve.gov/newsevents/speech/barr20260929a.htm"
     },
     {
-     "outlet": "연준 연설(1차 사본)",
+     "outlet": "연준 연설(1차)",
      "date": "2026-03-26",
      "url": "https://www.federalreserve.gov/newsevents/speech/barr20260326a.htm"
     },
     {
-     "outlet": "연준 연설(1차 사본)",
+     "outlet": "연준 연설(1차)",
      "date": "2026-06-06",
      "url": "https://www.federalreserve.gov/newsevents/speech/barr20260606a.htm"
+    },
+    {
+     "outlet": "연준 이사 약력(1차)",
+     "date": "2025-03-01",
+     "url": "https://www.federalreserve.gov/aboutthefed/bios/board/barr.htm"
+    },
+    {
+     "outlet": "연준 연설(1차)",
+     "date": "2026-09-23",
+     "url": "https://www.federalreserve.gov/newsevents/speech/barr20260923a.htm"
+    },
+    {
+     "outlet": "연준 연설(1차)",
+     "date": "2026-09-01",
+     "url": "https://www.federalreserve.gov/newsevents/speech/barr20260901a.htm"
     }
    ]
   },
@@ -1593,7 +1638,7 @@ window.PEOPLE_DATA = {
      "place": "Atlanta, GA",
      "lat": 33.7457,
      "lon": -84.4113,
-     "note": "졸업(1986·철학 학사는 사전 지식)",
+     "note": "철학 학사(연준 약력). 1986은 사전 지식",
      "cert": "1차"
     },
     {
@@ -1617,8 +1662,8 @@ window.PEOPLE_DATA = {
      "place": "Oxford, United Kingdom",
      "lat": 51.7548,
      "lon": -1.2544,
-     "note": "마셜 장학생, PPE 학사",
-     "cert": "사전 지식"
+     "note": "마셜 장학생, PPE 학사(연준 약력). 1988은 사전 지식",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -1666,8 +1711,8 @@ window.PEOPLE_DATA = {
      "place": "Cambridge, MA",
      "lat": 42.3717,
      "lon": -71.1213,
-     "note": "연구·강의 몇 년",
-     "cert": "사전 지식"
+     "note": "케네디스쿨 교수진·CID 아프리카 연구 부국장(연준 약력). 1997은 사전 지식",
+     "cert": "1차"
     },
     {
      "from": "2000",
@@ -1678,7 +1723,7 @@ window.PEOPLE_DATA = {
      "place": "Washington, DC",
      "lat": 38.8987,
      "lon": -77.0342,
-     "note": "국제업무국 선임 고문(연도 사전 지식)",
+     "note": "국제업무국 선임 고문(2000~01, 연준 약력)",
      "cert": "1차"
     },
     {
@@ -1714,7 +1759,7 @@ window.PEOPLE_DATA = {
      "place": "Washington, DC",
      "lat": 38.8975,
      "lon": -77.039,
-     "note": "선임 이코노미스트(연도 사전 지식)",
+     "note": "선임 이코노미스트(2011~12, 연준 약력)",
      "cert": "1차"
     },
     {
@@ -1754,7 +1799,11 @@ window.PEOPLE_DATA = {
      "date": "2026-08-05"
     },
     {
-     "text": "well positioned to handle an increase in rates",
+     "text": "The labor market appears to be well positioned to handle an increase in rates",
+     "date": "2026-09-28"
+    },
+    {
+     "text": "inflation, which has been too high for too long",
      "date": "2026-09-28"
     }
    ],
@@ -1767,7 +1816,7 @@ window.PEOPLE_DATA = {
    "recent": [
     {
      "date": "2026-10-28",
-     "text": "동결에 반대, +25bp 인상 주장(확인 범위 첫 반대)"
+     "text": "동결에 반대, +25bp 인상 주장(2022-06 첫 회의 뒤 첫 반대 — 전 성명 확인)"
     },
     {
      "date": "2026-09-30",
@@ -1786,11 +1835,12 @@ window.PEOPLE_DATA = {
     "usual": [
      "'위험이 인플레 쪽'·'prepared to act'",
      "AI 수요·중동 에너지 충격이 물가를 더함",
-     "노동 안정(저채용·저해고)",
-     "AI 부문 가격은 금리로 싸우지 말자"
+     "노동 안정(저채용·저해고)·인상 감당 가능",
+     "AI 부문 가격은 금리로 안 싸움(전력·건설로 번질 위험 경계)",
+     "AI 일자리 대체: 큰 위험이지만 1년 전보다 안 커짐"
     ],
     "hawk_surprise": [
-     "50bp·연속·'확실히 제약적 수준까지'",
+     "50bp·'확실히 제약적 수준까지'·2027에도 연속 인상",
      "중장기 기대가 풀린다는 판단",
      "대차대조표 축소 재개 지지"
     ],
@@ -1801,21 +1851,22 @@ window.PEOPLE_DATA = {
      "'충분히 제약적'"
     ]
    },
-   "watch": "블랙아웃 뒤 첫 연설(반대 설명), 해임 소송 경과, 12월 표결",
-   "conf": "연설·표결은 1차 사본, 학력·경력 연도·대법원 판단은 사전 지식·2차",
+   "review": "approved",
+   "watch": "첫 연설(반대 설명)·11-18 의사록, 해임 소송·백악관 청문(12월 연기 보도), 12월 표결",
+   "conf": "연설·표결·학력·재무부/CEA 연도는 1차(연준 원문), 대법원·백악관 청문은 2차",
    "sources": [
     {
-     "outlet": "연준 FOMC 성명(1차 사본)",
+     "outlet": "연준 FOMC 성명(1차)",
      "date": "2026-10-28",
      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm"
     },
     {
-     "outlet": "연준 연설(1차 사본)",
+     "outlet": "연준 연설(1차)",
      "date": "2026-09-28",
      "url": "https://www.federalreserve.gov/newsevents/speech/cook20260928a.htm"
     },
     {
-     "outlet": "연준 연설(1차 사본)",
+     "outlet": "연준 연설(1차)",
      "date": "2026-08-05",
      "url": "https://www.federalreserve.gov/newsevents/speech/cook20260805a.htm"
     },
@@ -1833,6 +1884,11 @@ window.PEOPLE_DATA = {
      "outlet": "HousingWire",
      "date": "2026-06",
      "url": "https://www.housingwire.com/articles/supreme-court-fed-cook-removal/"
+    },
+    {
+     "outlet": "연준 이사 약력(1차)",
+     "date": "2023-09-13",
+     "url": "https://www.federalreserve.gov/aboutthefed/bios/board/cook.htm"
     }
    ],
    "voter_note": "2027 재직은 해임 다툼에 달림(불확실)",
@@ -1899,8 +1955,8 @@ window.PEOPLE_DATA = {
      "place": "Washington, DC",
      "lat": 38.8981,
      "lon": -77.0129,
-     "note": "JD(조지타운은 사전 지식)",
-     "cert": "사전 지식"
+     "note": "법학 1979, 로저널 편집장(연준 약력)",
+     "cert": "1차"
     },
     {
      "from": "1979",
@@ -1972,8 +2028,8 @@ window.PEOPLE_DATA = {
      "place": "Washington, DC",
      "lat": 38.905,
      "lon": -77.0386,
-     "note": "파트너(사전 지식)",
-     "cert": "사전 지식"
+     "note": "파트너 1997~2005(연준 약력)",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -2021,7 +2077,7 @@ window.PEOPLE_DATA = {
    ],
    "phrases": [
     {
-     "text": "I plan to keep a low profile as a governor",
+     "text": "I plan to keep a low profile as a Governor",
      "date": "2026-04-29"
     },
     {
@@ -2037,11 +2093,11 @@ window.PEOPLE_DATA = {
    "recent": [
     {
      "date": "2026-10-28",
-     "text": "동결 10-2, 다수 쪽(추론, 확신 높음 — 12명 투표)"
+     "text": "동결 10-2 찬성(반대는 쿡·해맥뿐, 12명 투표 — 11월 의사록 명단으로 재확인)"
     },
     {
      "date": "2026-09-30",
-     "text": "감찰관 보고서 뒤 트럼프 사임 요구 — 공식 반응 못 찾음"
+     "text": "감찰관: 형사 회부 근거 없음, 트럼프 사임 요구 · 10-02 법무부 재수사 안 함(2차) — 파월 반응 없음"
     },
     {
      "date": "2026-09-16",
@@ -2054,7 +2110,7 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "독립성 원칙론, 조사 끝날 때까지 잔류",
+     "독립성·법치 원칙론(금리 언급 없이)",
      "'high-profile dissident'는 안 함"
     ],
     "hawk_surprise": [
@@ -2063,19 +2119,20 @@ window.PEOPLE_DATA = {
     ],
     "dove_surprise": [
      "인상 결정에 동결 쪽 반대표",
-     "대차대조표 축소 공개 비판"
+     "'이제 충분히 긴축적' 공개 발언"
     ]
    },
-   "watch": "12월 표결, 10월 의사록 명단, 이사직 유지 여부(본인: 조사가 끝날 때까지 남겠다 — 04-29 회견)",
-   "conf": "기자회견·의사록 명단은 1차 사본, 경력 세부는 사전 지식(미확인)",
+   "review": "approved",
+   "watch": "12월 표결, 10월 의사록 명단(11월), 이사직 유지 — 04-29 '조사 완전 종결까지' 조건, 10-02 법무부 재수사 안 함 뒤 본인 언급 없음",
+   "conf": "회견·성명·의사록·약력·연설은 federalreserve.gov 직접 확인(2026-11-04), 딜런 리드 연도·감찰관·법무부 건은 사전 지식·2차",
    "sources": [
     {
-     "outlet": "연준 기자회견 녹취(1차 사본)",
+     "outlet": "연준 기자회견 녹취(1차)",
      "date": "2026-04-29",
      "url": "https://www.federalreserve.gov/mediacenter/files/FOMCpresconf20260429.pdf"
     },
     {
-     "outlet": "연준 연설(1차 사본)",
+     "outlet": "연준 연설(1차)",
      "date": "2026-05-31",
      "url": "https://www.federalreserve.gov/newsevents/speech/powell20260531a.htm"
     },
@@ -2088,6 +2145,16 @@ window.PEOPLE_DATA = {
      "outlet": "NAHB Eye on Housing",
      "date": "2026-04",
      "url": "https://eyeonhousing.org/2026/04/powells-chair-ends-but-he-keeps-his-board-seat/"
+    },
+    {
+     "outlet": "연준 이사 약력(1차)",
+     "date": "2026-05-22",
+     "url": "https://www.federalreserve.gov/aboutthefed/bios/board/powell.htm"
+    },
+    {
+     "outlet": "CNBC",
+     "date": "2026-10-02",
+     "url": "https://www.cnbc.com/2026/10/02/doj-says-it-will-not-reopen-criminal-probe-into-former-fed-chair-powell.html"
     }
    ],
    "voter_note": "2027 투표는 이사로 남을 때(조건부)"
@@ -2106,7 +2173,7 @@ window.PEOPLE_DATA = {
    "camp": "중도",
    "stance_now": 0.5,
    "stance_start_2026": -0.5,
-   "stance_basis": "'서두를 필요 없다', 전망대로면 연말 한 번 더(조건부). 연초는 완화 쪽",
+   "stance_basis": "'서두를 필요 없다', 전망대로면 연말 한 번 더(조건부), 2027엔 불필요. 연초는 완화 쪽",
    "shift_note": "연초 완화 쪽 → 7월 '잘 자리 잡음' → 9월 '연말 한 번 더'",
    "journey": [
     {
@@ -2118,8 +2185,8 @@ window.PEOPLE_DATA = {
      "place": "Berkeley, CA",
      "lat": 37.8719,
      "lon": -122.2585,
-     "note": "학사(사전 지식)",
-     "cert": "사전 지식"
+     "note": "학사(뉴욕 연은 약력). 1984는 사전 지식",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -2154,7 +2221,7 @@ window.PEOPLE_DATA = {
      "place": "Washington, DC",
      "lat": 38.8929,
      "lon": -77.0459,
-     "note": "연구직(1994는 사전 지식), LW r* 메모",
+     "note": "이코노미스트(1994, 뉴욕 연은 약력), 2000-12 LW r* 메모",
      "cert": "1차"
     },
     {
@@ -2178,7 +2245,7 @@ window.PEOPLE_DATA = {
      "place": "San Francisco, CA",
      "lat": 37.793,
      "lon": -122.399,
-     "note": "연구 이코노미스트(2002은 사전 지식)",
+     "note": "2002 입행, 연구국장·수석부총재(뉴욕 연은 약력)",
      "cert": "1차"
     },
     {
@@ -2210,11 +2277,19 @@ window.PEOPLE_DATA = {
    "style": [
     "대중문화 제목·인용, 매번 성장·실업·물가 점 전망",
     "'totality of the data' 정형구, 뉴욕 연은 자체 지표 근거",
-    "성명 문구를 연설에서 먼저·그대로 씀('timelier return')"
+    "성명 문구를 연설에서 먼저 씀('accumulation of more data' 9/29 → 10/28 성명), 되풀이도('timelier return')"
    ],
    "phrases": [
     {
      "text": "The accumulation of more data should provide greater clarity",
+     "date": "2026-09-29"
+    },
+    {
+     "text": "getting inflation back to 2 percent is job No. 1",
+     "date": "2026-09-29"
+    },
+    {
+     "text": "there is no need for urgency",
      "date": "2026-09-29"
     }
    ],
@@ -2222,7 +2297,15 @@ window.PEOPLE_DATA = {
    "recent": [
     {
      "date": "2026-10-28",
-     "text": "동결 찬성(강한 추정 — 의사록 미공개)"
+     "text": "동결 찬성(성명 10-2, 반대는 쿡·해맥뿐)"
+    },
+    {
+     "date": "2026-10-13",
+     "text": "블룸버그 인터뷰: 연말 1회 더 견해 그대로, 2027 추가 인상 불필요(2차)"
+    },
+    {
+     "date": "2026-09-24",
+     "text": "런던: 연말 전 추가 인상 '합리적', 10월은 확약 안 함(2차)"
     },
     {
      "date": "2026-09-29",
@@ -2240,38 +2323,41 @@ window.PEOPLE_DATA = {
    "baseline": {
     "usual": [
      "'물가 너무 높다·1번 과제'",
-     "'서두를 필요 없다'",
+     "'서두를 필요 없다'·'데이터 전체(totality)'",
      "조건부 '연말 한 번 더 인상'",
-     "전망: 성장 2¼%·실업 4%·물가 3½%"
+     "전망: 성장 2¼%·실업 4%·물가 26년 3½%→27년 2% 초반",
+     "1회 뒤 2027 추가 인상 불필요·'전반적 과열 아님'",
+     "기대 인플레 잘 고정·노동은 물가 압력 아님(HPW)"
     ],
     "hawk_surprise": [
-     "12월 인상 무조건·2회 이상·연속",
+     "12월 인상 무조건·2회 이상·2027 추가 인상 시사",
      "'충분히 긴축적이지 않다'·AI로 r* 상향",
      "기대 인플레 이탈 인정",
      "인상 쪽 반대표"
     ],
     "dove_surprise": [
-     "추가 인상 문구 빼고 '잘 자리 잡음'",
+     "12월 전 '연말 1회 더' 철회하고 '현 정책 잘 자리 잡음'",
      "노동 하방 위험 재강조",
-     "에너지·AI 물가 '넘겨본다'",
+     "에너지·AI 물가는 대응 없이 넘겨본다(look through) 명시",
      "금융여건 악화를 동결 근거로"
     ]
    },
-   "watch": "11월 '연말 한 번 더' 유지 여부, 12월 SEP 대비 본인 물가 전망",
-   "conf": "연설·표결은 1차 사본, 학부·학위 연도는 사전 지식",
+   "review": "approved",
+   "watch": "11-06 ECB 대담 등 11월 '연말 한 번 더'·'2027 불필요' 유지 여부, 12월 SEP 대비 본인 물가 전망",
+   "conf": "연설·약력은 뉴욕 연은 원문(2026-11-04 확인), 표결은 성명, 학부 연도는 사전 지식, 10-13 인터뷰는 2차",
    "sources": [
     {
-     "outlet": "뉴욕 연은 연설(1차 사본)",
+     "outlet": "뉴욕 연은 연설(1차)",
      "date": "2026-09-29",
      "url": "https://www.newyorkfed.org/newsevents/speeches/2026/wil260929"
     },
     {
-     "outlet": "뉴욕 연은 연설(1차 사본)",
+     "outlet": "뉴욕 연은 연설(1차)",
      "date": "2026-09-22",
      "url": "https://www.newyorkfed.org/newsevents/speeches/2026/wil260922"
     },
     {
-     "outlet": "뉴욕 연은 연설(1차 사본)",
+     "outlet": "뉴욕 연은 연설(1차)",
      "date": "2026-07-15",
      "url": "https://www.newyorkfed.org/newsevents/speeches/2026/wil260715"
     },
@@ -2284,6 +2370,16 @@ window.PEOPLE_DATA = {
      "outlet": "investinglive",
      "date": "2025-09-17",
      "url": "https://investinglive.com/news/fomc-hawks-and-doves-a-comprehensive-overview-20250917/amp"
+    },
+    {
+     "outlet": "뉴욕 연은 총재 약력(1차)",
+     "date": "2026-11-04",
+     "url": "https://www.newyorkfed.org/aboutthefed/orgchart/williams"
+    },
+    {
+     "outlet": "Bloomberg(2차)",
+     "date": "2026-10-13",
+     "url": "https://www.bloomberg.com/news/articles/2026-10-13/fed-s-williams-currently-sees-no-need-for-rate-hike-in-2027"
     }
    ],
    "camp_src": [
@@ -2513,6 +2609,7 @@ window.PEOPLE_DATA = {
      "에너지 충격 look-through"
     ]
    },
+   "review": "draft",
    "watch": "11월에 '연말 전 조금 더' 유지 여부(비투표, 다음 투표 2028)",
    "conf": "연설은 1차 사본(보스턴 연은 미러), 10-13 일부는 2차, 학부는 사전 지식",
    "sources": [
@@ -2552,20 +2649,20 @@ window.PEOPLE_DATA = {
    "camp": "스윙",
    "stance_now": 1,
    "stance_start_2026": -1,
-   "stance_basis": "'예상대로면 소폭 추가 긴축 정당화', 표는 늘 다수. 1월엔 긴축 반대",
-   "shift_note": "1월 '긴축 반대' → 5월 중도 동결 → 9월 '소폭 추가 긴축'",
+   "stance_basis": "'예상대로면 소폭 추가 긴축 정당화', 표는 늘 다수. 1월엔 '연내 소폭 인하' 전망",
+   "shift_note": "1월 '연내 소폭 인하' → 5월 '인하는 진전 뒤' → 8월 '열린 마음' → 9월 '소폭 추가 긴축'",
    "journey": [
     {
      "from": null,
      "to": null,
-     "org": "Williams College",
-     "org_ko": "윌리엄스 칼리지",
+     "org": "Carleton College",
+     "org_ko": "칼턴 칼리지",
      "kind": "school",
-     "place": "Williamstown, MA",
-     "lat": 42.712,
-     "lon": -73.2037,
-     "note": "경제학 학사(사전 지식)",
-     "cert": "사전 지식"
+     "place": "Northfield, MN",
+     "lat": 44.4626,
+     "lon": -93.1539,
+     "note": "학사(연준 약력)",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -2576,8 +2673,8 @@ window.PEOPLE_DATA = {
      "place": "Chicago, IL",
      "lat": 41.7886,
      "lon": -87.5987,
-     "note": "경제학 박사(사전 지식)",
-     "cert": "사전 지식"
+     "note": "경제학 박사(연준 약력)",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -2588,11 +2685,11 @@ window.PEOPLE_DATA = {
      "place": "Evanston, IL",
      "lat": 42.0565,
      "lon": -87.6753,
-     "note": "재무 조교수(사전 지식)",
-     "cert": "사전 지식"
+     "note": "재무 조교수(연준 약력, 프린스턴 박사후 뒤)",
+     "cert": "1차"
     },
     {
-     "from": null,
+     "from": "2001",
      "to": "2025",
      "org": "Federal Reserve Bank of Chicago",
      "org_ko": "시카고 연은",
@@ -2601,7 +2698,7 @@ window.PEOPLE_DATA = {
      "lat": 41.8789,
      "lon": -87.6324,
      "note": "이코노미스트→수석부총재·연구국장",
-     "cert": "2차"
+     "cert": "1차"
     },
     {
      "from": "2025",
@@ -2644,7 +2741,7 @@ window.PEOPLE_DATA = {
     },
     {
      "date": "2026-08-04",
-     "text": "로이터: '열린 마음', 현 금리 충분할 수도·재평가 가능(2차)"
+     "text": "에세이 'Keeping an Open Mind': 동결 지지, 진전 없으면 더 제약적"
     },
     {
      "date": "2026-05-19",
@@ -2656,23 +2753,24 @@ window.PEOPLE_DATA = {
      "'소폭 추가 긴축 정당화 가능'",
      "'too high for too long'",
      "AI 투자 수요가 물가를 올림",
-     "R* 약 3.1%, 지역 접촉"
+     "기조 물가 2.5~3%, R* 약 3.1%"
     ],
     "hawk_surprise": [
      "인상 쪽 반대표",
      "'두 번 더'·연속·50bp",
-     "'충분히 긴축적이지 않다'",
+     "조건 없이 '추가 인상 필요' 단정",
      "장기 기대 이탈 단정"
     ],
     "dove_surprise": [
      "9-24 문장 철회",
      "인하·노동 위험을 물가 위로",
      "9월 인상이 과했다",
-     "1990년대 '인내' 논리 적용"
+     "1990년대 '인내'로 추가 긴축 불필요"
     ]
    },
+   "review": "approved",
    "watch": "블랙아웃 전 11월 발언에서 9-24 문장 유지·강화·철회",
-   "conf": "연설·표결은 1차 사본, 학력·초기 경력은 사전 지식(미확인)",
+   "conf": "연설·표결·약력은 1차, 10-28 찬성은 추론(의사록 전)",
    "sources": [
     {
      "outlet": "필라델피아 연은 연설(1차 사본)",
@@ -2685,9 +2783,9 @@ window.PEOPLE_DATA = {
      "url": "https://www.philadelphiafed.org/the-economy/monetary-policy/260519-2026-financial-markets-conference"
     },
     {
-     "outlet": "Reuters via Kitco",
+     "outlet": "필라델피아 연은 에세이(1차)",
      "date": "2026-08-04",
-     "url": "https://www.kitco.com/news/off-the-wire/2026-08-04/feds-paulson-keeps-open-mind-rate-policy-outlook-amid-high-inflation"
+     "url": "https://www.philadelphiafed.org/the-economy/monetary-policy/monetary-policy-perspective-keeping-an-open-mind"
     },
     {
      "outlet": "Axios",
@@ -2698,6 +2796,11 @@ window.PEOPLE_DATA = {
      "outlet": "Reuters via Kitco",
      "date": "2026-01-06",
      "url": "https://www.kitco.com/news/off-the-wire/2026-01-06/fed-hawks-and-doves-what-us-central-bankers-are-saying"
+    },
+    {
+     "outlet": "연준 이사회 — 필라델피아 연은 총재 약력(1차)",
+     "date": "2026-11-04",
+     "url": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-philadelphia.htm"
     }
    ],
    "camp_src": [
@@ -2718,11 +2821,11 @@ window.PEOPLE_DATA = {
    "voter_2026": true,
    "voter_2027": false,
    "bg_type": "실무(시장)",
-   "bg_line": "뉴욕 시장 30년: 마켓메이커·기업 재무책임자(골드만)",
+   "bg_line": "골드만 30년: 트레저러·레포·파이낸싱 공동대표, TBAC 의장(전)",
    "camp": "매파",
    "stance_now": 2,
    "stance_start_2026": 0,
-   "stance_basis": "+25bp씩 '작게, 비교적 빨리', 위원회가 쉬면 반대(올해 3회). 2월엔 '인내'",
+   "stance_basis": "+25bp씩 '작게, 비교적 빨리', 올해 반대 3회(4월 문구·7·10월 인상). 2월엔 '인내'",
    "shift_note": "2월 '중립 부근·인내' → 4·7·10월 매파 쪽 반대",
    "journey": [
     {
@@ -2734,8 +2837,8 @@ window.PEOPLE_DATA = {
      "place": "Stanford, CA",
      "lat": 37.4275,
      "lon": -122.1697,
-     "note": "학사·석사(사전 지식)",
-     "cert": "사전 지식"
+     "note": "학사(계량경제학·역사, 연준 약력)",
+     "cert": "1차"
     },
     {
      "from": "1993",
@@ -2746,8 +2849,8 @@ window.PEOPLE_DATA = {
      "place": "New York, NY",
      "lat": 40.7149,
      "lon": -74.0145,
-     "note": "뉴욕 시장 30년(본인)·회사명 사전 지식",
-     "cert": "사전 지식"
+     "note": "1993~, 2010 파트너·파이낸싱 그룹 공동대표(연은 약력)",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -2758,8 +2861,8 @@ window.PEOPLE_DATA = {
      "place": "Washington, DC",
      "lat": 38.8987,
      "lon": -77.0342,
-     "note": "부의장·의장(사전 지식)",
-     "cert": "사전 지식"
+     "note": "의장(전, 연준 약력)",
+     "cert": "1차"
     },
     {
      "from": "2024",
@@ -2770,8 +2873,8 @@ window.PEOPLE_DATA = {
      "place": "Cleveland, OH",
      "lat": 41.5025,
      "lon": -81.69,
-     "note": "총재(2024-08, 메스터 후임)",
-     "cert": "2차",
+     "note": "총재(2024-08-21~, 메스터 후임)",
+     "cert": "1차",
      "now": true
     }
    ],
@@ -2787,7 +2890,7 @@ window.PEOPLE_DATA = {
     },
     {
      "text": "in a timely fashion",
-     "date": "2026-06-02"
+     "date": "2024-12-20"
     }
    ],
    "dissents_2026": [
@@ -2826,23 +2929,25 @@ window.PEOPLE_DATA = {
     "usual": [
      "'충분히 제약적이지 않다'",
      "주거 제외 근원 서비스·'inflationary mindset'",
-     "가이던스 거부, 조건부 반응함수"
+     "가이던스 거부, 조건부 반응함수",
+     "인상 1번으론 부족, 작게·빨리"
     ],
     "hawk_surprise": [
      "50bp·12월에도 '더 크게' 반대",
      "장기 기대 'unanchored' 선언",
-     "대차대조표 축소 재개 주장",
-     "연속 인상 명시"
+     "QT 재개·RMP 중단 요구",
+     "인상 횟수·도달 금리 명시"
     ],
     "dove_surprise": [
      "12월 동결에 반대 없이 찬성",
      "한 번 더 뒤 '충분히 제약적'",
-     "에너지·관세 충격 '넘겨볼 수 있다'",
+     "에너지·관세 넘겨보고 추가 인상 불필요",
      "노동 악화·인하 언급"
     ]
    },
+   "review": "approved",
    "watch": "12월 표: 인상이면 폭, 동결이면 반대 여부",
-   "conf": "표결·연설은 1차 사본, 학력·골드만 경력은 사전 지식, 취임일 2차",
+   "conf": "표결·약력·연설은 1차, 10월 반대 설명문은 미확인",
    "sources": [
     {
      "outlet": "클리블랜드 연은 연설(1차 사본)",
@@ -2850,12 +2955,12 @@ window.PEOPLE_DATA = {
      "url": "https://www.clevelandfed.org/collections/speeches/2026/sp-20261012-trimming-the-sails-communicating-my-reaction-function"
     },
     {
-     "outlet": "연준 FOMC 성명(1차 사본)",
+     "outlet": "연준 FOMC 성명(1차)",
      "date": "2026-10-28",
      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm"
     },
     {
-     "outlet": "연준 FOMC 성명(1차 사본)",
+     "outlet": "연준 FOMC 성명(1차)",
      "date": "2026-07-29",
      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a.htm"
     },
@@ -2868,6 +2973,21 @@ window.PEOPLE_DATA = {
      "outlet": "CNN 라이브",
      "date": "2026-10-28",
      "url": "https://www.cnn.com/2026/10/28/business/live-news/federal-reserve-interest-rate-october"
+    },
+    {
+     "outlet": "클리블랜드 연은 — 2024-12 반대 성명(1차)",
+     "date": "2024-12-20",
+     "url": "https://www.clevelandfed.org/collections/speeches/2024/sp-20241220-fomc-statement-president-beth-hammack"
+    },
+    {
+     "outlet": "연준 FOMC 성명(1차)",
+     "date": "2026-04-29",
+     "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260429a.htm"
+    },
+    {
+     "outlet": "연준 이사회 — 클리블랜드 연은 총재 약력(1차)",
+     "date": "2026-11-04",
+     "url": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-cleveland.htm"
     }
    ],
    "camp_src": [
@@ -3003,6 +3123,7 @@ window.PEOPLE_DATA = {
      "인하 언급"
     ]
    },
+   "review": "draft",
    "watch": "2027 첫 투표 해 1월 전망 연설, 12월 전 회의 방향 문장",
    "conf": "연설·의사록은 1차 사본, 학력·맥킨지 연도는 사전 지식",
    "sources": [
@@ -3114,6 +3235,7 @@ window.PEOPLE_DATA = {
      "인상 종료·인하 공개 주장"
     ]
    },
+   "review": "draft",
    "watch": "정식 총재 발표(포켄더 등), 2027-01 애틀랜타 몫 투표자",
    "conf": "직함·대체위원은 1차(의사록·검색 조각), 학력·경력·한글 표기 미확인",
    "sources": [
@@ -3296,6 +3418,7 @@ window.PEOPLE_DATA = {
      "AI주 급락·고용 둔화로 인하 시사"
     ]
    },
+   "review": "draft",
    "watch": "11-02 발언: 9월 OMFIF 기준을 최근 자료에 어떻게 적용하나",
    "conf": "2026 원고 2편·의사록은 1차 사본, 학력·경력은 사전 지식, 인터뷰는 2차",
    "sources": [
@@ -3485,6 +3608,7 @@ window.PEOPLE_DATA = {
      "금융여건으로 인상 보류"
     ]
    },
+   "review": "draft",
    "watch": "블랙아웃 전 12월 인상 명시 여부, 두 시나리오 무게 변화",
    "conf": "연설은 1차 사본(세인트루이스 연은 미러), 학력·회사명·연도는 사전 지식",
    "sources": [
@@ -3531,8 +3655,8 @@ window.PEOPLE_DATA = {
    "camp": "매파",
    "stance_now": 1,
    "stance_start_2026": -0.5,
-   "stance_basis": "점진 매파, '올해 한 번 더'(중앙값 근처). 전쟁 전엔 완화 편향·1회 인하 지지",
-   "shift_note": "연초 1회 인하 지지 → 4·7월 매파 반대 → '올해 한 번 더'",
+   "stance_basis": "점진 매파, '연내 1회+27년 1회'(27년은 중앙값 위). 전쟁 전엔 완화 편향·1회 인하 지지",
+   "shift_note": "연초 1회 인하 지지 → 4·7월 매파 반대 → '연내 1회+27년 1회'",
    "journey": [
     {
      "from": "1973",
@@ -3555,8 +3679,8 @@ window.PEOPLE_DATA = {
      "place": "Urbana, IL",
      "lat": 40.102,
      "lon": -88.2272,
-     "note": "기계공학 학사·석사(사전 지식)",
-     "cert": "사전 지식"
+     "note": "기계공학 학사·석사",
+     "cert": "1차"
     },
     {
      "from": null,
@@ -3580,8 +3704,8 @@ window.PEOPLE_DATA = {
      "place": "Philadelphia, PA",
      "lat": 39.9496,
      "lon": -75.1915,
-     "note": "MBA(사전 지식)",
-     "cert": "사전 지식"
+     "note": "MBA",
+     "cert": "1차"
     },
     {
      "from": "2002",
@@ -3592,8 +3716,8 @@ window.PEOPLE_DATA = {
      "place": "San Francisco, CA",
      "lat": 37.7897,
      "lon": -122.4,
-     "note": "기술 기업 투자은행(사전 지식)",
-     "cert": "사전 지식"
+     "note": "기술 기업 투자은행(연도는 사전 지식)",
+     "cert": "1차"
     },
     {
      "from": "2006",
@@ -3605,7 +3729,7 @@ window.PEOPLE_DATA = {
      "lat": 38.8987,
      "lon": -77.0342,
      "note": "폴슨 보좌관→차관보 대행(TARP)",
-     "cert": "사전 지식"
+     "cert": "1차"
     },
     {
      "from": "2009",
@@ -3616,8 +3740,8 @@ window.PEOPLE_DATA = {
      "place": "Newport Beach, CA",
      "lat": 33.6189,
      "lon": -117.9298,
-     "note": "글로벌 주식 부문 책임자(사전 지식)",
-     "cert": "사전 지식"
+     "note": "글로벌 주식 부문 책임자(연도는 사전 지식)",
+     "cert": "1차"
     },
     {
      "from": "2014",
@@ -3628,8 +3752,8 @@ window.PEOPLE_DATA = {
      "place": "Sacramento, CA",
      "lat": 38.5816,
      "lon": -121.4944,
-     "note": "공화당 후보, 패배(사전 지식)",
-     "cert": "사전 지식",
+     "note": "공화당 후보, 패배",
+     "cert": "1차",
      "loc_guess": true
     },
     {
@@ -3641,7 +3765,7 @@ window.PEOPLE_DATA = {
      "place": "Minneapolis, MN",
      "lat": 44.9846,
      "lon": -93.269,
-     "note": "총재(2016-01~, 연도 사전 지식)",
+     "note": "총재(2016-01-01~)",
      "cert": "1차",
      "now": true
     }
@@ -3654,11 +3778,11 @@ window.PEOPLE_DATA = {
    "phrases": [
     {
      "text": "I would rather tighten policy incrementally",
-     "date": "2026-07"
+     "date": "2026-07-31"
     },
     {
      "text": "Federal funds rate increases, potentially a series of them, could be warranted",
-     "date": "2026-04-30"
+     "date": "2026-05-01"
     }
    ],
    "dissents_2026": [
@@ -3677,8 +3801,8 @@ window.PEOPLE_DATA = {
      "text": "동결 찬성(추론 — 반대자는 쿡·해맥뿐)"
     },
     {
-     "date": "2026-10-02",
-     "text": "'10월 인상엔 강한 견해 없음, 올해 한 번 더'(2차)"
+     "date": "2026-10-01",
+     "text": "'10월 인상엔 강한 견해 없음', 연내 1회+27년 1회(2차)"
     },
     {
      "date": "2026-09-16",
@@ -3691,33 +3815,34 @@ window.PEOPLE_DATA = {
    ],
    "baseline": {
     "usual": [
-     "'너무 오래 높다'·'기대 고정'",
+     "'아직 너무 높다'·5년 넘게 목표 위·기대 고정",
      "'look through 한계'·'작은 걸음'",
-     "12월 인상 지지",
-     "12월 동결이면 인상 쪽 반대"
+     "연내 1회(=12월)+27년 1회",
+     "12월 동결이면 인상 쪽 반대(표 예상)"
     ],
     "hawk_surprise": [
      "50bp·매 회의 연속 인상",
-     "2027까지 여러 번 기본 경로로",
+     "27년 2회 이상(총 3회+)·'상당히 긴축적'까지",
      "장기 기대 이탈 '이미 시작'"
     ],
     "dove_surprise": [
      "12월 동결·'추가 인상 불필요'",
-     "에너지 충격 '지나쳐 볼 수 있다'",
+     "연속 충격론 접고 '이번 에너지 충격은 지나쳐 볼 수 있다'",
      "중립금리 하향·2027 인하"
     ]
    },
+   "review": "approved",
    "watch": "10월 AI주 급락을 금융여건 긴축으로 읽어 인상 필요를 낮추나",
-   "conf": "에세이·표결은 1차 사본, 학력·경력은 사전 지식, 10/02 발언은 2차",
+   "conf": "에세이·표결은 1차, 학력·경력은 2015 선임 발표(1차), 10/01 발언은 2차",
    "sources": [
     {
      "outlet": "미니애폴리스 연은 에세이(1차 사본)",
-     "date": "2026-04-30",
+     "date": "2026-05-01",
      "url": "https://www.minneapolisfed.org/article/2026/why-i-dissented"
     },
     {
      "outlet": "미니애폴리스 연은 성명(1차 사본)",
-     "date": "2026-07",
+     "date": "2026-07-31",
      "url": "https://www.minneapolisfed.org/article/2026/statement-on-my-fomc-dissent"
     },
     {
@@ -3729,6 +3854,16 @@ window.PEOPLE_DATA = {
      "outlet": "Continuum Economics",
      "date": "2026-07",
      "url": "https://continuumeconomics.com/a/df2af25a/us-feds-kashkari-hammack-and-logan-explain-their-hawkish-dissents"
+    },
+    {
+     "outlet": "미니애폴리스 연은 보도자료(총재 선임, 1차)",
+     "date": "2015-11-10",
+     "url": "https://www.minneapolisfed.org/news-releases/2015/federal-reserve-bank-of-minneapolis-announcement-november-10-2015"
+    },
+    {
+     "outlet": "Reuters via Kitco",
+     "date": "2026-10-01",
+     "url": "https://www.kitco.com/news/off-the-wire/2026-10-01/feds-kashkari-expects-more-rate-hikes-unsure-need-act-month"
     }
    ],
    "camp_src": [
@@ -3911,6 +4046,7 @@ window.PEOPLE_DATA = {
      "'에너지는 지나쳐 볼 수 있다'"
     ]
    },
+   "review": "draft",
    "watch": "10/28 뒤 첫 발언에서 'not restrictive' 판단 유지 여부",
    "conf": "2026 연설·2025 반대표는 1차 사본, 학력·은행 경력은 사전 지식",
    "sources": [
@@ -3963,7 +4099,7 @@ window.PEOPLE_DATA = {
    "voter_2026": true,
    "voter_2027": false,
    "bg_type": "실무(시장)",
-   "bg_line": "뉴욕 연은 시장그룹 23년·SOMA 운용책임자 → 댈러스 총재",
+   "bg_line": "뉴욕 연은 23년(시장그룹 22년)·SOMA 운용책임자 → 댈러스 총재",
    "camp": "매파",
    "stance_now": 1.5,
    "stance_start_2026": 0,
@@ -3991,7 +4127,7 @@ window.PEOPLE_DATA = {
      "place": "Davidson, NC",
      "lat": 35.5007,
      "lon": -80.8456,
-     "note": "졸업, 1부 배구 선수(전공은 사전 지식)",
+     "note": "정치학 학사, 1부 배구 선수",
      "cert": "1차"
     },
     {
@@ -4016,8 +4152,8 @@ window.PEOPLE_DATA = {
      "place": "New York, NY",
      "lat": 40.8075,
      "lon": -73.9626,
-     "note": "MPA(사전 지식)",
-     "cert": "사전 지식"
+     "note": "MPA",
+     "cert": "1차"
     },
     {
      "from": "1999",
@@ -4028,7 +4164,7 @@ window.PEOPLE_DATA = {
      "place": "New York, NY",
      "lat": 40.7083,
      "lon": -74.0087,
-     "note": "원유 애널리스트→SOMA 운용책임자",
+     "note": "은행감독(1999-06)→시장그룹(2000)→SOMA 운용책임자(2019)",
      "cert": "1차"
     },
     {
@@ -4040,7 +4176,7 @@ window.PEOPLE_DATA = {
      "place": "Dallas, TX",
      "lat": 32.7884,
      "lon": -96.7967,
-     "note": "총재(2022-08~, 연도 사전 지식)",
+     "note": "총재(2022-08-22~)",
      "cert": "1차",
      "now": true
     }
@@ -4056,7 +4192,7 @@ window.PEOPLE_DATA = {
      "date": "2026-10-30"
     },
     {
-     "text": "Better modest restriction now than severe restriction later",
+     "text": "modestly higher interest rates would better balance the outlook and risks",
      "date": "2026-07-16"
     },
     {
@@ -4095,9 +4231,10 @@ window.PEOPLE_DATA = {
    "baseline": {
     "usual": [
      "'최소 두 번 25bp 뒤 멈춤'",
-     "근원 PCE 3.1%·넓은 압력",
+     "근원 PCE 3%대·넓은 압력",
      "금융여건 순풍 = 긴축 부족",
-     "절사평균은 낮게 치우침"
+     "절사평균은 낮게 치우침",
+     "물가 추세 '2% 중반'(2%까지 안 감)"
     ],
     "hawk_surprise": [
      "한 번에 50bp·'곧' 시급성",
@@ -4111,8 +4248,9 @@ window.PEOPLE_DATA = {
      "물가 추세 2%로"
     ]
    },
+   "review": "approved",
    "watch": "12월 동결 시 반대 여부, 목적지(최소 50bp) 유지 여부",
-   "conf": "연설·표결은 1차 사본, 학력 세부·취임일은 사전 지식",
+   "conf": "연설·표결은 1차, 학력·취임일은 뉴욕·댈러스 연은 약력(1차)",
    "sources": [
     {
      "outlet": "댈러스 연은 연설(1차 사본)",
@@ -4138,6 +4276,11 @@ window.PEOPLE_DATA = {
      "outlet": "Continuum",
      "date": "2026-07",
      "url": "https://continuumeconomics.com/a/df2af25a/us-feds-kashkari-hammack-and-logan-explain-their-hawkish-dissents"
+    },
+    {
+     "outlet": "뉴욕 연은 약력(1차)",
+     "date": "2022",
+     "url": "https://www.newyorkfed.org/aboutthefed/orgchart/logan"
     }
    ],
    "camp_src": [
@@ -4304,6 +4447,7 @@ window.PEOPLE_DATA = {
      "인하 언급"
     ]
    },
+   "review": "draft",
    "watch": "11월 발언에서 2026년 첫 명시적 금리 입장, 2027 첫 투표",
    "conf": "원고는 1차 사본, 2026 금리 발언 미확인, 학교명은 사전 지식",
    "sources": [

@@ -28,6 +28,9 @@
 #             · 기간 프리미엄 모형 대조(tp.json — FRED Kim-Wright + 뉴욕 연은 ACM) · 단일종목 CDS(cds.json·cds_days.json —
 #             DTCC 공개 거래 보고 하루 파일, 빠진 날만 이어 받는다)
 #   deploy  data/·site/만 Pages로. 스크립트·원자료(.work/)는 배포하지 않는다.
+#           push 실행은 배포 직전에 main의 끝을 다시 받아, 그사이 main이 그 커밋보다 앞서 나갔으면 배포를 건너뛴다(2026-11-04 검토
+#           push-4) — 같은 그룹에서 기다리던 push 실행이 예약 실행이 방금 배포한 봇 커밋(아침 자료) 뒤에 옛 커밋을 다시 배포하지 않게.
+#           더 새 커밋은 그것을 올린 실행이 배포한다(PC의 push는 제 push 실행, 봇 커밋은 그 예약 실행). 끝을 받지 못하면 그대로 배포한다.
 #   alert   수집·생성·그래프·국고채 참고 자료가 실패한 날은 마지막에 실행을 실패로 끝내 GitHub 알림 메일을 받는다.
 #
 # 원자료 캐시(actions/cache)는 쓰지 않는다 — 재배포가 제한된 시리즈(S&P·ICE·Moody's) 원값이 러너 밖에 남지 않게.
@@ -257,16 +260,37 @@ jobs:
         with:
           # 검사를 거친 커밋 — 예약 실행은 봇이 방금 올린 커밋, push는 그 커밋(실행 중 main에 새로 들어온 것은 아님)
           ref: ${{ needs.update.outputs.sha || github.sha }}
+      # push 실행만: main이 이 커밋보다 앞서 나갔으면(기다리는 사이 예약 실행의 봇 커밋 · 다른 push) 아래 배포 셋을 건너뛴다.
+      # 예약 · 수동 실행은 이 단계를 건너뛰어 지금처럼 배포한다. main의 끝을 받지 못하면 경고만 남기고 그대로 배포한다
+      - name: main이 앞서 나갔는지(push 실행만)
+        id: tip
+        if: github.event_name == 'push'
+        run: |
+          if ! git fetch --quiet --no-tags --depth=1 origin main; then
+            echo "::warning::main의 끝을 받지 못했다 — 이 커밋을 그대로 배포한다"
+            echo "newer=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tip="$(git rev-parse FETCH_HEAD)"
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "newer=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::main이 이 커밋보다 앞서 나갔다($tip) — 배포를 건너뛴다. 더 새 커밋은 그것을 올린 실행이 배포한다"
+            echo "newer=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: 사이트 조립(site/ + data/만)
         run: |
           mkdir -p _site/data
           cp -r site/. _site/
           if [ -d data ]; then cp -r data/. _site/data/; fi
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+        if: steps.tip.outputs.newer != 'true'
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: steps.tip.outputs.newer != 'true'
         with:
           path: _site
       - id: deployment
+        if: steps.tip.outputs.newer != 'true'
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   alert:

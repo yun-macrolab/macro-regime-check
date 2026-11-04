@@ -615,6 +615,7 @@ table.ledger { width: 100%; min-width: 330px; border-collapse: collapse; table-l
 .rm-venue { font-size: 12.5px; color: var(--ink-2); }
 .rm-row .rm-topic { color: var(--ink); }
 .rm-row .rm-quote { color: var(--ink-2); overflow-wrap: anywhere; }
+.rm-row .rm-src { margin-top: 0; font-size: 12px; }
 .vs { display: inline-block; padding: 0 6px; border: 1px solid; font: 600 11.5px/18px var(--f-text); white-space: nowrap; }
 .vs.same { color: var(--mid); border-color: #4a4740; background: var(--usual-bg); }
 .vs.hawk { color: var(--hawk); border-color: #4a1d16; background: var(--hawk-bg); }

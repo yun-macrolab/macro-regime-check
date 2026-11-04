@@ -858,15 +858,144 @@ class RealGitTest(unittest.TestCase):
 DATA_FILE = os.path.join(REPO, *PATH.split("/"))
 
 
+def file_keys(raw, roster):
+    """CI가 올라 있는 공개 파일을 볼 때 쓰는 명단 = 지금 명단 ∪ 파일에 든 꼴 맞는 사람 key.
+    명단에서 사람을 뺀 커밋(매년 1월 교대 · 임시 총재 후임)이 그 사람의 옛 발언 때문에 check를 떨어뜨려 아침 갱신 · 배포를 통째로 막지
+    않게(2026-11-04 검토 push-1) — 화면(people.js)은 명단 밖 사람의 발언을 하나씩 건너뛰고, 명단 검사는 게시기(people_push.load ·
+    publish)가 올릴 때 그대로 한다. 꼴(소문자 key) · 그 밖의 약속은 여기서도 다 본다."""
+    try:
+        doc = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError, RecursionError):
+        return set(roster)
+    rs = doc.get("remarks") if type(doc) is dict else None
+    found = {r["who"] for r in (rs if type(rs) is list else []) if type(r) is dict and type(r.get("who")) is str
+             and P.KEY_RE.fullmatch(r["who"])}
+    return set(roster) | found
+
+
 @unittest.skipUnless(os.path.exists(DATA_FILE), "data/people_remarks.json이 아직 없다")
 class DataFileTest(unittest.TestCase):
-    """올라 있는 공개 파일을 게시기와 같은 검사로 — 손으로 고쳐 깨뜨린 파일이 배포되지 않게(CI의 check가 배포 앞에서 돈다)."""
+    """올라 있는 공개 파일을 게시기와 같은 검사로 — 손으로 고쳐 깨뜨린 파일이 배포되지 않게(CI의 check가 배포 앞에서 돈다).
+    명단만은 보지 않는다(file_keys — 명단에서 빠진 사람의 발언은 화면이 건너뛴다)."""
 
     def test_published_file_follows_the_contract(self):
         with open(DATA_FILE, "rb") as f:
             raw = f.read()
-        doc = P.check_public(raw, P.roster(REPO), datetime.date.today())
+        doc = P.check_public(raw, file_keys(raw, P.roster(REPO)), datetime.date.today())
         self.assertEqual(list(doc), list(P.PUBLIC_KEYS))
+
+
+class RosterRemovalTest(unittest.TestCase):
+    """명단에서 사람을 빼도 CI의 파일 검사는 떨어지지 않고(그 사람의 옛 발언은 화면이 건너뛴다), 게시기는 여전히 명단으로 막는다."""
+
+    def setUp(self):
+        self.raw = P.dump(P.check_source(enc(source()), set(KEYS), TODAY))
+        self.fewer = {"warsh", "hammack"}                                      # cook을 명단에서 뺐다
+
+    def test_the_ci_file_check_ignores_the_roster_but_not_the_contract(self):
+        self.assertRaises(P.Bad, P.check_public, self.raw, self.fewer, TODAY)  # 명단으로 보면 떨어지던 것(재현)
+        doc = P.check_public(self.raw, file_keys(self.raw, self.fewer), TODAY)
+        self.assertEqual({r["who"] for r in doc["remarks"]}, set(KEYS))
+        for bad in (self.raw.replace(b'"held":2', b'"held":-1'), self.raw.replace(b'"who":"cook"', b'"who":"Cook"'),
+                    self.raw.replace(b'"who":"cook"', b'"who":"nobody"'), self.raw[:-1], b"[]", b"\xff"):
+            with self.subTest(bad=bad[:40]):                                    # 그 밖의 약속(꼴 · id 규칙 · 바이트)은 그대로 본다
+                self.assertRaises(P.Bad, P.check_public, bad, file_keys(bad, self.fewer), TODAY)
+        self.assertEqual(file_keys(b"{", self.fewer), self.fewer)
+
+    def test_the_publisher_still_refuses_a_person_off_the_roster(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        src = os.path.join(tmp, "source.json")
+        with open(src, "wb") as f:
+            f.write(enc(source()))
+        with self.assertRaises(P.Stop) as e:
+            P.load(src, self.fewer, TODAY)
+        self.assertEqual((e.exception.code, e.exception.why), ("file", "who"))
+
+
+# ---------- 아침 워크플로의 배포 문 ----------
+
+def deploy_job():
+    """daily.yml의 deploy 잡 글 — (잡 글, 단계 목록[각 단계의 글])."""
+    with open(os.path.join(REPO, ".github", "workflows", "daily.yml"), encoding="utf-8") as f:
+        wf = f.read()
+    job = wf[wf.index("\n  deploy:\n"):wf.index("\n  alert:\n")]
+    steps = re.split(r"\n(?=      - )", job[job.index("    steps:\n") + len("    steps:\n"):])
+    return job, [s for s in steps if s.strip()]
+
+
+def gate_script():
+    """'main이 앞서 나갔는지' 단계의 run 글(들여쓰기를 뗀 셸 글)."""
+    _, steps = deploy_job()
+    step = next(s for s in steps if "id: tip" in s)
+    body = step[step.index("run: |\n") + len("run: |\n"):]
+    return "\n".join(line[10:] for line in body.split("\n"))
+
+
+class DeployGateTest(unittest.TestCase):
+    """PC의 push(연준 인물 · 저녁판 AI 요약)가 아침 예약 실행과 겹칠 때 — 기다리던 push 실행이 봇 커밋 뒤에 옛 커밋을 다시 배포하지
+    않는다(2026-11-04 검토 push-4). push 실행만 main의 끝을 다시 받아, 앞서 나갔으면 배포 셋을 건너뛴다. 예약 · 수동은 그대로."""
+
+    def test_the_gate_is_push_only_and_guards_the_three_deploy_steps(self):
+        job, steps = deploy_job()
+        names = [("checkout" if "actions/checkout@" in s else "tip" if "id: tip" in s else "assemble" if "사이트 조립" in s
+                  else "configure" if "configure-pages@" in s else "upload" if "upload-pages-artifact@" in s
+                  else "deploy" if "deploy-pages@" in s else "?") for s in steps]
+        self.assertEqual(names, ["checkout", "tip", "assemble", "configure", "upload", "deploy"])
+        tip = steps[1]
+        self.assertIn("        if: github.event_name == 'push'", tip.split("\n"))              # 예약 · 수동 실행은 이 단계를 건너뛴다 → 그대로 배포
+        for s in steps[3:]:
+            self.assertIn("        if: steps.tip.outputs.newer != 'true'", s.split("\n"))       # 건너뛴 단계의 출력은 비어 있다 → != 'true'
+        for s in steps[:3]:
+            self.assertNotIn("steps.tip.outputs", s)
+        self.assertIn("ref: ${{ needs.update.outputs.sha || github.sha }}", steps[0])  # 배포하는 것은 여전히 검사를 거친 그 커밋
+        self.assertIn("always() && needs.check.result == 'success' &&", job)
+        self.assertIn("(github.event_name == 'push' || needs.update.outputs.publish == 'true')", job)
+        script = gate_script()
+        self.assertNotIn("${{", script)                                              # 셸에는 표현식을 넣지 않는다(GITHUB_SHA는 러너의 환경)
+        self.assertIn("git fetch --quiet --no-tags --depth=1 origin main", script)
+        self.assertIn('"$GITHUB_SHA"', script)
+
+    def run_gate(self, cwd, sha):
+        out = os.path.join(self.tmp, "out")
+        open(out, "w").close()
+        r = subprocess.run(["bash", "-e", "-c", gate_script()], cwd=cwd, capture_output=True, timeout=60,
+                           env={**os.environ, "GITHUB_SHA": sha, "GITHUB_OUTPUT": out, "GIT_TERMINAL_PROMPT": "0"})
+        with open(out, encoding="utf-8") as f:
+            return r.returncode, f.read(), r.stdout.decode("utf-8", "replace")
+
+    @unittest.skipUnless(shutil.which("git") and shutil.which("bash"), "git · bash가 없다")
+    def test_the_gate_with_real_git(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        origin, seed, run = (os.path.join(self.tmp, n) for n in ("origin.git", "seed", "run"))
+
+        def git(cwd, *args):
+            r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, timeout=60)
+            self.assertEqual(r.returncode, 0, (args[:2], r.stderr[-300:]))
+            return r.stdout.decode("utf-8").strip()
+        git(self.tmp, "init", "--quiet", "--bare", "--initial-branch=main", origin)
+        git(self.tmp, "clone", "--quiet", origin, seed)
+        for k, v in (("user.name", "fx"), ("user.email", "fx@example.invalid"), ("commit.gpgsign", "false")):
+            git(seed, "config", k, v)
+
+        def push(msg):
+            git(seed, "commit", "--quiet", "--allow-empty", "-m", msg)
+            git(seed, "push", "--quiet", "origin", "HEAD:main")
+            return git(seed, "rev-parse", "HEAD")
+        a = push("people commit")
+        git(self.tmp, "clone", "--quiet", "--depth=1", "file://" + origin, run)          # 러너의 얕은 checkout처럼
+        self.assertEqual(self.run_gate(run, a)[:2], (0, "newer=false\n"))              # main = 이 커밋 → 배포
+        b = push("data: bot commit")
+        code, out, said = self.run_gate(run, a)
+        self.assertEqual((code, out), (0, "newer=true\n"))                             # 기다리는 사이 봇 커밋이 들어왔다 → 건너뜀
+        self.assertIn("::notice::", said)
+        self.assertIn(b, said)
+        self.assertEqual(self.run_gate(run, b)[:2], (0, "newer=false\n"))
+        git(run, "remote", "set-url", "origin", os.path.join(self.tmp, "nowhere.git"))
+        code, out, said = self.run_gate(run, a)
+        self.assertEqual((code, out), (0, "newer=false\n"))                            # 끝을 받지 못하면 그대로 배포(지금까지처럼)
+        self.assertIn("::warning::", said)
 
 
 class ReadmeTest(unittest.TestCase):

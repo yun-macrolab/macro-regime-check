@@ -1,8 +1,10 @@
 // 연준 인물 페이지(site/people.js)의 자동 분류 발언 칸 — 아주 작은 가짜 DOM 위에서 저장소의 people-data.js와 people.js를 그대로 돌리고,
 // 가짜 fetch로 지어낸 data/people_remarks.json을 준다. 발언 · 출처는 지어낸 것이다.
 // 실행: node --test scripts/test_people_render.cjs
-// 보는 것: 머리 띠(최신 10개, 이름을 누르면 그 사람 파일) · 사람 파일의 칸(최신 8개 + 접기) · 고정 문구 · 틀린 발언은 그것만 빠짐 ·
-// 머리의 꼴이 틀리거나 파일이 없거나 받지 못하면 '자동 발언 기록 없음' 한 줄 · 한 번만 · 같은 출처 · no-store로 읽음 · 글은 글자로만.
+// 보는 것: 머리 띠(최신 10개, 이름을 누르면 그 사람 파일) · 사람 파일의 칸(최신 8개 + 접기) · 고정 문구(언어 모델 · 사람 확인 없음) ·
+// 인용마다 출처와 전언 표시(띠에도) · 사람마다 기준선 확인 상태 · 이 사람 발언이 없을 때 파일이 담은 기간 · 늦게 온 띠의 스크롤 맞춤 ·
+// 틀린 발언은 그것만 빠짐 · 머리의 꼴이 틀리거나 파일이 없거나 받지 못하면 '자동 발언 기록 없음' 한 줄 · 한 번만 · 같은 출처 ·
+// no-store로 읽음 · 글은 글자로만.
 // 모양(칩 색 · 좁은 화면)은 여기서 볼 수 없다 — 그건 브라우저로 확인한다.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -64,7 +66,7 @@ const all = (node, pred, out = []) => { if (node instanceof Elem) { if (pred(nod
 const byClass = (node, c) => all(node, n => n.cls().includes(c));
 const settle = async () => { for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r)); };
 
-function boot(answer, hash = '') {
+function boot(answer, hash = '', prep = null) {
   const doc = { ids: Object.create(null), activeElement: null };
   doc.root = new Elem('html', doc);
   const body = new Elem('body', doc); doc.root.append(body);
@@ -96,10 +98,13 @@ function boot(answer, hash = '') {
   scope.window = scope;
   vm.createContext(scope);
   vm.runInContext(DATA_JS, scope, { filename: 'people-data.js' });
+  if (prep) prep(scope.window.PEOPLE_DATA);                                   // 자료를 고쳐 본다(사람마다 review 등)
   vm.runInContext(JS, scope, { filename: 'people.js' });
   return { doc, calls, scope, strip: () => doc.getElementById('rm-strip'), sec: () => doc.getElementById('sec-new') };
 }
 
+const LABEL = '언어 모델\\(AI\\)이 기사를 읽고 운영자가 정리한 ';
+const TAIL = '에 견준 결과입니다\\. 사람 확인 없이 매일 올라가며 틀릴 수 있고, 예측이 아닙니다\\. 인용은 발언자 본인의 말을 15단어 이내로 옮긴 것입니다\\.';
 const PEOPLE = (() => { const s = { window: {} }; vm.runInNewContext(DATA_JS, s); return s.window.PEOPLE_DATA.people; })();
 const name = k => PEOPLE.find(p => p.key === k).name_ko;
 const rid = (w, d, v) => crypto.createHash('sha1').update(`${w}|${d}|${v}`, 'utf8').digest('hex').slice(0, 12);
@@ -132,7 +137,8 @@ test('page strip shows the latest ten with the fixed label, newest first', async
   const text = strip.textContent;
   assert.match(text, /^최근 발언 — 기준선 대비\(자동 분류\)/);
   assert.match(text, /2026-11-04 기준 · 14건 · 보류 2/);
-  assert.match(text, /자동 분류 — 운영 규칙이 기준선\(사람마다 기준일 · 확인함\/초안\)에 견준 결과이고 사람 확인 없이 매일 올라갑니다\. 예측이 아닙니다\. 인용은 발언자 본인의 말을 15단어 이내로 옮긴 것입니다\./);
+  assert.match(text, new RegExp('자동 분류 — ' + LABEL + '기준선\\(사람마다 기준일 · 확인함/초안\\)' + TAIL));
+  assert.doesNotMatch(text, /운영 규칙/);
   const rows = byClass(strip, 'rm-row');
   assert.equal(rows.length, 10);
   const dates = rows.map(r => r.kids[0].textContent);
@@ -165,7 +171,7 @@ test('person file shows eight newest and folds the rest', async () => {
   await settle();
   const sec = t.sec();                                                        // 처음 연 파일은 워시
   assert.equal(t.doc.getElementById('file').attrs['aria-label'], `${name('warsh')} 파일`);
-  assert.match(sec.textContent, /^새 발언 — 기준선 대비\(자동 분류\)12건자동 분류 — 운영 규칙이 기준선\(2026-10-31 · 초안\)에 견준 결과이고 사람 확인 없이 매일 올라갑니다\./);
+  assert.match(sec.textContent, new RegExp('^새 발언 — 기준선 대비\\(자동 분류\\)12건자동 분류 — ' + LABEL + '기준선\\(2026-10-31 · 초안\\)' + TAIL));
   const lists = byClass(sec, 'rm-list');
   assert.equal(lists.length, 2);
   assert.equal(lists[0].kids.length, 8);
@@ -194,10 +200,46 @@ test('hearsay, condition, tags and several basis items', async () => {
   assert.equal(byClass(card, 'guess')[0].textContent, '전언');
 });
 
-test('approved baseline is labelled as checked', async () => {
-  const t = boot(file([remark('warsh', '2026-11-01', '연설', { baseline_review: 'approved', tags: [] })]));
+test('baseline review: the section tag follows the person (else the page), the remark label follows the remark it was compared with', async () => {
+  const baseTag = t => byClass(t.doc.getElementById('file'), 'tag').map(n => n.textContent).find(s => s.startsWith('운영자 정리'));
+  const list = [remark('warsh', '2026-11-01', '연설', { baseline_review: 'draft' }), remark('cook', '2026-10-30', '연설', { baseline_review: 'approved' })];
+  const t = boot(file(list), '', d => { d.review = 'draft'; d.people.find(p => p.key === 'warsh').review = 'approved'; delete d.people.find(p => p.key === 'cook').review; });
   await settle();
-  assert.match(t.sec().textContent, /기준선\(2026-10-31 · 확인함\)/);
+  assert.match(t.sec().textContent, /기준선\(2026-10-31 · 초안\)/);                            // 그 발언은 초안 기준선에 견줬다(고정)
+  assert.equal(baseTag(t), '운영자 정리 · 확인함');                                            // 지금 프로필은 확인함
+  byClass(t.strip(), 'rm-who').find(b => b.dataset.key === 'cook').click();
+  assert.match(t.sec().textContent, /기준선\(2026-10-31 · 확인함\)/);                          // 발언이 확인된 기준선에 견줬다
+  assert.equal(baseTag(t), '운영자 정리 · 초안');                                              // 사람의 review가 없으면 페이지의 review
+  const a = boot(file(list), '#cook', d => { d.review = 'approved'; d.people.find(p => p.key === 'cook').review = 'bogus'; });
+  await settle();
+  assert.equal(baseTag(a), '운영자 정리 · 확인함');                                            // 모르는 값이면 페이지의 review
+  const n = boot(file([remark('warsh', '2026-11-01')]), '#cook', d => { d.people.find(p => p.key === 'cook').review = 'approved'; });
+  await settle();
+  assert.match(n.sec().textContent, /기준선\(확인함\)/);                                       // 발언이 없으면 지금 프로필의 것
+});
+
+test('every quote carries its source, and hearsay is marked in the strip too', async () => {
+  const list = [remark('warsh', '2026-11-02', '연설', { source: '', title: '' }),
+    remark('hammack', '2026-11-01', '인터뷰', { access: '전언', quote: 'we may need to do more', source: '', title: '지어낸 제목' }),
+    remark('cook', '2026-10-31', '연설', { quote: '', source: '', title: '' }),
+    remark('cook', '2026-10-30', '기고', { quote: '', source: '지어낸 매체', title: '' })];
+  const t = boot(file(list));
+  await settle();
+  const rows = byClass(t.strip(), 'rm-row');
+  const src = r => byClass(r, 'rm-src').map(n => n.textContent);
+  assert.deepEqual(src(rows[0]), ['출처: 운영자가 모은 기사(매체 미기재)']);                     // 둘 다 비면 그렇다고
+  assert.deepEqual(src(rows[1]), ['출처: 지어낸 제목']);
+  assert.deepEqual(src(rows[2]), []);                                                           // 인용이 없는 줄에는 붙이지 않는다
+  const kids = rows[1].kids.map(k => (k.cls ? k.cls().join(' ') : '#text'));
+  assert.ok(kids.indexOf('rm-src') === kids.indexOf('rm-quote') + 1, kids.join(','));            // 인용 바로 뒤
+  assert.deepEqual(byClass(rows[1], 'guess').map(n => n.textContent), ['전언']);                  // 띠에도 전언
+  assert.ok(kids.indexOf('cert guess') === kids.indexOf('rm-venue') + 1, kids.join(','));
+  assert.equal(byClass(rows[0], 'guess').length, 0);
+  assert.equal(byClass(byClass(t.sec(), 'rm')[0], 'rm-src')[0].textContent, '출처: 운영자가 모은 기사(매체 미기재)');   // 사람 파일도
+  byClass(t.strip(), 'rm-who').find(b => b.dataset.key === 'cook').click();
+  const cards = byClass(t.sec(), 'rm');
+  assert.equal(byClass(cards[0], 'rm-src').length, 0);                                          // 인용도 출처도 없으면 줄 없음
+  assert.equal(byClass(cards[1], 'rm-src')[0].textContent, '출처: 지어낸 매체');
 });
 
 test('bad items are skipped, good ones stay', async () => {
@@ -243,7 +285,10 @@ test('before the file arrives the sections say they are reading, and a person wi
   assert.match(t.strip().textContent, /자동 발언 기록을 읽는 중…$/);
   assert.match(t.sec().textContent, /자동 발언 기록을 읽는 중…$/);
   await settle();
-  assert.match(t.sec().textContent, /2025-11-04 이후 이 사람의 자동 분류 발언 없음$/);           // 워시는 없음
+  assert.match(t.sec().textContent, /2025-11-04부터 2026-11-04까지 공개된 이 사람의 자동 분류 발언 없음$/);   // 워시는 없음
+  const cut = boot(file([remark('cook', '2026-11-01')], { window_from: '2026-07-25' }));        // 상한으로 덜어 낸 파일 — 그 날을 말한다
+  await settle();
+  assert.match(cut.sec().textContent, /2026-07-25부터 2026-11-04까지 공개된 이 사람의 자동 분류 발언 없음 \(파일 상한으로 2026-07-25 앞의 발언은 싣지 않음\)$/);
   const e = boot(file([], { held: 0 }));
   await settle();
   assert.match(e.strip().textContent, /0건 · 보류 0.*자동 발언 기록 없음$/);
@@ -260,4 +305,19 @@ test('text from the file goes in as text nodes only', async () => {
   assert.ok(byClass(t.sec(), 'rm-topic')[0].kids[0] instanceof Text);
   assert.match(t.sec().textContent, /<img src=x onerror=alert\(1\)>/);
   assert.match(t.sec().textContent, /“<b>x<\/b>”/);
+});
+
+test('a strip painted above the view scrolls by the change, and only then', async () => {
+  for (const [before, after, want] of [[-200, 500, [[0, 700]]], [-200, -200, []], [-50, -120, [[0, -70]]], [10, 600, []], [0, 300, [[0, 300]]]]) {
+    const t = boot(file(MANY), '#warsh');
+    const moves = [];
+    t.scope.scrollBy = (x, y) => moves.push([x, y]);
+    let painted = false;
+    const strip = t.strip(), paint = strip.replaceChildren.bind(strip);
+    strip.replaceChildren = (...xs) => { painted = true; paint(...xs); };
+    strip.getBoundingClientRect = () => ({ top: 0, bottom: painted ? after : before });
+    await settle();
+    assert.ok(painted);
+    assert.deepEqual(moves, want, `${before} → ${after}`);           // 화면 위(아래 끝 ≤ 0)였을 때만, 띠 아래 끝이 움직인 만큼
+  }
 });

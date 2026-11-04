@@ -209,9 +209,9 @@ class RemarksCodeTest(unittest.TestCase):
         self.assertEqual(VS_BASE, P.VS_BASE)
         limits = dict((k, int(v)) for k, v in re.findall(r"(\w+): (\d+)", re.search(r"limits: \{([^}]*)\}", b).group(1)))
         self.assertEqual(limits, P.LIMITS)
-        nums = {k: int(v) for k, v in re.findall(r"\b(words|basisMax|basisText|pathMax|perPerson|maxItems): (\d+)", b)}
+        nums = {k: int(v) for k, v in re.findall(r"\b(words|basisMax|basisText|pathMax|perPerson|maxItems|windowDays): (\d+)", b)}
         self.assertEqual(nums, {"words": P.QUOTE_WORDS, "basisMax": P.BASIS_MAX, "basisText": P.BASIS_TEXT, "pathMax": P.PATH_MAX,
-                                "perPerson": P.PER_PERSON, "maxItems": P.MAX_ITEMS})
+                                "perPerson": P.PER_PERSON, "maxItems": P.MAX_ITEMS, "windowDays": P.WINDOW_DAYS})
         self.assertIn(f'cut: "{P.CUT}"', b)
         self.assertIn("show: 8, strip: 10", b)                                  # 파일 칸 8개(나머지는 접기) · 머리 띠 10개
         self.assertIn(r"/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}]/u", b)              # 보이지 않는 글자 = 게시기의 INVISIBLE
@@ -235,15 +235,53 @@ class RemarksCodeTest(unittest.TestCase):
         self.assertEqual(b.count("text: `“${r.quote}”`"), 2)
 
     def test_fixed_label_and_headings(self):
+        # 판정 · 까닭 · 인용 고르기는 언어 모델이 쓴다 — '운영 규칙'(이 사이트에서 규칙 = 정해 둔 계산)이라 하지 않는다(2026-11-04 검토)
         b = self.block
-        label = ("자동 분류 — 운영 규칙이 ${base}에 견준 결과이고 사람 확인 없이 매일 올라갑니다. 예측이 아닙니다. "
-                 "인용은 발언자 본인의 말을 15단어 이내로 옮긴 것입니다.")
+        label = ("자동 분류 — 언어 모델(AI)이 기사를 읽고 운영자가 정리한 ${base}에 견준 결과입니다. 사람 확인 없이 매일 올라가며 "
+                 "틀릴 수 있고, 예측이 아닙니다. 인용은 발언자 본인의 말을 15단어 이내로 옮긴 것입니다.")
         self.assertIn(label, b)
-        self.assertIn("기준선(${r.baseline_asof} · ${reviewKo(r.baseline_review)})", b)
+        self.assertNotIn("운영 규칙", b)
+        self.assertIn("기준선(${r.baseline_asof} · ${reviewKo(r.baseline_review)})", b)     # 발언 칸 = 그 발언이 견준(고정된) 기준선
+        self.assertIn("기준선(${reviewKo(reviewOf(p))})", b)                                  # 발언이 없으면 지금 프로필의 것
         self.assertIn('v === "approved" ? "확인함" : "초안"', b)
         self.assertEqual(b.count("remarkLabel("), 3)                            # 정의 · 사람 파일 · 머리 띠
         for text in ('"최근 발언 — 기준선 대비(자동 분류)"', '"새 발언 — 기준선 대비(자동 분류)"', "견준 항목: ", "반대표 ", '"전언"'):
             self.assertIn(text, b, text)
+
+    def test_baseline_review_is_per_person(self):
+        # 사람마다 자료의 review(approved · draft), 없거나 다른 값이면 페이지 전체(DATA.review) — 기준선 칸과 발언 칸의 문구 둘 다
+        js = read("people.js")
+        self.assertIn("function reviewOf(p) { return p && RM.reviews.includes(p.review) ? p.review : DATA.review; }", self.block)
+        body = js[js.index("function renderFile("):js.index("function routeTexts(")]
+        self.assertIn('"운영자 정리 · " + reviewKo(reviewOf(p))', body)
+        self.assertIn("remarkLabel(mine[0], p)", self.block)
+        self.assertNotIn("DATA.review === \"approved\" ? \"확인함\"", js)
+        for p in load_data(read("people-data.js"))["people"]:
+            if "review" in p:
+                self.assertIn(p["review"], ("draft", "approved"), p["key"])
+
+    def test_quotes_carry_their_source(self):
+        # 인용마다 출처(매체 · 제목, 둘 다 비면 '운영자가 모은 기사(매체 미기재)') — 머리 띠에도 인용 바로 뒤에, 전언 표시도 함께
+        b = self.block
+        self.assertIn('"출처: " + ([r.source, r.title].filter(Boolean).join(" · ") || "운영자가 모은 기사(매체 미기재)")', b)
+        self.assertEqual(b.count("rmHearsay(r)"), 3)                             # 정의 · 사람 파일 · 머리 띠
+        strip = b[b.index("function paintStrip"):b.index("async function loadRemarks")]
+        self.assertLess(strip.index("r.quote ? el(\"span\", { class: \"rm-quote\""), strip.index("rmSource(r)"))
+        self.assertIn('r.quote || r.source || r.title ? el("p", { class: "rm-src", text: rmSource(r) })', b)
+
+    def test_empty_person_names_the_window_of_the_file(self):
+        # 파일이 담은 기간(window_from ~ asof)을 그대로 말하고, 상한으로 덜어 낸 파일(window_from이 365일 창보다 늦다)이면 그렇다고 한다
+        b = self.block
+        self.assertIn("`${remarks.from}부터 ${remarks.asof}까지 공개된 이 사람의 자동 분류 발언 없음`", b)
+        self.assertIn("(span < RM.windowDays - 1 ? ` (파일 상한으로 ${remarks.from} 앞의 발언은 싣지 않음)` : \"\")", b)
+        self.assertNotIn("이후 이 사람의", b)
+        self.assertEqual(int(re.search(r"\bwindowDays: (\d+)", b).group(1)), self.P.WINDOW_DAYS)
+
+    def test_a_late_strip_keeps_the_view(self):
+        # 띠가 화면 위에 있을 때 늘어난 만큼 스크롤을 맞춘다(스크롤 고정이 없는 브라우저 — 사람 주소로 연 좁은 화면의 파일이 밀리지 않게)
+        load = self.block[self.block.index("async function loadRemarks"):]
+        self.assertLess(load.index("getBoundingClientRect().bottom <= 0"), load.index("paintStrip();"))
+        self.assertLess(load.index("paintStrip();"), load.index("window.scrollBy(0, dy)"))
 
     def test_names_open_the_file_the_way_the_page_navigates(self):
         b = self.block

@@ -646,7 +646,7 @@ function renderFile(p, ropt) {
     el("span", { class: "glyph", "aria-hidden": "true", text: glyph }),
     el("div", { class: "bbody" }, el("h4", {}, title, el("small", { text: q })), el("ul", {}, li(arr))));
   const base = el("section", { id: "sec-base", "aria-labelledby": "h-base" },
-    el("div", { class: "sec-h" }, el("h3", { id: "h-base" }, el("span", { class: "no", text: "02" }), "기준선", el("span", { class: "tag", text: "운영자 정리 · " + (DATA.review === "approved" ? "확인함" : "초안") })),
+    el("div", { class: "sec-h" }, el("h3", { id: "h-base" }, el("span", { class: "no", text: "02" }), "기준선", el("span", { class: "tag", text: "운영자 정리 · " + reviewKo(reviewOf(p)) })),
       el("p", {}, el("span", { class: "wide", text: "새 발언은 이 세 칸에 견준다 — 가운데 ‘평소’ 안이면 뉴스가 아니다 · 순서는 축과 같다: 비둘기 → 평소 → 매파" }), el("span", { class: "narrow", text: "‘평소’ 안이면 뉴스 아님 · 위에서부터 비둘기 → 평소 → 매파(축 순서)" }))),
     el("div", { class: "base-axis", "aria-hidden": "true" }, el("span", { class: "d", text: "◀ 비둘기 쪽" }), el("span", { class: "u", text: "이 사람의 평소" }), el("span", { class: "h", text: "매파 쪽 ▶" })),
     el("div", { class: "base-grid" },
@@ -770,7 +770,9 @@ function safeLink(u) {
 /* ───────── 새 발언 — 기준선 대비(자동 분류) ─────────
    data/people_remarks.json — 운영자 파이프라인의 결론 런이 자동 분류한 것을 게시 전용 PC가 검사해 매일 올리는 파일(scripts/people_push.py와 같은 약속).
    한 번 읽어(no-store) 다시 검사한다: 머리의 꼴이 약속과 다르면 파일 전체를 버리고, 틀린 발언은 그 발언만 뺀다.
-   없거나 틀리면 '자동 발언 기록 없음' 한 줄. 글은 글자로만(el → textContent). 사람 확인 없이 올라가는 자동 분류라 그렇게 적는다 */
+   없거나 틀리면 '자동 발언 기록 없음' 한 줄. 글은 글자로만(el → textContent). 사람 확인 없이 올라가는 자동 분류라 그렇게 적는다 —
+   판정 · 까닭 · 주제와 인용 고르기는 언어 모델(AI)이 기사를 읽고 운영자가 정리한 기준선에 견준 것이다(규칙 계산이 아니다).
+   인용에는 늘 출처를 붙인다(매체 · 제목, 둘 다 비면 '운영자가 모은 기사(매체 미기재)'), 남이 옮긴 말에는 '전언' */
 const RM = {
   url: "data/people_remarks.json", schema: "people-remarks/1",
   top: ["schema", "asof", "window_from", "remarks", "held"],
@@ -783,7 +785,7 @@ const RM = {
   tags: ["블랙아웃 중 — 전언 확인", "기준선 초안"],
   reviews: ["draft", "approved"],
   limits: { topic: 40, why: 120, conditional: 80, source: 40, title: 80 },
-  words: 15, cut: "…", basisMax: 4, basisText: 120, pathMax: 80, perPerson: 30, maxItems: 400, show: 8, strip: 10
+  words: 15, cut: "…", basisMax: 4, basisText: 120, pathMax: 80, perPerson: 30, maxItems: 400, windowDays: 365, show: 8, strip: 10
 };
 const VS_LOOK = { "평소와 같음": ["same", "■"], "평소보다 매파": ["hawk", "▲"], "평소보다 비둘기": ["dove", "▼"], "새 주제": ["new", "◆"] };
 const RM_INVISIBLE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}]/u;      // 제어 · 서식(폭 없는 글자) · 줄/문단 구분 · 짝 없는 서로게이트
@@ -835,10 +837,18 @@ function checkRemarks(doc) {
   return { asof: doc.asof, from: doc.window_from, held: doc.held, list, skipped };
 }
 const reviewKo = v => (v === "approved" ? "확인함" : "초안");
-function remarkLabel(r) {
-  const base = r ? `기준선(${r.baseline_asof} · ${reviewKo(r.baseline_review)})` : "기준선(사람마다 기준일 · 확인함/초안)";
-  return `자동 분류 — 운영 규칙이 ${base}에 견준 결과이고 사람 확인 없이 매일 올라갑니다. 예측이 아닙니다. 인용은 발언자 본인의 말을 15단어 이내로 옮긴 것입니다.`;
+/* 기준선의 확인 상태 — 사람마다(자료의 p.review), 없거나 다른 값이면 페이지 전체(DATA.review) */
+function reviewOf(p) { return p && RM.reviews.includes(p.review) ? p.review : DATA.review; }
+/* 고정 문구 — 사람 파일은 그 사람(r = 최신 발언 — 그 발언이 견준 기준선의 기준일), 머리 띠는 p 없이 */
+function remarkLabel(r, p) {
+  // 발언 칸의 기준선 표시는 그 사람의 가장 새 발언이 실제로 견준 기준선(파일에 고정된 baseline_asof·baseline_review) — 지금
+  // 프로필의 확인 상태(위 기준선 칸의 꼬리표)와 다를 수 있다. 발언이 없으면 지금 프로필의 것
+  const base = p ? (r ? `기준선(${r.baseline_asof} · ${reviewKo(r.baseline_review)})` : `기준선(${reviewKo(reviewOf(p))})`) : "기준선(사람마다 기준일 · 확인함/초안)";
+  return `자동 분류 — 언어 모델(AI)이 기사를 읽고 운영자가 정리한 ${base}에 견준 결과입니다. 사람 확인 없이 매일 올라가며 틀릴 수 있고, 예측이 아닙니다. 인용은 발언자 본인의 말을 15단어 이내로 옮긴 것입니다.`;
 }
+/* 인용 · 발언의 출처 — 매체 · 제목, 둘 다 비면 운영자가 모은 기사라고만 */
+function rmSource(r) { return "출처: " + ([r.source, r.title].filter(Boolean).join(" · ") || "운영자가 모은 기사(매체 미기재)"); }
+function rmHearsay(r) { return r.access === "전언" ? el("span", { class: "cert guess", title: "본인이 한 말이 아니라 남이 옮긴 것", text: "전언" }) : null; }
 function vsChip(v) {
   const [cls, glyph] = VS_LOOK[v] || ["same", "■"];
   return el("span", { class: "vs " + cls }, el("span", { "aria-hidden": "true", text: glyph + " " }), v);
@@ -853,8 +863,7 @@ function rmNone(text) { return el("p", { class: "rm-none", text }); }
 function remarkCard(r) {
   const side = r.dissent ? SIDE(r.dissent) : null;
   return el("li", { class: "rm " + (VS_LOOK[r.vs_base] || ["same"])[0] },
-    el("div", { class: "rm-meta" }, el("time", { text: r.said_on }), el("span", { class: "rm-venue", text: r.venue }),
-      r.access === "전언" ? el("span", { class: "cert guess", title: "본인이 한 말이 아니라 남이 옮긴 것", text: "전언" }) : null,
+    el("div", { class: "rm-meta" }, el("time", { text: r.said_on }), el("span", { class: "rm-venue", text: r.venue }), rmHearsay(r),
       vsChip(r.vs_base),
       side ? el("span", { class: "rm-dis " + side.cls, text: `반대표 ${side.mark} ${r.dissent}` }) : null,
       ...r.tags.map(t => el("span", { class: "cert", text: t }))),
@@ -863,23 +872,30 @@ function remarkCard(r) {
     r.why ? el("p", { class: "rm-why", text: r.why }) : null,
     r.conditional ? el("p", { class: "rm-cond" }, el("b", { text: "조건: " }), r.conditional) : null,
     el("p", { class: "rm-basis" }, el("b", { text: "견준 항목: " }), r.basis.map(b => b.text).join(" · ")),
-    r.source || r.title ? el("p", { class: "rm-src", text: "출처: " + [r.source, r.title].filter(Boolean).join(" · ") }) : null);
+    r.quote || r.source || r.title ? el("p", { class: "rm-src", text: rmSource(r) }) : null);          // 인용이 있으면 출처 줄은 늘 있다
 }
 /* 사람 파일의 칸 — 최신순 8개, 나머지는 접어 둔다 */
 function fillRemarks(sec, p) {
   const mine = remarks.state === "ok" ? remarks.list.filter(r => r.who === p.key) : [];
   const kids = [el("div", { class: "sec-h" },
     el("h3", { id: "h-new" }, "새 발언 — 기준선 대비(자동 분류)", mine.length ? el("span", { class: "tag", text: `${mine.length}건` }) : null),
-    el("p", { class: "rm-label", text: remarkLabel(mine[0]) }))];
+    el("p", { class: "rm-label", text: remarkLabel(mine[0], p) }))];
   if (remarks.state === "wait") kids.push(rmNone("자동 발언 기록을 읽는 중…"));
   else if (remarks.state !== "ok") kids.push(rmNone("자동 발언 기록 없음"));
-  else if (!mine.length) kids.push(rmNone(`${remarks.from} 이후 이 사람의 자동 분류 발언 없음`));
+  else if (!mine.length) kids.push(rmNone(rmNoneFor()));
   else {
     kids.push(el("ol", { class: "rm-list" }, ...mine.slice(0, RM.show).map(remarkCard)));
     if (mine.length > RM.show) kids.push(el("details", { class: "rm-more" }, el("summary", { text: `나머지 ${mine.length - RM.show}건` }),
       el("ol", { class: "rm-list" }, ...mine.slice(RM.show).map(remarkCard))));
   }
   sec.replaceChildren(...kids);
+}
+/* 이 사람의 발언이 파일에 없을 때 — 파일이 담은 기간(window_from ~ asof)을 그대로 말한다. 내보내는 쪽(운영자 파이프라인)은 상한(400개 · 256KB)으로 덜어 낸
+   날 window_from을 남은 가장 오래된 발언 날로 올린다 — 그날이 365일 창보다 늦으면 그 앞은 싣지 않았다고 덧붙인다 */
+function rmNoneFor() {
+  const span = (Date.parse(remarks.asof + "T00:00:00Z") - Date.parse(remarks.from + "T00:00:00Z")) / 864e5;
+  return `${remarks.from}부터 ${remarks.asof}까지 공개된 이 사람의 자동 분류 발언 없음`
+    + (span < RM.windowDays - 1 ? ` (파일 상한으로 ${remarks.from} 앞의 발언은 싣지 않음)` : "");
 }
 /* 페이지 머리(주의 줄 바로 뒤)의 띠 — 사람을 가리지 않고 최신 10개 */
 function paintStrip() {
@@ -890,9 +906,10 @@ function paintStrip() {
     ok ? el("span", { class: "rm-count", title: "보류 = 내보내지 않은 발언(화자 확인 대기 · 사람이 내린 것)", text: `${remarks.asof} 기준 · ${remarks.list.length}건 · 보류 ${remarks.held}` }) : null);
   const body = remarks.state === "wait" ? rmNone("자동 발언 기록을 읽는 중…") : !list.length ? rmNone("자동 발언 기록 없음")
     : el("ol", { class: "rm-rows" }, ...list.map(r => el("li", { class: "rm-row" }, el("time", { text: r.said_on }), rmWho(byKey[r.who]),
-      el("span", { class: "rm-venue", text: r.venue }), vsChip(r.vs_base), r.topic ? el("span", { class: "rm-topic", text: r.topic }) : null,
-      r.quote ? el("span", { class: "rm-quote", lang: "en", text: `“${r.quote}”` }) : null)));
-  box.replaceChildren(head, el("p", { class: "rm-label", text: remarkLabel(null) }), body);
+      el("span", { class: "rm-venue", text: r.venue }), rmHearsay(r), vsChip(r.vs_base), r.topic ? el("span", { class: "rm-topic", text: r.topic }) : null,
+      r.quote ? el("span", { class: "rm-quote", lang: "en", text: `“${r.quote}”` }) : null,
+      r.quote ? el("span", { class: "rm-src", text: rmSource(r) }) : null)));          // 인용 바로 뒤에 출처
+  box.replaceChildren(head, el("p", { class: "rm-label", text: remarkLabel(null, null) }), body);
 }
 async function loadRemarks() {
   let got = null;
@@ -903,7 +920,15 @@ async function loadRemarks() {
     if (r && r.ok) got = checkRemarks(await r.json());
   } catch (e) { got = null; } finally { clearTimeout(timer); }
   Object.assign(remarks, got ? { state: "ok", ...got } : { state: "none", list: [] });
+  /* 띠가 이미 화면 위(지나간 곳)에 있으면, 늘거나 준 만큼 스크롤을 맞춰 보던 곳(사람 주소로 연 좁은 화면이면 파일)을 그 자리에 둔다 —
+     스크롤 고정(overflow-anchor)이 없는 브라우저(iOS Safari 등)에서 늦게 온 띠가 파일을 화면 밖으로 밀지 않게. 고정이 있는
+     브라우저는 이미 맞춰 두어 띠 아래 끝의 화면 위치가 그대로다(차이 0 — 두 번 옮기지 않는다) */
+  const box = $("rm-strip"), above = !!box && box.getBoundingClientRect().bottom <= 0, y0 = above ? box.getBoundingClientRect().bottom : 0;
   paintStrip();
+  if (above) {
+    const dy = $("rm-strip").getBoundingClientRect().bottom - y0;
+    if (dy && typeof window.scrollBy === "function") window.scrollBy(0, dy);
+  }
   const sec = $("sec-new"), p = byKey[current];
   if (sec && p) fillRemarks(sec, p);
 }

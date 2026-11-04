@@ -2,7 +2,9 @@
 """연준 인물 새 발언 게시 — 게시 전용 폴더에서 data/people_remarks.json 하나만 main에 올린다 (2026-11-04, PC에서만 돈다).
 
 비공개 파이프라인의 결론 런이 사용자 폴더 .macro-notes/people-remarks.json(자동 분류한 발언 — 기준선 대비)을 쓰고, 저녁판 예약 작업
-(scripts/evening/Evening-Summary.ps1)이 저녁판 뒤에 따로 이것을 부른다. 저녁판의 종료코드 · 스위치(EVENING_ENABLED)와 무관하다.
+(scripts/evening/Evening-Summary.ps1)이 저녁판 앞에 따로 이것을 부른다(2026-11-04 검토 push-3 — 이 sync가 끊긴 앞 실행의 잔재를 두 게시기
+몫 모두 되돌리므로, 먼저 돌면 저녁판의 picks_push.sync가 dirty로 막히지 않는다). 저녁판의 종료코드 · 스위치(EVENING_ENABLED)와 무관하다.
+그 예약 작업을 지우면(-Unschedule) 이 게시도 — 내리기(agree=N)까지 — 멈춘다. 저녁판만 멈추려면 스위치를 끄고 작업은 둔다.
 여기에는 모델 호출도 바깥 요청도 없다 — git · gh와, 받은 파일을 믿지 않고 다시 보는 검사뿐이다. 사람 확인 없이 매일 올라간다
 (2026-11-04 사용자 결정). 사람이 내린 발언(평가 로그 agree=N)은 비공개 쪽이 내보내지 않는다 — 다음 결론 런 → 다음 게시에서 빠진다.
 
