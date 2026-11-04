@@ -87,10 +87,31 @@ class ScriptTest(unittest.TestCase):
         for word in ("Invoke-Expression", "iex ", "DownloadString", "Invoke-WebRequest", "token", "password", "git push", "-Force origin"):
             self.assertNotIn(word.lower(), code.lower(), word)
 
+    def test_people_step_is_separate_and_cannot_change_the_result(self):
+        """연준 인물 발언 게시(scripts/people_push.py, 2026-11-04) — 저녁판이 끝나고 결과(종료코드 · 오류 파일)가 정해진 뒤에 따로 돈다.
+        제 try/catch 안에서만, 스위치와 무관하게(스위치를 읽지 않는다), 파일이 아직 없으면 조용히 건너뛴다."""
+        code = self.code
+        start = code.index('$people = Join-Path $repo "scripts\\people_push.py"')
+        block = code[code.rindex("try {", 0, start):code.rindex("exit $code")]
+        self.assertLess(code.index("Set-Content -LiteralPath $ErrorFile"), start)          # 저녁판의 결과를 다 적은 뒤
+        self.assertLess(code.index("$code = $p.ExitCode"), start)
+        self.assertIn("if ($py -and (Test-Path -LiteralPath $people)) {", block)            # 그 폴더에 아직 없으면 건너뛴다
+        self.assertIn('$source = Join-Path $NotesDir "people-remarks.json"', block)
+        self.assertIn('@("-X", "utf8", (\'"{0}"\' -f $people), "--repo-dir", (\'"{0}"\' -f $repo), "--source", (\'"{0}"\' -f $source))', block)
+        self.assertIn("Start-Process -FilePath $py -ArgumentList $peopleArgs -WindowStyle Hidden -Wait -PassThru", block)
+        self.assertRegex(block, r"^try \{")
+        self.assertRegex(block, r"\} catch \{\s*\}\s*$")                                     # 실패는 삼킨다 — 저녁판 종료코드에 닿지 않는다
+        self.assertNotRegex(block, r"\$code\s*=")
+        for word in ("$ErrorFile", "EVENING_ENABLED", "switch", "exit"):
+            self.assertNotIn(word, block, word)
+        self.assertEqual(code.count("people_push.py"), 1)
+        self.assertRegex(code, r"\}\s*exit \$code\s*$")                                       # 끝은 그대로 저녁판의 종료코드
+
     def test_header_says_which_copy_to_register(self):
         head = self.text.split("#>", 1)[0]
         for word in ("INSIDE the publish-only folder", "-Schedule -RepoDir", "-Unschedule", "-Yes -RepoDir", "evening-summary.log",
-                     "evening-summary-error.txt", "EVENING_ENABLED", "only when it is due", "AND run -Unschedule", "three triggers"):
+                     "evening-summary-error.txt", "EVENING_ENABLED", "only when it is due", "AND run -Unschedule", "three triggers",
+                     "SEPARATE step runs scripts\\people_push.py", "people-remarks.json", "people-push.log", "whether"):
             self.assertIn(word, head, word)
 
 

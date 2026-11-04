@@ -84,6 +84,7 @@ jobs:
           node --test scripts/test_fedbs_render.cjs
           node --test scripts/test_credit_render.cjs
           node --test scripts/test_cds_render.cjs
+          node --test scripts/test_people_render.cjs
 
   update:
     needs: check

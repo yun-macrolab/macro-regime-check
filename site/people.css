@@ -596,6 +596,45 @@ table.ledger { width: 100%; min-width: 330px; border-collapse: collapse; table-l
 .keys-help { margin-top: 14px; font-size: 12.5px; color: var(--dim); line-height: 1.8; }
 .keys-help kbd { font: 600 11px var(--f-mono); padding: 0 5px; background: var(--key); color: #000; margin: 0 2px; }
 
+/* ── 새 발언 — 기준선 대비(자동 분류): 페이지 머리의 띠(최신 10개)와 사람 파일의 칸 ──
+   판정 칩의 색은 기준선 칸과 같은 짝(비둘기 파랑 · 평소 회색 · 매파 빨강), 새로 나온 주제는 호박 점선. 모두 글자 + 기호(색만으로 읽지 않게) */
+.rm-strip { margin: 0 0 16px; padding: 9px 14px 11px; border: 1px solid var(--rule); border-left: 3px solid var(--gold); background: var(--panel); min-width: 0; }
+.rm-strip-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.rm-strip-h h2 { font-size: 14.5px; color: var(--amber); }
+.rm-count { font: 500 12px var(--f-mono); color: var(--dim); }
+.rm-label { margin: 3px 0 8px; padding-left: 8px; border-left: 2px dashed #7a6a12; font-size: 12.5px; line-height: 1.6; color: var(--ink-2); }
+.sec-h .rm-label { flex-basis: 100%; margin: 2px 0 0; }
+.rm-sec .sec-h h3 { flex-wrap: wrap; row-gap: 2px; }
+.rm-sec .sec-h h3 .tag { white-space: nowrap; }
+.rm-none { font-size: 13px; color: var(--dim); }
+.rm-rows { list-style: none; display: grid; }
+.rm-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 4px 0; border-top: 1px solid var(--rule); font-size: 13.5px; line-height: 1.6; min-width: 0; }
+.rm-row time, .rm-meta time { font: 500 12px var(--f-mono); color: var(--amber); font-variant-numeric: tabular-nums; }
+.rm-who { color: var(--gold); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.rm-who:hover { color: var(--key); }
+.rm-venue { font-size: 12.5px; color: var(--ink-2); }
+.rm-row .rm-topic { color: var(--ink); }
+.rm-row .rm-quote { color: var(--ink-2); overflow-wrap: anywhere; }
+.vs { display: inline-block; padding: 0 6px; border: 1px solid; font: 600 11.5px/18px var(--f-text); white-space: nowrap; }
+.vs.same { color: var(--mid); border-color: #4a4740; background: var(--usual-bg); }
+.vs.hawk { color: var(--hawk); border-color: #4a1d16; background: var(--hawk-bg); }
+.vs.dove { color: var(--dove); border-color: #173250; background: var(--dove-bg); }
+.vs.new { color: var(--key); border: 1px dashed #7a6a12; background: #0d0c04; }
+.rm-list { list-style: none; display: grid; gap: 10px; }
+.rm { padding: 9px 12px 10px; border: 1px solid var(--rule); border-left: 3px solid var(--rule-2); background: var(--panel-2); min-width: 0; }
+.rm.hawk { border-left-color: var(--hawk); } .rm.dove { border-left-color: var(--dove); } .rm.new { border-left-color: var(--key); }
+.rm-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.rm-dis { padding: 0 6px; border: 1px solid currentColor; font: 600 11.5px/18px var(--f-text); white-space: nowrap; }
+.rm-dis.up { color: var(--hawk); } .rm-dis.down { color: var(--dove); } .rm-dis.text { color: var(--gold); }
+.rm-topic { margin-top: 5px; font-size: 15px; font-weight: 600; }
+.rm .rm-quote { margin-top: 3px; font: 500 15.5px/1.5 var(--f-text); color: var(--ink); overflow-wrap: anywhere; word-break: normal; }
+.rm-why { margin-top: 3px; font-size: 14px; line-height: 1.6; color: var(--ink-2); }
+.rm-cond, .rm-basis, .rm-src { margin-top: 3px; font-size: 13px; line-height: 1.6; color: var(--dim); overflow-wrap: anywhere; }
+.rm-cond b, .rm-basis b { color: var(--ink-2); font-weight: 500; }
+.rm-more { margin-top: 10px; }
+.rm-more summary { color: var(--key); font-size: 13px; cursor: pointer; }
+.rm-more .rm-list { margin-top: 10px; }
+
 /* ── 좁은 화면 ── */
 @media (max-width: 1079px) {
   .desk { grid-template-columns: minmax(0, 1fr); }
@@ -705,6 +744,11 @@ table.ledger { width: 100%; min-width: 330px; border-collapse: collapse; table-l
   .ledger td { font-size: 10.5px; }
   .swap { grid-template-columns: minmax(0, 1fr); }
   .quote p { font-size: 16px; }
+  .rm-strip { padding: 8px 10px 10px; }
+  .rm-sec .sec-h h3 { font-size: 16.5px; }
+  .rm-row { font-size: 13px; }
+  .rm { padding: 8px 10px 9px; }
+  .rm .rm-quote { font-size: 15px; }
 }
 @media (max-width: 380px) {
   table.ledger { min-width: 300px; }

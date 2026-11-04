@@ -656,6 +656,10 @@ function renderFile(p, ropt) {
     p.watch ? el("div", { class: "watch" }, el("b", { text: "다음 확인" }), el("p", { text: p.watch + " (운영자 정리 — 예측 아님)" })) : null,
     p.stance_basis ? el("p", { class: "basis" }, el("b", { text: "위치 근거(운영자 해석): " }), p.stance_basis) : null);
   f.append(base);
+  /* 새 발언 — 기준선 바로 뒤. 자료(data/people_remarks.json)가 늦게 오면 loadRemarks()가 이 칸만 다시 채운다 */
+  const news = el("section", { id: "sec-new", class: "rm-sec", "aria-labelledby": "h-new" });
+  fillRemarks(news, p);
+  f.append(news);
   /* 노선도 */
   const routeSec = el("section", { id: "sec-route", "aria-labelledby": "h-route" });
   const seg = el("div", { class: "seg", role: "group", "aria-label": "노선도 보기" });
@@ -761,6 +765,147 @@ function routeTexts(p) {
 function safeLink(u) {
   if (typeof u !== "string" || !/^https:\/\//.test(u)) return el("span", { text: "링크 없음" });
   return el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: u.replace(/^https:\/\/(www\.)?/, "").replace(/\/$/, "") });
+}
+
+/* ───────── 새 발언 — 기준선 대비(자동 분류) ─────────
+   data/people_remarks.json — 운영자 파이프라인의 결론 런이 자동 분류한 것을 게시 전용 PC가 검사해 매일 올리는 파일(scripts/people_push.py와 같은 약속).
+   한 번 읽어(no-store) 다시 검사한다: 머리의 꼴이 약속과 다르면 파일 전체를 버리고, 틀린 발언은 그 발언만 뺀다.
+   없거나 틀리면 '자동 발언 기록 없음' 한 줄. 글은 글자로만(el → textContent). 사람 확인 없이 올라가는 자동 분류라 그렇게 적는다 */
+const RM = {
+  url: "data/people_remarks.json", schema: "people-remarks/1",
+  top: ["schema", "asof", "window_from", "remarks", "held"],
+  fields: ["id", "who", "said_on", "venue", "access", "topic", "quote", "vs_base", "basis", "why", "conditional", "dissent",
+    "source", "title", "tags", "baseline_asof", "baseline_review"],
+  venues: ["기자회견", "연설", "인터뷰", "의회 증언", "투표", "의사록", "기고", "기타"],
+  access: ["직접", "전언"],
+  vs: ["평소와 같음", "평소보다 매파", "평소보다 비둘기", "새 주제"],
+  sides: ["인상", "인하", "동결", "문구"],
+  tags: ["블랙아웃 중 — 전언 확인", "기준선 초안"],
+  reviews: ["draft", "approved"],
+  limits: { topic: 40, why: 120, conditional: 80, source: 40, title: 80 },
+  words: 15, cut: "…", basisMax: 4, basisText: 120, pathMax: 80, perPerson: 30, maxItems: 400, show: 8, strip: 10
+};
+const VS_LOOK = { "평소와 같음": ["same", "■"], "평소보다 매파": ["hawk", "▲"], "평소보다 비둘기": ["dove", "▼"], "새 주제": ["new", "◆"] };
+const RM_INVISIBLE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}]/u;      // 제어 · 서식(폭 없는 글자) · 줄/문단 구분 · 짝 없는 서로게이트
+const RM_PATH = /^[A-Za-z_]\w*(?:\[\d{1,4}\])*(?:\.[A-Za-z_]\w*(?:\[\d{1,4}\])*)*$/;
+const remarks = { state: "wait", list: [], held: 0, asof: "", from: "", skipped: 0 };
+function rmDay(v) {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const t = Date.parse(v + "T00:00:00Z");
+  return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === v;
+}
+/* 글 칸: 앞뒤 공백 · 보이지 않는 글자 · 주소("://") 없음, 글자 수(코드 포인트) 상한 */
+function rmText(v, limit, need) {
+  return typeof v === "string" && (!need || v.length > 0) && v === v.trim() && !v.includes("://") && !RM_INVISIBLE.test(v)
+    && (limit == null || [...v].length <= limit);
+}
+function rmKeys(o, keys) {
+  return !!o && typeof o === "object" && !Array.isArray(o) && Object.keys(o).length === keys.length && keys.every(k => Object.prototype.hasOwnProperty.call(o, k));
+}
+function rmQuote(q) {
+  const w = q.split(/\s+/).filter(Boolean);
+  return w.length <= RM.words || (w.length === RM.words + 1 && w[w.length - 1] === RM.cut);
+}
+function rmItem(r, from, asof) {
+  if (!rmKeys(r, RM.fields) || !rmText(r.who, null, true) || !/^[a-z]+$/.test(r.who) || !byKey[r.who]) return false;
+  if (!rmDay(r.said_on) || r.said_on < from || r.said_on > asof || !rmDay(r.baseline_asof)) return false;
+  if (!RM.venues.includes(r.venue) || !RM.access.includes(r.access) || !RM.vs.includes(r.vs_base) || !RM.reviews.includes(r.baseline_review)) return false;
+  if (typeof r.id !== "string" || !/^[0-9a-f]{12}$/.test(r.id)) return false;
+  if (!Object.entries(RM.limits).every(([k, n]) => rmText(r[k], n))) return false;
+  if (!rmText(r.quote) || (r.quote && !rmQuote(r.quote))) return false;
+  if (!rmText(r.dissent) || (r.dissent && (!RM.sides.includes(r.dissent) || r.venue !== "투표"))) return false;
+  if (!Array.isArray(r.basis) || r.basis.length < 1 || r.basis.length > RM.basisMax) return false;
+  if (!r.basis.every(b => rmKeys(b, ["path", "text"]) && rmText(b.path, RM.pathMax, true) && RM_PATH.test(b.path) && rmText(b.text, RM.basisText, true))) return false;
+  return Array.isArray(r.tags) && new Set(r.tags).size === r.tags.length && r.tags.every(t => RM.tags.includes(t));
+}
+/* 파일 → { asof, from, held, list, skipped } 또는 null(머리의 꼴이 약속과 다르다 — 파일 전체를 버린다) */
+function checkRemarks(doc) {
+  if (!rmKeys(doc, RM.top) || doc.schema !== RM.schema || !rmDay(doc.asof) || !rmDay(doc.window_from) || doc.window_from > doc.asof
+    || !Array.isArray(doc.remarks) || doc.remarks.length > RM.maxItems || !Number.isInteger(doc.held) || doc.held < 0) return null;
+  const keys = new Set(), ids = new Set(), per = Object.create(null), list = [];
+  let skipped = 0;
+  for (const r of doc.remarks) {
+    const ok = rmItem(r, doc.window_from, doc.asof), k = ok ? `${r.who}|${r.said_on}|${r.venue}` : "";
+    if (!ok || keys.has(k) || ids.has(r.id) || (per[r.who] || 0) >= RM.perPerson) { skipped++; continue; }
+    keys.add(k); ids.add(r.id); per[r.who] = (per[r.who] || 0) + 1;
+    list.push(r);
+  }
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  list.sort((a, b) => cmp(b.said_on, a.said_on) || cmp(a.who, b.who) || cmp(a.venue, b.venue));   // 최신순, 같으면 사람 · 자리
+  return { asof: doc.asof, from: doc.window_from, held: doc.held, list, skipped };
+}
+const reviewKo = v => (v === "approved" ? "확인함" : "초안");
+function remarkLabel(r) {
+  const base = r ? `기준선(${r.baseline_asof} · ${reviewKo(r.baseline_review)})` : "기준선(사람마다 기준일 · 확인함/초안)";
+  return `자동 분류 — 운영 규칙이 ${base}에 견준 결과이고 사람 확인 없이 매일 올라갑니다. 예측이 아닙니다. 인용은 발언자 본인의 말을 15단어 이내로 옮긴 것입니다.`;
+}
+function vsChip(v) {
+  const [cls, glyph] = VS_LOOK[v] || ["same", "■"];
+  return el("span", { class: "vs " + cls }, el("span", { "aria-hidden": "true", text: glyph + " " }), v);
+}
+function rmWho(p) {
+  const b = el("button", { type: "button", class: "rm-who", "data-key": p.key, title: `${p.name_ko} 파일 열기` }, p.name_ko);
+  b.addEventListener("click", () => select(p.key, { push: true, scroll: true, focus: true }));
+  return b;
+}
+function rmNone(text) { return el("p", { class: "rm-none", text }); }
+/* 사람 파일 안의 발언 하나 */
+function remarkCard(r) {
+  const side = r.dissent ? SIDE(r.dissent) : null;
+  return el("li", { class: "rm " + (VS_LOOK[r.vs_base] || ["same"])[0] },
+    el("div", { class: "rm-meta" }, el("time", { text: r.said_on }), el("span", { class: "rm-venue", text: r.venue }),
+      r.access === "전언" ? el("span", { class: "cert guess", title: "본인이 한 말이 아니라 남이 옮긴 것", text: "전언" }) : null,
+      vsChip(r.vs_base),
+      side ? el("span", { class: "rm-dis " + side.cls, text: `반대표 ${side.mark} ${r.dissent}` }) : null,
+      ...r.tags.map(t => el("span", { class: "cert", text: t }))),
+    r.topic ? el("p", { class: "rm-topic", text: r.topic }) : null,
+    r.quote ? el("p", { class: "rm-quote", lang: "en", text: `“${r.quote}”` }) : null,
+    r.why ? el("p", { class: "rm-why", text: r.why }) : null,
+    r.conditional ? el("p", { class: "rm-cond" }, el("b", { text: "조건: " }), r.conditional) : null,
+    el("p", { class: "rm-basis" }, el("b", { text: "견준 항목: " }), r.basis.map(b => b.text).join(" · ")),
+    r.source || r.title ? el("p", { class: "rm-src", text: "출처: " + [r.source, r.title].filter(Boolean).join(" · ") }) : null);
+}
+/* 사람 파일의 칸 — 최신순 8개, 나머지는 접어 둔다 */
+function fillRemarks(sec, p) {
+  const mine = remarks.state === "ok" ? remarks.list.filter(r => r.who === p.key) : [];
+  const kids = [el("div", { class: "sec-h" },
+    el("h3", { id: "h-new" }, "새 발언 — 기준선 대비(자동 분류)", mine.length ? el("span", { class: "tag", text: `${mine.length}건` }) : null),
+    el("p", { class: "rm-label", text: remarkLabel(mine[0]) }))];
+  if (remarks.state === "wait") kids.push(rmNone("자동 발언 기록을 읽는 중…"));
+  else if (remarks.state !== "ok") kids.push(rmNone("자동 발언 기록 없음"));
+  else if (!mine.length) kids.push(rmNone(`${remarks.from} 이후 이 사람의 자동 분류 발언 없음`));
+  else {
+    kids.push(el("ol", { class: "rm-list" }, ...mine.slice(0, RM.show).map(remarkCard)));
+    if (mine.length > RM.show) kids.push(el("details", { class: "rm-more" }, el("summary", { text: `나머지 ${mine.length - RM.show}건` }),
+      el("ol", { class: "rm-list" }, ...mine.slice(RM.show).map(remarkCard))));
+  }
+  sec.replaceChildren(...kids);
+}
+/* 페이지 머리(주의 줄 바로 뒤)의 띠 — 사람을 가리지 않고 최신 10개 */
+function paintStrip() {
+  let box = $("rm-strip");
+  if (!box) { box = el("section", { id: "rm-strip", class: "rm-strip", "aria-labelledby": "h-rm-strip" }); $("caveat").after(box); }
+  const ok = remarks.state === "ok", list = ok ? remarks.list.slice(0, RM.strip) : [];
+  const head = el("div", { class: "rm-strip-h" }, el("h2", { id: "h-rm-strip", text: "최근 발언 — 기준선 대비(자동 분류)" }),
+    ok ? el("span", { class: "rm-count", title: "보류 = 내보내지 않은 발언(화자 확인 대기 · 사람이 내린 것)", text: `${remarks.asof} 기준 · ${remarks.list.length}건 · 보류 ${remarks.held}` }) : null);
+  const body = remarks.state === "wait" ? rmNone("자동 발언 기록을 읽는 중…") : !list.length ? rmNone("자동 발언 기록 없음")
+    : el("ol", { class: "rm-rows" }, ...list.map(r => el("li", { class: "rm-row" }, el("time", { text: r.said_on }), rmWho(byKey[r.who]),
+      el("span", { class: "rm-venue", text: r.venue }), vsChip(r.vs_base), r.topic ? el("span", { class: "rm-topic", text: r.topic }) : null,
+      r.quote ? el("span", { class: "rm-quote", lang: "en", text: `“${r.quote}”` }) : null)));
+  box.replaceChildren(head, el("p", { class: "rm-label", text: remarkLabel(null) }), body);
+}
+async function loadRemarks() {
+  let got = null;
+  const ctl = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = setTimeout(() => { if (ctl) ctl.abort(); }, 15000);
+  try {
+    const r = await fetch(RM.url, { cache: "no-store", signal: ctl ? ctl.signal : undefined });
+    if (r && r.ok) got = checkRemarks(await r.json());
+  } catch (e) { got = null; } finally { clearTimeout(timer); }
+  Object.assign(remarks, got ? { state: "ok", ...got } : { state: "none", list: [] });
+  paintStrip();
+  const sec = $("sec-new"), p = byKey[current];
+  if (sec && p) fillRemarks(sec, p);
 }
 
 /* ───────── 위원 모니터 (명단) ───────── */
@@ -1311,6 +1456,7 @@ function buildNotes() {
 setMotion(MOTION, false);
 setKeys(KEYS_ON, false);
 buildKeys(); buildTape(); buildSearch(); buildRail(); buildRouteBase(); buildDmap(); buildSpectrum(); buildLedger(); buildMix(); buildStatus(); buildNotes();
+paintStrip(); loadRemarks();
 tickDday(); setInterval(tickDday, 60000);
 $("motion").addEventListener("click", () => setMotion(!MOTION, true));
 $("keys").addEventListener("click", () => setKeys(!KEYS_ON, true));

@@ -50,8 +50,9 @@ ALLOW = {                                                  # 파일(site/ 기준
     "korea.js": {"createElement": 1},
     # 연준 인물 페이지(2026-11-01) — 글꼴 미리 잇기 2 · 같은 폴더 스크립트 2(자료 people-data.js, 그리기 people.js)
     "people.html": {'rel="preconnect"': 2, "<script": 2},
-    # 저장은 점검 페이지와 같은 이름 둘(motion·keys)의 읽기·쓰기, 주소는 사람마다의 #키, 요소는 createElement·createElementNS
-    "people.js": {"localStorage": 4, "location.": 3, "createElement": 2},
+    # 저장은 점검 페이지와 같은 이름 둘(motion·keys)의 읽기·쓰기, 주소는 사람마다의 #키, 요소는 createElement·createElementNS,
+    # 읽기는 같은 출처의 자동 분류 발언 파일 하나(data/people_remarks.json — 2026-11-04, CSP connect-src 'self')
+    "people.js": {"localStorage": 4, "location.": 3, "createElement": 2, "fetch(": 1},
     "people.css": {"url(": 1},                              # url(#hatch-unk) — 페이지 안 SVG 무늬, 바깥 요청 아님
 }
 

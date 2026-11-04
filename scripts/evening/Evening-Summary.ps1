@@ -36,6 +36,13 @@
 
   The publish-only folder also needs the local .blind_patterns file (it is not in git): the pre-publish check
   refuses to commit without it.
+
+  Fed people remarks: after the evening run a SEPARATE step runs scripts\people_push.py with the same Python
+  and PATH (--repo-dir <folder> --source %USERPROFILE%\.macro-notes\people-remarks.json). It publishes only
+  data/people_remarks.json (the automatic classification written by the private pipeline), runs whether
+  EVENING_ENABLED is on or off (people_push.py moves the folder to origin/main itself), never changes the
+  exit code or the error file above, and is skipped quietly while the folder does not hold that script yet.
+  It adds one line per run to %USERPROFILE%\.macro-notes\people-push.log (codes and counts only).
 #>
 [CmdletBinding()]
 param(
@@ -161,5 +168,19 @@ if ($code -eq 0) {
         Set-Content -LiteralPath $ErrorFile -Value $lines -Encoding ASCII
     } catch {
     }
+}
+
+# Fed people remarks - a separate step with its own try/catch. It never touches $code or the error file,
+# it runs even when the evening switch is off (people_push.py does its own sync to origin/main), and it is
+# skipped quietly while the folder does not hold the script yet. Its result goes to people-push.log only.
+try {
+    $people = Join-Path $repo "scripts\people_push.py"
+    if ($py -and (Test-Path -LiteralPath $people)) {
+        $source = Join-Path $NotesDir "people-remarks.json"
+        $peopleArgs = @("-X", "utf8", ('"{0}"' -f $people), "--repo-dir", ('"{0}"' -f $repo), "--source", ('"{0}"' -f $source))
+        $q = Start-Process -FilePath $py -ArgumentList $peopleArgs -WindowStyle Hidden -Wait -PassThru
+        [void]$q.ExitCode
+    }
+} catch {
 }
 exit $code

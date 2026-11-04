@@ -30,6 +30,7 @@ KINDS = {"school", "fed", "academia", "company", "government", "other"}
 CERTS = {"1차", "2차", "사전 지식"}
 SIDES = {"인상", "인하", "동결", "문구"}              # 문구 = 성명 문구에 반대(비공개 프로필의 반대표 종류와 같다)
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}$")
+VS_BASE = ("평소와 같음", "평소보다 매파", "평소보다 비둘기", "새 주제")   # 자동 분류 칸의 판정(scripts/people_push.py의 VS_BASE와 같다)
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 
@@ -100,9 +101,11 @@ class ShellTest(unittest.TestCase):
             self.assertTrue(ok, u)
         csp = re.search(r'<meta http-equiv="Content-Security-Policy" content="([^"]+)">', self.page)
         self.assertIsNotNone(csp)
-        for part in ("default-src 'none'", "script-src 'self'", "font-src https://fonts.gstatic.com", "connect-src 'none'",
-                     "object-src 'none'", "base-uri 'none'", "trusted-types 'none'"):
+        for part in ("default-src 'none'", "script-src 'self'", "font-src https://fonts.gstatic.com", "connect-src 'self'",
+                     "object-src 'none'", "base-uri 'none'", "trusted-types 'none'", "require-trusted-types-for 'script'"):
             self.assertIn(part, csp.group(1))
+        # 읽기(fetch)는 같은 출처의 자동 분류 발언 파일 하나뿐 — connect-src에 바깥 주소가 없다(2026-11-04 'none' → 'self')
+        self.assertEqual(re.findall(r"connect-src ([^;]+)", csp.group(1)), ["'self'"])
 
     def test_attributes_from_data_cannot_be_handlers(self):
         js = read("people.js")
@@ -114,8 +117,17 @@ class ShellTest(unittest.TestCase):
         for name in FILES:
             text = read(name)
             for word in ("비공개", "분석실", "my_path", "fed_people", "알림 줄", "page_data", "corrected_profile",
-                         "평소와 같음", "평소보다 매파", "평소보다 비둘기", "닿은 항목", "기준선 갱신 검토", "프로필에 없는 반대표"):
+                         "닿은 항목", "기준선 갱신 검토", "프로필에 없는 반대표", "agree", "평가 로그"):
                 self.assertNotIn(word, text, f"{name}: {word}")
+
+    def test_verdict_words_only_in_the_automatic_section(self):
+        # 2026-11-04 사용자 결정 — 발언 판정은 자동 분류로 이 페이지에 싣는다. 판정의 낱말은 그 칸의 열거값(people.js)에만 있고,
+        # 사람이 고치는 프로필 자료 · 껍데기 · 모양에는 없다
+        js = read("people.js")
+        for word in VS_BASE:
+            for name in ("people.html", "people.css", "people-data.js"):
+                self.assertNotIn(word, read(name), f"{name}: {word}")
+            self.assertEqual(js.count(f'"{word}"'), 2, word)       # 열거값(RM.vs) · 칩 모양(VS_LOOK) 두 곳
 
     def test_no_pictures_of_people_or_logos(self):
         for name in FILES:
@@ -140,13 +152,120 @@ class ShellTest(unittest.TestCase):
         self.assertIn("## 참고: 연준 인물", readme)
         m = re.search(r"\*\*아침 쪽 Python 테스트 (\d+)개 \+ node 테스트 (\d+)개\*\*\((.*?)\)와 \*\*저녁판", readme)
         mine = unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__]).countTestCases()
-        self.assertRegex(m.group(3).split(" / node: ")[0], rf"(^|· )연준 인물 화면 {mine}( ·|$)")
+        py_part, node_part = m.group(3).split(" / node: ")
+        self.assertRegex(py_part, rf"(^|· )연준 인물 화면 {mine}( ·|$)")
+        with open(os.path.join(REPO, "scripts", "test_people_render.cjs"), encoding="utf-8") as f:
+            cjs = len(re.findall(r"^test\(", f.read(), flags=re.M))
+        self.assertRegex(node_part, rf"(^| · )연준 인물 그리기 {cjs}( · |$)")
+        self.assertIn("node --test scripts/test_people_render.cjs", readme)
+        with open(os.path.join(REPO, ".github", "workflows", "daily.yml"), encoding="utf-8") as f:
+            wf = f.read()
+        self.assertIn("node --test scripts/test_people_render.cjs", wf[wf.index("\n  check:"):wf.index("\n  update:")])   # 배포 앞의 검사
 
     def test_missing_data_stops_with_a_message(self):
         js = read("people.js")
         start = js[:js.index("function el(")]
         self.assertIn("const DATA = window.PEOPLE_DATA || {};", start)
         self.assertIn('throw new Error("people-data.js 없음")', start)
+
+
+def remarks_block():
+    """people.js의 '새 발언 — 기준선 대비(자동 분류)' 묶음(머리 주석부터 위원 모니터 앞까지)."""
+    js = read("people.js")
+    return js[js.index("/* ───────── 새 발언 — 기준선 대비(자동 분류)"):js.index("/* ───────── 위원 모니터 (명단)")]
+
+
+def js_array(block, name):
+    """RM 안의 `name: [ "..", .. ]` → 목록(JSON 꼴 문자열만)."""
+    m = re.search(rf"\b{name}: (\[[^\]]*\])", block)
+    return json.loads(m.group(1))
+
+
+class RemarksCodeTest(unittest.TestCase):
+    """자동 분류 발언 칸(2026-11-04) — 같은 출처 파일 하나를 읽고, 게시기(scripts/people_push.py)와 같은 약속으로 다시 검사하고, 글자로만 넣는다."""
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, os.path.join(REPO, "scripts"))
+        import people_push
+        cls.P = people_push
+        cls.block = remarks_block()
+
+    def test_one_relative_uncached_read(self):
+        js = read("people.js")
+        self.assertEqual(js.count("fetch("), 1)
+        self.assertIn('url: "data/people_remarks.json"', self.block)            # 같은 폴더 기준 상대 주소(배포는 data/를 site 옆에 둔다)
+        self.assertIn('await fetch(RM.url, { cache: "no-store", signal: ctl ? ctl.signal : undefined })', self.block)
+        self.assertIn("setTimeout(() => { if (ctl) ctl.abort(); }, 15000)", self.block)   # 응답이 멈춰도 15초 뒤 '없음'으로
+        self.assertEqual(self.P.PATH, "data/people_remarks.json")
+        self.assertIn("paintStrip(); loadRemarks();", js[js.index("/* ───────── 시작"):])
+
+    def test_contract_matches_the_publisher(self):
+        b, P = self.block, self.P
+        self.assertIn(f'schema: "{P.SCHEMA}"', b)
+        for name, want in (("top", P.PUBLIC_KEYS), ("fields", P.FIELDS), ("venues", P.VENUES), ("access", P.ACCESS), ("vs", P.VS_BASE),
+                           ("sides", P.SIDES), ("tags", P.TAGS), ("reviews", P.REVIEWS)):
+            self.assertEqual(tuple(js_array(b, name)), want, name)
+        self.assertEqual(VS_BASE, P.VS_BASE)
+        limits = dict((k, int(v)) for k, v in re.findall(r"(\w+): (\d+)", re.search(r"limits: \{([^}]*)\}", b).group(1)))
+        self.assertEqual(limits, P.LIMITS)
+        nums = {k: int(v) for k, v in re.findall(r"\b(words|basisMax|basisText|pathMax|perPerson|maxItems): (\d+)", b)}
+        self.assertEqual(nums, {"words": P.QUOTE_WORDS, "basisMax": P.BASIS_MAX, "basisText": P.BASIS_TEXT, "pathMax": P.PATH_MAX,
+                                "perPerson": P.PER_PERSON, "maxItems": P.MAX_ITEMS})
+        self.assertIn(f'cut: "{P.CUT}"', b)
+        self.assertIn("show: 8, strip: 10", b)                                  # 파일 칸 8개(나머지는 접기) · 머리 띠 10개
+        self.assertIn(r"/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}]/u", b)              # 보이지 않는 글자 = 게시기의 INVISIBLE
+        self.assertEqual(P.INVISIBLE, ("Cc", "Cf", "Zl", "Zp", "Cs"))
+
+    def test_whole_file_is_dropped_on_a_bad_head_and_bad_items_are_skipped(self):
+        check = self.block[self.block.index("function checkRemarks"):self.block.index("const reviewKo")]
+        self.assertIn("return null;", check)                                    # 머리의 꼴이 다르면 파일 전체를 버린다
+        self.assertIn("skipped++; continue;", check)                            # 틀린 발언은 그 발언만
+        self.assertIn("(per[r.who] || 0) >= RM.perPerson", check)
+        load = self.block[self.block.index("async function loadRemarks"):]
+        self.assertIn('{ state: "none", list: [] }', load)
+        self.assertIn('rmNone("자동 발언 기록 없음")', self.block)
+
+    def test_text_goes_in_as_text(self):
+        b = self.block
+        for word in ("innerHTML", "outerHTML", "insertAdjacent", "setAttribute(", "href", "document.write", "createElement("):
+            self.assertNotIn(word, b, word)                                      # 요소는 el()로만 — el은 글을 textContent · 글 마디로 넣는다
+        self.assertIn('if (k === "class") n.className = v; else if (k === "text") n.textContent = v;', read("people.js"))
+        self.assertNotIn("lang: \"en\", text: r.quote", b)                       # 인용은 따옴표 안에
+        self.assertEqual(b.count("text: `“${r.quote}”`"), 2)
+
+    def test_fixed_label_and_headings(self):
+        b = self.block
+        label = ("자동 분류 — 운영 규칙이 ${base}에 견준 결과이고 사람 확인 없이 매일 올라갑니다. 예측이 아닙니다. "
+                 "인용은 발언자 본인의 말을 15단어 이내로 옮긴 것입니다.")
+        self.assertIn(label, b)
+        self.assertIn("기준선(${r.baseline_asof} · ${reviewKo(r.baseline_review)})", b)
+        self.assertIn('v === "approved" ? "확인함" : "초안"', b)
+        self.assertEqual(b.count("remarkLabel("), 3)                            # 정의 · 사람 파일 · 머리 띠
+        for text in ('"최근 발언 — 기준선 대비(자동 분류)"', '"새 발언 — 기준선 대비(자동 분류)"', "견준 항목: ", "반대표 ", '"전언"'):
+            self.assertIn(text, b, text)
+
+    def test_names_open_the_file_the_way_the_page_navigates(self):
+        b = self.block
+        self.assertIn('el("button", { type: "button", class: "rm-who", "data-key": p.key', b)
+        self.assertIn("select(p.key, { push: true, scroll: true, focus: true })", b)
+        self.assertIn('$("caveat").after(box)', b)                               # 껍데기(people.html)는 CSP 말고 바꾸지 않는다
+
+    def test_section_sits_after_the_baseline(self):
+        js = read("people.js")
+        body = js[js.index("function renderFile("):js.index("function routeTexts(")]
+        self.assertLess(body.index("f.append(base);"), body.index('el("section", { id: "sec-new"'))
+        self.assertLess(body.index('id: "sec-new"'), body.index('const routeSec = el("section"'))
+        css = read("people.css")
+        for cls in (".vs.same", ".vs.hawk", ".vs.dove", ".vs.new", ".rm-strip", ".rm-row", ".rm-list", ".rm-more summary"):
+            self.assertIn(cls + " ", css, cls)
+
+    def test_data_note_tells_the_section_is_automatic(self):
+        notes = load_data(read("people-data.js"))["notes"]
+        hit = [n for n in notes if "자동" in n and "사람 확인 없이" in n]
+        self.assertEqual(len(hit), 1)
+        self.assertIn("예측이 아니다", hit[0])
+        self.assertIn("15단어", hit[0])
 
 
 class DataTest(unittest.TestCase):
