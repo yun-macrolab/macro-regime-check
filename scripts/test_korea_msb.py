@@ -429,6 +429,19 @@ class PlanParseTests(unittest.TestCase):
         r = self.parse(plan_text(redemption="none", extra="2030년 5월중 통화안정증권 중도환매 계획입찰일결제일"))   # 표 제목만
         self.assertEqual((r["redemption_100m"], r["redemption_unread"]), (None, True))
 
+    def test_redemption_row_count_is_checked(self):
+        """총액 문장이 없는 옛 꼴: 한 줄의 금액 앞에 각주가 끼면 그 줄을 못 읽는다 — 줄 수(입찰시간 수)와 맞춰 보고 '못 읽음'."""
+        r = self.parse(plan_text(redemption="old").replace("-022.3", "-021)2.3"))
+        self.assertEqual((r["redemption_100m"], r["redemption_unread"]), (None, True))
+        r = self.parse(plan_text().replace("-021.0", "-021)1.0"))                        # 새 꼴도 같다(총액과도 다르다)
+        self.assertEqual((r["redemption_100m"], r["redemption_unread"]), (None, True))
+        r = self.parse(plan_text(redemption="none", extra="□2030년 5월중 중도환매 총 예정액은 99.9조원으로"))
+        self.assertEqual((r["redemption_100m"], r["redemption_unread"]), (None, True))   # 범위 밖
+
+    def test_corrected_title(self):
+        raw = plan_listing([("906", "2030년 5월중 통화안정증권 발행 계획(정정)", "2030.04.28")])
+        self.assertEqual(km.plan_links(raw), [("906", ("2030-05", "2030-04-28"))])
+
     def test_single_offer_amount(self):
         r = self.parse(plan_text(total="6.5", hi=None))
         self.assertEqual((r["offer_min_100m"], r["offer_max_100m"]), (5000, 5000))
@@ -477,6 +490,16 @@ class PlanListTests(unittest.TestCase):
         self.assertEqual(km.plans_to_read(links, [prow("8", "2030-05")]), [links[0], links[2], links[3], links[1]])
         full = [prow(str(100 + i), f"{2029 + (i + 3) // 12}-{(i + 3) % 12 + 1:02d}") for i in range(km.MAX_PLANS)]   # 2029-04 ~ 2030-04
         self.assertEqual(km.plans_to_read([("50", ("2029-03", None)), ("51", ("2030-05", None))], full), [("51", ("2030-05", None))])
+        repost = [("15", ("2030-05", None)), ("7", ("2030-04", None))]                    # 저장된 5월(8)을 번호가 큰 15로 다시 냄
+        self.assertEqual(km.plans_to_read(repost, [prow("8", "2030-05"), prow("7", "2030-04")]), [repost[0], repost[1]])
+        self.assertEqual(km.plans_to_read([("5", ("2030-05", None))], [prow("8", "2030-05")]), [])   # 번호가 작은 옛 공고는 읽지 않는다
+        many = [(str(900 - i), (f"{2030 - (i + 7) // 12}-{(4 - i) % 12 + 1:02d}", None)) for i in range(20)]   # 2030-05부터 거꾸로 20달
+        store, reads = [], 0
+        for _ in range(5):                                                                 # 처음 채우기: 새 13달만 읽는다
+            todo = km.plans_to_read(many, store)
+            reads += len([t for t in todo if t[0] not in {r["id"] for r in store}])
+            store = km.merge_plans([prow(i, m) for i, (m, _) in todo], store)
+        self.assertEqual((len(store), reads, store[0]["month"], store[-1]["month"]), (km.MAX_PLANS, km.MAX_PLANS, "2029-05", "2030-05"))
         merged = km.merge_plans([prow("12", "2030-05"), prow("11", "2030-05")], [prow("10", "2030-05"), prow("3", "2030-04"), "junk"])
         self.assertEqual([(r["id"], r["month"]) for r in merged], [("3", "2030-04"), ("12", "2030-05")])
         self.assertEqual(len(km.merge_plans(full + [prow("999", "2030-05")], [])), km.MAX_PLANS)

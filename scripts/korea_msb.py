@@ -288,25 +288,27 @@ def summary(rows, today):
 # 한국은행이 달마다 앞서(전달 마지막 주) 공고하는 '…월중 통화안정증권 발행 계획'. 본문은 '첨부파일 참고' 한 줄이고 숫자는 첨부 PDF
 # (www.bok.or.kr/fileSrc/… → file-cdn.bok.or.kr로 옮겨 감 — 국고채 발행공고 PDF와 같은 길)의 글 층에 있다.
 # 읽는 것(2023-09 ~ 2026-11 계획 21건의 PDF 글 층으로 확인, 2026-11-09 — 모두 같은 첫 문장):
-#   '한국은행은 YYYY년 M월중 N조원* 규모(경쟁입찰 X조원, 모집 a~b조원)의 통화안정증권을 발행할 계획'(2025-05 앞은 '수준')
+#   '한국은행은 YYYY년 M월중 N조원* 규모(경쟁입찰 X조원, 모집 a~b조원)의 통화안정증권을 발행할 계획'(2025-05까지는 '수준')
 #   — 총액 = 경쟁입찰 + 모집 최대(PDF의 '* 모집 발행예정액(범위) 중 최대규모 기준')인지 맞춰 본다.
 #   중도환매(만기 전 되사기) 예정액 — '중도환매 총 예정액은 Z조원'(2026-09 계획부터) 또는 '…중도환매 계획' 표의 줄마다 금액(마지막 종목
 #   번호 'NNNNN-NNNN-NN' 바로 뒤의 'n.n' — 글 층에서 다음 줄 날짜와 붙는다: '…-030.48.18(화)' = 0.4조원 + 8.18(화)).
-#   두 값이 다르거나 표를 못 읽으면 그 칸만 '못 읽음'(redemption_unread)으로 두고 계획은 싣는다. 표가 없으면 중도환매 없음(None).
+#   두 값이 다르거나, 표에서 읽은 금액 수가 표의 입찰시간('HH:MM~HH:MM' — 줄마다 하나) 수와 다르거나, 표를 못 읽으면 그 칸만
+#   '못 읽음'(redemption_unread)으로 두고 계획은 싣는다(총액 문장이 없는 2026-08까지의 옛 꼴은 이 셈이 유일한 대조). 표가 없으면 중도환매 없음(None).
 # 만기별 경쟁입찰 금액 표는 글 층에서 각주 번호·금액·만기가 붙어('0.61년11. 4(수)') 읽지 않는다 — 회차별 예정액은 결과 공고에 있다.
 
 PLAN_QUERY = "통화안정증권 발행 계획"
 PLAN_PAGE = BOK + "/portal/singl/newsData/list.do?" + urllib.parse.urlencode({"menuNo": MENU, "searchCnd": "2", "searchKwd": PLAN_QUERY})
-PLAN_LIST_UNIT = 60      # 공개시장운영 공지(P0001773)와 보도참고자료(B0000502)가 함께, 같은 행이 두 번씩 — 60행이면 계획 15달쯤
+PLAN_LIST_UNIT = 60      # 한 달에 공개시장운영 공지(P0001773) 두 줄 + 보도참고자료(B0000502) 한 줄 — 60행이면 계획 20달쯤(2026-11-09 실측)
 MAX_PLANS = 13           # 저장하는 달 수
 READ_PLANS = 6           # 한 번 실행에서 새로 읽는 계획 수(공고 쪽 1번 + PDF 1번씩) — 아직 없는 달 먼저, 가장 새 계획 다시 읽기는 끝에
-PLAN_TITLE = re.compile(r"(\d{4})년\s*(\d{1,2})월(?:중)?\s*통화안정증권\s*발행\s*계획", re.A)
+PLAN_TITLE = re.compile(r"(\d{4})년\s*(\d{1,2})월(?:중)?\s*통화안정증권\s*발행\s*계획(?:\s*\(정정\))?", re.A)
 _TN = r"(\d{1,2}\.\d{1,2})"
 PLAN_HEAD = re.compile(r"한국은행은(\d{4})년(\d{1,2})월중" + _TN + r"조원\*?(?:규모|수준)\(경쟁입찰" + _TN
                        + r"조원,모집" + _TN + r"(?:~" + _TN + r")?조원\)의통화안정증권을발행할계획", re.A)
 REDEMPTION_HEAD = "통화안정증권중도환매계획"
 REDEMPTION_TOTAL = re.compile(r"중도환매총예정액은" + _TN + r"조원", re.A)
 REDEMPTION_ROW = re.compile(r"통안\d{5}-\d{4}-\d{2}(\d{1,2}\.\d)", re.A)
+REDEMPTION_TIME = re.compile(r"\d{2}:\d{2}~\d{2}:\d{2}", re.A)     # 중도환매 표의 줄마다 입찰시간 하나
 PLAN_SKIP = {"msb plan month mismatch": "month_mismatch", "msb plan field changed": "field_changed",
              "msb plan sum mismatch": "sum_mismatch", "msb plan outside range": "out_of_range",
              "ambiguous msb plan PDF": "pdf_link", "future msb plan": "future"}
@@ -381,16 +383,20 @@ def redemption(s):
     """공백을 뺀 PDF 글 → (중도환매 예정액(억원) 또는 None, 못 읽음 여부). 표가 없으면 (None, False)."""
     start = s.find(REDEMPTION_HEAD)
     stated = REDEMPTION_TOTAL.findall(s)
-    if start < 0:                        # 표 제목이 없다 — 총액 문장 하나만 있으면 그 값, 없으면 중도환매 없음
-        return (_plan_won(stated[0]), False) if len(stated) == 1 else (None, len(stated) > 1)
+    if start < 0:                        # 표 제목이 없다 — 총액 문장 하나만 있으면 그 값(범위 안일 때), 없으면 중도환매 없음
+        if len(stated) != 1: return (None, len(stated) > 1)
+        value = _plan_won(stated[0])
+        return (value, False) if 0 <= value <= 300_000 else (None, True)
     end = s.find("※", start)
-    rows = [_plan_won(x) for x in REDEMPTION_ROW.findall(s[start:end if end > 0 else len(s)])]
+    region = s[start:end if end > 0 else len(s)]
+    rows = [_plan_won(x) for x in REDEMPTION_ROW.findall(region)]
+    if rows and len(rows) != len(REDEMPTION_TIME.findall(region)): return (None, True)   # 한 줄의 금액을 못 읽었다(각주 등)
     if len(stated) > 1: return (None, True)
     total = _plan_won(stated[0]) if stated else None
-    if rows and total is not None: return (total, False) if sum(rows) == total else (None, True)
-    if total is not None: return (total, False)
-    if rows: return (sum(rows), False)
-    return (None, True)
+    if rows and total is not None: value = total if sum(rows) == total else None
+    else: value = total if total is not None else sum(rows) if rows else None
+    if value is None or not 0 <= value <= 300_000: return (None, True)
+    return (value, False)
 
 
 def parse_plan_text(text, ident, ym, published, today):
@@ -422,13 +428,15 @@ def _good_plan(r):
 
 
 def plans_to_read(links, previous):
-    """아직 없는 달의 계획(새 것부터 READ_PLANS개) 먼저, 이미 읽은 가장 새 계획 다시 읽기는 끝에(정정 확인 — 시간이 모자라면 not_tried).
-    저장분이 MAX_PLANS달로 찼으면 가장 오래된 달보다 앞선 계획은 읽지 않는다(읽어도 merge_plans가 잘라 낸다)."""
+    """읽을 계획 — 아직 없는 공고(새 것부터 READ_PLANS개) 먼저, 이미 읽은 가장 새 계획 다시 읽기는 끝에(같은 번호의 고침 확인 —
+    시간이 모자라면 not_tried). 저장된 달이라도 그달 저장분보다 번호가 큰 공고는 새로 읽는다(같은 제목·'(정정)'으로 다시 낸 계획).
+    목록과 저장분을 합친 달 중 새 MAX_PLANS달 밖의 계획은 읽지 않는다(읽어도 merge_plans가 잘라 낸다 — 처음 채울 때도)."""
     good = [r for r in previous or [] if _good_plan(r)]
     seen = {r["id"] for r in good}
-    months = {r["month"] for r in good}
-    floor = min(months) if len(months) >= MAX_PLANS else ""
-    fresh = [l for l in links if l[0] not in seen and l[1][0] not in months and l[1][0] >= floor][:READ_PLANS]
+    best = {}
+    for r in good: best[r["month"]] = max(best.get(r["month"], 0), int(r["id"]))
+    keep = set(sorted({l[1][0] for l in links} | set(best), reverse=True)[:MAX_PLANS])
+    fresh = [l for l in links if l[0] not in seen and int(l[0]) > best.get(l[1][0], 0) and l[1][0] in keep][:READ_PLANS]
     again = [l for l in links if l[0] in seen][:1]
     return fresh + again
 
