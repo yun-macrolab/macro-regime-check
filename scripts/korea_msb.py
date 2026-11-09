@@ -13,7 +13,8 @@ korea_market.build가 'msb' 묶음으로 부른다(상태·마지막 성공 자�
 이용 조건(회색 지대): 한국은행 홈페이지 저작권 보호방침은 제공대상 공공데이터 목록에 없는 정보를 직접·심층 링크로 이용하게 하고
 (2항), 그 밖의 방법은 사전 협의·승인을 요구한다(3항). 이 공고는 그 목록에서 확인하지 못했고 승인을 받지 않았다 — 공고 문장이 아니라
 입찰 결과 숫자(사실)만 옮기고, 화면은 출처(한국은행)·공고마다 원문 링크·'옮긴 값과 계산값' 구분을 함께 싣는다(국고채 발행공고 PDF에서
-예정액만 옮기는 것과 같은 방식). 한국은행이 요청하면 내린다. robots.txt는 /portal/을 허용한다.
+예정액만 옮기는 것과 같은 방식 — 아래 월간 발행 계획도 같다). 운영자가 2026-11-09 그대로 두기로 했고, 한국은행이 요청하면 내린다.
+robots.txt는 /portal/을 허용한다.
 """
 import datetime as dt
 import html
@@ -21,6 +22,8 @@ import re
 import urllib.parse
 from decimal import Decimal
 from html.parser import HTMLParser
+
+import korea_issuance as ki
 
 BOK = "https://www.bok.or.kr"
 MENU = "200295"
@@ -279,3 +282,162 @@ def summary(rows, today):
             out.append(row)
         y, m = (y - 1, 12) if m == 1 else (y, m - 1)
     return {"months": out}
+
+
+# ---------- 월간 발행 계획(2026-11-09) ----------
+# 한국은행이 달마다 앞서(전달 마지막 주) 공고하는 '…월중 통화안정증권 발행 계획'. 본문은 '첨부파일 참고' 한 줄이고 숫자는 첨부 PDF
+# (www.bok.or.kr/fileSrc/… → file-cdn.bok.or.kr로 옮겨 감 — 국고채 발행공고 PDF와 같은 길)의 글 층에 있다.
+# 읽는 것(2023-09 ~ 2026-11 계획 21건의 PDF 글 층으로 확인, 2026-11-09 — 모두 같은 첫 문장):
+#   '한국은행은 YYYY년 M월중 N조원* 규모(경쟁입찰 X조원, 모집 a~b조원)의 통화안정증권을 발행할 계획'(2025-05 앞은 '수준')
+#   — 총액 = 경쟁입찰 + 모집 최대(PDF의 '* 모집 발행예정액(범위) 중 최대규모 기준')인지 맞춰 본다.
+#   중도환매(만기 전 되사기) 예정액 — '중도환매 총 예정액은 Z조원'(2026-09 계획부터) 또는 '…중도환매 계획' 표의 줄마다 금액(마지막 종목
+#   번호 'NNNNN-NNNN-NN' 바로 뒤의 'n.n' — 글 층에서 다음 줄 날짜와 붙는다: '…-030.48.18(화)' = 0.4조원 + 8.18(화)).
+#   두 값이 다르거나 표를 못 읽으면 그 칸만 '못 읽음'(redemption_unread)으로 두고 계획은 싣는다. 표가 없으면 중도환매 없음(None).
+# 만기별 경쟁입찰 금액 표는 글 층에서 각주 번호·금액·만기가 붙어('0.61년11. 4(수)') 읽지 않는다 — 회차별 예정액은 결과 공고에 있다.
+
+PLAN_QUERY = "통화안정증권 발행 계획"
+PLAN_PAGE = BOK + "/portal/singl/newsData/list.do?" + urllib.parse.urlencode({"menuNo": MENU, "searchCnd": "2", "searchKwd": PLAN_QUERY})
+PLAN_LIST_UNIT = 60      # 공개시장운영 공지(P0001773)와 보도참고자료(B0000502)가 함께, 같은 행이 두 번씩 — 60행이면 계획 15달쯤
+MAX_PLANS = 13           # 저장하는 달 수
+READ_PLANS = 6           # 한 번 실행에서 새로 읽는 계획 수(공고 쪽 1번 + PDF 1번씩) — 아직 없는 달 먼저, 가장 새 계획 다시 읽기는 끝에
+PLAN_TITLE = re.compile(r"(\d{4})년\s*(\d{1,2})월(?:중)?\s*통화안정증권\s*발행\s*계획", re.A)
+_TN = r"(\d{1,2}\.\d{1,2})"
+PLAN_HEAD = re.compile(r"한국은행은(\d{4})년(\d{1,2})월중" + _TN + r"조원\*?(?:규모|수준)\(경쟁입찰" + _TN
+                       + r"조원,모집" + _TN + r"(?:~" + _TN + r")?조원\)의통화안정증권을발행할계획", re.A)
+REDEMPTION_HEAD = "통화안정증권중도환매계획"
+REDEMPTION_TOTAL = re.compile(r"중도환매총예정액은" + _TN + r"조원", re.A)
+REDEMPTION_ROW = re.compile(r"통안\d{5}-\d{4}-\d{2}(\d{1,2}\.\d)", re.A)
+PLAN_SKIP = {"msb plan month mismatch": "month_mismatch", "msb plan field changed": "field_changed",
+             "msb plan sum mismatch": "sum_mismatch", "msb plan outside range": "out_of_range",
+             "ambiguous msb plan PDF": "pdf_link", "future msb plan": "future"}
+SKIP_REASONS.update(PLAN_SKIP)
+
+
+def plan_list_url():
+    return LIST_CONT + "?" + urllib.parse.urlencode(
+        {"pageIndex": 1, "targetDepth": 4, "menuNo": MENU, "syncMenuChekKey": 1,
+         "searchCnd": 2, "searchKwd": PLAN_QUERY, "pageUnit": PLAN_LIST_UNIT})
+
+
+class _Rows(HTMLParser):
+    """목록 조각의 줄(li.bbsRowCls)마다 제목 링크의 href·글자와 등록일(span.date의 'YYYY.MM.DD')."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.rows, self.row, self.cur, self.in_date, self.skip = [], None, None, 0, 0     # in_date = span.date 안의 span 깊이
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"): self.skip += 1
+        cls = (dict(attrs).get("class") or "").split()
+        if tag == "li" and "bbsRowCls" in cls: self.row = {"href": None, "title": None, "date": ""}; self.rows.append(self.row)
+        if self.row is None: return
+        if tag == "span" and (self.in_date or "date" in cls): self.in_date += 1      # 안쪽 'sr-only' span을 지나도 날짜 칸이다
+        if tag == "a" and "title" in cls: self.cur = [dict(attrs).get("href") or "", []]
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style") and self.skip: self.skip -= 1
+        if tag == "span" and self.in_date: self.in_date -= 1
+        if tag == "a" and self.cur is not None and self.row is not None:
+            self.row["href"], self.row["title"] = self.cur[0], " ".join("".join(self.cur[1]).split()); self.cur = None
+
+    def handle_data(self, data):
+        if self.skip or self.row is None: return
+        if self.cur is not None: self.cur[1].append(data)
+        elif self.in_date: self.row["date"] += data
+
+
+def plan_links(raw):
+    """목록 조각 → [(공고 번호, ('YYYY-MM', 등록일 ISO 또는 None))](목록 순서 = 새 것부터). 공개시장운영 공지(P0001773)의
+    'YYYY년 M월(중) 통화안정증권 발행 계획'만(보도참고자료 B0000502는 같은 계획에 보도 쪽 한 장을 더한 것이라 뺀다).
+    같은 달이 둘이면 목록에서 먼저 나온(새) 것. 하나도 없으면 목록 형식이 바뀐 것."""
+    p = _Rows(); p.feed(raw.decode("utf-8"))
+    out = []
+    for r in p.rows:
+        if not r["href"] or not r["title"]: continue
+        m = re.fullmatch(r"/portal/bbs/P0001773/view\.do\?nttId=([0-9]{1,12})(?:&[^\s\"'<>]*)?", html.unescape(r["href"]))
+        t = PLAN_TITLE.fullmatch(r["title"])
+        if not (m and t and 1 <= int(t[2]) <= 12): continue
+        ym = f"{int(t[1]):04d}-{int(t[2]):02d}"
+        d = re.search(r"(\d{4})\.(\d{2})\.(\d{2})", r["date"], re.A)
+        try: published = dt.date(int(d[1]), int(d[2]), int(d[3])).isoformat() if d else None
+        except ValueError: published = None
+        if m[1] not in [o[0] for o in out] and ym not in [o[1][0] for o in out]:
+            out.append((m[1], (ym, published)))
+    if not out: raise ValueError("no msb plan notices")
+    return out
+
+
+def plan_pdf_url(raw):
+    """공고 쪽에서 첨부 PDF 하나의 주소(같은 주소가 내려받기·이름 두 번 나온다). 하나가 아니면 형식이 바뀐 것."""
+    paths = set(re.findall(r'href="(/fileSrc/portal/[0-9a-f]{1,64}/[0-9]{1,3}/[0-9a-f]{1,64}\.pdf)"', raw.decode("utf-8")))
+    if len(paths) != 1: raise ValueError("ambiguous msb plan PDF")
+    return BOK + paths.pop()
+
+
+def _plan_won(trillion):
+    return int(Decimal(trillion) * 10000)
+
+
+def redemption(s):
+    """공백을 뺀 PDF 글 → (중도환매 예정액(억원) 또는 None, 못 읽음 여부). 표가 없으면 (None, False)."""
+    start = s.find(REDEMPTION_HEAD)
+    stated = REDEMPTION_TOTAL.findall(s)
+    if start < 0:                        # 표 제목이 없다 — 총액 문장 하나만 있으면 그 값, 없으면 중도환매 없음
+        return (_plan_won(stated[0]), False) if len(stated) == 1 else (None, len(stated) > 1)
+    end = s.find("※", start)
+    rows = [_plan_won(x) for x in REDEMPTION_ROW.findall(s[start:end if end > 0 else len(s)])]
+    if len(stated) > 1: return (None, True)
+    total = _plan_won(stated[0]) if stated else None
+    if rows and total is not None: return (total, False) if sum(rows) == total else (None, True)
+    if total is not None: return (total, False)
+    if rows: return (sum(rows), False)
+    return (None, True)
+
+
+def parse_plan_text(text, ident, ym, published, today):
+    s = re.sub(r"\s+", "", text)
+    heads = set(PLAN_HEAD.findall(s))
+    if len(heads) != 1: raise ValueError("msb plan field changed")
+    y, m, total_s, comp_s, lo_s, hi_s = heads.pop()
+    if f"{int(y):04d}-{int(m):02d}" != ym: raise ValueError("msb plan month mismatch")
+    total, comp, lo = _plan_won(total_s), _plan_won(comp_s), _plan_won(lo_s)
+    hi = _plan_won(hi_s) if hi_s else lo
+    if not (0 < comp <= 500_000 and 0 <= lo <= hi <= 100_000 and 0 < total <= 600_000):
+        raise ValueError("msb plan outside range")
+    if abs(total - (comp + hi)) > 1000: raise ValueError("msb plan sum mismatch")     # 각자 0.1조원 반올림까지만
+    nxt = (today.replace(day=1) + dt.timedelta(days=45)).strftime("%Y-%m")       # 계획은 그달 앞에 나온다 — 다음 달까지
+    if ym > nxt: raise ValueError("future msb plan")
+    red, unread = redemption(s)
+    return {"id": ident, "month": ym, "published": published, "total_100m": total, "competitive_100m": comp,
+            "offer_min_100m": lo, "offer_max_100m": hi, "redemption_100m": red, "redemption_unread": unread,
+            "source_url": view_url(ident)}
+
+
+def parse_plan(raw, ident, ym, published, today):
+    return parse_plan_text(ki.pdf_text(raw, max_pages=6), ident, ym, published, today)
+
+
+def _good_plan(r):
+    return (isinstance(r, dict) and isinstance(r.get("id"), str) and re.fullmatch(r"[0-9]{1,12}", r["id"])
+            and isinstance(r.get("month"), str) and re.fullmatch(r"\d{4}-\d{2}", r["month"]))
+
+
+def plans_to_read(links, previous):
+    """아직 없는 달의 계획(새 것부터 READ_PLANS개) 먼저, 이미 읽은 가장 새 계획 다시 읽기는 끝에(정정 확인 — 시간이 모자라면 not_tried).
+    저장분이 MAX_PLANS달로 찼으면 가장 오래된 달보다 앞선 계획은 읽지 않는다(읽어도 merge_plans가 잘라 낸다)."""
+    good = [r for r in previous or [] if _good_plan(r)]
+    seen = {r["id"] for r in good}
+    months = {r["month"] for r in good}
+    floor = min(months) if len(months) >= MAX_PLANS else ""
+    fresh = [l for l in links if l[0] not in seen and l[1][0] not in months and l[1][0] >= floor][:READ_PLANS]
+    again = [l for l in links if l[0] in seen][:1]
+    return fresh + again
+
+
+def merge_plans(got, previous):
+    """달마다 하나(같은 달이면 번호가 큰 — 나중 — 공고, 같은 번호면 새로 읽은 것). 달 순서, 최근 MAX_PLANS달."""
+    by_month = {}
+    for r in list(previous or []) + list(got):
+        if not _good_plan(r): continue
+        cur = by_month.get(r["month"])
+        if cur is None or int(r["id"]) >= int(cur["id"]): by_month[r["month"]] = r
+    return [by_month[m] for m in sorted(by_month)][-MAX_PLANS:]

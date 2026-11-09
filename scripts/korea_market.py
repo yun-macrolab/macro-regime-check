@@ -64,6 +64,7 @@ META = {
 
 KTB_FEED = 60     # 재정경제부는 쪽마다 3.5~4초, 목록 검색은 재시도로 12초쯤 — 다른 묶음(합 40~55초)보다 창을 넓게
 MSB_FEED = 50     # 통화안정증권 결과: 목록 1번 + 공고 한 건 약 2초 — 평소 서너 건, 처음 채울 때 최대 READ_NEW+REREAD건(맨 뒤에 돈다)
+MSB_PLAN_FEED = 40   # 통화안정증권 발행 계획: 목록 1번 + 계획마다 공고 쪽·PDF 2번 — 평소 가장 새 계획 다시 읽기 하나, 처음 채울 때 최대 READ_PLANS건
 
 
 class FeedError(ValueError):
@@ -73,7 +74,8 @@ class FeedError(ValueError):
 class PublicFetcher:
     """One retry for transient failures; budgets leave time to publish failure status.
     전체 180초 + 마지막 요청(10초 안) + 쓰기 — Actions 단계 4분 안. 묶음당 45초, 국고채 발행계획·매입/교환은 각 60초(KTB_FEED),
-    통화안정증권 결과는 50초(MSB_FEED — 맨 뒤라 앞 묶음이 다 쓴 날엔 남은 시간만). 2026-11-07 실측: 한국 단계 전체 74초."""
+    통화안정증권 결과는 50초(MSB_FEED), 발행 계획은 40초(MSB_PLAN_FEED) — 맨 뒤라 앞 묶음이 다 쓴 날엔 남은 시간만.
+    2026-11-07 실측: 한국 단계 전체 74초, 2026-11-09 통화안정증권 결과를 처음 채운 실행 78~114초."""
     def __init__(self, budget=180, per_feed=45, clock=time.monotonic, sleep=time.sleep, opener=urllib.request.urlopen):
         self.clock, self.sleep, self.opener = clock, sleep, opener
         self.deadline = clock() + budget
@@ -433,6 +435,15 @@ def validate_freshness(name, payload, previous, today):
     if name == "ktb_ops":
         if not payload: raise FeedError("empty_or_duplicate")     # 매입·교환은 달마다 있지 않다 — 날짜로 묵음을 따지지 않는다
         return
+    if name == "msb_plans":
+        # 통화안정증권 발행 계획은 전달 마지막 주에 나온다 — 그달 8일부터는 그달 계획이 있어야 한다(국고채 발행계획과 같은 7일 여유)
+        if not payload: raise FeedError("empty_or_duplicate")
+        latest = max(r["month"] for r in payload)
+        floor = (today if today.day > 7 else today.replace(day=1) - dt.timedelta(days=1)).strftime("%Y-%m")
+        if latest < floor: raise FeedError("stale")
+        if previous and latest < max((r["month"] for r in previous if isinstance(r, dict) and isinstance(r.get("month"), str)), default=""):
+            raise FeedError("regressed")
+        return
     if name == "msb":
         # 통화안정증권 경쟁입찰은 주 두 번쯤(월 91일물, 수 1·2·3년물) — 설·추석 연휴의 간격(14일)보다 길게 묵으면 stale
         if not payload: raise FeedError("empty_or_duplicate")
@@ -476,7 +487,7 @@ def build(old, now, fetch=None):
         """공고마다 따로 읽는다 — 한 건의 양식이 달라도 나머지는 갱신한다(발행공고 2026-10-14, 입찰 결과 2026-10-26).
         못 읽은 공고는 고정 사유 코드로 남기고, 같은 공고를 전에 읽었으면 그 값을 둔다. 한 건도 새로 못 읽으면
         이 묶음만 실패(이전 자료 유지). links = [(공고 번호, 읽을 때 넘길 값)], read(번호, 값) → 행.
-        retain_transient(발행계획·매입/교환·통화안정증권): 평소엔 이미 읽은 가장 새 공고만(통화안정증권은 둘) 다시 읽으므로, 못 읽은 공고가 모두 전에 읽은
+        retain_transient(발행계획·매입/교환·통화안정증권 결과·계획): 평소엔 이미 읽은 가장 새 공고만(통화안정증권 결과는 둘) 다시 읽으므로, 못 읽은 공고가 모두 전에 읽은
         것이고 사유가 모두 일시 오류(접속·시간 초과·408·429·5xx)면 실패로 두지 않고 전에 읽은 값으로 둔다(사유 코드·경고는 남음)."""
         prev = {r["id"]: r for r in (previous.get(name, {}).get("data") or []) if isinstance(r, dict) and isinstance(r.get("id"), str)}
         got, skipped = [], skips[name]
@@ -502,7 +513,7 @@ def build(old, now, fetch=None):
             if codes and all(c == "network" or c.startswith("http_") for c in codes): raise FeedError("unavailable")
             raise FeedError("unreadable_notices")
         return got
-    skips = {"auctions": [], "offerings": [], "ktb_plans": [], "ktb_ops": [], "msb": []}
+    skips = {"auctions": [], "offerings": [], "ktb_plans": [], "ktb_ops": [], "msb": [], "msb_plans": []}
     # Re-read recent notices so corrections are picked up. Max eight public pages.
     run("auctions", lambda: notices("auctions", result_links(fetch(RESULTS)),
                                     lambda ident, tenor: parse_result(fetch(result_url(ident)), ident, tenor, today)))
@@ -550,7 +561,14 @@ def build(old, now, fetch=None):
         return km.merge(got, prev)
     run("ktb_plans", plan_feed, KTB_FEED)
     run("ktb_ops", ops_feed, KTB_FEED)
+    def msb_plan_feed():
+        prev = previous.get("msb_plans", {}).get("data") or []
+        links = km.plans_to_read(km.plan_links(fetch(km.plan_list_url())), prev)
+        got = notices("msb_plans", links, lambda ident, arg: km.parse_plan(
+            fetch(km.plan_pdf_url(fetch(km.view_url(ident)))), ident, arg[0], arg[1], today), retain_transient=True)
+        return km.merge_plans(got, prev)
     run("msb", msb_feed, MSB_FEED)
+    run("msb_plans", msb_plan_feed, MSB_PLAN_FEED)
     for name, skipped in skips.items():
         feeds[name]["skipped"] = skipped
     cards = []
@@ -575,10 +593,11 @@ def build(old, now, fetch=None):
             "ktb_plans": feeds["ktb_plans"]["data"] or [], "ktb_ops": feeds["ktb_ops"]["data"] or [],
             "ktb_summary": ki.summary(feeds["ktb_plans"]["data"] or []),
             "msb": feeds["msb"]["data"] or [], "msb_summary": km.summary(feeds["msb"]["data"] or [], today),
+            "msb_plans": feeds["msb_plans"]["data"] or [],
             "notices": ["학습용 참고 자료이며 기존 13개 규칙 판정에는 쓰지 않습니다.",
                 "한국은행 스냅샷 자료는 출처를 명시하여 비상업적 학습 목적으로 이용합니다. 원자료 저작권은 각 제공기관에 있습니다.",
                 "금리차·기간 변화·누적 순매수·분포는 이 사이트의 계산값입니다. 분포는 최근 관측일 기준 365일이며 저평가·고평가 판정이 아닙니다.",
-                "통화안정증권 입찰 결과는 한국은행 홈페이지 공개시장운영 공지에서 숫자만 옮겼고(출처: 한국은행), 응찰률·월 합계는 이 사이트의 계산값입니다. 원문은 각 행의 링크로 연결합니다. macro-regime-check는 한국은행과 관계가 없고, 한국은행이 요청하면 이 표를 내립니다."]}
+                "통화안정증권 입찰 결과와 발행 계획은 한국은행 홈페이지 공개시장운영 공지(계획은 첨부 PDF)에서 숫자만 옮겼고(출처: 한국은행), 응찰률·월 합계·계획 대비 비율은 이 사이트의 계산값입니다. 원문은 각 행의 링크로 연결합니다. macro-regime-check는 한국은행과 관계가 없고, 한국은행이 요청하면 이 표를 내립니다."]}
 
 
 def atomic_json(path, data):
@@ -610,7 +629,7 @@ def main(argv=None):
     print(f"[korea_market] {len(data['cards'])} cards; {len(failed)} failed feeds")
     for name, what in (("auctions", "입찰 결과 공고"), ("offerings", "한국은행 발행공고"),
                        ("ktb_plans", "국고채 발행계획 보도자료"), ("ktb_ops", "국고채 매입·교환 결과 공고"),
-                       ("msb", "통화안정증권 경쟁입찰 결과 공고")):
+                       ("msb", "통화안정증권 경쟁입찰 결과 공고"), ("msb_plans", "통화안정증권 발행 계획 공고")):
         skipped = data["feeds"][name].get("skipped") or []
         if skipped:     # GitHub Actions 경고(실행을 실패로 만들지 않음) — 공고 번호와 고정 사유 코드만
             print(f"::warning::{what} " + str(len(skipped)) + "건을 읽지 못함 — "

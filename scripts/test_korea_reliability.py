@@ -64,7 +64,7 @@ class NetworkTests(unittest.TestCase):
             windows.append(seconds);start(seconds)
         fetch.start_feed=spy
         with patch('builtins.print'): k.build({},NOW,fetch)
-        self.assertEqual(windows,[None]*8+[k.KTB_FEED]*2+[k.MSB_FEED])   # 앞 여덟 묶음은 45초, 발행계획·매입/교환은 60초, 통화안정증권 결과는 맨 뒤 50초
+        self.assertEqual(windows,[None]*8+[k.KTB_FEED]*2+[k.MSB_FEED,k.MSB_PLAN_FEED])   # 앞 여덟 묶음은 45초, 발행계획·매입/교환은 60초, 통화안정증권 결과 50초·계획 40초는 맨 뒤
 
     def test_slow_body_is_not_accepted_after_budget(self):
         clock=[0]

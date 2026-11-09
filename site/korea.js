@@ -2,7 +2,7 @@
 "use strict";
 window.KoreaMarket = (() => {
   let data = null, attempt = null, healthState = null;
-  const names = {credit:"회사채 스프레드", money:"CD·CP", rates:"한미 국채", foreign3:"외국인 3년 선물", foreign10:"외국인 10년 선물", calendar:"입찰 일정", auctions:"입찰 결과", offerings:"입찰 예정액", ktb_plans:"국고채 발행계획", ktb_ops:"매입·교환 결과", msb:"통안증권 입찰 결과"};
+  const names = {credit:"회사채 스프레드", money:"CD·CP", rates:"한미 국채", foreign3:"외국인 3년 선물", foreign10:"외국인 10년 선물", calendar:"입찰 일정", auctions:"입찰 결과", offerings:"입찰 예정액", ktb_plans:"국고채 발행계획", ktb_ops:"매입·교환 결과", msb:"통안증권 입찰 결과", msb_plans:"통안증권 발행계획"};
   const groups = {rates:"금리·커브", credit:"신용·단기자금", flows:"수급·입찰"};
   const reasons = {stale:"관측일 지연", regressed:"과거 자료로 되돌아옴", calendar_month:"이번 달 일정 미확인", empty_or_duplicate:"빈 자료·중복 행", timeout:"수신 시간 초과", unavailable:"수신·형식 확인 실패", unreadable_notices:"발행공고 형식 확인 실패"};
   function health(value, run, expectedAfter, now=Date.now()) {
@@ -40,7 +40,7 @@ window.KoreaMarket = (() => {
     const digits = unit === "계약" || unit === "억원" ? 0 : unit === "bp" ? 1 : 3;
     return (signed && v>0 ? "+" : "")+v.toLocaleString("ko-KR",{maximumFractionDigits:digits})+unit;
   }
-  const unreadable = {auctions:"입찰 결과 공고 형식 확인 실패", ktb_plans:"발행계획 보도자료 형식 확인 실패", ktb_ops:"매입·교환 결과 공고 형식 확인 실패", msb:"통화안정증권 결과 공고 형식 확인 실패"};
+  const unreadable = {auctions:"입찰 결과 공고 형식 확인 실패", ktb_plans:"발행계획 보도자료 형식 확인 실패", ktb_ops:"매입·교환 결과 공고 형식 확인 실패", msb:"통화안정증권 결과 공고 형식 확인 실패", msb_plans:"통화안정증권 발행 계획 형식 확인 실패"};
   function failLabel(key, f) {      // 같은 코드라도 묶음마다 읽은 공고가 다르다(입찰 결과·발행계획·매입/교환 = 재정경제부, 예정액·통안증권 = 한국은행)
     return (f?.reason==="unreadable_notices" && unreadable[key]) || reasons[f?.reason] || "수신 실패";
   }
@@ -144,6 +144,18 @@ window.KoreaMarket = (() => {
   }
   // 통화안정증권 경쟁입찰 결과 — 한국은행 공개시장운영 공지의 숫자(scripts/korea_msb.py). 화면 글은 아래 고정 문구뿐이다(방향·평가 낱말 없음)
   const BOK_MSB="https://www.bok.or.kr/portal/singl/newsData/list.do?menuNo=200295&searchCnd=2&searchKwd=%ED%86%B5%ED%99%94%EC%95%88%EC%A0%95%EC%A6%9D%EA%B6%8C+%EA%B2%BD%EC%9F%81%EC%9E%85%EC%B0%B0+%EC%8B%A4%EC%8B%9C+%EA%B2%B0%EA%B3%BC";
+  const BOK_MSB_PLANS="https://www.bok.or.kr/portal/singl/newsData/list.do?menuNo=200295&searchCnd=2&searchKwd=%ED%86%B5%ED%99%94%EC%95%88%EC%A0%95%EC%A6%9D%EA%B6%8C+%EB%B0%9C%ED%96%89+%EA%B3%84%ED%9A%8D";
+  const joP = v => Number.isFinite(v) ? (v/10000).toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:2})+"조원" : "자료 없음";   // 계획은 0.1조원 단위
+  const offerRange = p => !Number.isFinite(p.offer_min_100m) || !Number.isFinite(p.offer_max_100m) ? "자료 없음"
+    : p.offer_min_100m===p.offer_max_100m ? joP(p.offer_max_100m) : joP(p.offer_min_100m).replace("조원","")+"~"+joP(p.offer_max_100m);
+  function redemptionText(p) {           // 숫자 / 표는 있는데 못 읽음(원문으로) / 계획에 중도환매 표가 없음
+    return Number.isFinite(p.redemption_100m) ? joP(p.redemption_100m)
+      : p.redemption_unread===true ? sourceLink("원문 확인",p.source_url) : "계획에 없음";
+  }
+  function planRows(data) {
+    return (Array.isArray(data.msb_plans)?data.msb_plans:[]).filter(p=>p && typeof p.month==="string" && /^\d{4}-\d{2}$/.test(p.month))
+      .sort((a,b)=>a.month<b.month?-1:a.month>b.month?1:0);
+  }
   const MSB_KIND={discount:"할인율",yield:"수익률"};
   const MSB_ROWS=12;
   const jo2 = v => Number.isFinite(v) ? (v/10000).toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2})+"조원" : "자료 없음";   // 공고는 0.01조원 단위
@@ -167,9 +179,27 @@ window.KoreaMarket = (() => {
   function msbPanel() {
     const rows=(Array.isArray(data.msb)?data.msb:[]).filter(r=>r && typeof r.date==="string" && typeof r.tenor==="string");
     const months=(Array.isArray(data.msb_summary?.months)?data.msb_summary.months:[]).filter(m=>m && typeof m.month==="string");
-    const panel=node("article","panel",node("h3","","최근 통화안정증권 입찰 결과"));
+    const plans=planRows(data), plan=plans[plans.length-1], planOf=m=>plans.find(p=>p.month===m);
+    const panel=node("article","panel",node("h3","","통화안정증권 발행 계획·입찰 결과"));
     panel.dataset.msb="";
-    if(feedNote("msb")) panel.append(node("p","market-warning",feedNote("msb")));
+    if(feedNote("msb")) panel.append(node("p","market-warning",names.msb+": "+feedNote("msb")));
+    if(feedNote("msb_plans")) panel.append(node("p","market-warning",names.msb_plans+": "+feedNote("msb_plans")));
+    const keptPlans=new Set(plans.map(p=>p.id)), missedPlans=data.feeds?.msb_plans?.skipped;
+    const unreadPlans=Array.isArray(missedPlans) ? missedPlans.filter(s=>s && !keptPlans.has(s.id) && s.reason!=="not_tried") : [];
+    if(unreadPlans.length) panel.append(node("p","market-warning","통화안정증권 발행 계획 공고 "+unreadPlans.length+"건을 읽지 못했습니다. 원문은 한국은행 공개시장운영 공지에서 확인해 주세요."));
+    if(plan) {
+      panel.append(node("p","muted",monthLabel(plan.month)+" 발행 계획"+(typeof plan.published==="string" && /^\d{4}-\d{2}-\d{2}$/.test(plan.published) ? " · "+plan.published+" 공고" : "")));
+      panel.append(node("div","market-value",node("strong","",joP(plan.total_100m)),node("span","muted","발행 계획(모집 최대 기준)")));
+      panel.append(node("div","market-deltas",
+        node("div","",node("span","","경쟁입찰 계획"),node("strong","",joP(plan.competitive_100m))),
+        node("div","",node("span","","모집 계획"),node("strong","",offerRange(plan))),
+        node("div","",node("span","","중도환매 예정"),node("strong","",redemptionText(plan)))));
+      // 끝나지 않은 이번 달: 그달 계획이 있으면 낙찰액 합을 경쟁입찰 계획에 견준다(계산값)
+      const cur=months.find(m=>typeof m.through==="string"), cp=cur && planOf(cur.month);
+      if(cp && Number.isFinite(cur.awarded_100m) && cp.competitive_100m>0)
+        panel.append(node("p","reading-note",monthLabel(cur.month)+" 낙찰액 합 "+jo2(cur.awarded_100m)+" — 경쟁입찰 계획 "+joP(cp.competitive_100m)+"의 "
+          +pct1(Math.round(cur.awarded_100m/cp.competitive_100m*1000)/10)+" ("+cur.through.slice(5)+"까지, 계산값)"));
+    } else panel.append(node("p","market-warning","확인된 통화안정증권 발행 계획이 없습니다."));
     const kept=new Set(rows.map(r=>r.id)), missed=data.feeds?.msb?.skipped;
     const unread=Array.isArray(missed) ? missed.filter(s=>s && !kept.has(s.id) && s.reason!=="not_tried") : [];   // 전에 읽은 값이 남은 공고는 빼고
     if(unread.length) panel.append(node("p","market-warning","통화안정증권 결과 공고 "+unread.length+"건을 읽지 못했습니다. 원문은 한국은행 공개시장운영 공지에서 확인해 주세요."));
@@ -179,13 +209,18 @@ window.KoreaMarket = (() => {
         "최근 통화안정증권 경쟁입찰 결과"));
       const chart=msbChart(rows);
       if(chart) panel.append(chart);       // 차트 도구가 없거나 만기마다 두 번 미만이면 그래프만 빠진다
-      if(months.length) panel.append(table(["월","입찰(읽은 공고)","발행예정액 합","응찰액 합","낙찰액 합","응찰액이 예정액보다 적은 입찰"],months.map(m=>
-        [monthLabel(m.month)+(typeof m.through==="string" && /^\d{4}-\d{2}-\d{2}$/.test(m.through) ? " ("+m.through.slice(5)+"까지)" : ""),Number.isFinite(m.count)?m.count+"회":"—",jo2(m.offered_100m),jo2(m.bids_100m),jo2(m.awarded_100m),Number.isFinite(m.short)?m.short+"회":"—"]),
+      if(months.length) panel.append(table(["월","입찰(읽은 공고)","경쟁입찰 계획","발행예정액 합","응찰액 합","낙찰액 합","응찰액이 예정액보다 적은 입찰"],months.map(m=>
+        [monthLabel(m.month)+(typeof m.through==="string" && /^\d{4}-\d{2}-\d{2}$/.test(m.through) ? " ("+m.through.slice(5)+"까지)" : ""),Number.isFinite(m.count)?m.count+"회":"—",
+         planOf(m.month) ? joP(planOf(m.month).competitive_100m) : "—",jo2(m.offered_100m),jo2(m.bids_100m),jo2(m.awarded_100m),Number.isFinite(m.short)?m.short+"회":"—"]),
         "달마다 통화안정증권 경쟁입찰 합계"));
     } else panel.append(node("p","market-warning","확인된 통화안정증권 입찰 결과가 없습니다."));
+    if(plans.length) panel.append(table(["월","발행 계획(모집 최대)","경쟁입찰","모집","중도환매 예정","원문"],plans.slice().reverse().map(p=>
+      [monthLabel(p.month),joP(p.total_100m),joP(p.competitive_100m),offerRange(p),redemptionText(p),sourceLink("계획",p.source_url)]),
+      "달마다 통화안정증권 발행 계획"));
+    panel.append(node("p","reading-note","발행 계획은 한국은행이 전달 말에 공고하는 그달 정례입찰 계획(첨부 PDF)입니다. 총액은 모집 발행예정액 범위의 최대를 넣은 값이고, 입찰 전 영업일의 최종 입찰정보로 바뀔 수 있습니다. 중도환매는 만기 전의 통화안정증권을 한국은행이 되사는 것입니다."));
     panel.append(node("p","reading-note","통화안정증권은 한국은행이 시중 유동성을 조절하려고 발행하는 채권입니다. 1년 미만(91일물 등)은 할인채라 낙찰할인율, 1년 이상은 낙찰수익률을 적습니다 — 할인율은 같은 채권의 수익률보다 낮게 나오므로 두 숫자를 그대로 견주지 마세요. 응찰률은 응찰액÷발행예정액입니다(공고 금액이 0.01조원 단위로 반올림돼 있어 근사). 응찰액이 발행예정액보다 적으면 낙찰액도 예정액에 못 미칩니다."),
-      node("p","reading-note","이 사이트의 규칙 판정에 쓰지 않는 참고 자료입니다. 금액·금리는 결과 공고에서 옮긴 값이고, 응찰률·달마다 합계는 이 사이트의 계산값입니다. 합계는 이 사이트가 읽은 공고만 더하고, 읽은 기록이 그달 1일 앞부터 있는 달만 싣습니다. 이번 달은 아직 끝나지 않아 마지막으로 읽은 입찰일까지의 합입니다."),
-      node("p","market-source","자료: 한국은행 ",sourceLink("공개시장운영 공지(통화안정증권 경쟁입찰 실시 결과)",BOK_MSB)));
+      node("p","reading-note","이 사이트의 규칙 판정에 쓰지 않는 참고 자료입니다. 금액·금리는 결과 공고와 발행 계획에서 옮긴 값이고, 응찰률·달마다 합계·계획 대비 비율은 이 사이트의 계산값입니다. 합계는 이 사이트가 읽은 공고만 더하고, 읽은 기록이 그달 1일 앞부터 있는 달만 싣습니다. 이번 달은 아직 끝나지 않아 마지막으로 읽은 입찰일까지의 합입니다."),
+      node("p","market-source","자료: 한국은행 공개시장운영 공지 — ",sourceLink("통화안정증권 경쟁입찰 실시 결과",BOK_MSB)," · ",sourceLink("통화안정증권 발행 계획",BOK_MSB_PLANS)));
     return panel;
   }
   // 국고채 발행계획·매입(바이백)·교환 — 재정경제부 보도자료와 입찰 결과 공고의 숫자. 화면 글은 아래 고정 문구뿐이다(방향·평가 낱말 없음)

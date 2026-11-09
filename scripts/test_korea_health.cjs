@@ -8,7 +8,7 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../site/korea.js'),'utf8
 const {health,oldObservation}=scope.window.KoreaMarket;
 const now=Date.parse('2026-10-08T05:00:00Z'), expected=Date.parse('2026-10-07T22:17:00Z');
 function fixture(){return {
- data:{checked_at:'2026-10-08T01:00:00Z',feeds:Object.fromEntries(['credit','money','rates','foreign3','foreign10','calendar','auctions','offerings','ktb_plans','ktb_ops','msb'].map(k=>[k,{ok:true}]))},
+ data:{checked_at:'2026-10-08T01:00:00Z',feeds:Object.fromEntries(['credit','money','rates','foreign3','foreign10','calendar','auctions','offerings','ktb_plans','ktb_ops','msb','msb_plans'].map(k=>[k,{ok:true}]))},
  run:{schema:1,state:'success',ok:true,started_at:'2026-10-08T00:59:00Z',checked_at:'2026-10-08T01:01:00Z'}
 };}
 test('current completed run is healthy',()=>{const {data,run}=fixture();assert.equal(health(data,run,expected,now).warning,false);});
@@ -64,7 +64,7 @@ function issuance(){
  const plans=[plan('2030-04',150000,40000,26.7,['2030-03',170000]),plan('2030-05',140000,30000,21.4,['2030-04',151230])];
  plans[1].stated_plan_change_100m=-20000; plans[1].buyback_plan={amount_100m:22000,dates:['2030-05-15']};
  return {schema:1,checked_at:'2030-05-20T01:00:00Z',cards:[],notices:[],calendar:null,auctions:[],offerings:[],
-   feeds:Object.fromEntries(['credit','money','rates','foreign3','foreign10','calendar','auctions','offerings','ktb_plans','ktb_ops','msb'].map(k=>[k,{ok:true}])),
+   feeds:Object.fromEntries(['credit','money','rates','foreign3','foreign10','calendar','auctions','offerings','ktb_plans','ktb_ops','msb','msb_plans'].map(k=>[k,{ok:true}])),
    ktb_plans:plans,ktb_ops:[{id:'MOSF_9',kind:'buyback',date:'2030-05-15',offered_100m:22000,bids_100m:55000,bid_cover_pct:250,awarded_100m:22000,
      source_url:'https://mofe.go.kr/st/fnancstats/updateTbFnancstatsView.do?searchSn=MOSF_9'},
      {id:'MOSF_8',kind:'exchange',date:'2030-05-14',offered_100m:3000,bids_100m:7500,bid_cover_pct:250,awarded_100m:3000,source_url:'https://evil.invalid/x'}],
@@ -259,6 +259,12 @@ function msbData(){
  d.msb_summary={months:[{month:'2030-05',count:4,offered_100m:44000,bids_100m:49000,awarded_100m:34200,short:2,through:'2030-05-15'},
    {month:'2030-04',count:7,offered_100m:60000,bids_100m:90000,awarded_100m:58000,short:0,through:'<b>x</b>'}]};
  d.feeds.msb={ok:true,skipped:[]};
+ d.msb_plans=[{id:'801',month:'2030-05',published:'2030-04-25',total_100m:66000,competitive_100m:60000,offer_min_100m:5000,offer_max_100m:6000,
+   redemption_100m:13000,redemption_unread:false,source_url:'https://www.bok.or.kr/portal/bbs/P0001773/view.do?nttId=801&menuNo=200295'},
+   {id:'800',month:'2030-03',published:'2030-02-26',total_100m:65000,competitive_100m:60000,offer_min_100m:5000,offer_max_100m:5000,
+   redemption_100m:null,redemption_unread:true,source_url:'https://www.bok.or.kr/portal/bbs/P0001773/view.do?nttId=800&menuNo=200295'},
+   null,{month:'bad'}];
+ d.feeds.msb_plans={ok:true,skipped:[]};
  return d;
 }
 test('msb panel: table, per-tenor chart, month sums and source',()=>{
@@ -266,7 +272,7 @@ test('msb panel: table, per-tenor chart, month sums and source',()=>{
  const J=JSON.stringify;
  assert.equal(J(r.rows('최근 통화안정증권 경쟁입찰 결과')[0]),J(['2030-05-15','1년','0.70조원','0.52조원','74.3%','0.45조원','3.510% (수익률)','결과']));
  assert.equal(J(r.rows('최근 통화안정증권 경쟁입찰 결과')[1]),J(['2030-05-13','91일','0.60조원','0.23조원','38.3%','0.19조원','3.175% (할인율)','결과']));
- assert.equal(J(r.rows('달마다 통화안정증권 경쟁입찰 합계')),J([['2030년 5월 (05-15까지)','4회','4.40조원','4.90조원','3.42조원','2회'],['2030년 4월','7회','6.00조원','9.00조원','5.80조원','0회']]));   // 꼴이 다른 through는 붙이지 않는다
+ assert.equal(J(r.rows('달마다 통화안정증권 경쟁입찰 합계')),J([['2030년 5월 (05-15까지)','4회','6.0조원','4.40조원','4.90조원','3.42조원','2회'],['2030년 4월','7회','—','6.00조원','9.00조원','5.80조원','0회']]));   // 꼴이 다른 through는 붙이지 않는다 · 계획이 없는 달은 —
  const chart=r.charts.find(c=>c.key==='msb_rates');
  assert.equal(J(chart.lines.map(l=>[l.label,l.points])),J([['91일 할인율',[['2030-04-29',3.19],['2030-05-06',3.2],['2030-05-13',3.175]]]]));   // 두 번 미만인 만기는 뺀다
  assert.equal(r.chartOpts[r.charts.indexOf(chart)].format(3.2),'3.200%');
@@ -281,7 +287,7 @@ test('msb panel: unread notices, failed feed and empty data',()=>{
  let r=renderWith(d,{panel:'msb'});
  assert.equal(JSON.stringify(r.warnings().filter(w=>!w.includes('예정된 한국 자료 갱신'))),JSON.stringify(['통화안정증권 결과 공고 1건을 읽지 못했습니다. 원문은 한국은행 공개시장운영 공지에서 확인해 주세요.']));
  d=msbData();d.feeds.msb={ok:false,reason:'unreadable_notices'};r=renderWith(d,{panel:'msb'});
- assert.ok(r.warnings().includes('통화안정증권 결과 공고 형식 확인 실패 · 마지막 성공 자료'));
+ assert.ok(r.warnings().includes('통안증권 입찰 결과: 통화안정증권 결과 공고 형식 확인 실패 · 마지막 성공 자료'));
  d=msbData();delete d.msb;delete d.msb_summary;d.feeds.msb={ok:false,reason:'stale'};r=renderWith(d,{panel:'msb',noCharts:true});
  assert.ok(r.text.includes('확인된 통화안정증권 입찰 결과가 없습니다.'));assert.ok(r.text.includes('관측일 지연 · 마지막 성공 자료'));
  d=msbData();d.msb.push(null,{date:'x'},{tenor:'1년'});d.msb_summary={months:'x'};r=renderWith(d,{panel:'msb',chartThrows:true});
@@ -290,4 +296,27 @@ test('msb panel: unread notices, failed feed and empty data',()=>{
 test('health: a failed msb feed lights only that feed',()=>{
  const {data,run}=fixture();run.state='partial';run.ok=false;data.feeds.msb={ok:false,reason:'stale'};
  const r=health(data,run,expected,now);assert.equal(JSON.stringify([...r.failures]),'["msb"]');assert.equal(r.issue,'');
+});
+
+test('msb panel: latest plan, plan versus awarded, plan table',()=>{
+ const r=renderWith(msbData(),{panel:'msb'}), J=JSON.stringify;
+ for(const want of ['통화안정증권 발행 계획·입찰 결과','2030년 5월 발행 계획 · 2030-04-25 공고','6.6조원','발행 계획(모집 최대 기준)','경쟁입찰 계획6.0조원','모집 계획0.5~0.6조원','중도환매 예정1.3조원',
+   '2030년 5월 낙찰액 합 3.42조원 — 경쟁입찰 계획 6.0조원의 57.0% (05-15까지, 계산값)','중도환매는 만기 전의 통화안정증권을 한국은행이 되사는 것입니다.'])
+  assert.ok(r.text.includes(want),want);
+ assert.equal(J(r.rows('달마다 통화안정증권 발행 계획')),J([['2030년 5월','6.6조원','6.0조원','0.5~0.6조원','1.3조원','계획'],['2030년 3월','6.5조원','6.0조원','0.5조원','원문 확인','계획']]));
+ assert.ok(r.anchors.some(([t,h])=>t==='원문 확인' && h.endsWith('nttId=800&menuNo=200295')));
+ assert.ok(r.links.some(h=>h.includes('searchKwd=%ED%86%B5%ED%99%94%EC%95%88%EC%A0%95%EC%A6%9D%EA%B6%8C+%EB%B0%9C%ED%96%89+%EA%B3%84%ED%9A%8D')));
+ assert.ok(!/판정(?!에 쓰지)|신호|경보|충족|⚠|축소|확대|부진|호조|우려/.test(r.text));
+});
+test('msb panel: plan feed failure, unread plans, no plans, no redemption table',()=>{
+ let d=msbData();d.feeds.msb_plans={ok:false,reason:'unreadable_notices',skipped:[{id:'802',reason:'sum_mismatch'},{id:'801',reason:'network'},{id:'803',reason:'not_tried'}]};
+ let r=renderWith(d,{panel:'msb'});
+ assert.ok(r.warnings().includes('통안증권 발행계획: 통화안정증권 발행 계획 형식 확인 실패 · 마지막 성공 자료'),r.warnings().join('|'));
+ assert.ok(r.warnings().includes('통화안정증권 발행 계획 공고 1건을 읽지 못했습니다. 원문은 한국은행 공개시장운영 공지에서 확인해 주세요.'));
+ d=msbData();delete d.msb_plans;r=renderWith(d,{panel:'msb'});
+ assert.ok(r.text.includes('확인된 통화안정증권 발행 계획이 없습니다.'));assert.ok(!r.text.includes('낙찰액 합 3.42조원 —'));
+ d=msbData();d.msb_plans[0].redemption_100m=null;r=renderWith(d,{panel:'msb'});
+ assert.ok(r.text.includes('중도환매 예정계획에 없음'));
+ d=msbData();d.msb_plans[0].month='2030-06';d.msb_plans[0].competitive_100m=0;r=renderWith(d,{panel:'msb'});   // 이번 달 계획이 없으면 견주지 않는다
+ assert.ok(!r.text.includes('경쟁입찰 계획 6.0조원의'));
 });

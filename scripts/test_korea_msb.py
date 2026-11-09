@@ -363,5 +363,190 @@ class SiteTests(unittest.TestCase):
         self.assertNotIn("DC000", json.dumps(r, ensure_ascii=False))
 
 
+# ---------- 월간 발행 계획 ----------
+def plan_text(month="2030.5", total="6.6", comp="6.0", lo="0.5", hi="0.6", word="규모", redemption="new", extra=""):
+    """계획 PDF의 글 층(지어낸 숫자 — 꼴은 실제 계획과 같다: 첫 문장, 지표종목 표, 중도환매 총액 문장과 표가 글자 붙은 채로)."""
+    y, m = month.split(".")
+    rng = f"{lo}~{hi}" if hi else lo
+    head = (f"{y}년 {m}월중 통화안정증권 정례입찰 계획 공고(안)□한국은행은 {y}년 {m}월중 {total}조원* {word}(경쟁입찰 {comp}조원, "
+            f"모집 {rng}조원)의 통화안정증권을 발행할 계획  * 모집 발행예정액(범위) 중 최대규모 기준\n"
+            f"경쟁입찰[10:00~10:10]91일{m}. 4(월){m}. 5(화) 0.5 {m}.11(월)2){m}.12(화)2) 0.51년{m}. 6(수){m}. 7(목) 0.5\n"
+            "만기종목명지표종목지정일1)통합발행기간1년통안00000-3105-012030. 5. 63개월2031년 1월\n")
+    tables = {
+        "new": (f"□{y}년 {m}월중 중도환매 총 예정액은 1.3조원으로 중도환매Ⅰ과 중도환매Ⅱ를 각각 1.0조원, 0.3조원 규모로 실시할 예정"
+                f"{y}년 {m}월중 통화안정증권 중도환매 계획구 분1)입찰일결제일대상종목환매예정액(조원)중도환매Ⅰ[10:20~10:30]{m}.5(화){m}. 7(목)"
+                "통안00001-3001-01통안00002-3002-021.0\n중도환매Ⅱ[10:20~10:30]{m}.19(화){m}.21(목) 통안00003-3003-012)통안00004-3004-030.3주:1)[  ] 안은 입찰시간"
+                "※발행계획은 공개시장운영 여건 및 채권시장 상황 등에 따라 변경될 수 있으므로"),
+        "old": (f"{y}년 {m}월중 통화안정증권 중도환매 계획입찰일결제일입찰시간대상종목환매예정액(조원){m}.7(금){m}.11(화)10:00~10:10"
+                f"통안00001-3001-01통안00002-3002-030.4{m}.18(화){m}.20(목)10:00~10:10통안00003-3003-01통안00004-3004-022.3  ※ 발행계획은"),
+        "none": "※ 발행계획은 공개시장운영 여건 및 채권시장 상황 등에 따라 수정될 수 있으므로",
+    }
+    return head + tables[redemption] + extra
+
+
+def plan_item(ident, title, date="2030.04.25", bbs="P0001773"):
+    return (f'<li class="bbsRowCls"><span class="dataInfo"><span class="depart"><span class="sr-only">담당부서</span>시장운영팀</span>'
+            f'<span class="date"><span class="sr-only">등록일</span>{date}</span></span>'
+            f'<div class="set"><a href="/portal/bbs/{bbs}/view.do?nttId={ident}&amp;searchCnd=2&amp;menuNo=200295" class="title">'
+            f'<!-- x -->\n {html.escape(title)}\n</a></div></li>')
+
+
+def plan_listing(rows):
+    body = "".join(plan_item(*r) for r in rows)
+    return ("<ul>" + body + "</ul><ul>" + body + "</ul>").encode()
+
+
+def plan_view(paths=("/fileSrc/portal/ab12/2/cd34.pdf",)):
+    links = "".join(f'<li><a href="{p}" title="x.pdf">x.pdf</a><a href="{p}" class="file">다운로드</a></li>' for p in paths)
+    return (f'<h2 class="subject">2030년 5월중 통화안정증권 발행 계획</h2><div class="down-set"><ul>{links}</ul></div>'
+            '<div class="dbdata"><p>* 자세한 내용은 첨부파일을 참고하시기 바랍니다.</p></div>').encode()
+
+
+class PlanParseTests(unittest.TestCase):
+    def parse(self, text, ym="2030-05", today=TODAY):
+        return km.parse_plan_text(text, "77", ym, "2030-04-25", today)
+
+    def test_new_format(self):
+        r = self.parse(plan_text())
+        self.assertEqual(r, {"id": "77", "month": "2030-05", "published": "2030-04-25", "total_100m": 66000, "competitive_100m": 60000,
+                             "offer_min_100m": 5000, "offer_max_100m": 6000, "redemption_100m": 13000, "redemption_unread": False,
+                             "source_url": km.view_url("77")})
+
+    def test_old_row_format_with_glued_dates(self):
+        """옛 꼴: 총액 문장이 없고 표의 줄마다 마지막 종목 번호 뒤에 금액, 그 뒤에 다음 줄 날짜가 붙는다('…-030.45.18(화)')."""
+        r = self.parse(plan_text(redemption="old", word="수준"))
+        self.assertEqual((r["redemption_100m"], r["redemption_unread"]), (27000, False))
+
+    def test_no_redemption_table(self):
+        self.assertEqual(self.parse(plan_text(redemption="none"))["redemption_100m"], None)
+        self.assertFalse(self.parse(plan_text(redemption="none"))["redemption_unread"])
+        only = plan_text(redemption="none", extra="□2030년 5월중 중도환매 총 예정액은 0.8조원으로 실시할 예정")
+        self.assertEqual(self.parse(only)["redemption_100m"], 8000)
+
+    def test_redemption_unread_keeps_the_plan(self):
+        r = self.parse(plan_text().replace("총 예정액은 1.3조원", "총 예정액은 1.4조원"))     # 표의 합 1.3과 다르다
+        self.assertEqual((r["competitive_100m"], r["redemption_100m"], r["redemption_unread"]), (60000, None, True))
+        r = self.parse(plan_text(redemption="none", extra="2030년 5월중 통화안정증권 중도환매 계획입찰일결제일"))   # 표 제목만
+        self.assertEqual((r["redemption_100m"], r["redemption_unread"]), (None, True))
+
+    def test_single_offer_amount(self):
+        r = self.parse(plan_text(total="6.5", hi=None))
+        self.assertEqual((r["offer_min_100m"], r["offer_max_100m"]), (5000, 5000))
+
+    def fails(self, code, text, ym="2030-05", today=TODAY):
+        with self.assertRaises(ValueError) as e: self.parse(text, ym, today)
+        self.assertEqual(k.skip_reason(e.exception), code, str(e.exception))
+
+    def test_rejects(self):
+        self.fails("month_mismatch", plan_text(), ym="2030-06")
+        self.fails("sum_mismatch", plan_text(total="7.0"))                      # 6.0 + 0.6 = 6.6
+        self.fails("field_changed", plan_text().replace("경쟁입찰 6.0조원", "경쟁 6.0조원"))
+        self.fails("field_changed", plan_text() + plan_text(total="6.7", comp="6.1"))   # 첫 문장이 둘이고 다르다
+        self.fails("out_of_range", plan_text(lo="0.7", hi="0.6", total="6.6"))
+        self.fails("future", plan_text(month="2030.8"), ym="2030-08")
+        self.assertEqual(self.parse(plan_text() + plan_text())["total_100m"], 66000)  # 같은 문장이 두 번(보도 쪽 붙임)이면 받는다
+        self.assertEqual(self.parse(plan_text(month="2030.6"), ym="2030-06")["month"], "2030-06")   # 다음 달 계획은 받는다
+
+    def test_plan_pdf_layer_goes_through_the_shared_reader(self):
+        with self.assertRaises(ValueError) as e: km.parse_plan(b"<html>not a pdf</html>", "77", "2030-05", None, TODAY)
+        self.assertEqual(k.skip_reason(e.exception), "pdf_shape")
+
+
+class PlanListTests(unittest.TestCase):
+    def test_links_dates_and_filters(self):
+        raw = plan_listing([("905", "2030년 6월중 통화안정증권 발행 계획", "2030.05.28"),
+                            ("904", "[보도참고자료] 2030년 6월 통화안정증권 발행 계획", "2030.05.28", "B0000502"),
+                            ("903", "2030년 5월 통화안정증권 발행 계획", "2030.04.25"),           # '중' 없는 꼴
+                            ("902", "2030년 5월중 통화안정증권 발행 계획", "2030.04.24"),         # 같은 달 — 목록에서 먼저 나온 것만
+                            ("901", "2030년 13월중 통화안정증권 발행 계획"),
+                            ("900", "2030년 4월중 통화안정증권 발행 계획", "날짜 없음")])
+        self.assertEqual(km.plan_links(raw), [("905", ("2030-06", "2030-05-28")), ("903", ("2030-05", "2030-04-25")),
+                                              ("900", ("2030-04", None))])
+        with self.assertRaises(ValueError): km.plan_links(plan_listing([("1", "2030년 5월중 RP매각 계획")]))
+
+    def test_pdf_url(self):
+        self.assertEqual(km.plan_pdf_url(plan_view()), "https://www.bok.or.kr/fileSrc/portal/ab12/2/cd34.pdf")
+        for bad in ((), ("/fileSrc/portal/ab12/2/cd34.pdf", "/fileSrc/portal/ab12/3/ef56.pdf"), ("/fileSrc/portal/ab12/1/cd34.hwp",)):
+            with self.assertRaises(ValueError) as e: km.plan_pdf_url(plan_view(bad))
+            self.assertEqual(k.skip_reason(e.exception), "pdf_link")
+        self.assertIn("pageUnit=60", km.plan_list_url())
+
+    def test_read_order_and_merge(self):
+        prow = lambda i, m: {"id": i, "month": m, "competitive_100m": 1}
+        links = [("9", ("2030-06", None)), ("8", ("2030-05", None)), ("7", ("2030-04", None)), ("6", ("2030-03", None))]
+        self.assertEqual(km.plans_to_read(links, [prow("8", "2030-05")]), [links[0], links[2], links[3], links[1]])
+        full = [prow(str(100 + i), f"{2029 + (i + 3) // 12}-{(i + 3) % 12 + 1:02d}") for i in range(km.MAX_PLANS)]   # 2029-04 ~ 2030-04
+        self.assertEqual(km.plans_to_read([("50", ("2029-03", None)), ("51", ("2030-05", None))], full), [("51", ("2030-05", None))])
+        merged = km.merge_plans([prow("12", "2030-05"), prow("11", "2030-05")], [prow("10", "2030-05"), prow("3", "2030-04"), "junk"])
+        self.assertEqual([(r["id"], r["month"]) for r in merged], [("3", "2030-04"), ("12", "2030-05")])
+        self.assertEqual(len(km.merge_plans(full + [prow("999", "2030-05")], [])), km.MAX_PLANS)
+        self.assertEqual(km.merge_plans(full + [prow("999", "2030-05")], [])[0]["month"], "2029-05")
+
+
+def plan_board(texts=None, rows=None, view_error=None):
+    rows = rows or [("905", "2030년 5월중 통화안정증권 발행 계획", "2030.04.25"), ("904", "2030년 4월중 통화안정증권 발행 계획", "2030.03.27")]
+    texts = texts or {"905": plan_text(), "904": plan_text(month="2030.4")}
+    msb = board()
+    def fetch(url, *args):
+        if url == km.plan_list_url(): return plan_listing(rows)
+        if url.startswith(km.VIEW) and re.search(r"nttId=(\d+)", url)[1] in texts:
+            if view_error: raise view_error
+            return plan_view((f"/fileSrc/portal/ab{re.search(r'nttId=(\d+)', url)[1]}/2/cd.pdf",))
+        if url.startswith(km.BOK + "/fileSrc/"):
+            return texts[re.search(r"/ab(\d+)/", url)[1]].encode()
+        return msb(url, *args)
+    return fetch
+
+
+class PlanBuildTests(unittest.TestCase):
+    def build(self, fetch, old=None, now=dt.datetime(2030, 5, 20, 3, tzinfo=k.UTC)):
+        with patch("builtins.print") as out, patch.object(km.ki, "pdf_text", lambda raw, max_pages=12: raw.decode()):
+            r = k.build(old or {}, now, fetch)
+        return r, "\n".join(str(c.args[0]) for c in out.call_args_list)
+
+    def test_feed(self):
+        r, _ = self.build(plan_board())
+        f = r["feeds"]["msb_plans"]
+        self.assertEqual((f["ok"], f["skipped"]), (True, []))
+        self.assertEqual([(p["month"], p["competitive_100m"], p["published"]) for p in r["msb_plans"]],
+                         [("2030-04", 60000, "2030-03-27"), ("2030-05", 60000, "2030-04-25")])
+        self.assertTrue(r["feeds"]["msb"]["ok"])                         # 결과 묶음과 따로
+        self.assertIn("msb_plans", status.FEEDS)
+
+    def test_one_bad_plan_keeps_the_other(self):
+        texts = {"905": plan_text(total="9.9"), "904": plan_text(month="2030.4")}
+        r, log = self.build(plan_board(texts=texts), now=dt.datetime(2030, 5, 5, 3, tzinfo=k.UTC))
+        f = r["feeds"]["msb_plans"]
+        self.assertEqual((f["ok"], f["skipped"]), (True, [{"id": "905", "reason": "sum_mismatch"}]))
+        self.assertEqual([p["month"] for p in r["msb_plans"]], ["2030-04"])
+        self.assertIn("msb_plans skip 905: sum_mismatch", log)
+        r, _ = self.build(plan_board(texts=texts))                        # 5월 20일에 5월 계획이 없다 — 묶음 실패, 전에 받은 자료(없음) 그대로
+        self.assertEqual((r["feeds"]["msb_plans"]["ok"], r["feeds"]["msb_plans"]["reason"], r["msb_plans"]), (False, "stale", []))
+
+    def test_freshness_window(self):
+        r, _ = self.build(plan_board(rows=[("904", "2030년 4월중 통화안정증권 발행 계획", "2030.03.27")]),
+                          now=dt.datetime(2030, 5, 7, 3, tzinfo=k.UTC))
+        self.assertTrue(r["feeds"]["msb_plans"]["ok"])                   # 7일까지는 지난달 계획까지
+        with self.assertRaises(k.FeedError) as e:
+            k.validate_freshness("msb_plans", [{"month": "2030-04"}], None, dt.date(2030, 5, 8))
+        self.assertEqual(str(e.exception), "stale")
+        with self.assertRaises(k.FeedError) as e:
+            k.validate_freshness("msb_plans", [{"month": "2030-05"}], [{"month": "2030-06"}], TODAY)
+        self.assertEqual(str(e.exception), "regressed")
+
+    def test_previous_plan_kept_on_transient_error(self):
+        first, _ = self.build(plan_board())
+        old = {"schema": 1, "feeds": {"msb_plans": first["feeds"]["msb_plans"]}}
+        r, _ = self.build(plan_board(view_error=urllib.error.URLError("down")), old)
+        self.assertTrue(r["feeds"]["msb_plans"]["ok"])
+        self.assertEqual(r["msb_plans"], first["msb_plans"])
+        self.assertEqual(r["feeds"]["msb_plans"]["skipped"], [{"id": "905", "reason": "network"}])
+
+    def test_site_constant(self):
+        js = (SITE / "korea.js").read_text(encoding="utf-8")
+        self.assertIn('const BOK_MSB_PLANS="' + km.PLAN_PAGE + '";', js)
+        self.assertIn('msb_plans:"통안증권 발행계획"', js)
+
+
 if __name__ == "__main__":
     unittest.main()
