@@ -1,0 +1,57 @@
+# 임시 점검(2026-11-09): 한국은행 '통화안정증권 발행 계획' 첨부 PDF의 글 층을 읽어 형식을 확인한다.
+# 첨부 서버(file-cdn.bok.or.kr)가 작업 샌드박스에서는 접속이 끊겨 Actions에서 한 번 돌린다. 확인 뒤 이 파일을 지우고 실행 기록도 지운다.
+name: msb-plan-probe
+on:
+  push:
+    branches: [claude/bold-bohr-n1dxfd]
+    paths: [".github/workflows/msb-plan-probe.yml"]
+permissions: {}
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --quiet pypdf==6.10.2
+      - name: 발행 계획 PDF 글 층
+        run: |
+          python - <<'PY'
+          import io, re, html, time, urllib.parse, urllib.request
+          from pypdf import PdfReader
+          BOK = "https://www.bok.or.kr"
+          def get(url):
+              time.sleep(1)
+              with urllib.request.urlopen(url, timeout=30) as r: return r.read()
+          seen = []
+          for page in (1, 2):
+              q = urllib.parse.urlencode({"pageIndex": page, "targetDepth": 4, "menuNo": "200295", "syncMenuChekKey": 1,
+                                          "searchCnd": 2, "searchKwd": "통화안정증권 발행 계획", "pageUnit": 60})
+              t = get(BOK + "/portal/singl/newsData/listCont.do?" + q).decode()
+              for href, title in re.findall(r'<a href="([^"]+)"[^>]*class="title">(.*?)</a>', t, flags=re.S):
+                  href = html.unescape(href)
+                  title = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", re.sub(r"<!--.*?-->", "", title, flags=re.S))).split())
+                  m = re.match(r"/portal/bbs/(P0001773|B0000502)/view\.do\?nttId=(\d+)", href)
+                  if m and (m[1], m[2]) not in [(a, b) for a, b, _ in seen] and "발행 계획" in title:
+                      seen.append((m[1], m[2], title))
+          print("NOTICES", len(seen))
+          for bbs, ident, title in seen: print("  ", bbs, ident, title)
+          picked = [s for s in seen if s[0] == "P0001773"][:14] + [s for s in seen if s[0] == "B0000502"][:3]
+          picked += [s for s in seen if s[0] == "P0001773"][14:][::4]
+          for bbs, ident, title in picked:
+              menu = "200295" if bbs == "P0001773" else "200690"
+              v = get(f"{BOK}/portal/bbs/{bbs}/view.do?nttId={ident}&menuNo={menu}").decode()
+              pdfs = sorted(set(re.findall(r'href="(/fileSrc/portal/[0-9a-f]+/\d+/[0-9a-f]+\.pdf)"', v)))
+              print(f"\n===== {bbs} {ident} {title} pdfs={len(pdfs)}")
+              for p in pdfs:
+                  try:
+                      raw = get(BOK + p)
+                      pdf = PdfReader(io.BytesIO(raw))
+                      print(f"--- bytes={len(raw)} pages={len(pdf.pages)} encrypted={pdf.is_encrypted}")
+                      for i, pg in enumerate(pdf.pages[:3]):
+                          print(f"--- page {i+1}")
+                          print(pg.extract_text())
+                  except Exception as e:
+                      print("ERROR", type(e).__name__, str(e)[:200])
+          PY
