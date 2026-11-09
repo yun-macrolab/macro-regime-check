@@ -256,7 +256,8 @@ function msbData(){
  d.msb=[r('905','2030-05-15','1년','yield',3.51,7000,5200,4500),r('904','2030-05-13','91일','discount',3.175,6000,2300,1900),
    r('903','2030-05-08','2년','yield',3.86,25000,32500,21800),r('902','2030-05-06','91일','discount',3.2,6000,9000,6000),
    Object.assign(r('901','2030-04-29','91일','discount',3.19,6000,9500,6000),{source_url:'https://evil.invalid/x'})];
- d.msb_summary={months:[{month:'2030-05',count:4,offered_100m:44000,bids_100m:49000,awarded_100m:34200,short:2}]};
+ d.msb_summary={months:[{month:'2030-05',count:4,offered_100m:44000,bids_100m:49000,awarded_100m:34200,short:2,through:'2030-05-15'},
+   {month:'2030-04',count:7,offered_100m:60000,bids_100m:90000,awarded_100m:58000,short:0,through:'<b>x</b>'}]};
  d.feeds.msb={ok:true,skipped:[]};
  return d;
 }
@@ -265,7 +266,7 @@ test('msb panel: table, per-tenor chart, month sums and source',()=>{
  const J=JSON.stringify;
  assert.equal(J(r.rows('최근 통화안정증권 경쟁입찰 결과')[0]),J(['2030-05-15','1년','0.70조원','0.52조원','74.3%','0.45조원','3.510% (수익률)','결과']));
  assert.equal(J(r.rows('최근 통화안정증권 경쟁입찰 결과')[1]),J(['2030-05-13','91일','0.60조원','0.23조원','38.3%','0.19조원','3.175% (할인율)','결과']));
- assert.equal(J(r.rows('달마다 통화안정증권 경쟁입찰 합계')),J([['2030년 5월','4회','4.40조원','4.90조원','3.42조원','2회']]));
+ assert.equal(J(r.rows('달마다 통화안정증권 경쟁입찰 합계')),J([['2030년 5월 (05-15까지)','4회','4.40조원','4.90조원','3.42조원','2회'],['2030년 4월','7회','6.00조원','9.00조원','5.80조원','0회']]));   // 꼴이 다른 through는 붙이지 않는다
  const chart=r.charts.find(c=>c.key==='msb_rates');
  assert.equal(J(chart.lines.map(l=>[l.label,l.points])),J([['91일 할인율',[['2030-04-29',3.19],['2030-05-06',3.2],['2030-05-13',3.175]]]]));   // 두 번 미만인 만기는 뺀다
  assert.equal(r.chartOpts[r.charts.indexOf(chart)].format(3.2),'3.200%');

@@ -83,6 +83,25 @@ class ParseTests(unittest.TestCase):
         r = km.parse_result(view(lines, extra_body=f"<p>{split}</p>"), "123", "2030-05-13", TODAY)
         self.assertEqual(r["rate_pct"], 2.25)
 
+    def test_nested_divs_inside_the_body(self):
+        """편집기가 본문에 넣는 '<div><br></div>'가 어디에 있든, 줄마다 <div>로 감싸도 본문 칸 끝까지 읽는다."""
+        want = self.parse(body())
+        lines = body()
+        mid = lines.index("2. 입찰결과")
+        paras = lambda xs: "".join(f"<p><span>{html.escape(x)}</span></p>" for x in xs)
+        spacer = (f'<h2 class="subject">{lines[0]}</h2><div class="dbdata">{paras(lines[:mid])}<div><br></div>'
+                  f'{paras(lines[mid:])}</div></div></form>').encode()
+        self.assertEqual(km.parse_result(spacer, "123", "2030-05-13", TODAY), want)
+        per_line = (f'<h2 class="subject">{lines[0]}</h2><div class="dbdata">'
+                    + "".join(f"<div>{html.escape(x) or '<br>'}</div>" for x in lines) + "</div>").encode()
+        self.assertEqual(km.parse_result(per_line, "123", "2030-05-13", TODAY), want)
+        script = view(body(), extra_body="<script>var x = '낙찰액(낙찰기관수) : 9.99조원(1개사)';</script>")
+        self.assertEqual(km.parse_result(script, "123", "2030-05-13", TODAY), want)     # 스크립트 글은 본문이 아니다
+        unclosed = view(body()).replace(b"</div></div></body>", b"<div>")
+        self.assertEqual(km.parse_result(unclosed, "123", "2030-05-13", TODAY), want)
+        with self.assertRaises(ValueError):                                              # 본문이 일찍 닫히면 칸이 모자라 버린다
+            km.parse_result(view(body()).replace(b"2. ", b"</div>2. ", 1), "123", "2030-05-13", TODAY)
+
     def test_entities_and_nbsp(self):
         lines = [x.replace(" : ", "&nbsp;:&nbsp;") for x in body()]
         paras = "".join(f"<p><span>{x}</span></p>" for x in lines)
@@ -96,8 +115,9 @@ class ParseTests(unittest.TestCase):
     def test_date_checks(self):
         self.fails("date_mismatch", date="2030-05-14")                                  # 목록의 입찰일과 다름
         self.fails("date_mismatch", body(date="2030.5.13(화)"))                          # 요일이 맞지 않음
-        self.fails("date_mismatch", subject=R("2030.5.14(화)"))                          # 제목과 본문 첫 줄이 다름
-        self.fails("date_mismatch", body()[1:])                                          # 본문 첫 줄에 날짜 없음
+        self.fails("date_mismatch", subject=R("2030.5.14(화)"))                          # 목록과 제목이 다름
+        self.fails("date_mismatch", body(date="2030.5.14(화)"), subject=R("2030.5.13(월)"))   # 목록·제목과 본문 첫 줄이 다름
+        self.fails("date_mismatch", body()[1:], subject=R("2030.5.13(월)"))              # 본문 첫 줄에 날짜 없음
         with self.assertRaises(ValueError) as e:
             km.parse_result(view(body(date="2030.5.27(월)")), "1", "2030-05-27", TODAY)
         self.assertEqual(k.skip_reason(e.exception), "future")
@@ -162,12 +182,26 @@ class ListTests(unittest.TestCase):
 
     def test_read_order(self):
         links = [(str(i), "2030-05-01") for i in range(40, 0, -1)]
-        seen = {str(i) for i in range(40, 30, -1)}
-        got = km.to_read(links, seen)
+        prev = [row(str(i), "2030-05-01") for i in range(40, 30, -1)]
+        got = km.to_read(links, prev)
         self.assertEqual(got[:km.READ_NEW], [(str(i), "2030-05-01") for i in range(30, 30 - km.READ_NEW, -1)])
         self.assertEqual(got[km.READ_NEW:], [("40", "2030-05-01"), ("39", "2030-05-01")])
-        self.assertEqual(km.to_read(links[:3], {"40", "39", "38"}), [("40", "2030-05-01"), ("39", "2030-05-01")])
+        self.assertEqual(km.to_read(links[:3], prev[:3]), [("40", "2030-05-01"), ("39", "2030-05-01")])
+        self.assertEqual(km.to_read(links[:2], ["junk", {"id": 5}]), links[:2])         # 깨진 저장 행은 없는 것으로
 
+    def test_replaced_originals_are_not_read_again(self):
+        prev = km.merge([row("12", "2030-05-08"), row("10", "2030-05-08")], [])           # 12가 10의 정정 공고
+        self.assertEqual(prev[0]["replaces"], ["10"])
+        links = [("12", "2030-05-08"), ("11", "2030-05-07"), ("10", "2030-05-08")]
+        self.assertEqual(km.to_read(links, prev), [("11", "2030-05-07"), ("12", "2030-05-08")])
+        again = km.merge([row("12", "2030-05-08")], prev)                                 # 정정 공고를 다시 읽어도 적어 둔 번호는 남는다
+        self.assertEqual(again[0]["replaces"], ["10"])
+
+    def test_nothing_older_than_a_full_store_is_read(self):
+        prev = [row(str(1000 + i), (dt.date(2030, 1, 1) + dt.timedelta(days=i)).isoformat()) for i in range(km.MAX_ROWS)]
+        links = [("2000", "2030-05-01"), ("999", "2029-12-31"), ("998", "2030-01-01")]
+        self.assertEqual(km.to_read(links, prev)[:2], [("2000", "2030-05-01"), ("998", "2030-01-01")])
+        self.assertIn(("999", "2029-12-31"), km.to_read(links, prev[:-1]))                # 다 차지 않았으면 읽는다
 
 def row(ident, date, tenor="91일", offered=5000, bids=8000, awarded=5000):
     return {"id": ident, "date": date, "tenor": tenor, "offered_100m": offered, "bids_100m": bids, "bidders": 10,
@@ -183,6 +217,8 @@ class MergeSummaryTests(unittest.TestCase):
         self.assertEqual([(r["id"], r["date"], r["tenor"]) for r in out],
                          [("10", "2030-05-13", "91일"), ("12", "2030-05-08", "91일"), ("11", "2030-05-08", "1년")])
         self.assertEqual(out[0]["awarded_100m"], 5000)
+        self.assertEqual((out[1].get("replaces"), "replaces" in out[0]), (["8"], False))
+        self.assertEqual(km.merge([dict(row("5", "2030-05-08"), replaces=["x", 7, "4"])], [])[0]["replaces"], ["4"])
         many = [row(str(1000 + i), (dt.date(2030, 1, 1) + dt.timedelta(days=i)).isoformat()) for i in range(130)]
         self.assertEqual(len(km.merge(many, [])), km.MAX_ROWS)
         self.assertEqual(km.merge(many, [])[0]["id"], "1129")
@@ -192,12 +228,27 @@ class MergeSummaryTests(unittest.TestCase):
                 row("2", "2030-04-08"), row("1", "2030-03-30")]
         s = km.summary(rows, TODAY)
         self.assertEqual(s["months"], [
-            {"month": "2030-05", "count": 2, "offered_100m": 10000, "bids_100m": 12000, "awarded_100m": 8500, "short": 1},
+            {"month": "2030-05", "count": 2, "offered_100m": 10000, "bids_100m": 12000, "awarded_100m": 8500, "short": 1,
+             "through": "2030-05-13"},
             {"month": "2030-04", "count": 2, "offered_100m": 12000, "bids_100m": 16000, "awarded_100m": 10000, "short": 0}])
         self.assertEqual(km.summary(rows[:2], TODAY), {"months": []})                     # 5월 1일 앞 기록이 없다
         self.assertEqual(km.summary([], TODAY), {"months": []})
         broken = rows + [dict(row("9", "2030-05-14"), offered_100m=1.5)]
         self.assertEqual(km.summary(broken, TODAY), s)                                    # 꼴이 다른 행은 세지 않는다
+
+    def test_no_rows_for_months_after_the_last_auction(self):
+        rows = [row("3", "2030-04-29"), row("2", "2030-04-08"), row("1", "2030-03-30")]
+        s = km.summary(rows, dt.date(2030, 5, 1))                                        # 5월 첫 입찰 전 — '0회' 줄을 싣지 않는다
+        self.assertEqual([m["month"] for m in s["months"]], ["2030-04"])
+        self.assertNotIn("through", s["months"][0])                                       # 끝난 달
+        s = km.summary(rows, dt.date(2030, 6, 20))                                       # 수집이 멈춘 채 달이 바뀜
+        self.assertEqual([m["month"] for m in s["months"]], ["2030-04"])
+
+    def test_current_month_carries_through(self):
+        rows = [row("5", "2030-05-13"), row("4", "2030-05-06"), row("3", "2030-04-29"), row("2", "2030-03-30")]
+        s = km.summary(rows, TODAY)
+        self.assertEqual(s["months"][0]["through"], "2030-05-13")
+        self.assertEqual([("through" in m) for m in s["months"]], [True, False])
 
     def test_months_cross_the_year(self):
         rows = [row("3", "2031-01-05"), row("2", "2030-12-10"), row("1", "2030-10-30")]

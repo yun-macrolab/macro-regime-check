@@ -476,7 +476,7 @@ def build(old, now, fetch=None):
         """공고마다 따로 읽는다 — 한 건의 양식이 달라도 나머지는 갱신한다(발행공고 2026-10-14, 입찰 결과 2026-10-26).
         못 읽은 공고는 고정 사유 코드로 남기고, 같은 공고를 전에 읽었으면 그 값을 둔다. 한 건도 새로 못 읽으면
         이 묶음만 실패(이전 자료 유지). links = [(공고 번호, 읽을 때 넘길 값)], read(번호, 값) → 행.
-        retain_transient(발행계획·매입/교환만): 평소엔 가장 새 공고 하나만 다시 읽으므로, 못 읽은 공고가 모두 전에 읽은
+        retain_transient(발행계획·매입/교환·통화안정증권): 평소엔 이미 읽은 가장 새 공고만(통화안정증권은 둘) 다시 읽으므로, 못 읽은 공고가 모두 전에 읽은
         것이고 사유가 모두 일시 오류(접속·시간 초과·408·429·5xx)면 실패로 두지 않고 전에 읽은 값으로 둔다(사유 코드·경고는 남음)."""
         prev = {r["id"]: r for r in (previous.get(name, {}).get("data") or []) if isinstance(r, dict) and isinstance(r.get("id"), str)}
         got, skipped = [], skips[name]
@@ -544,8 +544,7 @@ def build(old, now, fetch=None):
     # 한국은행 통화안정증권 경쟁입찰 결과 — 맨 뒤에(앞 묶음이 시간을 다 쓴 날엔 이 묶음만 timeout, 전에 읽은 값 유지)
     def msb_feed():
         prev = previous.get("msb", {}).get("data") or []
-        seen = {r.get("id") for r in prev if isinstance(r, dict) and isinstance(r.get("id"), str)}
-        links = km.to_read(km.result_links(fetch(km.list_url())), seen)
+        links = km.to_read(km.result_links(fetch(km.list_url())), prev)
         got = notices("msb", links, lambda ident, date: km.parse_result(fetch(km.view_url(ident)), ident, date, today),
                       retain_transient=True)
         return km.merge(got, prev)

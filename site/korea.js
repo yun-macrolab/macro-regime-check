@@ -180,11 +180,11 @@ window.KoreaMarket = (() => {
       const chart=msbChart(rows);
       if(chart) panel.append(chart);       // 차트 도구가 없거나 만기마다 두 번 미만이면 그래프만 빠진다
       if(months.length) panel.append(table(["월","입찰(읽은 공고)","발행예정액 합","응찰액 합","낙찰액 합","응찰액이 예정액보다 적은 입찰"],months.map(m=>
-        [monthLabel(m.month),Number.isFinite(m.count)?m.count+"회":"—",jo2(m.offered_100m),jo2(m.bids_100m),jo2(m.awarded_100m),Number.isFinite(m.short)?m.short+"회":"—"]),
+        [monthLabel(m.month)+(typeof m.through==="string" && /^\d{4}-\d{2}-\d{2}$/.test(m.through) ? " ("+m.through.slice(5)+"까지)" : ""),Number.isFinite(m.count)?m.count+"회":"—",jo2(m.offered_100m),jo2(m.bids_100m),jo2(m.awarded_100m),Number.isFinite(m.short)?m.short+"회":"—"]),
         "달마다 통화안정증권 경쟁입찰 합계"));
     } else panel.append(node("p","market-warning","확인된 통화안정증권 입찰 결과가 없습니다."));
     panel.append(node("p","reading-note","통화안정증권은 한국은행이 시중 유동성을 조절하려고 발행하는 채권입니다. 1년 미만(91일물 등)은 할인채라 낙찰할인율, 1년 이상은 낙찰수익률을 적습니다 — 할인율은 같은 채권의 수익률보다 낮게 나오므로 두 숫자를 그대로 견주지 마세요. 응찰률은 응찰액÷발행예정액입니다(공고 금액이 0.01조원 단위로 반올림돼 있어 근사). 응찰액이 발행예정액보다 적으면 낙찰액도 예정액에 못 미칩니다."),
-      node("p","reading-note","이 사이트의 규칙 판정에 쓰지 않는 참고 자료입니다. 금액·금리는 결과 공고에서 옮긴 값이고, 응찰률·달마다 합계는 이 사이트의 계산값입니다. 합계는 이 사이트가 읽은 공고만 더하고, 읽은 기록이 그달 1일 앞부터 있는 달만 싣습니다."),
+      node("p","reading-note","이 사이트의 규칙 판정에 쓰지 않는 참고 자료입니다. 금액·금리는 결과 공고에서 옮긴 값이고, 응찰률·달마다 합계는 이 사이트의 계산값입니다. 합계는 이 사이트가 읽은 공고만 더하고, 읽은 기록이 그달 1일 앞부터 있는 달만 싣습니다. 이번 달은 아직 끝나지 않아 마지막으로 읽은 입찰일까지의 합입니다."),
       node("p","market-source","자료: 한국은행 ",sourceLink("공개시장운영 공지(통화안정증권 경쟁입찰 실시 결과)",BOK_MSB)));
     return panel;
   }
