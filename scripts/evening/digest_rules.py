@@ -119,6 +119,7 @@ TH = {
     "copy_run": 20, "copy_gram": 3, "copy_ratio": 0.6, "copy_stems": 5, "copy_piece": 10, "copy_cover": 0.5,
     "num_ctx_chars": 12, "picks_bytes_max": 20_000,
     # 규칙판 실행을 시작하기(--dispatch): 판 날짜가 평일이고 KST 자정에서 dispatch_from_min분(17:30) 뒤부터, 그 판이 아직 안 올라왔을 때만.
+    # 같은 때의 규칙(digest_base.in_evening)으로 Actions의 예약 수집도 판의 저녁 밖이면 건너뛴다
     # 기다리기: dispatch_poll_s초마다 보고 dispatch_wait_s초까지
     "dispatch_from_min": 1050, "dispatch_poll_s": 30, "dispatch_wait_s": 720,
 }

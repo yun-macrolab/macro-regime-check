@@ -36,10 +36,10 @@ def post(ch, pid, when, text, links=(), fwd=None, card=None):
             "via": "search" if F.ROLE[ch] == "wire" else "page"}
 
 
-def run(*posts, events=()):
+def run(*posts, hidden=()):
     """글들을 묶고 계약대로인지 본 뒤 돌려준다."""
     doc = {**F.posts_doc(), "posts": sorted(posts, key=lambda p: (p["at"], p["ch"], p["id"]))}
-    return S.validate_clusters_doc(DC.cluster_posts(S.validate_posts_doc(doc), F.collect_status(), events))
+    return S.validate_clusters_doc(DC.cluster_posts(S.validate_posts_doc(doc), F.collect_status(), hidden))
 
 
 def where(out):
@@ -280,17 +280,6 @@ class KeyTest(unittest.TestCase):
                   post("fxbond2", 4, "08 11:30", "금통위 의사록의 소수의견 부분만 따로 떼어 다시 본다."))
         self.assertEqual(len(out["clusters"]), 1)
 
-    def test_event_key_is_off_unless_events_are_given(self):
-        ps = (post("fxbond1", 1, "07 22:00", "FOMC를 앞두고 미 PPI 숫자를 어떻게 볼지 적어 둔다."),         # 대표 낱말은 FOMC
-              post("fxanal1", 2, "08 08:00", "미 PPI가 나왔다. 품목별로는 아직 살펴보지 못했다."),
-              post("fxpers1", 3, "08 08:10", "미 PPI 얘기가 많아 나도 한 줄 적어 둔다."),                   # 개인 채널
-              post("fxbond2", 4, "07 19:00", "미 PPI 발표를 기다리며 지난달 숫자를 복기한다."))             # 일정 전
-        self.assertEqual(len(run(*ps)["clusters"]), 4)                              # 일정 없이는 대표 낱말·시간이 달라 따로다
-        event = {"date": "2026-10-07", "time": "21:30", "term": "미 PPI", "tier": "B", "detail": [], "src": "calendar"}
-        out = run(*ps, events=[event])
-        self.assertTrue(same(out, ("fxbond1", 1), ("fxanal1", 2)))
-        self.assertEqual(len(out["clusters"]), 3)
-        self.assertIn(S.key_of("k", "e|미 PPI|2026-10-07"), of(out, ("fxbond1", 1))["keys"])
 
 
 class AttachTest(unittest.TestCase):
@@ -484,15 +473,12 @@ class FixtureTest(unittest.TestCase):
             DC.cluster_posts(bad, self.status)
         self.assertEqual(F.leaks(str(e.exception)), [])
 
-    def test_events_from_fixtures_keep_the_same_groups(self):
+    def test_events_from_fixtures(self):
         events = DC.events_of(F.calendar(), F.korea())
         self.assertEqual([(e["date"], e["time"], e["term"], e["tier"], e["detail"], e["src"]) for e in events], [
             ("2026-10-07", "21:30", "미 CPI", "A", [], "calendar"), ("2026-10-08", None, "국고채 입찰", "A", ["10년", "2.8조원"], "korea"),
             ("2026-10-09", "21:30", "미 PPI", "B", [], "calendar"), ("2026-10-12", None, "국고채 입찰", "B", ["3년", "2.4조원"], "korea"),
             ("2026-10-15", None, "금통위", "A", [], "calendar")])
-        out = S.validate_clusters_doc(DC.cluster_posts(self.posts, self.status, events))
-        self.assertEqual([[(m["ch"], m["id"]) for m in c["members"]] for c in out["clusters"]],
-                         [[(m["ch"], m["id"]) for m in c["members"]] for c in self.out["clusters"]])
 
 
 class EventsTest(unittest.TestCase):
@@ -559,18 +545,26 @@ class CliTest(unittest.TestCase):
                              DC.cluster_posts(F.posts_doc(), F.collect_status()))
             self.assertEqual(sorted(os.listdir(tmp)), ["clusters.json", "collect_status.json", "posts.json"])
 
-    def test_event_keys_are_switched_on_by_the_two_options(self):
+    def test_hidden_channels_are_left_out_before_clustering(self):
+        # 2026-11-10 점검 ep-05: 숨긴 채널(digest_overrides의 hide_channels)은 링크만 빠지고 곳 수 · 점수 · '채권 채널 N곳'에는
+        # 그대로 세어졌다 — 이제 묶기 전에 그 채널의 글을 뺀다
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as data:
             self.write(tmp)
-            S.write_json(os.path.join(data, "calendar.json"), F.calendar())
-            S.write_json(os.path.join(data, "korea.json"), F.korea())
-            flags = ["--calendar", os.path.join(data, "calendar.json"), "--korea", os.path.join(data, "korea.json")]
-            self.assertEqual(self.call(["--work", tmp, *flags]), (0, "[digest_cluster] posts=41 kept=36 dropped=5 clusters=18 joined=5\n", ""))
-            keys = {k for c in S.read_json(os.path.join(tmp, "clusters.json"))["clusters"] for k in c["keys"]}
-            self.assertLessEqual({S.key_of("k", "e|미 CPI|2026-10-07"), S.key_of("k", "e|국고채 입찰|2026-10-08")}, keys)
-            self.call(["--work", tmp])                                               # 옵션 없이는 일정 열쇠가 없다
-            keys = {k for c in S.read_json(os.path.join(tmp, "clusters.json"))["clusters"] for k in c["keys"]}
-            self.assertNotIn(S.key_of("k", "e|미 CPI|2026-10-07"), keys)
+            path = os.path.join(data, "digest_overrides.json")
+            hidden = ["fxbond1", "fxbond2"]
+            S.write_json(path, F.overrides(hide_channels=hidden))
+            code, out, err = self.call(["--work", tmp, "--overrides", path])
+            self.assertEqual((code, err), (0, ""))
+            got = S.validate_clusters_doc(S.read_json(os.path.join(tmp, "clusters.json")))
+            self.assertEqual(got, DC.cluster_posts(F.posts_doc(), F.collect_status(), hidden))
+            members = {m["ch"] for c in got["clusters"] for m in c["members"]}
+            self.assertTrue(members and not members & set(hidden))
+            n_hidden = sum(p["ch"] in hidden for p in F.posts_doc()["posts"])
+            self.assertGreater(n_hidden, 0)
+            self.assertEqual(got["stats"]["posts"], 41 - n_hidden)                  # 글 수에도 들지 않는다
+            os.remove(path)                                                          # 파일이 없으면 숨김 없음
+            self.assertEqual(self.call(["--work", tmp, "--overrides", path])[1],
+                             "[digest_cluster] posts=41 kept=36 dropped=5 clusters=18 joined=5\n")
 
     def test_failure_prints_only_the_kind_of_error(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -98,6 +98,12 @@ class TriggerTest(WorkflowCase):
         self.assertNotIn(WATCH_CRON, self.jobs["collect"])
         self.assertNotIn(COLLECT_CRON, self.jobs["watch"])
 
+    def test_collect_tells_the_pipeline_which_event_started_it(self):
+        # 예약 실행은 판의 저녁(평일 17:30 ~ 이튿날 06:00 KST) 밖이면 수집하지 않는다(evening_run.py --event — 2026-11-10 점검 ep-03).
+        # 이벤트 이름은 Actions가 넣어 주는 환경 변수로 넘긴다(run 안에 표현식을 쓰지 않는다)
+        (block,) = [b for b in run_blocks(self.jobs["collect"]) if "evening_run.py pipeline" in b]
+        self.assertIn('--event "$GITHUB_EVENT_NAME"', block)
+
     def test_manual_run_has_a_takedown_switch(self):
         block = self.text.split("  workflow_dispatch:\n", 1)[1].split("\npermissions:", 1)[0]
         self.assertRegex(block, r"inputs:\n\s+takedown:\n(?:\s+.+\n)*?\s+type: boolean\n\s+default: false")

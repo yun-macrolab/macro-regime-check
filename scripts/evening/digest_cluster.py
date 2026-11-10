@@ -6,6 +6,8 @@
 (test_digest_cluster.py가 강제). LLM은 쓰지 않는다 — 열쇠가 같은 글을 합집합 찾기로 묶을 뿐이다.
 
 순서
+  0) 숨긴 채널(--overrides의 digest_overrides.json hide_channels)의 글은 아무것도 하기 전에 뺀다 — 묶음을 잇지도, 곳 수 · 점수 ·
+     까닭('채권 채널 N곳')에 세지도, 글 수(stats.posts)에 들지도 않는다. 수집 건강 숫자(collect_status)에는 그대로 남는다.
   1) 먼저 버린다(R.drop_code): 본문도 링크도 없음 · 20자 미만에 링크도 없음 · 광고·모집 · 코인·종목 공시(A·B급 낱말이 없을 때).
      주소뿐인 글(본문이 빈다)은 링크가 있으면 두어 주소·카드 열쇠로 묶일 수 있게 한다.
      한 채널의 글 footer_link_min개 이상에 똑같이 붙은 링크는 꼬리말로 보고 링크로도 열쇠로도 세지 않는다.
@@ -39,10 +41,8 @@
   더 자세히  글마다 길이 구간(size — 글자 수는 남기지 않는다) · 그림이 붙었는가(pic) · 첫 두 줄의 낱말(head)을 남긴다.
            글의 낱말(terms)은 member_terms_max개까지 — 조립 단계가 '함께 나온 낱말'과 '이 글에만 더 있는 낱말'을 여기서 센다.
   열쇠     묶음의 keys = 두 글 이상이 함께 가진 f·u·t·k + 씨앗 글과 맞은 n + (지문으로 닮은 쌍이 있거나 다른 열쇠가 없으면) g 하나.
-  일정 열쇠  events를 줄 때만(기본은 꺼 둔다 — 계약의 CLI와 열쇠 종류에 없다): 채권·애널 원천 글의 첫머리에 그 일정의 낱말이 있고
-           일정 뒤 num_key_hours 안(시각이 없는 일정은 그날)에 올린 글끼리. 열쇠 종류는 k이고 재료 앞에 "e|"를 붙인다.
 
-사용법: python scripts/evening/digest_cluster.py [--work .work/evening] [--calendar data/calendar.json --korea data/korea.json]
+사용법: python scripts/evening/digest_cluster.py [--work .work/evening] [--overrides data/digest_overrides.json]
 """
 import argparse
 import collections
@@ -57,12 +57,13 @@ import digest_schema as S
 
 TH = S.TH
 AB = ("A", "B")
-KEY_GROUPS = ("bond", "analyst")        # 주제 열쇠·일정 열쇠를 만드는 그룹
+KEY_GROUPS = ("bond", "analyst")        # 주제 열쇠를 만드는 그룹
 AUCTION_A = ("10년", "30년")            # 국고채 입찰 일정의 등급: 10·30년 A, 그 밖 B (digest_score.py 머리말의 E)
 AUCTION_TERM = "국고채 입찰"
 SHARED_MIN = TH["k_result_min_ch"]      # '두 곳 이상이 똑같이 쓴'의 둘 — 숫자 칸과 그 결과 낱말에 쓴다
 MAX_WORDS, MAX_KEYS = 12, 60            # 글·묶음에 싣는 낱말·숫자 수, 묶음의 열쇠 수 — 계약(digest_schema)의 형태 상한과 같다
 MAX_TERMS = TH["member_terms_max"]      # 글 하나의 낱말 수(글 전체에서 걸린 것, 자리순)
+EMPTY_OVERRIDES = {"schema": S.SCHEMA, "withdraw": False, "hide_ids": [], "hide_channels": []}
 
 _TG_HOSTS = ("t.me", "telegram.me")
 _TG_POST = re.compile(r"^/(?:s/)?([A-Za-z][A-Za-z0-9_]{3,31})/(\d{1,10})$")
@@ -232,17 +233,6 @@ def shingles(text):
     return frozenset(grams) if len(grams) >= TH["min_chars"] else frozenset()
 
 
-def _event_keys(m, at, events):
-    """일정 열쇠 — 첫머리에 그 일정의 낱말이 있고 일정 뒤 num_key_hours 안(시각이 없는 일정은 그날)에 올린 글."""
-    out = set()
-    for e in events:
-        start = S.parse_iso(f"{e['date']}T{e['time'] or '00:00'}:00+09:00")
-        span = datetime.timedelta(hours=TH["num_key_hours"]) if e["time"] else datetime.timedelta(days=1)
-        if e["term"] in m["lead"] and start <= at < start + span:
-            out.add(S.key_of("k", f"e|{e['term']}|{e['date']}"))
-    return out
-
-
 def _phase(m):
     """1 원천 채널이 직접 쓴 글 · 2 원천 채널의 전달 글 · 3 주제 한정 · 4 속보형 · 0 참고(늘 혼자)."""
     if m["role"] == "source":
@@ -250,7 +240,7 @@ def _phase(m):
     return {"topic": 3, "wire": 4}.get(m["role"], 0)
 
 
-def _item(post, group, role, footers, events):
+def _item(post, group, role, footers):
     """묶는 동안 쓰는 글 하나 — 닫힌 값(m)과 열쇠·지문·숫자 짝. 원문은 담지 않는다."""
     found = scan(post["text"])
     pairs = num_pairs(post["text"], found)
@@ -259,7 +249,7 @@ def _item(post, group, role, footers, events):
     keyed = phase == 1 and group in KEY_GROUPS
     topic = {S.key_of("k", f"{top}|{R.TERMS[top]['region']}")} if keyed and top and R.grade_of(top) in AB else set()
     return {"m": m, "at": at, "phase": phase, "keys": post_keys(post, footers), "origin": fwd_origin(post), "topic": topic,
-            "event": _event_keys(m, at, events) if keyed else set(), "sh": shingles(post["text"]), "pairs": pairs}
+            "sh": shingles(post["text"]), "pairs": pairs}
 
 
 # ---------- 묶기 ----------
@@ -320,7 +310,7 @@ def _by_keys(items, base, groups):
     topic_key_hours 안일 때만 잇는다."""
     strong, topic = collections.defaultdict(list), collections.defaultdict(list)
     for i in base:
-        for k in items[i]["keys"] | items[i]["event"]:
+        for k in items[i]["keys"]:
             strong[k].append(i)
         for k in items[i]["topic"]:
             topic[k].append(i)
@@ -478,7 +468,7 @@ def _cluster(idx, items, sim):
     its = [items[i] for i in idx]
     seed = S.seed_of([it["m"] for it in its])
     origin = next(it for it in its if (it["m"]["ch"], it["m"]["id"]) == (seed["ch"], seed["id"]))
-    count = collections.Counter(k for it in its for k in it["keys"] | it["topic"] | it["event"])
+    count = collections.Counter(k for it in its for k in it["keys"] | it["topic"])
     keys = {k for k, n in count.items() if n > 1} | ({_num_key(origin, it) for it in its} - {None})
     if not keys or any((a, b) in sim for a in idx for b in idx if a < b):
         keys.add(S.key_of("g", f"{seed['ch']}/{seed['id']}"))
@@ -486,13 +476,14 @@ def _cluster(idx, items, sim):
     return {**draft, "nums": _shared_nums(its) if draft["terms"] else []}
 
 
-def cluster_posts(doc, status, events=()):
+def cluster_posts(doc, status, hidden=()):
     """posts.json의 자료 + collect_status.json의 자료 → clusters.json의 자료. 입력은 고치지 않는다.
-    events(events_of의 꼴)를 주면 일정 열쇠도 쓴다. 수집 상태에 없는 채널의 글이 있으면 ValueError."""
+    hidden(숨긴 채널 이름들)의 글은 처음부터 뺀다 — 묶지도 세지도 않는다. 수집 상태에 없는 채널의 글이 있으면 ValueError."""
     roles = {c["ch"]: (c["group"], c["role"]) for c in status["channels"]}
-    posts = sorted(doc["posts"], key=lambda p: (p["at"], p["ch"], p["id"]))
-    if any(p["ch"] not in roles for p in posts):
+    if any(p["ch"] not in roles for p in doc["posts"]):
         raise ValueError("수집 상태에 없는 채널의 글이 있음")
+    hidden = set(hidden)
+    posts = sorted((p for p in doc["posts"] if p["ch"] not in hidden), key=lambda p: (p["at"], p["ch"], p["id"]))
     footers, dropped, kept = footer_links(posts), dict.fromkeys(R.DROP_CODES, 0), []
     for p in posts:
         code = R.drop_code(p["text"], len(_links(p) - footers[p["ch"]]))
@@ -500,7 +491,7 @@ def cluster_posts(doc, status, events=()):
             dropped[code] += 1
         else:
             kept.append(p)
-    items = [_item(p, *roles[p["ch"]], footers[p["ch"]], events) for p in kept]
+    items = [_item(p, *roles[p["ch"]], footers[p["ch"]]) for p in kept]
     groups, sim = link_posts(items)
     by = collections.defaultdict(list)
     for i in range(len(items)):
@@ -510,7 +501,7 @@ def cluster_posts(doc, status, events=()):
             "stats": {"posts": len(posts), "kept": len(kept), "dropped": dropped}, "clusters": clusters}
 
 
-# ---------- 일정 (묶기의 일정 열쇠와 점수의 E · '내일 볼 것'이 같이 쓴다) ----------
+# ---------- 일정 (점수의 E · '내일 볼 것'이 쓴다) ----------
 
 def _amount(offered_100m):
     """발행 예정액(억 원) → "2.4조원" 꼴. 읽을 수 없으면 None."""
@@ -583,16 +574,15 @@ def events_of(calendar, korea):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="저녁판 묶기 — posts.json의 글을 같은 일끼리 묶어 clusters.json을 쓴다(원문을 읽는 마지막 단계)")
     ap.add_argument("--work", default=S.WORK, help="작업 폴더 (기본: .work/evening)")
-    ap.add_argument("--calendar", help="일정 열쇠를 켤 때만: calendar.json")
-    ap.add_argument("--korea", help="일정 열쇠를 켤 때만: korea.json(국고채 입찰 일정)")
+    ap.add_argument("--overrides", default=None,
+                    help="숨김 파일(data/digest_overrides.json — 없으면 숨김 없음). hide_channels의 글은 묶기 전에 뺀다")
     a = ap.parse_args(argv)
     doc = S.validate_posts_doc(S.read_json(os.path.join(a.work, "posts.json")))
     status = S.validate_collect_status(S.read_json(os.path.join(a.work, "collect_status.json")))
     if (doc["edition"], doc["window"]) != (status["edition"], status["window"]):
         raise ValueError("posts.json과 collect_status.json의 판이 다름")
-    calendar = S.validate_calendar(S.read_json(a.calendar)) if a.calendar else None
-    events = events_of(calendar, S.read_json(a.korea, None) if a.korea else None)
-    out = S.validate_clusters_doc(cluster_posts(doc, status, events))
+    hold = S.validate_overrides(S.read_json(a.overrides, EMPTY_OVERRIDES)) if a.overrides else EMPTY_OVERRIDES
+    out = S.validate_clusters_doc(cluster_posts(doc, status, hold["hide_channels"]))
     S.write_json(os.path.join(a.work, "clusters.json"), out)
     st = out["stats"]
     S.report("digest_cluster", posts=st["posts"], kept=st["kept"], dropped=sum(st["dropped"].values()), clusters=len(out["clusters"]),

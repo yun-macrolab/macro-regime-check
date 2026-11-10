@@ -15,7 +15,8 @@
   link     허용되지 않은 주소(url) · 원천이 아닌 채널의 링크(role) · --raw: 수집되지 않은 글(unseen) · 그 글에 없는 덧낱말,
            그 글과 다른 길이 구간·그림 표시(mismatch)                                                    → 그 링크만 뺀다
   row      속보형·개인 단독 줄과 참고 줄의 같은 문제 · 닫히지 않은 글자(open) · --raw: 그 글에 없는 낱말·숫자(mismatch) → 그 줄만 뺀다
-  item     항목 안의 닫히지 않은 글자(open, --raw로 원문과 8자 이상 겹치면 leak) · 링크가 남지 않은 항목(empty)   → 그 항목만 뺀다
+  item     항목 안의 닫히지 않은 글자(open, --raw로 원문과 8자 이상 겹치면 leak) · 링크가 남지 않은 항목(empty) ·
+           센 채널 수(coverage의 합)가 묶인 글 수(span.posts)보다 많은 항목(count — 숨긴 채널이 세어진 것)      → 그 항목만 뺀다
   rate     금리가 0~20 밖 · 자료일이나 방향 칸이 수집 창과 맞지 않음(rate)                                 → 그 금리 칸을 비운다
   edition  형식(shape) · 크기(size) · 다시 쓴 바이트와 다름(canon) · 못 읽음(json) · 없는 파일(missing) · 계약에 없는 파일(stray) ·
            파일끼리 어긋남(cross) · 수집 판정이 숫자와 다름(coverage) · 0건 연속 셈이 다름(streak) · 뺀 뒤에도 남는 위반   → 판 중단(직전 판 유지)
@@ -33,8 +34,8 @@ AI 요약 층(digest_picks.json — PC가 data/에 올리는 파일, 2026-10-09)
 다시 쓴 바이트를 본다(걸리면 shape · json · canon). 아티팩트로 올라가는 폴더(--strict)에 있으면 계약에 없는 파일이다(stray).
 --strict: 폴더에 저녁판 파일(PUBLIC_FILES와 digest/<날짜>.json) 말고 아무것도 없어야 한다 — 이름이 digest로 시작하지 않는 파일 · 다른
 하위 폴더 · 숨김 파일도 stray. 아티팩트로 올라가는 폴더(수집 잡의 <out>, 게시 잡이 받은 것)를 볼 때 쓴다. data/를 볼 때는 쓰지 않는다.
-사용법: python scripts/evening/digest_check.py --public <폴더> [--raw .work/evening] [--sources data/sources.json] [--strict] [--alert]
-종료코드: 0 통과 / 1 위반 / (--alert일 때만) 2 위반은 없지만 실행을 실패로 끝낼 상태(수집 부족 · 0건 연속 · 형식 바뀜 · 실행 실패)
+사용법: python scripts/evening/digest_check.py --public <폴더> [--raw .work/evening] [--sources data/sources.json] [--strict]
+종료코드: 0 통과 / 1 위반 (실행을 실패로 끝낼 상태 — 수집 부족 · 0건 연속 · 형식 바뀜 · 실행 실패 — 는 조립의 종료코드로 정한다)
 """
 import argparse
 import json
@@ -57,7 +58,6 @@ SERIES = {"kr10": "kr", "kr3": "kr", "us10": "us"}
 SOURCE = tuple((g, "source") for g in R.GROUPS)                    # 항목의 링크로 나갈 수 있는 채널
 SIDES = {"wire": tuple((g, "wire") for g in R.GROUPS), "solo": (("personal", "source"),)}
 CONTEXT = tuple((g, "context") for g in R.GROUPS)
-ALERT_REASONS = ("short", "empty_streak", "broken", "error")       # 판은 맞아도 실행을 실패로 끝낼 사유
 CHAN_KEYS = ("ch", "ok", "code", "posts", "with_text", "in_window", "fail_streak")
 COUNT_KEYS = ("channels_ok", "channels_total", "bond_ok", "bond_total", "posts", "with_text")
 DAY_FILE = re.compile(r"^\d{4}-\d{2}-\d{2}\.json$", re.ASCII)
@@ -145,7 +145,9 @@ def _ctx(sources, file):
 
 
 def _keep_item(x, where, ctx):
-    """항목 하나 → (남길 항목 또는 None, 위반들). 못 쓰는 링크만 빼고, 링크가 남지 않거나 닫히지 않은 글자가 있으면 항목을 뺀다."""
+    """항목 하나 → (남길 항목 또는 None, 위반들). 못 쓰는 링크만 빼고, 링크가 남지 않거나 닫히지 않은 글자가 있으면 항목을 뺀다.
+    곳 수(coverage — 그룹별 채널 수 + 속보형 채널 수)의 합이 묶인 글 수(span.posts)보다 많아도 뺀다 — 한 채널은 글 하나 이상으로
+    세어지므로, 많다면 판에 없는 글(숨긴 채널의 글)이 세어진 것이다(span이 없는 옛 판은 보지 않는다)."""
     found, links = [], []
     for i, ln in enumerate(x["links"]):
         code = _url_code(ln, ctx["roles"], SOURCE)
@@ -157,6 +159,9 @@ def _keep_item(x, where, ctx):
     bad = [_f(ctx["file"], where + p[1:], "open", "item") for p in S.closed_violations(new, ctx["handles"])]
     if not links:
         bad.append(_f(ctx["file"], where, "empty", "item"))
+    span = x.get("span")
+    if isinstance(span, dict) and sum(x["coverage"].values()) > span["posts"]:
+        bad.append(_f(ctx["file"], where + ".coverage", "count", "item"))
     return (None if bad else new), found + bad
 
 
@@ -539,7 +544,6 @@ def main(argv=None):
     ap.add_argument("--raw", default=None, help="원문 폴더(.work/evening) — 주면 링크의 글이 수집됐는지, 낱말·숫자가 글에 있는지도 본다")
     ap.add_argument("--sources", default=os.path.join(S.DATA, "sources.json"), help="출처 목록 (기본: 저장소의 data/sources.json)")
     ap.add_argument("--strict", action="store_true", help="폴더에 저녁판 파일 말고 아무것도 없어야 한다(아티팩트로 올라가는 폴더)")
-    ap.add_argument("--alert", action="store_true", help="위반이 없어도 상태가 실패(수집 부족 · 0건 연속 · 형식 바뀜 · 실행 실패)면 종료코드 2")
     a = ap.parse_args(argv)
     sources = S.validate_sources(S.read_json(a.sources))
     found, facts = check_folder(os.path.abspath(a.public), sources, os.path.abspath(a.raw) if a.raw else None, a.strict)
@@ -547,9 +551,7 @@ def main(argv=None):
     for f in found[:MAX_LINES]:
         print(f"[digest_check] 위반 file={f['file']} code={f['code']} scope={f['scope']} at={_safe(f['at'], handles)}")
     S.report("digest_check", **{k: v for k, v in facts.items() if v is not None}, violations=len(found))
-    if found:
-        return 1
-    return 2 if a.alert and facts["reason"] in ALERT_REASONS else 0
+    return 1 if found else 0
 
 
 if __name__ == "__main__":

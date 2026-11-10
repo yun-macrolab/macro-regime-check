@@ -13,6 +13,8 @@
 #             채널을 읽지도, 판을 올리지도, 실패 메일을 보내지도 않는다.
 #             꺼 둔 동안에도 수동 실행(게시·아티팩트 없는 시험 수집)과 내리기는 된다.
 #   collect   17:41 예약(켜 둔 때만)과 수동 실행에서. 읽기 권한뿐이고 Secret이 없다 — 채널 글을 읽는 잡은 저장소에 쓰지 못한다.
+#             예약 실행이 판의 저녁(평일 17:30 ~ 이튿날 06:00 KST) 밖에 시작하면 읽지 않고 끝낸다(evening_run.py --event —
+#             몇 시간 늦은 예약 실행이 이튿날 아침이나 토요일에 새 날짜의 판을 내지 않게. PC의 규칙판 실행 시작과 같은 규칙).
 #             원문은 러너의 .work/evening/에만 있고 러너와 함께 사라진다(actions/cache 없음, 아티팩트에도 없음).
 #             아티팩트로 넘기는 것은 검사를 통과한 저녁판 파일뿐이고(폴더 통째가 아니다), 게시할 때만 올린다 — 하루 뒤 지워진다.
 #             단계가 실패한 날은 판 없이 '실행 실패' 상태만 넘긴다.
@@ -23,8 +25,9 @@
 #             빈 판조차 못 만드는 날(저녁 코드가 깨진 날)에는 저녁판 파일을 지운다 — 화면은 '판 없음'을 보여 준다.
 #             내리기는 지금 올라가 있는 것을 내릴 뿐이다. 다음 예약 실행이 다시 올리지 않게 하려면 EVENING_ENABLED를 true가 아닌 값으로
 #             바꾼다(또는 지운다). main이 아닌 가지에서 누르면 아무것도 내리지 못하므로 실행을 실패로 끝낸다.
-#   watch     22:41 예약에서만. 수집하지 않는다(텔레그램 요청 0회). main의 data/digest_status.json이 오늘 판인지, 공개 페이지의 것과
-#             같은지만 본다. main에는 있는데 페이지가 옛것이면 배포만 다시 하고, main에도 없으면 실행을 실패로 끝낸다.
+#   watch     22:41 예약에서만. 수집하지 않는다(텔레그램 요청 0회). main의 data/digest_status.json이 나왔어야 할 판(22:41이 지난
+#             마지막 평일의 판 — 화면의 규칙. 감시가 이튿날 아침에 늦게 돌아도 전날 판)인지, 공개 페이지의 것과 같은지만 본다.
+#             main에는 있는데 페이지가 옛것이면 배포만 다시 하고, main에도 없으면 실행을 실패로 끝낸다.
 #   deploy    data/·site/만 Pages로(daily.yml의 deploy와 같은 조립). 봇의 push는 다른 워크플로를 깨우지 않으므로 여기서 직접 배포한다.
 #   alert     수집 부족 · 꼭 볼 것 0건 연속 · 미리보기 형식 바뀜 · 채널 바뀜 · 단계 실패인 날은 게시·배포를 마친 뒤 실행을 실패로 끝내
 #             GitHub 알림 메일을 받는다.
@@ -124,13 +127,14 @@ jobs:
         with:
           python-version: "3.13"
       # 수집(채널당 미리보기 1쪽, 3초 간격, 30요청·6분 상한) → 묶기 → 점수 → 조립 → 검사(원문과 대조).
-      # 로그에는 개수·날짜·코드만 남는다. 공개 JSON은 _evening/에, 원문은 .work/evening/에만 생긴다
+      # 로그에는 개수·날짜·코드만 남는다. 공개 JSON은 _evening/에, 원문은 .work/evening/에만 생긴다.
+      # 이벤트 이름(Actions가 넣어 주는 GITHUB_EVENT_NAME)이 schedule이고 판의 저녁 밖이면 아무것도 읽지 않고 publish=false로 끝난다
       - name: 수집·묶기·점수·조립·검사
         id: run
         timeout-minutes: 15
         run: >-
           python scripts/evening/evening_run.py pipeline
-          --work .work/evening --out _evening --data data --github-output "$GITHUB_OUTPUT"
+          --work .work/evening --out _evening --data data --github-output "$GITHUB_OUTPUT" --event "$GITHUB_EVENT_NAME"
       # 게시할 때만 올린다(공개 저장소의 아티팩트는 로그인한 누구나 받는다) — 저녁판 파일 이름만 골라서, 하루만 둔다
       - name: 공개 JSON만 아티팩트로
         if: steps.run.outputs.publish == 'true' && vars.EVENING_ENABLED == 'true' && github.ref == 'refs/heads/main'

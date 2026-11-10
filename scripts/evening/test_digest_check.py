@@ -245,6 +245,21 @@ class ScopeTest(FolderCase):
         self.assertEqual([g["cell"] for g in pruned["rest"]], [g["cell"] for g in good["rest"][1:]])      # 빈 칸 묶음은 남기지 않는다
         self.assertEqual(C.check_edition(pruned, self.src), [])
 
+    def test_item_goes_when_it_counts_more_channels_than_it_shows_posts(self):
+        # 2026-11-10 점검 ep-05: 곳 수(그룹별 채널 수 + 속보형)의 합이 묶인 글 수(span.posts)보다 많으면 판에 없는 글이 세어진 것이다
+        good = fx("digest")
+        x = good["must"][0]
+        self.assertLessEqual(sum(x["coverage"].values()), x["span"]["posts"])
+        many = edit(good, ["must", 0, "span", "posts"], sum(x["coverage"].values()) - 1)
+        self.assertEqual(codes(C.check_edition(many, self.src)), [("count", "item")])
+        pruned, _ = C.prune(many, self.src)
+        self.assertEqual([y["id"] for y in pruned["must"]], [y["id"] for y in good["must"][1:]])
+        self.assertEqual(C.check_edition(pruned, self.src), [])
+        same = edit(good, ["must", 0, "span", "posts"], sum(x["coverage"].values()))      # 같으면 괜찮다(채널마다 글 하나)
+        self.assertEqual(C.check_edition(same, self.src), [])
+        old = edit(good, ["must", 0], {k: v for k, v in x.items() if k != "span"})        # span이 없는 옛 판은 보지 않는다
+        self.assertEqual(C.check_edition(old, self.src), [])
+
     def test_rows_go_one_by_one(self):
         good = fx("digest")
         d = edit(good, ["wire", "rows", 1, "v"], "약 0.4%p")
@@ -359,7 +374,6 @@ class HealthTest(FolderCase):
         good = short_set()
         self.assertEqual(self.check(**good)[0], [])
         self.assertEqual(self.cli()[0], 0)
-        self.assertEqual(self.cli("--alert")[0], 2)                         # 판은 맞지만 실행은 실패로 끝내야 한다
         hidden = {**good, "digest_status": {**good["digest_status"], "ok": True, "reason": "ok"}}
         self.assertEqual(codes(self.check(**hidden)[0]), [("coverage", "edition")])
         full = short_set(must=fx("digest")["must"][:1])                       # 수집 부족인데 꼭 볼 것을 실었다
@@ -395,13 +409,10 @@ class HealthTest(FolderCase):
 
     def test_three_empty_editions_in_a_row_must_be_flagged(self):
         self.assertEqual(self.check(**self.streak_set(1, 0))[0], [])
-        self.assertEqual(self.cli("--alert")[0], 0)                         # 2판째 — 아직 알리지 않는다
         self.assertEqual(self.check(**self.streak_set(2, 0))[0], [])
-        self.assertEqual(self.cli("--alert")[0], 2)                         # 3판째 — 실패로 끝낸다
         self.assertEqual(codes(self.check(**self.streak_set(2, 0, reason="ok"))[0]), [("streak", "edition")])
         self.assertEqual(codes(self.check(**self.streak_set(2, 0, claim=0))[0]), [("streak", "edition")])
         self.assertEqual(self.check(**self.streak_set(2, 1))[0], [])        # 한 건이라도 실리면 0으로 돌아간다
-        self.assertEqual(self.cli("--alert")[0], 0)
 
     def test_day_without_bond_posts_is_not_counted(self):
         self.assertEqual(C.next_streak("ok", 0, 0, 2), 2)
@@ -410,7 +421,6 @@ class HealthTest(FolderCase):
         self.assertEqual(C.next_streak("short", 0, 7, 2), 2)                # 수집 부족·내린 판은 세지도 지우지도 않는다
         self.assertEqual(C.next_streak("withdrawn", 0, 7, 2), 2)
         self.assertEqual(self.check(**self.streak_set(2, 0, bond_new=False))[0], [])
-        self.assertEqual(self.cli("--alert")[0], 0)
         self.assertEqual(codes(self.check(**self.streak_set(2, 0, bond_new=False, claim=3))[0]), [("streak", "edition")])
 
     def test_status_only_folder(self):
@@ -427,7 +437,7 @@ class HealthTest(FolderCase):
                 self.pub = put(tmp, {"digest_status.json": status})
                 found, facts = C.check_folder(self.pub, self.src)
                 self.assertEqual((found, facts["published"], facts["reason"]), ([], False, name))
-                self.assertEqual((self.cli()[0], self.cli("--alert")[0]), (0, 2))
+                self.assertEqual(self.cli()[0], 0)
         down = S.blank_digest(S.parse_iso(F.NOW))                            # 내린 판이 남은 폴더에 상태만 나간 날 — 남은 판은 그 실행의 것이 아니다
         index = {"schema": 1, "updated_at": down["collected_at"], "latest": down["date"], "editions": [C.index_row(down)]}
         state = fx("state")
@@ -476,7 +486,6 @@ class CrossTest(FolderCase):
             self.pub = put(tmp, {"digest.json": d, DAY: d, "digest_index.json": index, "digest_state.json": state,
                                  "digest_status.json": status})
             self.assertEqual(C.check_folder(self.pub, self.src)[0], [])
-            self.assertEqual(self.cli("--alert")[0], 0)                      # 일부러 내린 것은 실패가 아니다
             for change in ({"reason": "ok", "ok": True}, {"published": False}):     # 내린 판인데 상태가 다른 말을 한다
                 put(tmp, {"digest_status.json": {**status, **change}})
                 self.assertIn(("coverage", "edition"), codes(C.check_folder(self.pub, self.src)[0]), change)

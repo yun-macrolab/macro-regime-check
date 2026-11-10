@@ -115,7 +115,7 @@ class PipelineTest(PipelineCase):
         src, state = os.path.join(self.data, "sources.json"), os.path.join(self.data, "digest_state.json")
         self.assertEqual(runner.calls, [
             ("tg_collect.py", ["--sources", src, "--state", state, "--work", self.work]),
-            ("digest_cluster.py", ["--work", self.work]),
+            ("digest_cluster.py", ["--work", self.work, "--overrides", os.path.join(self.data, "digest_overrides.json")]),
             ("digest_score.py", ["--work", self.work, "--calendar", os.path.join(self.data, "calendar.json"),
                                  "--korea", os.path.join(self.data, "korea.json"), "--state", state]),
             ("digest_build.py", ["--work", self.work, "--out", self.out, "--data", self.data]),
@@ -187,6 +187,48 @@ class PipelineTest(PipelineCase):
             f.write("keep")
         code, text = self.run_pipeline(Runner(tg_collect=1, digest_build_error=1))
         self.assertEqual((code, tree(self.out)), (1, ["notes.txt"]))           # 저녁판 파일만 지운다
+
+    def test_a_late_scheduled_run_collects_nothing(self):
+        # 2026-11-10 점검 ep-03: 몇 시간 늦은 예약 실행이 06:00 KST를 넘기면 이튿날(금요일 것은 토요일) 판을 냈고, 그 판 때문에
+        # 그날 17:45 PC의 실행 시작이 막혔다 — 판의 저녁(평일 17:30 ~ 이튿날 06:00) 밖의 예약 실행은 아무 단계도 돌리지 않는다
+        late = {"이튿날 06:00": "2026-10-09T06:00:00+09:00", "이튿날 06:10": "2026-10-09T06:10:00+09:00",
+                "이튿날 낮": "2026-10-09T12:00:00+09:00", "그날 17:29": "2026-10-09T17:29:00+09:00",
+                "토요일 아침(금 판의 늦은 실행)": "2026-10-10T06:10:00+09:00", "토요일 저녁": "2026-10-10T19:00:00+09:00",
+                "일요일 새벽": "2026-10-11T03:00:00+09:00"}
+        for name, now in late.items():
+            with self.subTest(name):
+                runner = Runner()
+                code, text = self.run_pipeline(runner, "--event", "schedule", "--now", now)
+                self.assertEqual((code, self.outputs()), (0, {"publish": "false", "alert": "false", "reason": "late", "stage": "skip"}))
+                self.assertEqual(runner.calls, [])                              # 채널 요청 0회 — 수집 단계도 부르지 않는다
+                self.assertEqual(tree(self.out) if os.path.isdir(self.out) else [], [])
+                self.assertIn("[evening_run] pipeline publish=false alert=false reason=late stage=skip\n", text)
+                os.remove(self.gh)
+
+    def test_scheduled_runs_inside_the_evening_and_manual_runs_go_ahead(self):
+        go = {("schedule", "2026-10-08T17:41:00+09:00"): "제시각", ("schedule", "2026-10-08T17:30:00+09:00"): "17:30",
+              ("schedule", "2026-10-09T04:06:00+09:00"): "새벽의 늦은 실행(전날 판을 다시 계산)",
+              ("schedule", "2026-10-10T05:59:00+09:00"): "토요일 새벽(금 판)",
+              ("workflow_dispatch", "2026-10-09T08:40:00+09:00"): "수동 실행은 때를 가리지 않는다",
+              (None, "2026-10-10T11:00:00+09:00"): "이벤트를 주지 않은 실행(PC의 시범 실행)"}
+        for (event, now), name in go.items():
+            with self.subTest(name):
+                runner = Runner()
+                code, text = self.run_pipeline(runner, "--now", now, *(["--event", event] if event else []))
+                self.assertEqual(code, 0, text)
+                self.assertEqual([c[0] for c in runner.calls], ["tg_collect.py", "digest_cluster.py", "digest_score.py",
+                                                                 "digest_build.py", "digest_check.py"])
+                self.assertEqual(self.outputs()["publish"], "true")
+                os.remove(self.gh)
+
+    def test_the_time_rule_is_the_pcs_dispatch_rule(self):
+        # 예약 수집과 PC의 규칙판 실행 시작(evening_llm.due)이 같은 때의 규칙(S.in_evening)을 쓴다
+        times = ["2026-10-08T17:29:59+09:00", "2026-10-08T17:30:00+09:00", "2026-10-09T05:59:00+09:00", "2026-10-09T06:00:00+09:00",
+                 "2026-10-10T05:59:00+09:00", "2026-10-10T06:00:00+09:00", "2026-10-10T19:00:00+09:00", "2026-10-12T17:30:00+09:00"]
+        self.assertEqual([S.in_evening(S.parse_iso(t)) for t in times], [False, True, True, False, True, False, False, True])
+        import evening_llm as L
+        with tempfile.TemporaryDirectory() as repo:                            # 아직 한 판도 없는 저장소 — 때의 규칙만 남는다
+            self.assertEqual([L.due(S.parse_iso(t), repo) for t in times], [S.in_evening(S.parse_iso(t)) for t in times])
 
     def test_out_must_not_be_the_data_folder(self):
         code, text = quiet("evening_run", lambda v: E.main(v, run=Runner()),
@@ -324,6 +366,32 @@ class WatchTest(unittest.TestCase):
     def test_edition_date_follows_the_clock(self):
         self.assertEqual(self.watch(Page(self.body()), now="2026-10-09T05:59:00+09:00")[0], 0)      # 새벽까지는 전날 판
         self.assertEqual(self.watch(Page(self.body()), now="2026-10-09T22:41:00+09:00")[0], 1)      # 다음 날 저녁에는 그날 판이 있어야
+
+    def test_a_late_watch_compares_with_the_edition_that_was_due(self):
+        # 2026-11-10 08:08 KST: 22:41 감시가 9시간 반 늦게 돌아 멀쩡한 11-09 판을 '없다'고 알렸다(판 날짜를 지금 − 6시간으로 셌다).
+        # 이제 화면(dueEdition)처럼 22:41이 지난 마지막 평일의 판과 견준다
+        for now in ("2026-10-09T08:08:00+09:00", "2026-10-09T12:00:00+09:00", "2026-10-09T17:30:00+09:00", "2026-10-09T22:40:59+09:00"):
+            with self.subTest(now):
+                self.assertEqual(self.watch(Page(self.body()), now=now)[:2], (0, {"redeploy": "false", "missing": "false"}))
+        friday = fx("status") | {"edition": "2026-10-09"}
+        cases = {("2026-10-10T08:00:00+09:00", "2026-10-09"): 0,               # 금요일 감시가 토요일 아침에 늦게 돌았다
+                 ("2026-10-12T08:00:00+09:00", "2026-10-09"): 0,               # 주말판은 없다
+                 ("2026-10-10T08:00:00+09:00", "2026-10-08"): 1,               # 금요일 판이 정말 없다
+                 ("2026-10-09T21:00:00+09:00", "2026-10-09"): 0}               # 마감 전이어도 더 새 판이 올라와 있으면 된다
+        for (now, edition), want in cases.items():
+            with self.subTest(now=now, edition=edition):
+                put(self.data, {"digest_status.json": friday | {"edition": edition}})
+                body = S.dump(friday | {"edition": edition}).encode("utf-8")
+                self.assertEqual(self.watch(Page(body), now=now)[:2],
+                                 (want, {"redeploy": "false", "missing": "true" if want else "false"}))
+
+    def test_due_edition_rule(self):
+        want = {"2026-10-08T22:40:59+09:00": "2026-10-07", "2026-10-08T22:41:00+09:00": "2026-10-08",
+                "2026-10-09T08:08:00+09:00": "2026-10-08", "2026-10-10T12:00:00+09:00": "2026-10-09",
+                "2026-10-11T23:00:00+09:00": "2026-10-09", "2026-10-12T09:00:00+09:00": "2026-10-09",
+                "2026-10-13T03:00:00+09:00": "2026-10-12"}
+        self.assertEqual({t: E.due_edition(S.parse_iso(t)) for t in want}, want)
+        self.assertEqual(E.due_edition(S.parse_iso("2026-10-08T21:00:00+09:00"), "20:30"), "2026-10-08")   # 상태 파일의 마감 시각을 따른다
 
     def test_page_address_must_be_plain_https(self):
         for url in ("http://example-owner.github.io/example-repo", "https://user:pw@example.com/x", "https://example.com/x?y=1",

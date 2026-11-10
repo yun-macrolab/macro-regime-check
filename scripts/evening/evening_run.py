@@ -12,18 +12,27 @@ pipeline   tg_collect → digest_cluster → digest_score → digest_build → d
     (digest_build --error → digest_check). 화면은 직전 판과 실패 표시를 보여 준다. 그것마저 안 되면 종료코드 1.
   - 결과는 한 줄로 찍고, --github-output을 주면 그 파일에도 쓴다:
       publish  true면 <out>을 게시한다          alert  true면 워크플로가 마지막에 실행을 실패로 끝낸다(메일)
-      reason   ok · short · empty_streak · broken · withdrawn · channel(채널 바뀜) · error      stage  done 또는 실패한 단계
+      reason   ok · short · empty_streak · broken · withdrawn · channel(채널 바뀜) · error · late(늦은 예약 실행 — 건너뜀)
+      stage    done · 실패한 단계 · skip(건너뜀)
+  - --event schedule(예약 실행)이 판의 저녁(평일 17:30 ~ 이튿날 06:00 KST — S.in_evening, PC의 evening_llm.due와 같은 규칙) 밖에
+    시작하면 아무 단계도 돌리지 않는다(채널 요청 0회): publish=false · alert=false · reason=late · stage=skip, 종료코드 0.
+    몇 시간씩 늦게 온 예약 실행이 이튿날 아침이나 토요일에 새 날짜의 판을 내고, 그 판 때문에 그날 저녁 PC의 실행이 막히지 않게.
+    수동 실행(workflow_dispatch — PC가 시작한 것 포함)은 이 규칙을 따르지 않는다(PC 쪽은 due가 먼저 거른다).
   - 일정표(<data>/calendar.json)의 마지막 일정이 CAL_AHEAD일 안이면 Actions 경고 한 줄(날짜와 남은 날수, 지났으면 지난 날수)을 찍는다 —
     일정표가 끝나면 '발표일 일치'·A급 낱말 점수·'다가오는 일정'의 달력 줄이 조용히 사라지므로. 실행은 막지 않는다.
-  종료코드: 0 <out>에 게시할 것이 있다(publish=true) / 1 없다
+  종료코드: 0 <out>에 게시할 것이 있다(publish=true) 또는 늦은 예약 실행이라 건너뛰었다(publish=false) / 1 게시할 것이 없다(실패)
 
-watch      수집하지 않는다(텔레그램 요청 0회). main의 data/digest_status.json이 오늘 판을 낸 상태인지 보고,
+watch      수집하지 않는다(텔레그램 요청 0회). main의 data/digest_status.json이 나왔어야 할 판을 낸 상태인지 보고,
            공개 페이지의 같은 파일과 견준다 — 요청은 공개 페이지에 한 번뿐이다.
-  - main에 오늘 판이 없으면 missing=true, 종료코드 1(실행을 실패로 끝낸다).
+  - 나왔어야 할 판 = 마감 시각(late_kst, 22:41 KST)이 지난 마지막 평일의 판(due_edition — 화면 site/evening.js의 dueEdition과
+    같은 규칙). 22:41 감시가 몇 시간 늦게 이튿날 아침에 돌아도 전날 판과 견준다(2026-11-10 08:08 KST에 늦게 돈 감시가 멀쩡한
+    11-09 판을 '없다'고 알렸다). 그보다 새 판이 main에 있으면 그것으로 된다.
+  - main에 그 판(또는 더 새 판)이 없으면 missing=true, 종료코드 1(실행을 실패로 끝낸다).
   - main에는 있는데 페이지가 다르거나 읽히지 않으면 redeploy=true(배포만 다시), 같으면 false. 종료코드 0.
 
 출력은 공개 Actions 로그에 남는다 — 정해 둔 낱말(true·false·사유·단계 이름)만 찍는다.
 사용법: python scripts/evening/evening_run.py pipeline [--work .work/evening] [--out 폴더] [--data data] [--replay] [--now ISO]
+                                                      [--event schedule]
         python scripts/evening/evening_run.py watch --page-url https://<소유자>.github.io/<저장소> [--data data] [--now ISO]
 """
 import argparse
@@ -39,8 +48,8 @@ import digest_check as C
 import digest_schema as S
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REASONS = (*S.REASONS, "channel")           # channel = 판은 정상인데 조립이 채널 바뀜으로 실패를 알린 날
-STAGES = ("collect", "cluster", "score", "build", "check", "done")
+REASONS = (*S.REASONS, "channel", "late")   # channel = 판은 정상인데 조립이 채널 바뀜으로 실패를 알린 날 · late = 늦은 예약 실행
+STAGES = ("collect", "cluster", "score", "build", "check", "done", "skip")
 SAME = ("edition", "checked_at", "published")       # 페이지와 main의 상태 파일에서 견주는 칸
 TIMEOUT = 20
 MAX_BYTES = 200_000
@@ -67,7 +76,7 @@ def _commands(a):
     src, state = os.path.join(a.data, "sources.json"), os.path.join(a.data, "digest_state.json")
     collect = ["--sources", src, "--state", state, "--work", a.work] + (["--replay"] if a.replay else []) + _now(a)
     return (("collect", "tg_collect.py", collect),
-            ("cluster", "digest_cluster.py", ["--work", a.work]),
+            ("cluster", "digest_cluster.py", ["--work", a.work, "--overrides", os.path.join(a.data, "digest_overrides.json")]),
             ("score", "digest_score.py", ["--work", a.work, "--calendar", os.path.join(a.data, "calendar.json"),
                                           "--korea", os.path.join(a.data, "korea.json"), "--state", state]),
             ("build", "digest_build.py", ["--work", a.work, "--out", a.out, "--data", a.data]),
@@ -76,6 +85,10 @@ def _commands(a):
 
 def _now(a):
     return ["--now", a.now] if a.now else []
+
+
+def _clock(a):
+    return S.parse_iso(a.now) if a.now else datetime.datetime.now(S.KST)
 
 
 def _call(script, args, run):
@@ -133,6 +146,10 @@ def _calendar_warning(a):
 def pipeline(a, run=subprocess.run):
     if os.path.abspath(a.out) == os.path.abspath(a.data):
         raise ValueError("--out은 data 폴더와 달라야 한다(data/로 옮기는 일은 digest_publish가 한다)")
+    if a.event == "schedule" and not S.in_evening(_clock(a)):
+        print("::notice::예약 실행이 판의 저녁(평일 17:30 ~ 이튿날 06:00 KST) 밖에 시작해 수집하지 않았다 — 새 날짜의 판을 내지 않는다")
+        _emit(a.github_output, "pipeline", publish=False, alert=False, reason="late", stage="skip")
+        return 0
     _calendar_warning(a)
     _clear(a.out)
     alert = False
@@ -174,11 +191,24 @@ def _fetch(url, opener=None):
         return None
 
 
+def due_edition(now, late=None):
+    """지금까지 나왔어야 하는 가장 최근 판 날짜 — 마감 시각 late(HH:MM KST, 기본 late_kst 22:41)가 지난 마지막 평일.
+    화면(site/evening.js)의 dueEdition과 같다. 주말판은 없고 한국 휴일에는 돈다."""
+    h, m = map(int, (late or S.TH["late_kst"]).split(":"))
+    now = S.parse_iso(S.iso(now))
+    for back in range(8):
+        day = now.date() - datetime.timedelta(days=back)
+        if day.weekday() < 5 and now >= datetime.datetime(day.year, day.month, day.day, h, m, tzinfo=S.KST):
+            return day.isoformat()
+    return None
+
+
 def watch(a, opener=None):
-    now = S.parse_iso(a.now) if a.now else datetime.datetime.now(S.KST)
+    now = _clock(a)
     url = _page_address(a.page_url, int(now.timestamp()))
     main_st = _status(S.read_json(os.path.join(a.data, "digest_status.json"), None))
-    if not (main_st and main_st["edition"] == S.edition_date(now) and main_st["published"]):
+    due = due_edition(now, main_st["expect"]["late_kst"]) if main_st else None
+    if not (main_st and due and main_st["edition"] >= due and main_st["published"]):
         _emit(a.github_output, "watch", redeploy=False, missing=True)
         return 1
     page = _status(_fetch(url, opener))
@@ -195,6 +225,8 @@ def main(argv=None, run=subprocess.run, opener=None):
     p.add_argument("--out", default=os.path.join(S.WORK, "public"),
                    help="공개해도 되는 JSON만 쓰는 폴더 (기본: .work/evening/public — 워크플로는 아티팩트로 올릴 _evening을 준다)")
     p.add_argument("--replay", action="store_true", help="네트워크 없이 <work>/pages/의 저장분으로 (tg_collect --replay)")
+    p.add_argument("--event", default=None,
+                   help="Actions의 이벤트 이름($GITHUB_EVENT_NAME) — schedule이면 판의 저녁(평일 17:30 ~ 이튿날 06:00 KST) 밖에서는 건너뛴다")
     w = sub.add_parser("watch", help="main과 공개 페이지의 판 견주기")
     w.add_argument("--page-url", required=True, help="공개 페이지 주소 (https://<소유자>.github.io/<저장소>)")
     for x in (p, w):

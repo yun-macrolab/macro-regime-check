@@ -17,9 +17,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import digest_build as B
 import digest_check as C
+import digest_cluster as DC
 import digest_picks as K
 import digest_rules as R
 import digest_schema as S
+import digest_score as SC
 import fixtures as F
 import test_digest_picks as TK
 
@@ -268,10 +270,15 @@ class OverridesTest(BuildCase):
         self.assertEqual([m["id"] for m in self.doc("digest_state.json")["edition"]["must"]], [x["id"] for x in d["must"]])
         self.passes_check()
 
-    def test_hidden_channel_disappears_from_the_edition(self):
-        self.given(overrides=F.overrides(hide_channels=["fxbond1", "fxwire1", "fxpers6", "fxctx1"]))
+    def hidden_run(self, hidden):
+        """숨김을 적은 날의 실제 흐름 — 묶기 단계가 숨긴 채널의 글을 빼고(digest_cluster --overrides), 그 묶음으로 점수를 매긴 뒤 조립한다."""
+        scored = SC.score_doc(DC.cluster_posts(fx("posts_doc"), fx("collect_status"), hidden), F.calendar(), F.korea(), fx("state"))
+        self.given(scored=scored, overrides=F.overrides(hide_channels=hidden))
         self.assertEqual(self.build()[0], 0)
-        d = self.doc("digest.json")
+        return self.doc("digest.json")
+
+    def test_hidden_channel_disappears_from_the_edition(self):
+        d = self.hidden_run(["fxbond1", "fxwire1", "fxpers6", "fxctx1"])
         for ch in (b"fxbond1", b"fxwire1", b"fxpers6", b"fxctx1"):
             self.assertNotIn(ch, self.raw("digest.json"))
         self.assertEqual(d["must"][0]["id"], "20261008-fxbond2-212")           # id도 보이는 글 가운데 씨앗 글로 다시 만든다
@@ -279,6 +286,31 @@ class OverridesTest(BuildCase):
         self.assertNotIn("20261008-fxbond1-502", rest_ids(d))                  # 그 채널 혼자 쓴 글은 항목째 빠진다
         self.assertEqual(([c["ch"] for c in d["wire"]["channels"]], d["wire"]["rows"], d["context"]), (["fxwire2"], [], []))
         self.assertEqual([r["ch"] for r in d["solo"]["rows"]], ["fxpers8", "fxpers7"])
+        self.passes_check()
+
+    def test_hidden_channel_is_not_counted_either(self):
+        # 2026-11-10 점검 ep-05: 숨긴 채널이 링크에서만 빠지고 곳 수 · 점수 · '채권 채널 N곳'에는 그대로 세어져, 채권 링크 없이
+        # '채권 채널 3곳'이라고 적힌 항목이 나올 수 있었다. 이제 묶기 전에 빠지므로 세지도 않는다
+        d = self.hidden_run(["fxbond1", "fxwire1", "fxpers6", "fxctx1"])
+        cpi = d["must"][0]
+        self.assertEqual(cpi["coverage"], {"bond": 2, "analyst": 2, "personal": 3, "wire": 0})       # 숨기기 전: 채권 3 · 속보형 1
+        self.assertEqual(cpi["why"][0], "채권 채널 2곳")
+        auction = self.hidden_run(["fxbond5"])["must"][1]                        # 같은 숫자를 쓴 채권 채널 둘 가운데 하나를 숨긴다
+        self.assertEqual((auction["id"], auction["coverage"]["bond"], auction["nums"]), ("20261008-fxbond4-640", 1, []))
+        self.assertNotIn("같은 숫자 2곳", auction["why"])
+        for x in d["must"] + [x for g in d["rest"] for x in g["items"]]:
+            self.assertLessEqual(sum(x["coverage"].values()), x["span"]["posts"], x["id"])
+        self.passes_check()
+
+    def test_counts_that_include_a_hidden_channel_drop_the_item(self):
+        # 묶기 단계를 거치지 않은 점수(숨기기 전에 만든 scored.json)가 와도 숨긴 채널을 센 항목을 그대로 내지 않는다 — 곳 수의 합이
+        # 보이는 글 수보다 많은 항목은 검사(digest_check의 count)가 빼므로 조립이 미리 뺀다
+        self.given(overrides=F.overrides(hide_channels=["fxbond1", "fxwire1", "fxpers6", "fxctx1"]))
+        self.assertEqual(self.build()[0], 0)
+        d = self.doc("digest.json")
+        self.assertEqual([x["id"] for x in d["must"]], ["20261008-fxbond4-640", "20261008-fxbond2-213"])
+        self.assertNotIn(b"fxbond1", self.raw("digest.json"))
+        self.assertEqual(d["notes"], [R.phrase("note_fewer", n=2)])
         self.passes_check()
 
     def test_withdraw_puts_out_an_empty_edition(self):
@@ -586,7 +618,8 @@ class RefusalTest(BuildCase):
         self.nothing_written(*self.build())
 
     def test_post_from_a_channel_outside_the_list_is_left_out(self):
-        """묶음에 목록에 없는(또는 역할이 바뀐) 채널의 글이 섞여 와도 그 글만 빠지고 판은 나간다."""
+        """묶음에 목록에 없는(또는 역할이 바뀐) 채널의 글이 섞여 와도 그 글만 빠지고 판은 나간다. 그 채널을 곳 수에 센 항목은
+        (곳 수의 합이 보이는 글 수보다 많아지면) 항목째 빠진다 — 보이지 않는 채널을 센 숫자를 내지 않는다."""
         src = fx("sources")
         src["channels"] = [c for c in src["channels"] if c["handle"] != "fxanal2"]
         collect = fx("collect_status")
@@ -599,8 +632,8 @@ class RefusalTest(BuildCase):
         code, text = self.build()
         self.assertEqual(code, 0, text)
         self.assertNotIn(b"fxanal2", b"".join(self.raw(n) for n in FILES))
-        self.assertEqual([x["ch"] for x in self.doc("digest.json")["must"][0]["links"]],
-                         ["fxbond1", "fxbond2", "fxbond3", "fxpers2", "fxpers3", "fxanal1"])
+        # fxanal2를 애널 2곳으로 센 첫 항목(곳 수 합 9 · 그 글을 빼면 보이는 글 8)은 항목째 빠지고, 나머지는 그대로 나간다
+        self.assertEqual([x["id"] for x in self.doc("digest.json")["must"]], ["20261008-fxbond4-640", "20261008-fxbond2-213"])
         self.passes_check(raw=False)
 
 

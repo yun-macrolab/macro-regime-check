@@ -26,8 +26,9 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
        쓰기  <work>/pages/<handle>-<n>.html · <work>/pages/manifest.json · <work>/posts.json · <work>/collect_status.json
        --replay  네트워크 없이 pages/의 저장분으로 posts.json · collect_status.json을 다시 만든다(--now가 없으면 manifest의 now)
        종료코드  0 수집을 마침(채널 일부 실패·수집 부족 포함 — 판단은 collect_status.verdict) / 1 수집 자체가 실패(아무것도 쓰지 않음)
-  2) digest_cluster.py --work .work/evening
-       읽기  posts.json · collect_status.json      쓰기  <work>/clusters.json      종료코드 0 / 1
+  2) digest_cluster.py --work .work/evening [--overrides data/digest_overrides.json]
+       읽기  posts.json · collect_status.json · digest_overrides.json(없으면 숨김 없음 — hide_channels의 글은 묶기 전에 뺀다)
+       쓰기  <work>/clusters.json      종료코드 0 / 1
   3) digest_score.py --work .work/evening --calendar data/calendar.json --korea data/korea.json --state data/digest_state.json
        읽기  clusters.json · calendar.json · korea.json(아침 잡의 것, 읽기만) · digest_state.json(state_base로 '직전 판'을 고른다)
        쓰기  <work>/scored.json      종료코드 0 / 1
@@ -43,8 +44,9 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
        종료코드  0 통과 / 1 위반(경로와 사유만 찍는다)
   6) digest_publish.py --from <폴더> --data data        (게시 잡 — 원문이 없는 곳에서 돈다)
        PUBLIC_FILES와 digest/<날짜>.json만 옮긴다. 옮기기 전에 다시 검사하고, keep_days가 지난 digest/ 파일을 지운다.  종료코드 0 / 1
-  22:41 감시 실행은 evening_run.py watch — main의 data/digest_status.json이 오늘 판을 낸 상태인지 보고, 배포된 페이지의 같은 파일과
-  edition · checked_at · published를 견준다(수집하지 않는다).
+  22:41 감시 실행은 evening_run.py watch — main의 data/digest_status.json이 나왔어야 할 판(22:41이 지난 마지막 평일의 판 — 화면의
+  dueEdition과 같은 규칙)을 낸 상태인지 보고, 배포된 페이지의 같은 파일과 edition · checked_at · published를 견준다(수집하지 않는다).
+  예약 수집(evening_run.py pipeline --event schedule)은 판의 저녁(in_evening — 평일 17:30 ~ 이튿날 06:00 KST) 밖이면 돌지 않는다.
 
 판 날짜와 수집 창 (collect_window 하나를 모두가 쓴다)
   판 날짜 = (실행 시각 − 6시간)의 KST 날짜. 창 = 직전 판의 read_to(없으면 window.to) ~ 지금, 최대 96시간, 상태가 없으면 24시간.
@@ -92,15 +94,22 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
                            줄이 될 수 있었던 글(줄은 그중 5개까지). 줄의 숫자는 첫머리의 첫 숫자가 바로 곁의 A·B급 낱말과 짝지어질
                            때만 붙는다 — 한 곳만 쓴 숫자다. solo는 개인 원천 채널, wire는 속보형 채널
                   at       글을 올린 시각(ISO). 화면이 보기 좋게 줄인다
+                  youtube  판의 youtube{enabled false, rows []} · 점수의 Y(늘 0)와 L(늘 null) · sources.json의 youtube[]는 계획한
+                           4단계(유튜브)를 위해 계약에 남겨 둔 빈 자리다 — 지금은 늘 비어 있거나 0 · null이다(화면은 youtube 칸을
+                           읽지 않고, 점수의 Y는 0이면 감춘다)
     digest_index.json   {schema, updated_at, latest, editions[{date,status,must,rest,posts,channels_ok,channels_total,collected_at}]} 최신순
     digest_state.json   {schema, edition, base} — 판 기록 {date, window, collected_at, empty_streak, must[{id,keys[],c}],
                          channels{<handle>: {last_post,last_at,fail_streak}}, read_to?} (숫자·해시·시각만)
     digest_status.json  {schema, checked_at, ok, reason, edition, published, last_success{date,at}, empty_streak, counts{…},
                          channels[{ch,ok,code,posts,with_text,in_window,fail_streak}], expect{run_kst,late_kst}}
+      화면이 읽지 않는 칸 — digest_status의 last_success, digest_index의 latest와 줄마다의 rest · posts · channels_ok ·
+                         channels_total은 운영자가 보는 진단용이고 공개 원자료로 남겨 둔다(화면은 목차에서 date · status · must만 읽는다)
     sources.json        {schema, updated, groups[{id,label}], roles[{id,label}], channels[{handle,label,group,role,title_sha}], youtube[]}
     calendar.json       {schema, updated, events[{date, term(사전 낱말), tier(A·B), time?(HH:MM KST), detail?[]}]}
     digest_overrides.json {schema, withdraw, hide_ids[], hide_channels[]} — 화면(site/evening.js)도 읽는다: 든 것을 감추고,
-                         withdraw면 판 전체를 감춘다(조립은 다음 실행부터 빼고 만든다 — 숨긴 자리를 다른 묶음으로 채우지 않는다)
+                         withdraw면 판 전체를 감춘다(조립은 다음 실행부터 빼고 만든다 — 숨긴 자리를 다른 묶음으로 채우지 않는다).
+                         hide_channels의 글은 다음 실행부터 묶기 전에 빠져(digest_cluster --overrides) 곳 수 · 점수 · 까닭에도 세지 않는다.
+                         채널 요청은 그대로다 — 요청까지 멈추려면 sources.json에서 빼거나 off
 
 더 자세히 — 2026-10-08 저녁에 더한 칸 (읽을거리를 늘리되 채널 글의 글자는 여전히 0자다)
   schema는 1 그대로이고 새 칸은 모두 '없어도 되는 칸'이다 — words · prev · more · pic은 해당할 때만 붙는다(10-08 첫 판도
@@ -180,7 +189,7 @@ import re
 import digest_rules as R
 from digest_base import (     # 밑바탕(digest_base.py)의 것도 이 모듈에서 그대로 꺼내 쓴다 — 여기서 안 쓰는 이름도 일부러 들여온다
     SCHEMA, TH, KST, REPO, DATA, WORK, HANDLE_RE, URL_RE, ID_RE, KEY_KINDS, KEY_RE, SHA_RE, ISO_RE, DATE_RE, HHMM_RE, PAGE_FILE_RE,
-    MAX_POST, MAX_TEXT, MAX_URL, FIELDS, WORDS, iso, parse_iso, edition_date, collect_window, state_base, next_state, in_window,
+    MAX_POST, MAX_TEXT, MAX_URL, FIELDS, WORDS, iso, parse_iso, edition_date, in_evening, collect_window, state_base, next_state, in_window,
     rate_fits, post_url, item_id, key_of, topic_key, primary_key, title_sha, page_title, seed_of, pick_links, coverage_verdict, is_closed,
     closed_violations, dump, read_json, write_json, report, run_cli,
     _fail, _obj, _arr, _map, _enum, _re, _int, _num, _is, _null, _bool, _text, _iso, _date, _phrase, _detail, _label, _unique)

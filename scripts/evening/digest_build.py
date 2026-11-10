@@ -16,8 +16,9 @@
 판을 만들 때 하는 일
   수집 판정   broken(본문 비율이 절반 아래 — 미리보기 형식이 바뀐 것)이면 판을 내지 않고 상태만 쓴다(종료코드 3).
               short(채권 3곳 미만 또는 전체 16곳 미만)이면 꼭 볼 것을 비우고 그 묶음들을 나머지 표로 내린다(종료코드 2).
-  숨김       digest_overrides.json — hide_ids의 항목은 빼고 그 자리를 다른 묶음으로 채우지 않는다. hide_channels의 채널은 링크·줄·
-              씨앗 글에서 뺀다(id도 보이는 글로 다시 만든다). withdraw면 빈 판(status withdrawn)을 낸다.
+  숨김       digest_overrides.json — hide_ids의 항목은 빼고 그 자리를 다른 묶음으로 채우지 않는다. hide_channels의 채널은 묶기 단계가
+              이미 뺐다(곳 수 · 점수 · 까닭에도 세지 않는다 — digest_cluster --overrides). 여기서도 링크·줄·씨앗 글에서 한 번 더 뺀다
+              (id도 보이는 글로 다시 만든다). withdraw면 빈 판(status withdrawn)을 낸다.
   출처 목록   지금 목록(sources.json)에 같은 그룹·역할로 있는 채널의 글만 링크·줄이 된다. 목록에서 뺀 채널은 상태 기록에서도 뺀다.
   머리 한 줄  금리 칸은 scored.json의 것을 받아 자료일을 수집 창과 다시 맞춘다(digest_check.head_line) — 국고 10년의 자료일이
               창 밖이면 방향을 비우고 '전일 종가'. korea.json은 점수 단계가 읽고, 여기서는 읽지 않는다.

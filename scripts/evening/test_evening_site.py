@@ -26,6 +26,7 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 import digest_rules as R
 import digest_schema as S
+import evening_run as E
 import fixtures as F
 import preview as PV
 
@@ -293,6 +294,9 @@ class GuardTest(unittest.TestCase):
                     (ms("2026-10-08T23:00:00+09:00"), "엉뚱한 값"), (ms("2026-10-08T21:00:00+09:00"), None))
         self.assertEqual(got[:-3], list(want.values()))
         self.assertEqual(got[-3:], ["2026-10-08", "2026-10-08", "2026-10-07"])   # 상태 파일의 시각을 따르고, 못 읽으면 22:41로 본다
+        # 22:41 감시(evening_run.watch)도 같은 규칙으로 '나왔어야 할 판'을 센다
+        self.assertEqual([E.due_edition(S.parse_iso(t), "22:41") for t in want], got[:-3])
+        self.assertEqual(E.due_edition(S.parse_iso("2026-10-08T21:00:00+09:00"), "20:30"), got[-3])
 
     def test_judge_tells_fresh_pending_late_and_none(self):
         rows = [("2026-10-08", THU_EVENING, "fresh"), ("2026-10-08", FRI_MORNING, "pending"), ("2026-10-08", FRI_NIGHT, "late"),

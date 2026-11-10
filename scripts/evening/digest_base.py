@@ -4,7 +4,7 @@
 digest_schema.py(형태와 검증)의 아래층이다. 다른 스크립트는 이 파일을 직접 부르지 않고 digest_schema에서 꺼내 쓴다
 (import digest_schema as S 하나면 된다 — 여기 있는 것도 S.collect_window처럼 그대로 나온다). 숫자와 낱말은 digest_rules.py에만 있다.
 
-  시각       iso · parse_iso · edition_date · collect_window · state_base · next_state · in_window · rate_fits
+  시각       iso · parse_iso · edition_date · in_evening · collect_window · state_base · next_state · in_window · rate_fits
   만드는 법  post_url · item_id · key_of · primary_key · title_sha · page_title
   같이 쓰는 규칙  seed_of(씨앗 글) · pick_links(링크 순서) · coverage_verdict(수집 판정)
   글자 검사  is_closed · closed_violations — 공개본의 모든 문자열이 허용 목록으로 다시 조립되는가
@@ -216,6 +216,14 @@ def _at(day, h, m):
 def edition_date(now):
     """판 날짜 = (실행 시각 − 6시간)의 KST 날짜 → "YYYY-MM-DD". 새벽에 늦게 끝난 실행도 전날 판이 된다."""
     return (parse_iso(iso(now)) - datetime.timedelta(hours=TH["edition_shift_h"])).date().isoformat()
+
+
+def in_evening(now):
+    """지금이 판의 저녁인가 — 판 날짜(지금 − 6시간)가 평일이고, 그 날 KST dispatch_from_min분(17:30) 뒤일 때(이튿날 06:00 전까지는
+    판 날짜가 그대로다). 예약 수집(evening_run.py pipeline --event schedule)과 PC의 규칙판 실행 시작(evening_llm.due)이 같은 규칙을
+    쓴다 — 늦게 온 실행이 이튿날 아침이나 토요일에 새 날짜의 판을 내지 않게."""
+    then = parse_iso(iso(now)) - datetime.timedelta(hours=TH["edition_shift_h"])
+    return then.weekday() < 5 and then.hour * 60 + then.minute >= TH["dispatch_from_min"] - 60 * TH["edition_shift_h"]
 
 
 def collect_window(now, state=None):

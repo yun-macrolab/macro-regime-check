@@ -29,6 +29,8 @@ PC가 꺼졌거나 로그인이 만료됐거나 검사에 걸린 날은 문장 �
   검사    문장마다 digest_picks.fact_code — 꼴 · 금지 낱말 · 베낌 · 숫자 대조 · 낱말 · 이름. 걸린 문장은 그 문장만 빠지고 사유별 개수만 남는다.
   쓰기    data/digest_picks.json을 통째로 덮어쓴다(가장 최근 한 판만). 문장이 하나도 안 남아도 쓴다(items가 빈다 — 전날 문장이 남지 않게).
           올라가 있는 파일이 같은 판 날짜 · 같은 항목 · 같은 글로 만든 것이면 아무것도 하지 않는다(다시 묻지 않는다. --force로 무시).
+          다만 올라가 있는 파일은 실제로 물은 항목 · 글로 만든 것이라, 고른 글을 다 읽지 못했던 판은 뒤 실행(23:30 · 07:30)마다 점검
+          호출 한 번과 채널 받기를 한 번 더 한 뒤에야 같은 줄 알고 same으로 끝난다(모델에게 글을 다시 건네지는 않는다).
   스위치  저장소 변수 EVENING_ENABLED(evening.yml이 보는 것과 같은 것)를 먼저 읽는다. true가 아니면 규칙판 실행을 시작하지 않고, 채널을
           읽지도 모델을 부르지도 않는다 — 올라가 있는 문장이 있을 때만 빈 층으로 바꿔 올린다. 읽지 못하면 아무것도 하지 않는다(code=switch).
 
@@ -494,9 +496,8 @@ def stage_command(repo, args):
 def due(now, repo):
     """지금 규칙판 실행을 시작해도 되는가 — 판 날짜(지금 − edition_shift_h시간)가 평일이고, KST dispatch_from_min분(17:30) 뒤이고,
     그 판이 아직 올라와 있지 않고, 올라와 있는 판이 내린 판이 아닐 때만. 놓친 예약 작업이 이튿날 아침이나 토요일에 뒤늦게 돌아
-    새 날짜의 판을 내지 않게 하고, 내린 판을 PC가 다시 올리지 않게 한다."""
-    then = S.parse_iso(S.iso(now)) - datetime.timedelta(hours=TH["edition_shift_h"])
-    if then.weekday() >= 5 or then.hour * 60 + then.minute < TH["dispatch_from_min"] - 60 * TH["edition_shift_h"]:
+    새 날짜의 판을 내지 않게 하고, 내린 판을 PC가 다시 올리지 않게 한다. 때의 규칙(S.in_evening)은 예약 수집과 같다."""
+    if not S.in_evening(now):
         return False
     try:
         digest = S.read_json(os.path.join(repo, "data", "digest.json"), None)
@@ -506,7 +507,7 @@ def due(now, repo):
     if type(digest) is not dict:
         return digest is None and hold is None         # 아직 한 판도 없는 저장소
     down = digest.get("status") == "withdrawn" or (type(hold) is dict and hold.get("withdraw") is not False)
-    return not down and str(digest.get("date")) < then.date().isoformat()
+    return not down and str(digest.get("date")) < S.edition_date(now)
 
 
 def run_all(a, io):
