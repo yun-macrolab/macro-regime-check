@@ -452,6 +452,7 @@ window.StudyCore = (() => {
     SH_WEEK: "{wk} 주 · 듀레이션 {dur} · 커브 {cur}",
     SH_WHY: "근거: {text}",
     SH_WRONG: "틀릴 조건: {text}",
+    // 채점 표시(주간 화면 — 공유 글에는 넣지 않는다)
     SH_ACTUAL: "실제: {text}",
     SH_HIT: "듀레이션 {dur} · 커브 {cur}",
     SH_MISS: "빗나간 이유: {text}",
