@@ -295,11 +295,11 @@ function renderStatus(st) {
   tick();
 }
 
-// 그래프 하나 — 실패해도 페이지는 계속(그 그래프만 없음)
-function chartFigure(spec, height, caption, notices) {
+// 그래프 하나 — 실패해도 페이지는 계속(그 그래프만 없음). format(값 → 글자)을 주면 끝 값·풍선·읽기 글·표로 보기가 그 꼴
+function chartFigure(spec, height, caption, notices, format) {
   if (!spec || !window.MacroCharts) return null;
   try {
-    return window.MacroCharts.lineChart(spec, { height, caption, notices });
+    return window.MacroCharts.lineChart(spec, { height, caption, notices, format });
   } catch (e) {
     return null;
   }
@@ -859,7 +859,11 @@ function renderKtb(k) {
     .filter(s => s && typeof s.label === "string" && Number.isFinite(s.bp));
   document.getElementById("ktb-spreads").textContent = spreads.length
     ? spreads.map(s => `${s.label} ${s.bp.toFixed(1)}bp`).join(" · ") + " (이 금리로 계산)" : "";
-  const figs = (Array.isArray(k.charts) ? k.charts : []).map(spec => chartFigure(spec, 220, true)).filter(Boolean);
+  // 그래프 글자도 위 표와 같은 소수 자리 — 금리는 셋째, 금리차는 첫째(기본 꼴은 둘째 자리라 3.855%가 3.85%로 보였다)
+  const ktbFormat = unit => unit === "%" ? v => v.toFixed(3) + "%"
+    : unit === "bp" ? v => { const t = v.toFixed(1); return (Number(t) === 0 ? "0.0" : t) + "bp"; } : undefined;
+  const figs = (Array.isArray(k.charts) ? k.charts : [])
+    .map(spec => chartFigure(spec, 220, true, undefined, spec && ktbFormat(spec.unit))).filter(Boolean);
   document.getElementById("ktb-charts").replaceChildren(...figs.map(f => el("div", { class: "panel" }, f)));
   document.getElementById("ktb-notices").replaceChildren(...notices.map(v => el("p", {}, v)));
   available.korea = true;

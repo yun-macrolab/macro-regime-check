@@ -222,7 +222,7 @@ class StatsTest(unittest.TestCase):
             self.assertEqual(text is None, want is None)
             if text:
                 self.assertIn("2019년 이후", text)
-                self.assertRegex(text, r"p95\([+-][\d,]+\) 위" if want == "high" else r"p5\([+-][\d,]+\) 아래")
+                self.assertRegex(text, r"p95\([+-][\d,.]+\) 위" if want == "high" else r"p5\([+-][\d,.]+\) 아래")
 
     def test_flag_thresholds_are_p95_and_p5_not_p90_or_p10(self):
         base = [(w, 200.0 + 10 * math.sin(i * 1.7)) for i, w in enumerate(wednesdays(D(2018, 1, 3), D(2026, 9, 2)))]
@@ -237,6 +237,20 @@ class StatsTest(unittest.TestCase):
             last = ch[-1]
             self.assertTrue(q(ch, lo) < last < q(ch, hi), (c, lo, hi))           # 전제: 마지막 4주 변화가 그 두 분위 사이
             self.assertEqual(sf.stats("dealer", s)["flag"], want, (c, lo, hi))
+
+    def test_flag_line_shows_decimals_when_the_two_numbers_round_alike(self):
+        # 판정은 반올림 전 값 — 경계 바로 밖의 4주 변화는 경계와 같은 정수가 되므로, ⚠ 줄은 두 숫자가 달라지는 자리까지 적는다
+        base = [(w, 200.0 + 10 * math.sin(i * 1.7)) for i, w in enumerate(wednesdays(D(2018, 1, 3), D(2026, 9, 2)))]
+        ch0, q = sf.changes_over(base), sf.quantile
+        for c, want, words in ((q(ch0, 0.05) - 0.01, "low", "4주 변화 -5.042bn이 2019년 이후 p5(-5.041) 아래(하위 5%)"),
+                               (q(ch0, 0.95) + 0.01, "high", "4주 변화 +5.06bn이 2019년 이후 p95(+5.05) 위(상위 5%)")):
+            core = sf.stats("dealer", base + [(D(2026, 9, 30), base[-1][1] + c)])
+            bound = core["q4w"]["p5" if want == "low" else "p95"]
+            self.assertEqual(core["flag"], want)
+            self.assertEqual(sf._signed(core["chg_4w_bn"]), sf._signed(bound))       # 전제: 정수로는 같은 글자
+            side = sf.present("dealer", core, "2026-10-14")
+            self.assertIn(words, side["flag_text"])
+            self.assertNotIn(".", side["line"].split(" · 52주")[0])                   # 수준·4주 줄은 정수 그대로
 
     def test_a_4_week_change_without_a_near_base_is_left_blank(self):
         base = [(w, 200.0 + 10 * math.sin(i * 1.7)) for i, w in enumerate(wednesdays(D(2018, 1, 3), D(2026, 9, 2)))]
@@ -255,7 +269,8 @@ class StatsTest(unittest.TestCase):
         self.assertEqual((core["level_bn"], core["chg_4w_bn"]), (433.46, 23.46))
         # 소수 첫째 자리로 저장하면 433.5·23.5가 되어 문구가 434bn·+24로 — 원값에서 한 번만 반올림하면 433bn·+23
         self.assertEqual(sf.present("dealer", core, "2026-10-14")["line"], "433bn · 4주 +23 · 52주 —")
-        self.assertEqual(core["points"][-1], ["2026-09-30", 433.5])                    # 그래프 점은 소수 첫째 자리
+        # 그래프 점도 소수 셋째 자리 — 433.5로 두면 그래프 끝 값이 정수로 다시 반올림되어 434bn(문구는 433bn)
+        self.assertEqual(core["points"][-1], ["2026-09-30", 433.46])
 
     def test_no_flag_while_the_sample_is_short(self):
         s = [(w, 200.0) for w in wednesdays(D(2026, 6, 3), D(2026, 9, 2))] + [(D(2026, 9, 30), 300.0)]
@@ -286,7 +301,7 @@ class StatsTest(unittest.TestCase):
         s = bn(custody_series())
         core = sf.stats("custody", s)
         pts = core["points"]
-        self.assertEqual(pts[-1], [core["date"], round(s[-1][1], 1)])                # 그래프 점은 소수 첫째 자리
+        self.assertEqual(pts[-1], [core["date"], round(s[-1][1], sf.NUM_ND)])        # 그래프 점도 문구 숫자와 같은 소수 셋째 자리
         self.assertGreaterEqual(pts[0][0], "2021-10-07")
         self.assertLessEqual(pts[0][0], "2021-10-14")
         weeks = [D.fromisoformat(p[0]).isocalendar()[:2] for p in pts]
@@ -326,6 +341,17 @@ class PresentTest(unittest.TestCase):
         for kind, flag, c4, want in cases:
             core = {**(self.DEALER if kind == "dealer" else self.CUSTODY), "flag": flag, "chg_4w_bn": c4}
             self.assertEqual(sf.present(kind, core, "2026-10-14")["flag_text"], want)
+        # 두 숫자가 같은 정수(또는 같은 소수 첫째 자리)로 보이면 달라지는 자리까지 — '-45bn이 p5(-45) 아래'가 되지 않게
+        ties = (("dealer", "low", -45.43, {"p5": -45.28}, "4주 변화 -45.4bn이 2019년 이후 p5(-45.3) 아래(하위 5%)"),
+                ("dealer", "low", -45.3, {"p5": -45.273}, "4주 변화 -45.30bn이 2019년 이후 p5(-45.27) 아래(하위 5%)"),
+                ("dealer", "high", 52.3, {"p95": 52.102}, "4주 변화 +52.3bn이 2019년 이후 p95(+52.1) 위(상위 5%)"),
+                ("custody", "high", 1250.4, {"p95": 1249.6}, "4주 변화 +1,250.4bn이 2019년 이후 p95(+1,249.6) 위(상위 5%)"))
+        for kind, flag, c4, bound, words in ties:
+            side = self.DEALER if kind == "dealer" else self.CUSTODY
+            core = {**side, "flag": flag, "chg_4w_bn": c4, "q4w": {**side["q4w"], **bound}}
+            out = sf.present(kind, core, "2026-10-14")
+            self.assertIn(words, out["flag_text"])
+            self.assertNotIn(".", out["line"])                                         # 줄의 숫자는 정수 그대로
         late = {**self.DEALER, "flag": "high", "chg_4w_bn": 80.0, "q4w": {**self.DEALER["q4w"], "from": "2021-03-03"}}
         self.assertIn("2021년 이후 p95(+52) 위", sf.present("dealer", late, "2026-10-14")["flag_text"])   # 표본 시작 해
         self.assertIsNone(sf.present("dealer", self.DEALER, "2026-10-14")["flag_text"])
@@ -630,6 +656,18 @@ class StaticTest(unittest.TestCase):
         self.assertLess(wf.index("id: supply"), wf.index("git add data"))                 # 봇 커밋에 실린다
         alert = wf[wf.index("\n  alert:"):]
         self.assertNotIn("supply", alert)                                                # 실패해도 알림을 띄우지 않는다(머리말)
+        # 실패 알림이 없는 칸이라 페이지 표시가 곧 실패 신호 — 그 그리기 테스트가 배포 앞 검사에서 돈다
+        self.assertIn("node --test scripts/test_supply_ktb_render.cjs", wf[wf.index("\n  check:"):wf.index("\n  update:")])
+
+    def test_readme_counts(self):
+        readme = self.read("README.md")
+        m = re.search(r"\*\*아침 쪽 Python 테스트 (\d+)개 \+ node 테스트 (\d+)개\*\*\((.*?)\)와 \*\*저녁판", readme)
+        py_part, node_part = m.group(3).split(" / node: ")
+        mine = unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__]).countTestCases()
+        self.assertRegex(py_part, rf"(^| · )수급 참고 {mine}( · |$)")
+        cjs = len(re.findall(r"^test\(", self.read("scripts", "test_supply_ktb_render.cjs"), flags=re.M))
+        self.assertRegex(node_part, rf"(^| · )수급 참고·국고채 절 그리기 {cjs}( · |$)")
+        self.assertIn("node --test scripts/test_supply_ktb_render.cjs", readme)
 
     def test_page_reads_the_file_and_puts_the_panel_in_the_term_premium_guide(self):
         page = self.read("site", "index.html")

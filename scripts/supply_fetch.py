@@ -11,7 +11,9 @@ q4w.from, 문구에 그 해를 적는다) 이후 4주 변화 분포의 p5·p50·
 선형 보간) · 마지막 4주 변화가 p95 위/p5 아래면 그렇다는 ⚠ 줄(4주 변화가 20개 미만이면 붙이지 않는다 — 줄 끝에 비공개 월간
 점검 [수급 구조]의 구절을 그대로, 2026-10-30 사용자 결정: '재고 급증(조달 압박·TFP 상승 쪽)' 등. 참고이고 예측 아님) ·
 최근 5년 주간 그래프.
-문구로 가는 숫자는 소수 셋째 자리로 두고 문구에서 한 번만 반올림한다(그래프 점만 소수 첫째 자리).
+문구로 가는 숫자와 그래프 점은 소수 셋째 자리로 두고 글자에서 한 번만 반올림한다(그래프 점을 소수 첫째 자리로 두면 그래프의
+끝 값이 정수로 한 번 더 반올림되어 문구와 1bn 어긋날 수 있었다 — 2026-10-14·10-23). ⚠ 줄의 두 숫자(4주 변화와 p5·p95)가
+같은 정수로 보이면 달라지는 자리까지(셋째 자리까지) 소수로 적는다('-45bn이 p5(-45) 아래'가 되지 않게).
 딜러는 2022년 말(그 이하 마지막 관측) 이후 변화와, 거기에 Dallas Fed WP 2613 표 2의 TFP 계수(0.038bp/십억 달러)를 곱한
 산술 참고값도 — 원본 파이프라인 월간 점검의 [수급 구조]와 같은 계산이다(코드는 가져오지 않고 여기서 따로 쓴다).
 
@@ -74,7 +76,7 @@ STEP_TOL_DAYS = 6                           # 분위수 표본: 28일 전 관측
 MIN_Q = 20                                  # 4주 변화가 이보다 적으면 p5/p95 밖 표시를 붙이지 않는다
 YEARS = 5                                   # 그래프 기간
 PAPER_TFP = 0.038                           # Dallas Fed WP 2613(2026) 표 2 — TFP의 딜러 보유 계수(bp / 십억 달러, 1% 유의)
-NUM_ND = 3                                  # 문구로 가는 숫자의 소수 자리 — 소수 첫째 자리로 두면 문구(정수)에서 두 번 반올림된다
+NUM_ND = 3                                  # 문구로 가는 숫자·그래프 점의 소수 자리 — 소수 첫째 자리로 두면 글자(정수)에서 두 번 반올림된다
 
 NOTICE = ("이 사이트의 규칙 판정에 쓰지 않는 참고 자료다. 충족·미충족이 없고, 값의 크기나 방향을 시장 전망으로 읽지 않는다. "
           "⚠ 줄 끝의 구절은 운영자가 개인 월간 점검에 적어 둔 메모를 옮긴 참고이고 예측이 아니다.")
@@ -356,7 +358,8 @@ def stats(kind, series, since=SINCE):
             "chg_4w_bn": _r(c4 and c4["delta"], NUM_ND), "chg_4w_base": c4 and c4["base_date"].isoformat(),
             "chg_52w_bn": _r(c52 and c52["delta"], NUM_ND), "chg_52w_base": c52 and c52["base_date"].isoformat(),
             "q4w": q, "flag": flag, "since_2022": None,
-            "points": [[d.isoformat(), _r(v)] for d, v in ff.weekly_last(series) if d >= ff.shift_year(d1, -YEARS)]}
+            "points": [[d.isoformat(), _r(v, NUM_ND)] for d, v in ff.weekly_last(series)
+                       if d >= ff.shift_year(d1, -YEARS)]}
     if kind == "dealer":
         base = ff.on_or_before(series, END_2022)
         if base:
@@ -374,6 +377,18 @@ def _signed(v):
         return "—"
     r = int(round(v))
     return "0" if r == 0 else f"{r:+,d}"
+
+
+def _signed_pair(a, b):
+    """⚠ 줄의 두 숫자(4주 변화, p5 또는 p95) — _signed()로 같은 글자가 되면 달라지는 자리까지(NUM_ND까지) 소수를 붙인다.
+    판정은 반올림 전 값으로 하므로 정수만 적으면 '-45bn이 p5(-45) 아래'처럼 읽힌다. 두 수는 늘 같은 소수 자리로 적는다."""
+    sa, sb = _signed(a), _signed(b)
+    nd = 0
+    while sa == sb and a is not None and b is not None and nd < NUM_ND:
+        nd += 1
+        sa, sb = (f"{v:+,.{nd}f}" for v in (a, b))
+        sa, sb = (x[1:] if float(x.replace(",", "")) == 0 else x for x in (sa, sb))   # 0은 부호 없이(_signed와 같게)
+    return sa, sb
 
 
 _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
@@ -420,8 +435,9 @@ def present(kind, core, retrieved):
     flag_text = None
     if core["flag"] in ("high", "low"):
         hi = core["flag"] == "high"
-        flag_text = (f"⚠ {FLAG_NAME[kind]} 4주 변화 {_signed(core['chg_4w_bn'])}bn이 {year}년 이후 "
-                     + (f"p95({_signed(q['p95'])}) 위(상위 5%)" if hi else f"p5({_signed(q['p5'])}) 아래(하위 5%)")
+        c4, bound = _signed_pair(core["chg_4w_bn"], q["p95" if hi else "p5"])
+        flag_text = (f"⚠ {FLAG_NAME[kind]} 4주 변화 {c4}bn이 {year}년 이후 "
+                     + (f"p95({bound}) 위(상위 5%)" if hi else f"p5({bound}) 아래(하위 5%)")
                      + f" — {FLAG_READING[(kind, core['flag'])]}")
     extra = []
     s22 = core.get("since_2022")

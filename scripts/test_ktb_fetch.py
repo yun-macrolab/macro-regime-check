@@ -526,6 +526,7 @@ class StaticTest(unittest.TestCase):
         self.assertIn("timeout-minutes: 2", step[:200])                             # 느린 응답이 규칙 점검 배포를 막지 않게
         self.assertIn("ktb: ${{ steps.ktb.outcome }}", wf)
         self.assertIn("needs.update.outputs.ktb == 'failure'", wf)
+        self.assertIn("node --test scripts/test_supply_ktb_render.cjs", wf[wf.index("\n  check:"):wf.index("\n  update:")])   # 절 그리기 테스트
 
 
 if __name__ == "__main__":

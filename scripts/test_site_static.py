@@ -106,6 +106,15 @@ class PageTest(unittest.TestCase):
             self.assertIn(f'id="{slot}"', section[:section.index("</section>")], slot)
         self.assertIn(".credit-slot:empty", self.css)                               # 빈 자리는 보이지 않는다
 
+    def test_ktb_table_panel_rule_reaches_the_table_panel(self):
+        # 국고채 절의 표 상자는 머리글 다음 둘째 자식이라 :first-of-type에 걸리지 않았다(그래프 첫 상자에 걸렸다) — 자식 선택자로
+        self.assertIn("#ktb-wrap > .panel {", self.css)
+        self.assertNotRegex(self.css, r"#ktb-wrap[^{]*:first-of-type")
+        sec = self.page[self.page.index('<section id="ktb-wrap"'):]
+        sec = sec[:sec.index("</section>")]
+        self.assertRegex(sec, r'\n {4}<div class="panel">\n {6}<table id="ktb-table"')       # 표 상자는 절의 바로 아래 자식
+        self.assertIn('<div id="ktb-charts"></div>', sec)                                    # 그래프 상자는 그 안에(직계 자식 아님)
+
     def test_morning_status_is_hidden_on_evening_and_notes(self):
         # 아침 갱신의 상태 줄·실패 배너가 저녁판·읽기 노트의 것처럼 읽히지 않게
         self.assertIn('dataset.view = activeView', self.page)
