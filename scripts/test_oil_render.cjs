@@ -1,4 +1,5 @@
 // 유가·에너지 참고(site/oil.js) — 아주 작은 가짜 DOM 위에서 render()를 돌려 글을 본다. 숫자는 지어낸 것이다.
+// 맨 끝 하나는 index.html applyView의 묶음 숨김 — 이 카드와 다른 참고 카드 자리가 '규칙 상태' 거르기에 휩쓸리지 않는지.
 // 실행: node --test scripts/test_oil_render.cjs
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
@@ -270,4 +271,40 @@ test('the intro is one register and does not repeat the data notice',()=>{
  assert.ok(!card.textContent.includes('참고 자료다.'));
  for(const t of api.ABOUT.split(/(?<=\.)\s+/).filter(Boolean))assert.ok(/니다\.$/.test(t),t);
  assert.ok(api.ABOUT.includes('유가나 금리를 예측하지 않습니다'));
+});
+
+test('reference slots stay on their topic screen whatever the rule-status filter (index.html applyView)',()=>{
+ // 참고 카드 자리(유가 #oil-slot · 기간 프리미엄 · 지준·재정 · 연준 재무상태표)는 규칙 묶음(.rule-group) 안에 있다. 전엔 '규칙 상태'를
+ // 고르면 같은 묶음 규칙의 상태에 따라 묶음째 숨어 판정 없는 카드가 사라졌다. applyView의 그 부분만 잘라 가짜 DOM 위에서 돌린다
+ const page=fs.readFileSync(path.join(__dirname,'../site/index.html'),'utf8');
+ const i=page.indexOf('  let shown = 0;\n'),j=page.indexOf('  document.getElementById("rule-count")',i);
+ assert.ok(i>0&&j>i,'applyView의 규칙·묶음 숨김 부분을 찾지 못함');
+ const run=vm.runInNewContext('(function(activeView, ruleState, document){'+page.slice(i,j)+'})');
+ const node=(cls,extra={})=>Object.assign({cls,hidden:false,dataset:{}},extra);
+ function world(filled){
+  const groups=[['rates',['not_met','not_met','not_met'],['tp-slot']],['inflation',['not_met','unknown'],['oil-slot']],
+   ['liquidity',['met','met'],['liquidity-slot','fedbs-slot']],['other',[],[]]];
+  const cards=[],sections={};
+  for(const [g,states,slots] of groups){
+   const mine=states.map(s=>node('rule',{dataset:{category:g,status:s}}));cards.push(...mine);
+   const grid=node('rule-grid'),refs=slots.map(id=>node('oil-slot',{id,childElementCount:filled.includes(id)?1:0}));
+   sections[g]=node('rule-group',{dataset:{group:g},grid,
+    querySelectorAll:sel=>sel==='.rule'?mine:sel==='.oil-slot'?refs:[],querySelector:sel=>sel==='.rule-grid'?grid:null});
+  }
+  const document={querySelectorAll:sel=>sel==='.rule'?cards:sel==='.rule-group'?Object.values(sections):[]};
+  return {document,sections};
+ }
+ const seen=(view,state,filled=['tp-slot','oil-slot','liquidity-slot','fedbs-slot'])=>{
+  const w=world(filled);run(view,state,w.document);
+  return Object.fromEntries(Object.entries(w.sections).map(([g,s])=>[g,s.hidden?'-':s.grid.hidden?'ref':'rules']));
+ };
+ assert.deepEqual(seen('rates','met'),{rates:'ref',inflation:'-',liquidity:'-',other:'-'});          // 규칙은 없어도 기간 프리미엄 카드는 남는다
+ assert.deepEqual(seen('inflation','met'),{rates:'-',inflation:'ref',liquidity:'-',other:'-'});      // 유가·에너지 카드
+ assert.deepEqual(seen('liquidity','not_met'),{rates:'-',inflation:'-',liquidity:'ref',other:'-'});  // 지준·재정·연준 재무상태표
+ assert.deepEqual(seen('all','met'),{rates:'ref',inflation:'ref',liquidity:'rules',other:'-'});
+ assert.deepEqual(seen('all','not_met'),{rates:'rules',inflation:'rules',liquidity:'ref',other:'-'});
+ assert.deepEqual(seen('all','all'),{rates:'rules',inflation:'rules',liquidity:'rules',other:'-'});
+ assert.deepEqual(seen('rates','met',[]),{rates:'-',inflation:'-',liquidity:'-',other:'-'});         // 빈 자리(자료 없음)는 묶음을 붙잡지 않는다
+ assert.deepEqual(seen('ai','all'),{rates:'-',inflation:'-',liquidity:'-',other:'-'});              // 다른 화면에서는 늘 숨는다
+ assert.deepEqual(seen('rates','all'),{rates:'rules',inflation:'-',liquidity:'-',other:'-'});
 });

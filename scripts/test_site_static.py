@@ -60,6 +60,9 @@ class PageTest(unittest.TestCase):
         source = self.page[self.page.index("<h3>미국 공개 자료 (FRED 경유)</h3>"):start]
         for word in ("Copyrighted: Citation Required", "Moody's 고지", "정수 낙폭 %", "민간 지수 3개"):
             self.assertIn(word, source)
+        # 시리즈 상태 목록은 처음부터 펼쳐져 있다 — 제목에 '(펼쳐 보기)'를 달지 않는다(누르면 오히려 접혔다)
+        self.assertIn('<details open>\n    <summary id="health-summary">', self.page)
+        self.assertNotIn("펼쳐 보기", self.page)
 
     def test_motion_and_shortcuts_can_be_turned_off(self):
         self.assertIn('id="motion-toggle"', self.page)
@@ -87,6 +90,15 @@ class PageTest(unittest.TestCase):
         # 화면이 읽는 자료 파일은 꼬리말의 '원자료'에서도 열 수 있고, 싣는 스크립트는 site/에 실제로 있다
         loaded = set(re.findall(r'getJson\("(data/[\w.-]+\.json)"\)', self.page))
         self.assertGreaterEqual(len(loaded), 14)
+        # 저녁판·읽기 노트는 파일 이름을 목록에서 만들어 읽는다(evening.js의 COMMON · notes.js의 FILES) — 그것도 센다(넷이 꼬리말에 없었다)
+        common = re.search(r"const COMMON = \[([^\]]*)\];", read("site", "evening.js"))
+        self.assertIn('getJson("data/" + name)', read("site", "evening.js"))
+        evening = {"data/" + n for n in re.findall(r'"([\w.-]+\.json)"', common.group(1))}
+        files = re.search(r"const FILES = \{([^}]*)\};", read("site", "notes.js"))
+        notes = set(re.findall(r'"(data/[\w.-]+\.json)"', files.group(1)))
+        self.assertGreaterEqual(len(evening), 6)
+        self.assertGreaterEqual(len(notes), 3)
+        loaded |= evening | notes
         footer = self.page[self.page.index("<footer>"):self.page.index("</footer>")]
         for path in sorted(loaded):
             self.assertIn(f'<a href="{path}">', footer, path)
@@ -120,6 +132,9 @@ class PageTest(unittest.TestCase):
         self.assertIn('dataset.view = activeView', self.page)
         for view in ("evening", "notes"):
             self.assertIn(f'main[data-view="{view}"] > :is(#status, #notice, #banner)', self.css)
+        # 제목 옆 '아침 정기 갱신' 이름표도 — 두 화면 제목 옆에 남아 있었다
+        self.assertIn('<span class="update-label">아침 정기 갱신</span>', self.page)
+        self.assertIn('main[data-view="evening"] .update-label, main[data-view="notes"] .update-label { display: none; }', self.css)
 
 
 if __name__ == "__main__":

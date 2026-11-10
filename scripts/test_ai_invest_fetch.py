@@ -1035,6 +1035,16 @@ class StaticTest(unittest.TestCase):
         self.assertIn('<section id="ai-teaser" hidden', page)
         self.assertIn('href="#ai" data-view="ai"', page)
         self.assertIn('"sources", "ai"]', page)                                 # 알려진 화면
+        # '출처와 자료 상태'의 AI 투자 참고 문장은 수집기가 쓰는 원 발행기관을 모두 댄다(재무부 HQM이 빠져 있었다)
+        sentence = page[page.index("AI 투자 참고(판정 제외)는 "):]
+        sentence = sentence[:sentence.index("씁니다")]
+        names = {"Board of Governors of the Federal Reserve System (US)": "연준", "U.S. Bureau of Economic Analysis": "BEA",
+                 "U.S. Bureau of Labor Statistics": "BLS", "U.S. Census Bureau": "Census",
+                 "U.S. Department of the Treasury": "재무부(HQM 회사채 곡선)", "Nasdaq, Inc.": "Nasdaq",
+                 "S&P Dow Jones Indices LLC": "S&amp;P"}
+        for owner in sorted({v[0] for v in ai.SOURCES.values()}):
+            self.assertIn(owner, names, "새 발행기관 — 출처 문장에 더할 것")
+            self.assertIn(names[owner], sentence, owner)
 
     def test_card_cites_only_licences_the_collector_writes(self):
         # 카드가 인용을 싣는 licence(CITE_LICENCES)는 수집기가 실제로 쓰는 값 가운데 인용이 필요한 것(UNLABELED)뿐이다
@@ -1064,6 +1074,10 @@ class StaticTest(unittest.TestCase):
         page = self.read("site", "index.html")
         guide = page[page.index("const GUIDE = {"):page.index("function tpFlowFigure()")]
         self.assertIn("stock_bond_corr: {", guide)
+        # 긴 그림은 상관 갈래의 끝이지 화면 맨 아래가 아니다 — 그 아래에 신용 긴축·CDS 절(#ai-credit)이 이어진다
+        self.assertIn(f"AI 투자 화면의 '{dict(ai.CHANNELS)['corr']}' 갈래 끝에", guide)
+        self.assertNotIn("화면 맨 아래", guide)
+        self.assertLess(page.index('<section id="ai-wrap"'), page.index('<section id="ai-credit"'))
         self.assertIn('el("a", { href: "#ai" }', guide)
         for word in FORBIDDEN_TEXT:
             block = guide[guide.index("stock_bond_corr: {"):]
