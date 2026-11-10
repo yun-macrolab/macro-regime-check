@@ -2,7 +2,7 @@
 """수급 참고 자료(supply_fetch) 테스트 — 너그러운 딜러 응답 읽기, 계산, 한쪽 실패·직전 값 이어 싣기, 원자적 쓰기, 종료코드.
 
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
-네트워크 불필요 — 뉴욕 연은 응답은 지어낸 JSON(형식은 이 저장소에서 확인하지 못해 여러 꼴로), FRED는 가짜 loader 또는
+네트워크 불필요 — 뉴욕 연은 응답은 지어낸 JSON(2026-11-10 확인한 실제 꼴과, 꼴이 바뀌어도 버티는지 보는 여러 꼴), FRED는 가짜 loader 또는
 합성 캐시(--offline). 숫자는 모두 지어낸 것이다.
 """
 import os, sys, io, re, json, math, datetime, tempfile, unittest, shutil, contextlib
@@ -39,7 +39,8 @@ def custody_series(end=D(2026, 10, 7)):
 
 
 def pd_json(series, key=sf.PD_KEY, **extra):
-    """문서로 보는 꼴 {"pd": {"timeseries": [{asofdate, keyid, value(글자)}]}} — 실제 형식은 확인하지 못했다."""
+    """실제 꼴 {"pd": {"timeseries": [{asofdate, keyid, value(백만 달러의 글자)}]}} — 2026-11-10 한 번 받아 확인했다
+    (2013-04-03부터 주간 709개, 시리즈 구분 칸 없음). 값은 지어낸 것이다."""
     rows = [{"asofdate": d.isoformat(), "keyid": key, "value": f"{v:.0f}", **extra} for d, v in series]
     return json.dumps({"pd": {"timeseries": rows}})
 

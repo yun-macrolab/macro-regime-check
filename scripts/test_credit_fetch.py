@@ -1574,8 +1574,10 @@ class LicenceTest(unittest.TestCase):
                                       'Excess Bond Premium," FEDS Notes, Board of Governors of the Federal Reserve System.')
         self.assertEqual(cf.EBP_SOURCE, "Source: Board of Governors of the Federal Reserve System (ebp_csv.csv), "
                                         "site calculations.")
-        self.assertEqual(cf.CMDI_CITE, 'Boyarchenko, Crump, Kovner and Shachar, "Corporate Bond Market Distress," '
-                                       'FRBNY Staff Report 957.')
+        # 논문 제목 — 뉴욕 연은 Staff Report 957 쪽(2026-11-10 확인). 'Corporate Bond Market Distress'는 지수 이름이다
+        self.assertEqual(cf.CMDI_CITE, 'Boyarchenko, Crump, Kovner and Shachar, "Measuring Corporate Bond Market '
+                                       'Dislocations," FRBNY Staff Report 957.')
+        self.assertNotIn("Market Distress,", cf.CMDI_PAPER)
         self.assertIn("public domain", cf.EBP_PD)
         self.assertIn("인장", cf.EBP_PD)
         self.assertIn("not New York Fed values", cf.CMDI_DERIVED_EN)

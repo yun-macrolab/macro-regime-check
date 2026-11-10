@@ -286,8 +286,10 @@ DROPPED = {
     "section": "레짐 점검 참고를 싣지 않음(만들지 못함)",
 }
 HY_HIDDEN = "HY OAS 값 비공개(문턱은 규칙 문장)"   # 신용 스프레드 해석 줄에서 ICE HY OAS 값 자리를 바꾸는 고정 문구
-# 숫자 자리의 꼴 — regime_rules.evaluate의 서식 그대로({:+.1f} · {:+.2f} · {:.1f} · {:.2f}). 다른 글자(nan 등)는 맞지 않는다
+# 숫자 자리의 꼴 — regime_rules.evaluate의 서식 그대로({:+.1f} · {:+.2f} · {:.1f} · {:.2f}). 다른 글자(nan 등)는 맞지 않는다.
+# 끝의 둘은 regime_rules._shown 자리 — 임계값 바로 옆이면 비교가 뒤집히지 않을 때까지 6자리까지 늘린다
 _S1, _S2, _U1, _U2 = r"[+-]\d+\.\d", r"[+-]\d+\.\d\d", r"-?\d+\.\d", r"-?\d+\.\d\d"
+_S1N, _U2N = r"[+-]\d+\.\d{1,6}", r"-?\d+\.\d{2,6}"
 
 
 def _o(p):
@@ -308,15 +310,16 @@ def readings():
     head: ' → ' 앞(공개 시리즈의 값 자리만), clauses: ' → ' 뒤 원본 구절 → 공개 구절(내부 ID는 뺀다).
     public_head가 있으면 원본의 앞부분 대신 head 일치의 expand(public_head)를 싣는다 — 원본 앞부분에 재배포 제한 값이 든
     규칙(credit_spread: Baa 부분(\\1)은 그대로, ICE HY OAS 값 자리는 고정 문구로).
-    중립 규칙의 구절은 임계값이 들어 있어 호출 시점의 rr.TH로 만든다."""
+    임계값이 든 구절(126일·실질 2%·근원 PCE 3%·지준 9%·중립 규칙 둘)은 원본처럼 호출 시점의 rr.TH로 만든다."""
     th, nv = rr.TH, {NO_VERDICT: NO_VERDICT}
+    g = lambda k: f"{th[k]:g}"
     fixed = lambda *xs: [re.escape(x) for x in xs]
     return {
         "ci_vs_ngdp": {"plain": fixed("C&I YoY 판정불가(2025-01 분류 단절 이전 기준치 또는 자료 없음)"),
                        "head": rf"C&I {_S1}% vs 명목GDP {_S1}%",
                        "clauses": _same("명목성장률 아래 = A 반증", "상회 = A 진행")},
         "ndfi_credit": {"plain": fixed("NDFI YoY 자료 없음"),
-                        "head": rf"NDFI 대출 YoY {_S1}%\(계단 제외\), 총대출의 {_o(_U1)}%",
+                        "head": rf"NDFI 대출 YoY {_S1N}%\(계단 제외\), 총대출의 {_o(_U1)}%",
                         "clauses": _same("두 자릿수 붕괴 = A→D 방아쇠 주의", "두 자릿수 유지 = A 진행")},
         # 원본 앞부분 = Baa−10Y 값(Moody's — 2026-10-30부터 공개) · HY OAS 값(ICE — 재배포 제한). 꼴을 통째로 확인하고
         # Baa 부분은 그대로, HY OAS 값 자리만 고정 문구로 바꾼다(ICE 값은 어디에도 옮기지 않는다)
@@ -325,30 +328,32 @@ def readings():
                           "public_head": r"\1 · " + HY_HIDDEN,
                           "clauses": {**_same("D 선행 신호", "확대 없음(A 유지)"), **nv}},
         "stock_bond_corr": {"plain": fixed("ρ60 자료 없음")
-                            + [rf"ρ60 {_S2}, 양\(\+\) \d+영업일째\(126일 미만\)",
+                            + [rf"ρ60 {_S2}, 양\(\+\) \d+영업일째\({g('corr_run_days')}일 미만\)",
                                rf"ρ60 {_S2}, 음\(−\) \d+영업일 지속 = 분산 붕괴·전사 위험 한도 압박"],
-                            "head": rf"ρ60 {_S2}, 양\(\+\) \d+영업일 = 126일 복귀",
+                            "head": rf"ρ60 {_S2}, 양\(\+\) \d+영업일 = {g('corr_run_days')}일 복귀",
                             "clauses": _same("B 신호")},
         "curve_inversion": {"plain": fixed("2s10s 자료 없음"), "head": rf"2s10s {_o(_S2)}%p",
                             "clauses": _same("역전 = D 선행", "정상(역전 없음)")},
         "real_rate_bei": {"plain": fixed("실질금리 자료 없음"),
-                          "head": rf"10년 실질 {_U2}% · BEI {_o(_U2)}%\(3개월 {_o(_S2)}\)",
-                          "clauses": {**_same("실질 2% 하회 + BEI 상승 = C 신호", "실질 2% 아래이나 BEI 상승 없음"),
-                                      "실질 2% 위 = C 반증(F-01-C-01)": "실질 2% 위 = C 반증", **nv}},
+                          "head": rf"10년 실질 {_U2N}% · BEI {_o(_U2)}%\(3개월 {_o(_S2)}\)",
+                          "clauses": {**_same(f"실질 {g('real_rate_c')}% 하회 + BEI 상승 = C 신호",
+                                              f"실질 {g('real_rate_c')}% 아래이나 BEI 상승 없음"),
+                                      f"실질 {g('real_rate_c')}% 위 = C 반증(F-01-C-01)": f"실질 {g('real_rate_c')}% 위 = C 반증",
+                                      **nv}},
         "core_inflation": {"plain": fixed("근원 PCE 자료 없음"),
-                           "head": rf"근원 PCE {_U2}% \(근원 CPI {_o(_U2)}%, 괴리 {_o(_S2)}%p\)",
-                           "clauses": _same("3% 이하 = D1 쪽, SEP 경로 추종이면 B",
-                                            "3% 초과 = D2 쪽(붕괴 시 채권 방어 불완전)")},
+                           "head": rf"근원 PCE {_U2N}% \(근원 CPI {_o(_U2)}%, 괴리 {_o(_S2)}%p\)",
+                           "clauses": _same(f"{g('core_pce_split')}% 이하 = D1 쪽, SEP 경로 추종이면 B",
+                                            f"{g('core_pce_split')}% 초과 = D2 쪽(붕괴 시 채권 방어 불완전)")},
         "term_premium": {"plain": fixed("기간 프리미엄 자료 없음"), "head": rf"TP\(Kim-Wright\) {_U2}% \(3개월 {_o(_S2)}\)",
                          "clauses": {**_same("하락 = 듀레이션 수요 충분 후보(A 반증, 발행 지속 여부 수동 확인)",
                                              "하락 없음(A 진행)"), **nv}},
         "sofr": {"plain": fixed("SOFR 자료 없음"), "head": rf"SOFR {_U2}% \(3개월 {_o(_S2)}\)",
                  "clauses": {**_same("재상승 = 2021 빈티지 이자보상 재악화·PIK 증가", "재상승 없음"), **nv}},
         "reserves_multiplier": {"plain": fixed("지준/GDP 자료 없음"),
-                                "head": rf"승수 {_o(_U2)} · 지준/명목GDP {_U1}% \(3개월 {_o(_S2)}%p\)",
-                                "clauses": {**_same("8%대 = 대차대조표 임대료 상승(A)",
+                                "head": rf"승수 {_o(_U2)} · 지준/명목GDP {_U2N}% \(3개월 {_o(_S2)}%p\)",
+                                "clauses": {**_same(f"{g('reserves_gdp_low')}% 미만 = 대차대조표 임대료 상승(A)",
                                                     "지준 재확대 + 물가 목표 상회 = C 후보(장기물 매입 여부 수동 확인)",
-                                                    "9%대 유지(B 산술)"), **nv}},
+                                                    f"{g('reserves_gdp_low')}% 이상 유지(B 산술)"), **nv}},
         "employment": {"plain": fixed("고용 자료 없음"), "head": rf"증권·투자업 고용 YoY {_S1}%",
                        "clauses": _same("감소 전환 = 인원 조정 시작", "증가 유지(강세장 코호트)")},
         "core_momentum": {"plain": fixed("근원 PCE 6개월 연율 − 전년비 산출 불가(6개월 전·1년 전 같은 달 관측치 없음)"),

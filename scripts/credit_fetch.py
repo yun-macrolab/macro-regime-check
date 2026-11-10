@@ -149,7 +149,8 @@ SERIES = list(SOURCES)                        # FRED — 차례 = 요청 차례
 # FRED 밖 자료(EXT) — FRED 8개 다음에 받는다(회사채 Z.1 다섯은 그 뒤 — FETCH)
 EBP_PAPER = ('Favara, Gilchrist, Lewis and Zakrajšek (2016), "Updating the Recession Risk and the Excess Bond Premium," '
              'FEDS Notes, Board of Governors of the Federal Reserve System')
-CMDI_PAPER = ('Boyarchenko, Crump, Kovner and Shachar, "Corporate Bond Market Distress," FRBNY Staff Report 957')
+# 논문 제목은 2026-11-10 뉴욕 연은 Staff Report 957 쪽에서 확인('Corporate Bond Market Distress'는 지수 이름이고 논문 제목이 아니다)
+CMDI_PAPER = ('Boyarchenko, Crump, Kovner and Shachar, "Measuring Corporate Bond Market Dislocations," FRBNY Staff Report 957')
 EXT = {
     EBP: {"url": EBP_URL, "host": EBP_HOST, "cache": "ebp_csv.csv", "name": "Board of Governors of the Federal Reserve System",
           "title": EBP_PAPER, "licence": "public-domain"},

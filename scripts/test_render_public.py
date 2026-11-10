@@ -443,6 +443,8 @@ BRANCHES = [
     {"tp_chg_3m": -0.3}, {"tp_chg_3m": None}, {"tp": None},
     {"sofr_chg_3m": 0.3}, {"sofr_chg_3m": None}, {"sofr": None},
     {"reserves_gdp": 8.5, "mult": None}, {"reserves_gdp_chg_3m": 0.4}, {"reserves_gdp_chg_3m": None}, {"reserves_gdp": None},
+    # 임계값 바로 옆 — 원본이 자리를 늘려 싣는 값(8.999% · 3.004% · +9.96%)도 정해 둔 꼴에 맞는다(audit 2026-11-10 liq-02)
+    {"reserves_gdp": 8.999}, {"reserves_gdp": 9.004}, {"core_pce_yoy": 3.004}, {"ndfi_yoy": 9.96},
     {"emp_yoy": -1.0}, {"emp_yoy": None},
     {"core_mom": 0.6, "core_pce_a6": 3.94}, {"core_mom": None}, {"core_pce_a6": None},
     {"unrate_rise": 0.6}, {"unrate_rise": None}, {"unrate_n_used": 2, "unrate_low_month": None},
@@ -543,6 +545,24 @@ class ReadingTest(unittest.TestCase):
             rr.TH["core_mom_gap"] = orig
         got = next(r for r in pub["rules"] if r["key"] == "core_momentum")["reading"]
         self.assertTrue(got.endswith("→ 0.75%p 이상(6개월 연율이 전년비보다 높음)"), got)
+
+    def test_threshold_clauses_follow_the_table_and_still_reach_the_page(self):
+        # 문턱이 든 구절(126일 · 실질 2% · 근원 PCE 3% · 지준 9%)도 TH에서 — TH만 고쳐도 해석 줄이 빠지지 않고 새 문턱을 말한다
+        new = {"corr_run_days": 100, "real_rate_c": 1.5, "core_pce_split": 2.5, "reserves_gdp_low": 8.0}
+        old = {k: rr.TH[k] for k in new}
+        rr.TH.update(new)
+        try:
+            sig, pub = self.render_with(rho60_sign="+", rho60_run=110, rho60=0.3, dfii10=1.6, core_pce_yoy=2.4,
+                                        reserves_gdp=7.995)
+        finally:
+            rr.TH.update(old)
+        self.assertEqual(drops(pub), [])
+        got = {r["key"]: r["reading"] for r in pub["rules"]}
+        self.assertTrue(got["stock_bond_corr"].endswith("= 100일 복귀 → B 신호"), got["stock_bond_corr"])
+        self.assertTrue(got["real_rate_bei"].endswith("→ 실질 1.5% 위 = C 반증"), got["real_rate_bei"])
+        self.assertTrue(got["core_inflation"].endswith("→ 2.5% 이하 = D1 쪽, SEP 경로 추종이면 B"), got["core_inflation"])
+        self.assertIn("지준/명목GDP 7.995% (", got["reserves_multiplier"])
+        self.assertTrue(got["reserves_multiplier"].endswith("→ 8% 미만 = 대차대조표 임대료 상승(A)"), got["reserves_multiplier"])
 
 
 class RestrictedInvarianceTest(unittest.TestCase):

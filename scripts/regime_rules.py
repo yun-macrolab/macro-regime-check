@@ -70,11 +70,6 @@ MANUAL = [
 ]
 
 
-def _v(ind, key):
-    x = ind.get(key)
-    return None if isinstance(x, bool) and key != "ci_valid" else x
-
-
 def _f(x, fmt="{:+.2f}", none="—"):
     return none if x is None else fmt.format(x)
 
@@ -153,6 +148,16 @@ def _cmp(x, op, th):
     return {"<": x < th, "<=": x <= th, ">": x > th, ">=": x >= th}[op]
 
 
+def _shown(x, op, th, nd, sign=""):
+    """해석 줄 앞부분에 싣는 값 — 소수 nd자리. 그 자리로 반올림한 값이 임계값 비교를 뒤집으면(8.996 → '9.00'인데 '9% 미만')
+    뒤집히지 않을 때까지 자리를 늘린다(최대 6자리 — _cmp의 반올림 자리). sign '+'면 부호를 붙인다."""
+    want = _cmp(x, op, th)
+    k = nd
+    while k < 6 and _cmp(round(x, k), op, th) != want:
+        k += 1
+    return f"{x:{sign}.{k}f}"
+
+
 def _and(*xs):
     """3값 논리 AND: 하나라도 거짓이면 거짓, 아니고 하나라도 모르면 모름."""
     if any(x is False for x in xs):
@@ -185,7 +190,7 @@ def evaluate(ind):
         f, t = None, "NDFI YoY 자료 없음"
     else:
         f = _cmp(ny, "<", TH["ndfi_two_digit"])
-        t = f"NDFI 대출 YoY {ny:+.1f}%(계단 제외), 총대출의 {_f(sh, '{:.1f}')}% → " + \
+        t = f"NDFI 대출 YoY {_shown(ny, '<', TH['ndfi_two_digit'], 1, '+')}%(계단 제외), 총대출의 {_f(sh, '{:.1f}')}% → " + \
             ("두 자릿수 붕괴 = A→D 방아쇠 주의" if f else "두 자릿수 유지 = A 진행")
     out.append(_sig("ndfi_credit", "은행의 비은행 대출(NDFI) YoY", "A, D",
                     ["F-00-03", "S-01-A-04", "S-01-D-05"], "00장 7절 #2 · 01장 3절 A/D", f, t))
@@ -207,10 +212,11 @@ def evaluate(ind):
         f, t = None, "ρ60 자료 없음"
     else:
         f = sign == "+" and (run or 0) >= TH["corr_run_days"]
+        n = f"{TH['corr_run_days']:g}"
         if f:
-            t = f"ρ60 {rho:+.2f}, 양(+) {run}영업일 = 126일 복귀 → B 신호"
+            t = f"ρ60 {rho:+.2f}, 양(+) {run}영업일 = {n}일 복귀 → B 신호"
         elif sign == "+":
-            t = f"ρ60 {rho:+.2f}, 양(+) {run}영업일째(126일 미만)"
+            t = f"ρ60 {rho:+.2f}, 양(+) {run}영업일째({n}일 미만)"
         else:
             t = f"ρ60 {rho:+.2f}, 음(−) {run}영업일 지속 = 분산 붕괴·전사 위험 한도 압박"
     out.append(_sig("stock_bond_corr", "주가-금리 60일 상관", "B",
@@ -227,8 +233,10 @@ def evaluate(ind):
         f, t = None, "실질금리 자료 없음"
     else:
         f = _and(_cmp(rr_, "<", TH["real_rate_c"]), _cmp(bei_chg, ">", 0))
-        t = (f"10년 실질 {rr_:.2f}% · BEI {_f(bei, '{:.2f}')}%(3개월 {_f(bei_chg)}) → "
-             + ("실질 2% 하회 + BEI 상승 = C 신호" if f else ("실질 2% 위 = C 반증(F-01-C-01)" if rr_ >= TH["real_rate_c"] else "실질 2% 아래이나 BEI 상승 없음")))
+        r = f"{TH['real_rate_c']:g}"
+        t = (f"10년 실질 {_shown(rr_, '<', TH['real_rate_c'], 2)}% · BEI {_f(bei, '{:.2f}')}%(3개월 {_f(bei_chg)}) → "
+             + (f"실질 {r}% 하회 + BEI 상승 = C 신호" if f else
+                (f"실질 {r}% 위 = C 반증(F-01-C-01)" if _cmp(rr_, ">=", TH["real_rate_c"]) else f"실질 {r}% 아래이나 BEI 상승 없음")))
     out.append(_sig("real_rate_bei", "실질금리·BEI", "C",
                     ["F-00-08", "S-01-C-04", "F-01-C-01", "S-01-A-05"], "00장 7절 #7 · 01장 3절 C/A", f, t))
 
@@ -237,8 +245,9 @@ def evaluate(ind):
         f, t = None, "근원 PCE 자료 없음"
     else:
         f = _cmp(pce, "<=", TH["core_pce_split"])
-        t = (f"근원 PCE {pce:.2f}% (근원 CPI {_f(cpi, '{:.2f}')}%, 괴리 {_f(gap)}%p) → "
-             + ("3% 이하 = D1 쪽, SEP 경로 추종이면 B" if f else "3% 초과 = D2 쪽(붕괴 시 채권 방어 불완전)"))
+        sp = f"{TH['core_pce_split']:g}"
+        t = (f"근원 PCE {_shown(pce, '<=', TH['core_pce_split'], 2)}% (근원 CPI {_f(cpi, '{:.2f}')}%, 괴리 {_f(gap)}%p) → "
+             + (f"{sp}% 이하 = D1 쪽, SEP 경로 추종이면 B" if f else f"{sp}% 초과 = D2 쪽(붕괴 시 채권 방어 불완전)"))
     out.append(_sig("core_inflation", "근원 PCE (근원 CPI 병기)", "B, D",
                     ["F-00-09", "F-00-01", "S-01-B-01", "F-01-B-01", "F-00-25"], "00장 7절 #8 · 01장 3절 B", f, t))
 
@@ -265,9 +274,10 @@ def evaluate(ind):
         a_side = _cmp(rg, "<", TH["reserves_gdp_low"])
         c_side = _and(_cmp(rgc, ">=", TH["reserves_gdp_rise_3m"]), _cmp(pce, ">", TH["reserves_pce_floor"]))
         f = _or(a_side, c_side)
-        t = f"승수 {_f(mult, '{:.2f}')} · 지준/명목GDP {rg:.1f}% (3개월 {_f(rgc)}%p) → " + \
-            ("8%대 = 대차대조표 임대료 상승(A)" if a_side else
-             ("지준 재확대 + 물가 목표 상회 = C 후보(장기물 매입 여부 수동 확인)" if c_side else "9%대 유지(B 산술)"))
+        lo = f"{TH['reserves_gdp_low']:g}"
+        t = f"승수 {_f(mult, '{:.2f}')} · 지준/명목GDP {_shown(rg, '<', TH['reserves_gdp_low'], 2)}% (3개월 {_f(rgc)}%p) → " + \
+            (f"{lo}% 미만 = 대차대조표 임대료 상승(A)" if a_side else
+             ("지준 재확대 + 물가 목표 상회 = C 후보(장기물 매입 여부 수동 확인)" if c_side else f"{lo}% 이상 유지(B 산술)"))
     out.append(_sig("reserves_multiplier", "통화승수·지준/GDP", "A, C",
                     ["F-00-02", "S-01-C-01", "F-01-C-02"], "00장 2-4절·7절 #1 · 01장 3절 C", f, t))
 
