@@ -127,6 +127,24 @@ class PageTest(unittest.TestCase):
         self.assertRegex(sec, r'\n {4}<div class="panel">\n {6}<table id="ktb-table"')       # 표 상자는 절의 바로 아래 자식
         self.assertIn('<div id="ktb-charts"></div>', sec)                                    # 그래프 상자는 그 안에(직계 자식 아님)
 
+    def test_readme_states_the_pages_grace(self):
+        # 배너·수신 표시가 예약 실행을 기다리는 시간(GRACE_MS)과 README가 적은 시간이 같다 — 5시간에서 6시간 30분으로 늘릴 때(2026-11-10)
+        grace = re.search(r"^const RUN_UTC = \{[^}]*\}, GRACE_MS = ([\d.]+) \* 36e5;$", self.page, re.M)
+        self.assertIsNotNone(grace)
+        stated = re.findall(r"(\d+)시간(?: (\d+)분)?까지 (?:허용합니다|기다립니다)", read("README.md"))
+        self.assertEqual(len(stated), 2, stated)                      # '알려진 한계'의 허용 시간과 '실행 기록'의 기다리는 시간
+        for hours, minutes in stated:
+            self.assertEqual(int(hours) + int(minutes or 0) / 60, float(grace.group(1)), (hours, minutes))
+
+    def test_phone_width_keeps_the_receive_lamp(self):
+        # 휴대폰 폭에서도 수신 표시는 보인다(열어 둔 채 '갱신 지연'으로 바뀌는 것이 보이게) — 숨기는 것은 '갱신 뒤'뿐(2026-11-10)
+        start = self.css.index("@media (max-width: 720px) {")
+        block = self.css[start:self.css.index("\n}\n", start)]
+        hidden = [sel.strip() for rule in re.findall(r"([^{}]+)\{[^}]*display:\s*none", block) for sel in rule.split(",")]
+        self.assertIn(".clocks .since", hidden)
+        self.assertFalse([sel for sel in hidden if "link-lamp" in sel], hidden)
+        self.assertIn('<span id="link-lamp" class="link-lamp"', self.page)
+
     def test_morning_status_is_hidden_on_evening_and_notes(self):
         # 아침 갱신의 상태 줄·실패 배너가 저녁판·읽기 노트의 것처럼 읽히지 않게
         self.assertIn('dataset.view = activeView', self.page)

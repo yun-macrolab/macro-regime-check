@@ -191,11 +191,14 @@ jobs:
             echo "변경 없음"
           else
             git commit --quiet -m "data: $(python -c 'import json; print(json.load(open("data/digest_status.json"))["edition"])') 저녁판 자동 갱신"
+            # 실행 중 main에 들어온 커밋(PC의 발언·AI 요약 push 같은)이 있으면 그 위에 얹는다. 그 커밋은 위 공개 전 검사가 본 것이
+            # 아니다 — 올린 쪽의 push 전 검사(훅 · people_push · picks_push)를 거쳤고, 그 push로 시작한 daily.yml 실행이 같은 그룹에서 이 실행 뒤에
+            # 제 check로 다시 검사한다. 그 실행은 main이 앞서 나갔으니 배포를 건너뛰고, 그 커밋은 이 실행의 배포로 나간다
             git pull --quiet --rebase origin main
             git push --quiet origin HEAD:main
           fi
           echo "publish=true" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"   # deploy는 검사를 거친 이 커밋을 배포한다
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"   # deploy가 배포할 커밋 — 위에서 검사한 봇 커밋(rebase로 딸려 온 커밋은 위 주석)
 
   takedown:
     needs: check
@@ -244,7 +247,7 @@ jobs:
             echo "변경 없음"
           else
             git commit --quiet -m "data: $(date -u +%F) 저녁판 내림"
-            git pull --quiet --rebase origin main
+            git pull --quiet --rebase origin main   # 실행 중 main에 들어온 커밋도 얹는다 — 게시 잡의 같은 줄 주석
             git push --quiet origin HEAD:main
           fi
           echo "publish=true" >> "$GITHUB_OUTPUT"
@@ -295,7 +298,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # 검사를 거친 커밋 — 게시·내리기는 봇이 방금 올린 커밋, 감시는 check가 검사한 main의 끝
+          # 게시·내리기는 봇이 방금 올린 커밋(rebase로 딸려 온 커밋은 게시 잡의 봇 커밋 주석), 감시는 check가 검사한 main의 끝
           ref: ${{ needs.publish.outputs.sha || needs.takedown.outputs.sha || needs.check.outputs.sha }}
       - name: 사이트 조립(site/ + data/만)
         run: |

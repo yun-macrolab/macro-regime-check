@@ -394,11 +394,12 @@ test('lastScheduledRun follows the daily.yml cron: weekdays at RUN_UTC, GRACE_MS
  const got=vm.runInNewContext(head[0]+'\n'+page.slice(start,end+2)+'\n({RUN_UTC,GRACE_MS,lastScheduledRun});',{});
  const cron=fs.readFileSync(path.join(__dirname,'../.github/workflows/daily.yml'),'utf8').match(/cron: "(\d+) (\d+) \* \* 1-5"/);
  assert.ok(cron,'daily.yml cron');
- assert.deepEqual([got.RUN_UTC.minute,got.RUN_UTC.hour],[+cron[1],+cron[2]]);assert.equal(got.GRACE_MS,5*36e5);
+ assert.deepEqual([got.RUN_UTC.minute,got.RUN_UTC.hour],[+cron[1],+cron[2]]);assert.equal(got.GRACE_MS,6.5*36e5);
  const run=t=>got.lastScheduledRun(new Date(t)).toISOString();
  for(const [now,want] of [['2026-10-08T05:00:00Z','2026-10-07T22:17:00.000Z'],['2026-10-11T03:00:00Z','2026-10-09T22:17:00.000Z'],   // 일요일 → 금요일 차례
    ['2026-11-07T12:00:00Z','2026-11-06T22:17:00.000Z'],['2026-11-09T03:00:00Z','2026-11-06T22:17:00.000Z'],
-   ['2026-11-10T03:16:00Z','2026-11-06T22:17:00.000Z'],['2026-11-10T03:18:00Z','2026-11-09T22:17:00.000Z']])   // 차례 뒤 5시간을 넘긴 때부터 그 차례
+   ['2026-11-03T03:20:00Z','2026-10-30T22:17:00.000Z'],   // 5시간 14분 늦은 날(2026-11-03) — 5시간이면 여기서 이미 월요일 차례를 기다렸다
+   ['2026-11-10T04:46:00Z','2026-11-06T22:17:00.000Z'],['2026-11-10T04:48:00Z','2026-11-09T22:17:00.000Z']])   // 차례 뒤 6시간 30분을 넘긴 때부터 그 차례
   assert.equal(run(now),want,now);
  const {data,run:st}=fixture();data.checked_at='2026-10-10T01:00:00Z';st.started_at='2026-10-10T00:59:00Z';st.checked_at='2026-10-10T01:01:00Z';
  const sunday=Date.parse('2026-10-11T03:00:00Z');

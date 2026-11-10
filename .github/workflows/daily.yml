@@ -2,6 +2,9 @@
 #
 # 순서와 이유
 #   check   모든 실행에서 먼저. 공개 전 검사(check_blind)와 단위 테스트가 통과해야 뒤로 간다.
+#           예약·수동 실행은 가지의 '지금' 끝을 받아 그 커밋을 update에 넘긴다(evening.yml의 check와 같다 — 같은 그룹의 앞 실행을
+#           기다린 사이 main이 움직였을 수 있다. 실행이 걸린 때의 커밋에서 시작하면 기다리던 수동 실행이 앞 실행의 봇 커밋과
+#           data/status.json에서 rebase 충돌을 낸다 — 2026-11-10 점검 shell-06).
 #   update  예약·수동 실행에서만. 수집·공개본 생성은 실패해도 멈추지 않고(continue-on-error) 상태 파일에 실패를 남긴다
 #           → 페이지는 직전 공개본 + 실패 배너를 보여 준다. 새 산출물까지 다시 검사한 뒤에만 커밋한다.
 #           그래프 자료(charts.json)는 공개본 뒤에 만든다. 실패하면 직전 그래프가 남고 페이지가 그 기준일을 알린다
@@ -60,10 +63,17 @@ jobs:
   check:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0   # 공개 전 검사는 과거 커밋 전체를 본다(얕은 클론이면 검사 불가로 멈춘다)
+          # push는 그 커밋, 예약·수동 실행은 가지의 지금 끝
+          ref: ${{ github.event_name == 'push' && github.sha || github.ref }}
+      - name: 검사한 커밋 기록
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       # 브랜치·태그는 위 checkout이 받는다. notes만 더 받는다.
       # PR 참조(refs/pull)는 받지 않는다 — 이 저장소는 PR을 쓰지 않고, 남이 연 PR이 검사를 영구히 막거나
       # (지울 수 없는 참조) 공개 로그로 검사어를 떠보는 통로가 되지 않게.
@@ -112,6 +122,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ needs.check.outputs.sha }}   # check가 검사하고 테스트한 커밋에서 시작한다
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
@@ -239,11 +250,14 @@ jobs:
             echo "변경 없음"
           else
             git commit --quiet -m "data: $(date -u +%F) 자동 갱신"
+            # 실행 중 main에 들어온 커밋(PC의 발언·AI 요약 push 같은)이 있으면 그 위에 얹는다. 그 커밋은 위 공개 전 검사가 본 것이
+            # 아니다 — 올린 쪽의 push 전 검사(훅 · people_push · picks_push)를 거쳤고, 그 push로 시작한 실행이 같은 그룹에서 이 실행 뒤에 제 check로
+            # 다시 검사한다. 그 실행은 main이 앞서 나갔으니 배포를 건너뛰고(deploy의 'main이 앞서 나갔는지'), 그 커밋은 이 실행의 배포로 나간다
             git pull --quiet --rebase origin main
             git push --quiet origin HEAD:main
           fi
           echo "publish=true" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"   # deploy는 검사를 거친 이 커밋을 배포한다
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"   # deploy가 배포할 커밋 — 위에서 검사한 봇 커밋(rebase로 딸려 온 커밋은 위 주석)
 
   deploy:
     needs: [check, update]
@@ -262,7 +276,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # 검사를 거친 커밋 — 예약 실행은 봇이 방금 올린 커밋, push는 그 커밋(실행 중 main에 새로 들어온 것은 아님)
+          # 예약·수동 실행은 봇이 방금 올린 커밋(rebase로 딸려 온 커밋은 봇 커밋 단계의 주석), push는 check가 검사한 그 커밋
           ref: ${{ needs.update.outputs.sha || github.sha }}
       # push 실행만: main이 이 커밋보다 앞서 나갔으면(기다리는 사이 예약 실행의 봇 커밋 · 다른 push) 아래 배포 셋을 건너뛴다.
       # 예약 · 수동 실행은 이 단계를 건너뛰어 지금처럼 배포한다. main의 끝을 받지 못하면 경고만 남기고 그대로 배포한다

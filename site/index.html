@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>매크로 관측실 · 국면 점검</title>
-<meta name="description" content="FRED 공개 통계에 미리 정한 규칙을 적용해 평일 아침 자동으로 갱신하는 점검표">
+<meta name="description" content="FRED 공개 통계에 미리 정한 규칙을 적용해 미국 영업일 다음 날 아침(한국 시간) 자동으로 갱신하는 점검표">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -181,8 +181,9 @@
 <script>
 "use strict";
 // 예약 실행: UTC 월~금 22:17(.github/workflows/daily.yml). 실제로는 2~5시간 뒤에 끝난다(2026-09-29~11-07 서른 번, 한 번은 5시간 14분) —
-// 3시간만 봐줬더니 거의 매일 한 시간쯤 거짓 배너가 떴다. 5시간까지 봐준다
-const RUN_UTC = { hour: 22, minute: 17 }, GRACE_MS = 5 * 36e5;
+// 3시간만 봐줬더니 거의 매일 한 시간쯤 거짓 배너가 떴고, 5시간까지 봐줬더니 5시간 14분 늦은 날(2026-11-03) 15분쯤 떴다.
+// 6시간 30분까지 봐준다(README의 '6시간 30분까지'와 같은 수 — 테스트가 견준다)
+const RUN_UTC = { hour: 22, minute: 17 }, GRACE_MS = 6.5 * 36e5;
 const STATUS_TEXT = { met: "충족", not_met: "미충족", unknown: "판정 불가" };
 
 function el(tag, attrs, ...children) {

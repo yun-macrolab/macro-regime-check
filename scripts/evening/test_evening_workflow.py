@@ -115,6 +115,28 @@ class TriggerTest(WorkflowCase):
         self.assertIn(want, self.text)
         self.assertIn(want, self.daily)
 
+    def test_both_workflows_start_from_the_commit_their_check_saw(self):
+        # 예약·수동 실행의 check는 가지의 지금 끝을 받아 그 커밋을 뒤 잡에 넘긴다 — 아침도 저녁과 같게(2026-11-10 점검 shell-06:
+        # 실행이 걸린 때의 커밋에서 시작한 아침 update는, 기다리던 수동 재실행에서 앞 실행의 봇 커밋과 data/status.json rebase 충돌을 냈다)
+        ref = "ref: ${{ github.event_name == 'push' && github.sha || github.ref }}"
+        record = 'run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"'
+        morning = {k: code(v) for k, v in jobs(self.daily).items()}
+        for name, wf in (("evening", self.jobs), ("daily", morning)):
+            check = wf["check"]
+            self.assertIn("    outputs:\n      sha: ${{ steps.sha.outputs.sha }}\n", check, name)
+            self.assertIn(ref, check, name)
+            self.assertIn(record, check, name)
+            self.assertLess(check.index(ref), check.index("id: sha"), name)
+            self.assertLess(check.index("id: sha"), check.index("scripts/check_blind.py"), name)   # 기록한 커밋 = 검사한 커밋
+        update = morning["update"]
+        self.assertIn("ref: ${{ needs.check.outputs.sha }}", update[update.index("actions/checkout@"):update.index("actions/setup-python@")])
+        for name in ("collect", "publish", "takedown", "watch"):
+            self.assertIn("ref: ${{ needs.check.outputs.sha }}", self.jobs[name], name)
+        # 봇 커밋 단계의 옛 주석 — rebase로 딸려 온 커밋은 그 실행의 공개 전 검사를 거치지 않는다(올린 쪽의 검사와 제 실행의 check를 거친다)
+        for text in (self.text, self.daily):
+            self.assertNotIn("검사를 거친 이 커밋", text)
+            self.assertIn("rebase로 딸려 온 커밋", text)
+
 
 class PermissionTest(WorkflowCase):
     def test_default_is_read_only(self):
