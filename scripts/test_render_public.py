@@ -445,6 +445,11 @@ BRANCHES = [
     {"reserves_gdp": 8.5, "mult": None}, {"reserves_gdp_chg_3m": 0.4}, {"reserves_gdp_chg_3m": None}, {"reserves_gdp": None},
     # 임계값 바로 옆 — 원본이 자리를 늘려 싣는 값(8.999% · 3.004% · +9.96%)도 정해 둔 꼴에 맞는다(audit 2026-11-10 liq-02)
     {"reserves_gdp": 8.999}, {"reserves_gdp": 9.004}, {"core_pce_yoy": 3.004}, {"ndfi_yoy": 9.96},
+    # 앞부분에서 임계값과 견주는 다른 값도(검토 반영 — 중립 규칙의 차 +0.496%p, TP·SOFR·지준 3개월 변화, BEI 변화, 2s10s,
+    # Baa 바닥 대비, HY OAS, 고용)
+    {"core_mom": 0.496, "core_pce_a6": 3.896}, {"unrate_rise": 0.4996}, {"tp_chg_3m": -0.2496}, {"sofr_chg_3m": 0.2496},
+    {"reserves_gdp_chg_3m": 0.2996}, {"dfii10": 1.5, "bei_chg_3m": 0.004}, {"t10y2y": -0.004},
+    {"baa10y_from_low": 0.3996}, {"hy_oas": 4.6104}, {"emp_yoy": -0.04},
     {"emp_yoy": -1.0}, {"emp_yoy": None},
     {"core_mom": 0.6, "core_pce_a6": 3.94}, {"core_mom": None}, {"core_pce_a6": None},
     {"unrate_rise": 0.6}, {"unrate_rise": None}, {"unrate_n_used": 2, "unrate_low_month": None},
@@ -563,6 +568,19 @@ class ReadingTest(unittest.TestCase):
         self.assertTrue(got["core_inflation"].endswith("→ 2.5% 이하 = D1 쪽, SEP 경로 추종이면 B"), got["core_inflation"])
         self.assertIn("지준/명목GDP 7.995% (", got["reserves_multiplier"])
         self.assertTrue(got["reserves_multiplier"].endswith("→ 8% 미만 = 대차대조표 임대료 상승(A)"), got["reserves_multiplier"])
+
+    def test_values_beside_a_threshold_reach_the_page_with_enough_digits(self):
+        # 검토 반영: 중립 규칙의 차·3개월 변화가 문턱 바로 옆이면 원본이 자리를 늘려 싣고(+0.496%p → 0.5%p 미만), 그 줄이
+        # 빠지지 않고 화면에 그대로 간다 — '+0.50%p → 0.5%p 미만'은 어디에도 없다
+        sig, pub = self.render_with(core_mom=0.496, core_pce_a6=3.896, unrate_rise=0.4996, tp_chg_3m=-0.2496,
+                                    sofr_chg_3m=0.2496)
+        self.assertEqual(drops(pub), [])
+        got = {r["key"]: r["reading"] for r in pub["rules"]}
+        self.assertTrue(got["core_momentum"].endswith("= +0.496%p → 0.5%p 미만"), got["core_momentum"])
+        self.assertTrue(got["unemployment_rise"].endswith("= +0.4996%p → 0.5%p 미만"), got["unemployment_rise"])
+        self.assertTrue(got["term_premium"].endswith("(3개월 -0.2496) → 하락 없음(A 진행)"), got["term_premium"])
+        self.assertTrue(got["sofr"].endswith("(3개월 +0.2496) → 재상승 없음"), got["sofr"])
+        self.assertNotIn("+0.50%p → 0.5%p 미만", json.dumps(pub, ensure_ascii=False))
 
 
 class RestrictedInvarianceTest(unittest.TestCase):

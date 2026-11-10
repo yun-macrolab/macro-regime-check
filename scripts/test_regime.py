@@ -4,7 +4,7 @@
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
 네트워크 불필요 — FRED는 합성 CSV 캐시로 대체하고 urlopen은 몽키패치한다.
 """
-import os, sys, json, math, datetime, tempfile, unittest, shutil, subprocess
+import os, re, sys, json, math, datetime, tempfile, unittest, shutil, subprocess
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
@@ -769,6 +769,52 @@ class ReadingNumberTest(unittest.TestCase):
         for t in list(hi.values()) + list(lo.values()):
             for old_number in ("126일", "실질 2%", "3% 이하", "3% 초과", "9% 미만", "9% 이상"):
                 self.assertNotIn(old_number, t)
+
+    def test_neutral_rules_and_three_month_changes_beside_the_threshold(self):
+        # 검토 반영: 중립 규칙 둘(구절에 0.5%p)과 문턱이 규칙 문장에만 있는 3개월 변화(TP·SOFR)도 같은 자리 규칙 —
+        # '+0.50%p → 0.5%p 미만'·'(3개월 -0.25) → 하락 없음'이 없게
+        mom = {"core_pce_a6": 3.896, "core_pce_yoy": 3.4}
+        for key, kw, tail in (
+                ("core_momentum", {**mom, "core_mom": 0.496}, "= +0.496%p → 0.5%p 미만"),
+                ("core_momentum", {**mom, "core_mom": 0.4999}, "= +0.4999%p → 0.5%p 미만"),
+                ("core_momentum", {**mom, "core_mom": 0.5}, "= +0.50%p → 0.5%p 이상(6개월 연율이 전년비보다 높음)"),
+                ("core_momentum", {**mom, "core_mom": 0.504}, "= +0.50%p → 0.5%p 이상(6개월 연율이 전년비보다 높음)"),
+                ("unemployment_rise", {"unrate_rise": 0.4996}, "= +0.4996%p → 0.5%p 미만"),
+                ("unemployment_rise", {"unrate_rise": 0.5}, "= +0.50%p → 0.5%p 이상(현재 개정치 기준)"),
+                ("term_premium", {"tp_chg_3m": -0.2496}, "(3개월 -0.2496) → 하락 없음(A 진행)"),
+                ("term_premium", {"tp_chg_3m": -0.25}, "(3개월 -0.25) → 하락 = 듀레이션 수요 충분 후보(A 반증, 발행 지속 여부 수동 확인)"),
+                ("term_premium", {"tp_chg_3m": None}, "(3개월 —) → 일부 자료 없음(판정 불가)"),
+                ("sofr", {"sofr_chg_3m": 0.2496}, "(3개월 +0.2496) → 재상승 없음"),
+                ("sofr", {"sofr_chg_3m": 0.25}, "(3개월 +0.25) → 재상승 = 2021 빈티지 이자보상 재악화·PIK 증가"),
+                ("reserves_multiplier", {"reserves_gdp_chg_3m": 0.2996}, "(3개월 +0.2996%p) → 9% 이상 유지(B 산술)")):
+            t = self.text(key, **kw)
+            self.assertTrue(t.endswith(tail), (key, kw, t))
+
+    def test_every_value_compared_in_the_head_agrees_with_the_comparison_in_print(self):
+        # 앞부분에서 임계값과 견주는 값은 모두 — 실린 숫자를 다시 읽어 같은 비교를 하면 규칙의 비교와 같다(문턱 ±0.01 안을 훑는다).
+        # C&I 대 명목GDP처럼 두 값을 견주는 것은 반올림해도 순서가 뒤집히지 않아(같아 보일 뿐) 여기 없다
+        th = rr.TH
+        spec = (("ndfi_credit", "ndfi_yoy", "<", th["ndfi_two_digit"], r"YoY ([+-][\d.]+)%", {}),
+                ("credit_spread", "baa10y_from_low", ">=", th["spread_widen_pp"], r"바닥 대비 ([+-][\d.]+),", {}),
+                ("credit_spread", "hy_oas", ">", th["hy_oas_break"], r"HY OAS ([\d.]+)%p", {}),
+                ("curve_inversion", "t10y2y", "<", 0, r"2s10s ([+-][\d.]+)%p", {}),
+                ("real_rate_bei", "dfii10", "<", th["real_rate_c"], r"10년 실질 ([\d.]+)%", {}),
+                ("real_rate_bei", "bei_chg_3m", ">", 0, r"%\(3개월 ([+-][\d.]+)\)", {"dfii10": 1.5}),
+                ("core_inflation", "core_pce_yoy", "<=", th["core_pce_split"], r"근원 PCE ([\d.]+)% \(", {}),
+                ("term_premium", "tp_chg_3m", "<=", -th["tp_drop_3m"], r"\(3개월 ([+-][\d.]+)\)", {}),
+                ("sofr", "sofr_chg_3m", ">=", th["sofr_rise_3m"], r"\(3개월 ([+-][\d.]+)\)", {}),
+                ("reserves_multiplier", "reserves_gdp", "<", th["reserves_gdp_low"], r"지준/명목GDP ([\d.]+)%", {}),
+                ("reserves_multiplier", "reserves_gdp_chg_3m", ">=", th["reserves_gdp_rise_3m"], r"\(3개월 ([+-][\d.]+)%p\)",
+                 {"core_pce_yoy": 3.4}),
+                ("employment", "emp_yoy", "<", 0, r"YoY ([+-][\d.]+)%", {}),
+                ("core_momentum", "core_mom", ">=", th["core_mom_gap"], r"= ([+-][\d.]+)%p", {}),
+                ("unemployment_rise", "unrate_rise", ">=", th["unrate_rise"], r"= ([+-][\d.]+)%p", {}))
+        for key, field, op, x, pat, extra in spec:
+            for i in range(-100, 101):
+                v = x + i / 10000
+                t = self.text(key, **{**extra, field: v})
+                shown = float(re.search(pat, t).group(1))
+                self.assertEqual(rr._cmp(shown, op, x), rr._cmp(v, op, x), (key, field, v, t))
 
 
 class BuildTest(unittest.TestCase):

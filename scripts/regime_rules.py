@@ -148,9 +148,12 @@ def _cmp(x, op, th):
     return {"<": x < th, "<=": x <= th, ">": x > th, ">=": x >= th}[op]
 
 
-def _shown(x, op, th, nd, sign=""):
+def _shown(x, op, th, nd, sign="", none="—"):
     """해석 줄 앞부분에 싣는 값 — 소수 nd자리. 그 자리로 반올림한 값이 임계값 비교를 뒤집으면(8.996 → '9.00'인데 '9% 미만')
-    뒤집히지 않을 때까지 자리를 늘린다(최대 6자리 — _cmp의 반올림 자리). sign '+'면 부호를 붙인다."""
+    뒤집히지 않을 때까지 자리를 늘린다(최대 6자리 — _cmp의 반올림 자리). sign '+'면 부호를 붙인다. 값이 없으면 none(_f처럼).
+    앞부분에서 임계값과 견주는 값은 모두 이것으로 싣는다 — 문턱이 구절에 없는 규칙(TP·SOFR 등)도 규칙 문장에는 있다."""
+    if x is None:
+        return none
     want = _cmp(x, op, th)
     k = nd
     while k < 6 and _cmp(round(x, k), op, th) != want:
@@ -202,8 +205,8 @@ def evaluate(ind):
         wide = _cmp(low, ">=", TH["spread_widen_pp"])
         brk = _cmp(hy, ">", TH["hy_oas_break"])
         f = _or(wide, brk)
-        t = (f"Baa−10Y {_f(baa, '{:.2f}')}%p(바닥 대비 {_f(low)}, 1990년 이후 하위 {_f(pct, '{:.1%}', '—')})"
-             f" · HY OAS {_f(hy, '{:.2f}')}%p → " + ("D 선행 신호" if f else "확대 없음(A 유지)"))
+        t = (f"Baa−10Y {_f(baa, '{:.2f}')}%p(바닥 대비 {_shown(low, '>=', TH['spread_widen_pp'], 2, '+')}, 1990년 이후 하위 {_f(pct, '{:.1%}', '—')})"
+             f" · HY OAS {_shown(hy, '>', TH['hy_oas_break'], 2)}%p → " + ("D 선행 신호" if f else "확대 없음(A 유지)"))
     out.append(_sig("credit_spread", "신용 스프레드 (Baa−10Y · HY OAS)", "D",
                     ["F-00-06", "S-01-D-01", "F-01-A-04", "F-01-D-02"], "00장 7절 #5 · 01장 3절 A/D", f, t))
 
@@ -224,7 +227,7 @@ def evaluate(ind):
 
     c = ind.get("t10y2y")
     f = _cmp(c, "<", 0)
-    t = f"2s10s {_f(c)}%p → " + ("역전 = D 선행" if f else "정상(역전 없음)") if c is not None else "2s10s 자료 없음"
+    t = f"2s10s {_shown(c, '<', 0, 2, '+')}%p → " + ("역전 = D 선행" if f else "정상(역전 없음)") if c is not None else "2s10s 자료 없음"
     out.append(_sig("curve_inversion", "2s10s 커브", "D",
                     ["F-00-08", "S-01-D-02", "S-01-B-03"], "00장 7절 #7 · 01장 3절 D/B", f, t))
 
@@ -234,7 +237,7 @@ def evaluate(ind):
     else:
         f = _and(_cmp(rr_, "<", TH["real_rate_c"]), _cmp(bei_chg, ">", 0))
         r = f"{TH['real_rate_c']:g}"
-        t = (f"10년 실질 {_shown(rr_, '<', TH['real_rate_c'], 2)}% · BEI {_f(bei, '{:.2f}')}%(3개월 {_f(bei_chg)}) → "
+        t = (f"10년 실질 {_shown(rr_, '<', TH['real_rate_c'], 2)}% · BEI {_f(bei, '{:.2f}')}%(3개월 {_shown(bei_chg, '>', 0, 2, '+')}) → "
              + (f"실질 {r}% 하회 + BEI 상승 = C 신호" if f else
                 (f"실질 {r}% 위 = C 반증(F-01-C-01)" if _cmp(rr_, ">=", TH["real_rate_c"]) else f"실질 {r}% 아래이나 BEI 상승 없음")))
     out.append(_sig("real_rate_bei", "실질금리·BEI", "C",
@@ -256,7 +259,7 @@ def evaluate(ind):
         f, t = None, "기간 프리미엄 자료 없음"
     else:
         f = _cmp(tpc, "<=", -TH["tp_drop_3m"])
-        t = f"TP(Kim-Wright) {tp:.2f}% (3개월 {_f(tpc)}) → " + \
+        t = f"TP(Kim-Wright) {tp:.2f}% (3개월 {_shown(tpc, '<=', -TH['tp_drop_3m'], 2, '+')}) → " + \
             ("하락 = 듀레이션 수요 충분 후보(A 반증, 발행 지속 여부 수동 확인)" if f else "하락 없음(A 진행)")
     out.append(_sig("term_premium", "기간 프리미엄", "A",
                     ["F-00-05", "S-01-A-03", "F-01-A-03"], "00장 7절 #4 · 01장 3절 A", f, t))
@@ -264,7 +267,8 @@ def evaluate(ind):
     so, soc = ind.get("sofr"), ind.get("sofr_chg_3m")
     f = None if so is None else _cmp(soc, ">=", TH["sofr_rise_3m"])
     t = "SOFR 자료 없음" if so is None else \
-        f"SOFR {so:.2f}% (3개월 {_f(soc)}) → " + ("재상승 = 2021 빈티지 이자보상 재악화·PIK 증가" if f else "재상승 없음")
+        f"SOFR {so:.2f}% (3개월 {_shown(soc, '>=', TH['sofr_rise_3m'], 2, '+')}) → " + \
+        ("재상승 = 2021 빈티지 이자보상 재악화·PIK 증가" if f else "재상승 없음")
     out.append(_sig("sofr", "SOFR (LBO 기준금리)", "A, D", ["F-00-10"], "00장 7절 #9", f, t))
 
     rg, rgc, mult = ind.get("reserves_gdp"), ind.get("reserves_gdp_chg_3m"), ind.get("mult")
@@ -275,7 +279,8 @@ def evaluate(ind):
         c_side = _and(_cmp(rgc, ">=", TH["reserves_gdp_rise_3m"]), _cmp(pce, ">", TH["reserves_pce_floor"]))
         f = _or(a_side, c_side)
         lo = f"{TH['reserves_gdp_low']:g}"
-        t = f"승수 {_f(mult, '{:.2f}')} · 지준/명목GDP {_shown(rg, '<', TH['reserves_gdp_low'], 2)}% (3개월 {_f(rgc)}%p) → " + \
+        t = f"승수 {_f(mult, '{:.2f}')} · 지준/명목GDP {_shown(rg, '<', TH['reserves_gdp_low'], 2)}% " + \
+            f"(3개월 {_shown(rgc, '>=', TH['reserves_gdp_rise_3m'], 2, '+')}%p) → " + \
             (f"{lo}% 미만 = 대차대조표 임대료 상승(A)" if a_side else
              ("지준 재확대 + 물가 목표 상회 = C 후보(장기물 매입 여부 수동 확인)" if c_side else f"{lo}% 이상 유지(B 산술)"))
     out.append(_sig("reserves_multiplier", "통화승수·지준/GDP", "A, C",
@@ -283,7 +288,8 @@ def evaluate(ind):
 
     ey = ind.get("emp_yoy")
     f = _cmp(ey, "<", 0)
-    t = "고용 자료 없음" if ey is None else f"증권·투자업 고용 YoY {ey:+.1f}% → " + ("감소 전환 = 인원 조정 시작" if f else "증가 유지(강세장 코호트)")
+    t = "고용 자료 없음" if ey is None else \
+        f"증권·투자업 고용 YoY {_shown(ey, '<', 0, 1, '+')}% → " + ("감소 전환 = 인원 조정 시작" if f else "증가 유지(강세장 코호트)")
     out.append(_sig("employment", "미 증권·투자업 고용", "공통", ["F-00-18", "F-00-20"], "00장 7절 #14", f, t))
 
     # 근원 PCE 모멘텀: 6개월 연율은 정확히 6개월 전 달이 기준(결측월 대체 없음), 차이는 전년비와 같은 달일 때만(compute)
@@ -292,7 +298,7 @@ def evaluate(ind):
         f, t = None, "근원 PCE 6개월 연율 − 전년비 산출 불가(6개월 전·1년 전 같은 달 관측치 없음)"
     else:
         f = _cmp(gap, ">=", TH["core_mom_gap"])
-        t = (f"근원 PCE 6개월 연율 {_f(a6, '{:.2f}')}% − 전년비 {_f(py, '{:.2f}')}% = {gap:+.2f}%p → "
+        t = (f"근원 PCE 6개월 연율 {_f(a6, '{:.2f}')}% − 전년비 {_f(py, '{:.2f}')}% = {_shown(gap, '>=', TH['core_mom_gap'], 2, '+')}%p → "
              + (f"{TH['core_mom_gap']:g}%p 이상(6개월 연율이 전년비보다 높음)" if f else f"{TH['core_mom_gap']:g}%p 미만"))
     out.append(_sig("core_momentum", "근원 PCE 모멘텀(6개월 연율 − 전년비)", "—", [], "econ_regime 2026-10-14", f, t))
 
@@ -303,7 +309,7 @@ def evaluate(ind):
     else:
         f = _cmp(ur, ">=", TH["unrate_rise"])
         t = (f"실업률 3개월 평균 {_f(u3, '{:.2f}')}%" + (f"({nu}개월 평균)" if nu is not None and nu < 3 else "")
-             + f" − 직전 12개월 최저 {_f(low, '{:.2f}')}%({(lm or '—')[:7]}) = {ur:+.2f}%p → "
+             + f" − 직전 12개월 최저 {_f(low, '{:.2f}')}%({(lm or '—')[:7]}) = {_shown(ur, '>=', TH['unrate_rise'], 2, '+')}%p → "
              + (f"{TH['unrate_rise']:g}%p 이상(현재 개정치 기준)" if f else f"{TH['unrate_rise']:g}%p 미만"))
     out.append(_sig("unemployment_rise", "실업률 3개월 평균 상승 폭(Sahm형)", "—", [], "econ_regime 2026-10-14 · Sahm(2019)",
                     f, t))
