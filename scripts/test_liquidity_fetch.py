@@ -6,7 +6,7 @@
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
 네트워크 불필요 — FRED는 가짜 loader 또는 합성 캐시(--offline). 숫자는 모두 지어낸 것이다.
 """
-import os, sys, io, re, json, datetime, tempfile, unittest, shutil, contextlib
+import os, sys, io, re, json, random, datetime, tempfile, unittest, shutil, contextlib
 from unittest import mock
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
@@ -148,6 +148,14 @@ class ArithmeticTest(unittest.TestCase):
         line = liq.texts("reserves", dict(base, **cases[0]), "2026-10-28")[0]
         self.assertIn("그 밖 -1", line)
         self.assertIn("지준 13주 변화 -1bn", line)
+        # 주 평균(규칙 카드)과 수요일 수준(이 나눔)의 13주 변화 차는 '조금'이 아니다(2026-11-10 점검: 실자료 중앙값 약 22bn, 최대
+        # 176bn) — 그 크기를 적는다. 화면 읽는 법도 같은 뜻
+        extra = liq.texts("reserves", base, "2026-10-28")[1]
+        self.assertIn("13주 변화는 주에 따라 수십bn, 월말·분기말 수요일이 끼면 100bn 넘게 다를 수 있어", extra[-1])
+        self.assertNotIn("조금 다르", " ".join(extra))
+        guide = open(os.path.join(REPO, "site", "liquidity.js"), encoding="utf-8").read()
+        self.assertIn("100bn 넘게", "".join(re.findall(r'"([^"]*)"', guide)))
+        self.assertNotIn("조금 다릅니다", guide)
         line = liq.texts("reserves", dict(base, **cases[2]), "2026-10-28")[0]
         self.assertIn("지준 13주 변화 +1,234bn", line)
 
@@ -178,6 +186,20 @@ class ArithmeticTest(unittest.TestCase):
         self.assertIn("2026Q3 33,000bn", extra[0])
         line, _ = liq.texts("rule", dict(v, value=9.004, gap_pp=0.004, gap_bn=1.3), c["date"])
         self.assertIn("대비 0.00%p ≈ +1bn", line)                                   # 반올림해 0이면 부호 없이
+
+    def test_rule_gap_is_the_visible_ratio_minus_the_floor(self):
+        # 2026-11-10 점검: 비율을 4자리로 저장한 뒤 다시 반올림하고 차도 따로 반올림해, x.xx5 경계 바로 아래 주(약 0.5%)에는
+        # 보이는 비율 − 하한 ≠ 보이는 차였다(9.434994 → '9.44%'·'+0.43%p') — 비율은 6자리로 한 번만, 차는 보이는 비율에서 뺀다
+        S = {"WRESBAL": [(D(2026, 11, 4), 3_188_028.0)], "GDP": [(D(2026, 7, 1), 32_349.279)]}
+        line = liq.texts("rule", liq.calc_rule(S)["values"], "2026-11-04")[0]
+        self.assertIn("지준/명목GDP 9.86% (2026-11-04, GDP 2026Q3) · 규칙 하한 9.0% 대비 +0.86%p", line)
+        rng = random.Random(11)
+        for _ in range(3000):
+            S = {"WRESBAL": [(D(2026, 11, 4), float(rng.randrange(2_700_000, 3_300_000)))],
+                 "GDP": [(D(2026, 7, 1), rng.randrange(32_000_000, 34_000_000) / 1000)]}
+            line = liq.texts("rule", liq.calc_rule(S)["values"], "2026-11-04")[0]
+            ratio, gap = re.search(r"지준/명목GDP ([\d.]+)% .* 대비 ([+-]?[\d.]+)%p", line).groups()
+            self.assertAlmostEqual(float(ratio) - 9.0, float(gap), places=9, msg=line)
 
     def test_fiscal(self):
         c = liq.calc_fiscal(self.S)
