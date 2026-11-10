@@ -54,6 +54,7 @@ class OfferingTests(unittest.TestCase):
     def parse(self, text=OFFER): return k.parse_offering_text(text, '123', '03500-2906-0310', TODAY)
     def test_competitive_amount_only(self):
         r=self.parse();self.assertEqual((r['date'],r['tenor'],r['offered_100m']),('2026-10-12','3년',24000))
+        self.assertEqual(r['code'],'03500-2906-0310')            # 종목 번호 — 같은 종목의 정정 공고를 화면·저녁판이 한 번만 센다
     def test_wrong_bond(self):
         with self.assertRaises(ValueError): self.parse(OFFER.replace('03500','04000'))
     def test_missing_section(self):

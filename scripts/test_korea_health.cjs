@@ -349,6 +349,21 @@ test('schedule: notices of the same date and tenor are added, each amount linked
  const hrefs=t.kids.find(k=>k.tag==='tbody').kids.map(tr=>walk(tr,n=>n.tag==='a').map(a=>a.href.replace(/^.*(searchSn=|nttId=)/,'').replace(/&menuNo=\d+$/,'')));
  assert.deepEqual(hrefs,[['MOSF_A1','MOSF_A0'],['102','101'],['103'],['https://ktb.mofe.go.kr/isuNdReprchsPblanc.do']]);
 });
+test('schedule: a correction notice for the same bond (same code) is not added — the later notice only',()=>{
+ const d=schedule(), code=(o,c)=>Object.assign(o,{code:c});
+ d.auctions=[];                                                            // 결과 없음 — 발행공고 금액
+ d.offerings=[code(d.offerings[4],'03000-2909-0300'),code(d.offerings[5],'02750-2903-0300'),
+   code({...d.offerings[4],id:'105',offered_100m:12000,source_url:d.offerings[4].source_url.replace('100','105')},'03000-2909-0300'),
+   code(d.offerings[2],'03250-3606-1000'),code({...d.offerings[3],id:'98'},'03250-3606-1000'),d.offerings[0]];
+ const r=renderWith(d,{title:'국고채 입찰 일정'});
+ assert.deepEqual(r.rows(SCHEDULE).slice(0,3),[
+  ['2030-05-06','3년','23,000억원 (2건: 11,000억원 + 12,000억원)'],   // 두 종목 — 03000 종목은 정정 공고(105)만
+  ['2030-05-07','10년','9,000억원'],                                     // 같은 종목의 공고 둘(102·98) — 번호가 큰 102만
+  ['2030-05-08','5년','12,000억원']]);
+ const t=walk(r.panel,n=>n.tag==='table'&&n.attrs['aria-label']===SCHEDULE)[0];
+ const hrefs=t.kids.find(k=>k.tag==='tbody').kids.slice(0,2).map(tr=>walk(tr,n=>n.tag==='a').map(a=>a.href.replace(/^.*nttId=/,'').replace(/&menuNo=\d+$/,'')));
+ assert.deepEqual(hrefs,[['99','105'],['102']]);
+});
 test('schedule: one shared delay note for both amount feeds, two different failures both shown',()=>{
  let d=schedule(), r=renderWith(d,{title:'국고채 입찰 일정'});            // 이 고정 자료는 날짜가 지나 갱신 지연 안내가 붙는다
  assert.deepEqual(r.warnings(),['입찰금액: 예정된 한국 자료 갱신이 반영되지 않았습니다 · 자료일 확인']);

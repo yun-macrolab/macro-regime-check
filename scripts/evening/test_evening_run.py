@@ -219,6 +219,16 @@ class CalendarWarningTest(PipelineCase):
         self.assertEqual(code, 0, text)
         self.assertNotIn("::warning::", text)
 
+    def test_a_calendar_that_already_ended_says_how_long_ago(self):
+        today = datetime.date.fromisoformat(S.edition_date(S.parse_iso(F.NOW)))
+        gone, last = [(today - datetime.timedelta(days=d)).isoformat() for d in (9, 5)]
+        self.calendar(gone, last)
+        text = self.run_pipeline(Runner(), "--now", F.NOW)[1]
+        self.assertIn(f"::warning::일정표(data/calendar.json)가 {last}에서 끝났다(5일 지남)", text)
+        self.assertNotIn("남음", text)                                           # 음수 날수를 '남음'으로 쓰지 않는다
+        self.calendar((today - datetime.timedelta(days=1)).isoformat(), today.isoformat())
+        self.assertIn(f"{today.isoformat()}에서 끝난다(0일 남음)", self.run_pipeline(Runner(), "--now", F.NOW)[1])   # 오늘이 마지막 일정
+
     def test_empty_or_missing_calendar(self):
         self.calendar()
         self.assertIn("::warning::일정표(data/calendar.json)가 비어 있다", self.run_pipeline(Runner(), "--now", F.NOW)[1])

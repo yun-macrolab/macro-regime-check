@@ -650,7 +650,7 @@ window.Evening = (() => {
   // ---------- 내일 볼 것 · 나머지 · 채권 단독 ----------
   function tomorrowSection(ctx, d) {
     const rows = list(d.tomorrow).map(e => quiet(() => dayRow(ctx, e))).filter(Boolean);
-    return rows.length ? section("다가오는 일정", "발표·입찰 — 수집이 끝난 뒤의 오늘 일정부터", el("ul", { class: "eve-rows eve-boxed" }, ...rows))
+    return rows.length ? section("다가오는 일정", "발표·입찰 — 이 판의 수집이 끝난 뒤의 일정부터", el("ul", { class: "eve-rows eve-boxed" }, ...rows))
       : null;
   }
   function dayRow(ctx, e) {

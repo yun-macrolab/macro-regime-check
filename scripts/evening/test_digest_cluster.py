@@ -519,6 +519,21 @@ class EventsTest(unittest.TestCase):
         got = DC.events_of(None, korea)
         self.assertEqual([e["detail"] for e in got], [["3년", "2.2조원"], ["10년", "0.9조원"], ["5년"]])   # 같은 번호는 한 번, 못 읽은 금액이 섞이면 없음
 
+    def test_a_correction_notice_for_the_same_bond_is_not_added(self):
+        # 같은 종목(code)의 공고가 둘이면(정정 공고 — 번호가 새로 붙는다) 번호가 큰 것 하나만. 두 종목이면 더한다. code가 없는 옛 줄은 번호로만
+        row = lambda i, d, t, a, code=None: {"id": i, "date": d, "tenor": t, "offered_100m": a, **({"code": code} if code else {})}
+        korea = {"calendar": {"rows": [{"date": "2026-11-09", "tenor": "3년"}, {"date": "2026-11-10", "tenor": "10년"},
+                                       {"date": "2026-11-11", "tenor": "5년"}]},
+                 "offerings": [row("9", "2026-11-09", "3년", 11000, "03000-2909-0300"),
+                               row("10", "2026-11-09", "3년", 12000, "03000-2909-0300"),         # 정정 — 9보다 뒤(수로 견준다)
+                               row("8", "2026-11-09", "3년", 11000, "02750-2903-0300"),
+                               row("21", "2026-11-10", "10년", 9000, "03250-3606-1000"),
+                               row("21", "2026-11-10", "10년", 9000),                            # 같은 번호의 옛 줄(code 없음)은 한 번
+                               row("31", "2026-11-11", "5년", 8000), row("30", "2026-11-11", "5년", 7000)]}
+        got = DC.events_of(None, korea)
+        self.assertEqual([e["detail"] for e in got], [["3년", "2.3조원"], ["10년", "0.9조원"], ["5년", "1.5조원"]])
+        self.assertTrue(DC._later("10", "9") and DC._later("b", "a") and not DC._later("9", "10"))
+
 
 class CliTest(unittest.TestCase):
     def write(self, tmp, posts=None, status=None):

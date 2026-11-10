@@ -72,7 +72,7 @@ TH = {
     "k": {"A": 2.0, "B": 1.0, "C": 0.5}, "k_result": 0.25, "k_result_min_ch": 2, "k_cap": 2.25,
     "e": {"A": 2.0, "B": 1.0}, "e_cap": 2.0,
     "m_obs": 60, "m_steps": ((0.90, 1.5), (0.75, 1.0)), "m_cap": 1.5,
-    "y_cap": 1.0,                                               # 4단계(유튜브) — 1단계는 늘 0
+    "y_bonus": 1.0, "y_cap": 1.0,                               # 4단계(유튜브) — 1단계는 늘 0
     "p_repeat": 1.5, "p_repeat_waive_c": 1.0, "p_fwd": 1.0, "p_fwd_share": 0.5, "p_c_only_etc": 2.0, "p_cap": 4.5,
     "l_min": -2.0, "l_max": 1.0,                                # 3단계(하지 않는다) — 1단계는 늘 null
     "s_max": 15.5,

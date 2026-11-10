@@ -13,7 +13,7 @@ pipeline   tg_collect → digest_cluster → digest_score → digest_build → d
   - 결과는 한 줄로 찍고, --github-output을 주면 그 파일에도 쓴다:
       publish  true면 <out>을 게시한다          alert  true면 워크플로가 마지막에 실행을 실패로 끝낸다(메일)
       reason   ok · short · empty_streak · broken · withdrawn · channel(채널 바뀜) · error      stage  done 또는 실패한 단계
-  - 일정표(<data>/calendar.json)의 마지막 일정이 CAL_AHEAD일 안이면 Actions 경고 한 줄(날짜와 남은 날수만)을 찍는다 —
+  - 일정표(<data>/calendar.json)의 마지막 일정이 CAL_AHEAD일 안이면 Actions 경고 한 줄(날짜와 남은 날수, 지났으면 지난 날수)을 찍는다 —
     일정표가 끝나면 '발표일 일치'·A급 낱말 점수·'다가오는 일정'의 달력 줄이 조용히 사라지므로. 실행은 막지 않는다.
   종료코드: 0 <out>에 게시할 것이 있다(publish=true) / 1 없다
 
@@ -122,7 +122,7 @@ def _calendar_warning(a):
     left = (datetime.date.fromisoformat(last) - today).days if last else None
     if left is not None and left >= CAL_AHEAD:
         return None
-    end = f"{last}에서 끝난다({left}일 남음)" if last else "비어 있다"
+    end = "비어 있다" if not last else f"{last}에서 끝났다({-left}일 지남)" if left < 0 else f"{last}에서 끝난다({left}일 남음)"
     msg = (f"::warning::일정표(data/calendar.json)가 {end} — 그 뒤로는 '발표일 일치'와 '다가오는 일정'의 달력 줄이 비고 "
            "A급 낱말이 B급으로 센다. 공식 일정 쪽에서 다음 일정을 읽어 calendar.json과 scripts/evening/test_calendar.py의 "
            "LEDGER·CHECKED를 같은 커밋에서 고친다")

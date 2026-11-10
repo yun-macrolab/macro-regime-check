@@ -379,7 +379,7 @@ def parse_offering_text(text, ident, code, today):
     if date > today + dt.timedelta(days=90) or not 0 < amount < 1_000_000:
         raise ValueError("offering outside range")
     return {"id": ident, "date": date.isoformat(), "tenor": str(int(code.split("-")[2][:2])) + "년",
-            "offered_100m": amount, "source_url": offering_url(ident)}
+            "code": code, "offered_100m": amount, "source_url": offering_url(ident)}    # code = 종목 번호(정정 공고를 가리는 데)
 
 
 # 공고 하나를 건너뛸 때 남기는 고정 사유 코드. 원격 문구는 남기지 않는다(우리 코드의 고정 문구만 코드로 바꾼다).

@@ -119,15 +119,20 @@ window.KoreaMarket = (() => {
     const body=node("tbody","");for(const cells of rows)body.append(node("tr","",...cells.map(c=>node("td","",c))));
     t.append(node("thead","",head),body);return node("div","market-scroll",t);
   }
-  // 그날·그 만기의 공고 — 같은 번호는 한 번만(번호가 없는 줄은 가려내지 못해 그대로)
+  // 공고 번호 a가 b보다 뒤인가 — 둘 다 숫자 번호면 수로, 아니면 글자로(scripts/evening/digest_cluster.py의 _later와 같다)
+  const later=(a,b)=>{const x=String(a),y=String(b),n=/^[0-9]+$/;return n.test(x)&&n.test(y) ? Number(x)>Number(y) : x>y;};
+  // 그날·그 만기의 공고 — 같은 번호는 한 번만(번호가 없는 줄은 가려내지 못해 그대로), 같은 종목(발행공고의 code)의 공고가 둘이면
+  // (정정 공고) 번호가 큰 것 하나만. code가 없는 줄(결과 공고, 2026-11-10 앞에 읽은 발행공고)은 번호로만 가린다
   function sameAuction(list, r) {
-    const seen=new Set();
-    return (Array.isArray(list)?list:[]).filter(a=>{
+    const seen=new Set(), bond=new Map(), coded=a=>typeof a.code==="string" && a.code!=="";
+    const rows=(Array.isArray(list)?list:[]).filter(a=>{
       if(!a || a.date!==r.date || a.tenor!==r.tenor) return false;
       if(a.id===undefined || a.id===null) return true;
       if(seen.has(a.id)) return false;
       seen.add(a.id); return true;
     });
+    for(const a of rows) if(coded(a) && (!bond.has(a.code) || later(a.id,bond.get(a.code).id))) bond.set(a.code,a);
+    return rows.filter(a=>!coded(a) || bond.get(a.code)===a);
   }
   // 일정 칸의 예정액 — 공고 하나면 그 금액(원문 링크), 둘 이상이면(한 만기 두 종목을 같은 날 입찰) 합과 공고마다의 금액
   function amountCell(rows) {

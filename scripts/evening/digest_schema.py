@@ -121,7 +121,7 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
                               대표 낱말이 A·B급일 때만 붙는다(흔한 C급 낱말은 날마다 다른 묶음의 대표가 된다). 같은 낱말일 뿐
                               같은 묶음이라는 뜻이 아니다 — 화면은 "대표 낱말이 직전 판에도 있었습니다"라고만 쓴다
       links[] 에 더해   more [낱말]  이 글에만 더 있는 낱말 — 그 링크의 글에서 걸렸지만 항목의 terms · words에 없고 두 곳 이상이
-                              함께 쓴 낱말도 아닌 것(must 4개 · rest 2개까지, 등급 → 가나다). 비면 칸이 없다
+                              함께 쓴 낱말도 아닌 것(must 4개 · rest 2개까지, 등급 → (넓은 낱말은 뒤) → 가나다). 비면 칸이 없다
                         n_terms 정수  그 글에서 걸린 사전 낱말 수(TH member_terms_max까지 센다) — 어느 글이 넓게 다뤘는지
                         size  "짧음"·"보통"·"김"  그 글의 길이 구간(TH size_short자 미만 · 그 사이 · size_long자 이상)
                         pic   true    그림·영상·파일이 붙은 글일 때만 싣는다(없으면 붙은 것이 없거나 모르는 것)
@@ -537,19 +537,19 @@ def _check_links(item, path, date, span, roles):
 
 
 def _check_more(item, path, date, span):
-    """더 자세히 칸 — 낱말 목록의 순서(곳 수 ↓ → 등급 → 가나다, 글에 나온 순서가 아니다) · 함께 나온 낱말이 항목의 낱말을 되풀이하지
+    """더 자세히 칸 — 낱말 목록의 순서(곳 수 ↓ → 등급 → (넓은 낱말은 뒤) → 가나다, 글에 나온 순서가 아니다) · 함께 나온 낱말이 항목의 낱말을 되풀이하지
     않는가 · 덧낱말이 항목의 낱말과 겹치지 않는가 · 첫 글~마지막 글이 창 안이고 링크의 시각을 품는가 · 직전 판의 날짜가 이 판보다
     앞이고 대표 낱말이 A·B급인가."""
     words = item.get("words", [])
     counts = {w["term"]: w["n_ch"] for w in words}
     if [(w["term"], w["n_ch"]) for w in words] != R.by_count(counts) or len(counts) != len(words) or set(counts) & set(item["terms"]) \
             or (words and min(counts.values()) < 2 and max(counts.values()) > 1):
-        _fail(f"{path}.words", "함께 나온 낱말의 순서(곳 수 → 등급 → 가나다)가 다르거나 겹치거나 항목의 낱말을 되풀이하거나 곳 수가 규칙과 다름")
+        _fail(f"{path}.words", "함께 나온 낱말의 순서(곳 수 → 등급 → (넓은 낱말은 뒤) → 가나다)가 다르거나 겹치거나 항목의 낱말을 되풀이하거나 곳 수가 규칙과 다름")
     shown = set(item["terms"]) | set(counts)
     for i, x in enumerate(item["links"]):
         more = x.get("more", [])
         if more != R.by_grade(more) or shown & set(more):
-            _fail(f"{path}.links[{i}].more", "덧낱말의 순서(등급 → 가나다)가 다르거나 항목의 낱말과 겹침")
+            _fail(f"{path}.links[{i}].more", "덧낱말의 순서(등급 → (넓은 낱말은 뒤) → 가나다)가 다르거나 항목의 낱말과 겹침")
         if x.get("n_terms", len(more)) < len(more):
             _fail(f"{path}.links[{i}].n_terms", "그 글의 낱말 수가 덧낱말보다 적음")
     sp = item.get("span")
@@ -573,7 +573,7 @@ def _check_side(side, path, span, roles, want):
         _inside(r["at"], span, f"{path}.rows[{i}].at")
         more = r.get("more", [])
         if more != R.by_grade(more) or r["term"] in more or (r["v"] is None and r["result"] is not None):
-            _fail(f"{path}.rows[{i}]", "덧낱말의 순서(등급 → 가나다)가 다르거나 줄의 낱말과 겹치거나, 숫자 없는 줄에 결과 낱말이 있음")
+            _fail(f"{path}.rows[{i}]", "덧낱말의 순서(등급 → (넓은 낱말은 뒤) → 가나다)가 다르거나 줄의 낱말과 겹치거나, 숫자 없는 줄에 결과 낱말이 있음")
         if r["v"] is None and R.grade_of(r["term"]) == "C" and not more and r.get("n_terms", 1) < 2:
             _fail(f"{path}.rows[{i}]", "C급 낱말 하나뿐인 글은 줄이 될 수 없음")
         if r.get("n_terms", 1 + len(more)) < 1 + len(more):

@@ -613,6 +613,9 @@ class StateTest(Screen):
             self.shows(frame, "이 판에는 기준을 넘은 묶음이 없습니다. 아래 '채권 채널 단독 글'에서 채널들이 쓴 낱말을 볼 수 있습니다.",
                        "나머지 표(채권 채널 단독 글 포함)에서 5줄을 줄였습니다.")
             self.lacks(frame, "'나머지'에서", "오늘은", "나머지 표에서 5줄을 줄였습니다")    # 판 머리에도 되풀이하지 않는다
+            self.assertIn("다가오는 일정", frame["heads"])
+            self.shows(frame, "발표·입찰 — 이 판의 수집이 끝난 뒤의 일정부터")
+            self.lacks(frame, "오늘 일정")                                        # 지난 판의 일정을 '오늘'이라 부르지 않는다
         self.shows(past, "지난 판(10-07(수))")
         d["rest"] = [{**g, "items": [{**it, "coverage": {**it["coverage"], "analyst": 1}} for it in g["items"]]} for g in d["rest"]]
         only_rest, = draws(site(digest=d))

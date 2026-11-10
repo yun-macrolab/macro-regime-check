@@ -293,8 +293,11 @@ class LayoutTest(WorkflowCase):
             self.assertIn(must, text)
         self.assertNotRegex(text, r"https://t\.me/[A-Za-z]")                    # 실제 채널 주소를 예로 들지 않는다
         self.assertIn("'AI 요약'", text)                                         # AI가 쓴 문장이 실린다는 것을 숨기지 않는다
-        for wrong in ("요약 문장도 만들지 않습니다", "사람이든 기계든", "평일 저녁에 한 번 읽습니다"):   # 2026-10-08의 옛 문장
+        for wrong in ("요약 문장도 만들지 않습니다", "사람이든 기계든", "평일 저녁에 한 번 읽습니다",   # 2026-10-08의 옛 문장
+                      "한 번 더 읽습니다"):                                                     # PC는 하루 세 번까지 다시 읽는다
             self.assertNotIn(wrong, text)
+        for at in ("17:45", "23:30", "07:30"):                                   # AI 요약을 위해 PC가 읽는 때
+            self.assertIn(at, text)
 
     def test_readme_evening_test_counts_are_the_suite(self):
         # README의 저녁판 테스트 수 두 곳('테스트' 절과 '검증' 절)이 실제 수와 같다 — 한쪽만 고쳐 어긋난 적이 있다(732 대 733)

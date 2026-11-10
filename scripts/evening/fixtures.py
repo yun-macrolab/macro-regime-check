@@ -466,7 +466,7 @@ def scored_doc():
 
 def _words(members, limit, terms):
     """함께 나온 낱말과, 두 곳 이상이 쓴 낱말 전부 — 원천 채널이 직접 쓴 글(전달 글은 세지 않는다) 전체에서 걸린 낱말과 그것을 쓴
-    채널 수. 여러 채널이면 두 곳 이상이 쓴 것만. 항목의 낱말(제목)과 좁은 낱말 곁의 넓은 낱말은 뺀다. 곳 수 ↓ → 등급 → 가나다."""
+    채널 수. 여러 채널이면 두 곳 이상이 쓴 것만. 항목의 낱말(제목)과 좁은 낱말 곁의 넓은 낱말은 뺀다. 곳 수 ↓ → 등급 → (넓은 낱말은 뒤) → 가나다."""
     src, seen = [m for m in members if m["role"] == "source" and not m["fwd"]], {}
     for m in src:
         for t in m["terms"]:
@@ -479,7 +479,7 @@ def _words(members, limit, terms):
 
 
 def _more(m, shown, limit):
-    """글 하나에 붙는 것 — 이 글에만 더 있는 낱말(등급 → 가나다, 좁은 낱말 곁의 넓은 낱말은 뺀다. 없으면 칸도 없다) · 길이 구간 ·
+    """글 하나에 붙는 것 — 이 글에만 더 있는 낱말(등급 → (넓은 낱말은 뒤) → 가나다, 좁은 낱말 곁의 넓은 낱말은 뺀다. 없으면 칸도 없다) · 길이 구간 ·
     그림이 붙었으면 pic · 그 글에서 걸린 사전 낱말 수."""
     extra = _by_grade(_narrow([t for t in m["terms"] if t not in shown], [*m["terms"], *shown]))[:limit]
     return {**({"more": extra} if extra else {}), "size": m["size"], **({"pic": True} if m["pic"] else {}), "n_terms": len(m["terms"])}

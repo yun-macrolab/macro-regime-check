@@ -535,19 +535,42 @@ def _auction_rows(korea, field):
         if isinstance(rows, list) else []
 
 
+def _later(a, b):
+    """공고 번호 a가 b보다 뒤인가 — 둘 다 숫자 번호면 수로, 아니면 글자로(site/korea.js의 later와 같다)."""
+    a, b = str(a), str(b)
+    return int(a) > int(b) if re.fullmatch(r"[0-9]+", a) and re.fullmatch(r"[0-9]+", b) else a > b
+
+
+def _bond_notices(rows):
+    """같은 날·만기의 발행공고 줄들 → 종목마다 하나. 같은 공고 번호는 한 번만(번호가 없는 줄은 가려내지 못해 그대로), 같은 종목(code)의
+    공고가 둘이면(정정 공고) 번호가 큰 것 하나만. code가 없는 줄(2026-11-10 앞에 읽은 공고)은 공고 번호로만 가린다."""
+    by_id = {}
+    for i, r in enumerate(rows):
+        ident = r.get("id")
+        by_id.setdefault(ident if type(ident) in (str, int) else ("줄", i), r)
+    bonds = {}
+    for key, r in by_id.items():
+        code = r.get("code")
+        slot = ("종목", code) if isinstance(code, str) and code else key
+        if slot not in bonds or _later(r.get("id"), bonds[slot].get("id")):
+            bonds[slot] = r
+    return list(bonds.values())
+
+
 def events_of(calendar, korea):
     """일정 → [{"date", "time", "term", "tier", "detail", "src"}] 날짜·시각·낱말순. 달력(calendar.json)의 일정과 korea.json의 국고채
-    입찰 일정(10·30년 A, 그 밖 B. 발행 예정액을 알면 detail에 만기와 함께 — 같은 날·만기의 공고가 둘 이상이면 합). 둘 다 없으면 빈 목록."""
+    입찰 일정(10·30년 A, 그 밖 B. 발행 예정액을 알면 detail에 만기와 함께 — 같은 날·만기에 종목이 둘 이상이면 합). 둘 다 없으면 빈 목록."""
     out = [{"date": e["date"], "time": e.get("time"), "term": e["term"], "tier": e["tier"], "detail": list(e.get("detail") or []),
             "src": "calendar"} for e in (calendar or {}).get("events", [])]
-    # 같은 날·같은 만기의 발행공고(한 만기 두 종목을 같은 날 입찰 — 2026-11-09 3년)는 금액을 더한다. 같은 공고 번호는 한 번만,
-    # 그 가운데 하나라도 금액을 읽을 수 없으면 금액을 싣지 않는다(일부만 더한 값을 내지 않게)
+    # 같은 날·같은 만기의 발행공고(한 만기 두 종목을 같은 날 입찰 — 2026-11-09 3년)는 종목마다 금액을 더한다(_bond_notices — 같은 종목의
+    # 정정 공고는 더하지 않는다). 그 가운데 하나라도 금액을 읽을 수 없으면 금액을 싣지 않는다(일부만 더한 값을 내지 않게)
     notices = {}
-    for i, r in enumerate(_auction_rows(korea, "offerings")):
-        ident = r.get("id")
-        key = ident if type(ident) in (str, int) else ("줄", i)
-        notices.setdefault((r["date"], r["tenor"]), {}).setdefault(key, r.get("offered_100m"))
-    offered = {k: _amount(sum(v.values())) if all(_amount(x) for x in v.values()) else None for k, v in notices.items()}
+    for r in _auction_rows(korea, "offerings"):
+        notices.setdefault((r["date"], r["tenor"]), []).append(r)
+    offered = {}
+    for k, rows in notices.items():
+        amounts = [r.get("offered_100m") for r in _bond_notices(rows)]
+        offered[k] = _amount(sum(amounts)) if all(_amount(x) for x in amounts) else None
     for r in _auction_rows(korea, "rows"):
         amount = offered.get((r["date"], r["tenor"]))
         out.append({"date": r["date"], "time": None, "term": AUCTION_TERM, "tier": "A" if r["tenor"] in AUCTION_A else "B",

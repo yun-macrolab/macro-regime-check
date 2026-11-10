@@ -84,7 +84,7 @@ def _words(members, limit, terms):
     """함께 나온 낱말 → ([{term, n_ch}], 두 곳 이상이 쓴 낱말 전부). 원천 채널이 '직접 쓴' 글 전체에서 걸린 사전 낱말과 그것을 쓴
     채널 수 — 전달 글은 세지 않는다(한 글을 두 곳이 옮긴 것은 두 곳이 쓴 것이 아니다. 직접 쓴 글이 없으면 칸이 없다).
     여러 채널이면 두 곳 이상이 쓴 낱말만. 항목의 낱말(terms — 제목에 이미 있다)과 좁은 낱말 곁의 넓은 낱말(R.narrow: '연준 의사록'이
-    있으면 '연준')은 싣지 않는다 — 같은 말을 두 번 하지 않게. 순서는 곳 수 ↓ → 등급 → 가나다(글에 나온 순서가 아니다)."""
+    있으면 '연준')은 싣지 않는다 — 같은 말을 두 번 하지 않게. 순서는 곳 수 ↓ → 등급 → (넓은 낱말은 뒤) → 가나다(글에 나온 순서가 아니다)."""
     src, seen = [m for m in members if m["role"] == "source" and not m["fwd"]], {}
     for m in src:
         for t in m["terms"]:
@@ -97,7 +97,7 @@ def _words(members, limit, terms):
 
 
 def _more(m, shown, limit):
-    """글 하나에 붙는 것 — 이 글에만 더 있는 낱말(등급 → 가나다, 좁은 낱말 곁의 넓은 낱말은 뺀다. 없으면 칸도 없다) · 길이 구간 ·
+    """글 하나에 붙는 것 — 이 글에만 더 있는 낱말(등급 → (넓은 낱말은 뒤) → 가나다, 좁은 낱말 곁의 넓은 낱말은 뺀다. 없으면 칸도 없다) · 길이 구간 ·
     그림이 붙었으면 pic · 그 글에서 걸린 사전 낱말 수(어느 글이 넓게 다뤘는지 — 읽는 사람이 누를 링크를 고를 수 있게)."""
     extra = R.by_grade(R.narrow([t for t in m["terms"] if t not in shown], among=[*m["terms"], *shown]))[:limit]
     return {**({"more": extra} if extra else {}), **({"size": m["size"]} if "size" in m else {}), **({"pic": True} if m.get("pic") else {}),
