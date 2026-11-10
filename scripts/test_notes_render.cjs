@@ -258,14 +258,18 @@ test('표: 빈 머리 칸은 열 머리가 아니고, 빈 칸은 — 로 채운�
   assert.equal(byClass(t, 'has').length, 2);
 });
 
-test('없는 글 이름이면 목록과 안내 문구', async () => {
-  for (const arg of ['2026-01-01-no-such-note', '../x', '<img src=x onerror=alert(1)>']) {
+test('없는 글 이름이면 목록과 안내 문구 — 목록으로 옮겨도 초점은 목록 제목으로', async () => {
+  for (const arg of ['2026-01-01-no-such-note', '../x', '<img src=x onerror=alert(1)>', 'constructor', '__proto__', 'toString', 'hasOwnProperty']) {
     const b = boot();
     b.view('notes', arg);
     await settle();
     assert.equal(byClass(b.wrap, 'note-card').length, NOTES.notes.length);
     assert.match(byClass(b.wrap, 'note-missing')[0].textContent, /찾지 못했다/);
     assert.ok(!b.wrap.textContent.includes(arg));
+    assert.doesNotThrow(() => b.view('notes', ''), arg);               // 이름이 객체의 물려받은 이름이어도 카드로 읽지 않는다
+    await settle();
+    assert.equal(byClass(b.wrap, 'note-card').length, NOTES.notes.length);
+    assert.equal(b.doc.activeElement, byTag(b.wrap, 'h2')[0], arg);
   }
 });
 
@@ -325,8 +329,8 @@ test('오염된 자료: https가 아닌 링크는 글자로, 꼴이 어긋난 �
   const hidden = code => 'https://example.org/a' + String.fromCharCode(code) + 'b';   // 보이지 않는 글자가 섞인 주소
   bad.blocks = [{ type: 'para', spans: [{ text: '상대 링크', href: '/x' }, { text: '좋은 링크', href: 'https://example.org/a' },
     { text: '뒤집는 글자가 든 링크', href: hidden(0x202e) }, { text: '제어 문자가 든 링크', href: hidden(1) }, { text: '폭 없는 공백이 든 링크', href: hidden(0x200b) }] },
-    { type: 'script', text: 'alert(1)' }, null, 'x', { type: 'figure', kind: 'diagram', diagram: { kind: 'flow' } },
-    { type: 'figure', kind: 'unknown' }, { type: 'table', head: 'x', rows: [[null, 3]] }, { type: 'heading', level: 2, id: 'x"y', text: '이상한 id' },
+    { type: 'script', text: '버려야 하는 블록' }, null, 'x', { type: 'figure', kind: 'diagram', diagram: { kind: 'flow' } },
+    { type: 'figure', kind: 'unknown', text: '버려야 하는 그림' }, { type: 'table', head: 'x', rows: [[null, 3]] }, { type: 'heading', level: 2, id: 'x"y', text: '이상한 id' },
     { type: 'questions', items: 'x' }, { type: 'list', items: [[{ text: '항목' }], 5] }];
   const data = files();
   data['data/notes.json'] = { notes: [bad, { ...first, slug: '../../etc' }, { ...first, blocks: 'x', slug: '2026-01-01-b' }, null, 3] };
@@ -343,7 +347,7 @@ test('오염된 자료: https가 아닌 링크는 글자로, 꼴이 어긋난 �
   assert.deepEqual(hrefs.filter(h => !h.startsWith('#notes')).sort(),
     ['https://example.org/a', 'https://github.com/yun-macrolab/macro-regime-check/issues']);
   for (const word of ['위험한 링크', '평문 링크', '상대 링크', '뒤집는 글자가 든 링크', '제어 문자가 든 링크', '폭 없는 공백이 든 링크', '항목']) assert.ok(art.textContent.includes(word), word);
-  assert.ok(!art.textContent.includes('alert(1)') || art.textContent.includes(bad.title));
+  for (const word of ['버려야 하는 블록', '버려야 하는 그림']) assert.ok(!art.textContent.includes(word), word);   // 모르는 블록 · 그림은 글자로도 싣지 않는다
   assert.equal(byClass(art, 'note-fig').length, 0);
 });
 

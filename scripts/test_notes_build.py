@@ -121,6 +121,11 @@ class HeadTest(unittest.TestCase):
         self.assertEqual(parse(**{"난이도": "'하'"})["level"], "'하'")           # 작은따옴표는 글자다
         with self.assertRaises(nb.NoteError):
             parse(**{"저자": '""'})                                           # 따옴표뿐인 값은 빈 값
+        for name, value in (("한 줄 결론", '"기대"와 "프리미엄"'), ("제목", '""A"는 B"'), ("제목", '"기대" 대신 "프리미엄"')):
+            with self.assertRaises(nb.NoteError, msg=value):               # 글의 일부인 따옴표를 감싼 것으로 떼지 않는다
+                parse(**{name: value})
+        self.assertEqual(parse(**{"제목": "\"'기대'와 '프리미엄'\""})["title"], "'기대'와 '프리미엄'")
+        self.assertEqual(parse(**{"제목": '"기대"와 프리미엄'})["title"], '"기대"와 프리미엄')   # 감싸지 않은 값의 따옴표는 글자다
 
     def test_every_name_is_required_and_no_other_is_allowed(self):
         for name in HEAD:
@@ -498,11 +503,12 @@ class RepoTest(unittest.TestCase):
             self.assertRegex(h, r"^https://[A-Za-z0-9.-]+/", h)
 
     def test_site_charts_are_rules_the_page_knows(self):
-        # 매일 바뀌는 data/charts.json이 아니라 화면에 적힌 규칙 목록으로 본다(자료가 하루 비어도 검사가 막히지 않게)
-        with open(os.path.join(REPO, "site", "index.html"), encoding="utf-8") as f:
-            page = f.read()
-        known = set(re.findall(r'"([a-z0-9_]+)"', "".join(re.findall(r"keys: \[([^\]]*)\]", page))))
+        # 매일 바뀌는 data/charts.json이 아니라 그래프 정의 표(render_charts.chart_table — 통신 없음)로 본다(자료가 하루 비어도
+        # 검사가 막히지 않게). 화면의 규칙 목록으로 보면 그래프가 없는 규칙(credit_spread)도 통과해, 그림이 늘 '불러오지 못했다'가 된다
+        import render_charts
+        known = set(render_charts.chart_table()["rules"])
         self.assertIn("real_rate_bei", known)
+        self.assertNotIn("credit_spread", known)
         for d in walk(self.built):
             if d.get("kind") == "site_chart":
                 self.assertIn(d["rule"], known)

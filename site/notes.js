@@ -347,7 +347,7 @@ window.ReadingNotes = (() => {
     stage.replaceChildren(note ? article(note) : listing(missing));
     live.textContent = missing ? SAY.missing : "";
     // 노트 화면 안에서 옮겨 다녔으면 읽던 자리로(글 → 제목, 목록 → 읽던 카드), '다시 읽기'로 그렸으면 제목으로 초점을 옮긴다
-    const target = retry ? marks.title : from === null ? null : marks.cards[from] || marks.title;
+    const target = retry ? marks.title : from === null ? null : own(marks.cards, from) || marks.title;
     retry = false;
     if (!target) return;
     target.focus({ preventScroll: true });
