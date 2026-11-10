@@ -44,7 +44,7 @@ SERIES 끝이라 수신 시간이 모자라면 그쪽부터 빠진다.
 
 사용법: python scripts/oil_fetch.py [--out data] [--work .work] [--offline]
 """
-import os, sys, re, json, math, time, bisect, argparse, datetime, statistics
+import os, sys, json, math, time, bisect, argparse, datetime, statistics
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
@@ -259,14 +259,15 @@ def month_to_date(series):
 
 
 def share_le(vals, v):
-    """vals 가운데 v 이하인 비율(%, 소수 한 자리) — 소수 6자리 반올림 뒤 견준다."""
-    return None if not vals or v is None else _r(sum(1 for x in vals if round(x, 6) <= round(v, 6)) / len(vals) * 100, 1)
+    """vals 가운데 v 이하인 비율(%, 소수 넷째 자리 — 문구의 pNN이 한 번만 반올림하게) — 소수 6자리 반올림 뒤 견준다."""
+    return None if not vals or v is None else _r(sum(1 for x in vals if round(x, 6) <= round(v, 6)) / len(vals) * 100, 4)
 
 
 def real_wti(S):
     """실질 WTI 분위 — 월평균(관측 10일 이상, REAL_SINCE부터) ÷ 같은 달 CPI 전체. 마지막 달에 CPI가 아직 없으면
     REAL_CPI_LAG개월 안의 마지막 CPI로 나눈다. 분위 = 이 값 이하인 달의 비율(실질은 같은 CPI로 나눈 비율이라 기준 달러와
-    무관). 명목 분위도 같은 달들로. CPI가 없거나 가까운 CPI가 없으면 None."""
+    무관). 명목 분위도 같은 달들로(CPI가 빈 달은 명목에서도 뺀다 — 'N개 달'이 둘에 같게). CPI가 없거나 가까운 CPI가
+    없으면 None."""
     cpi = {_mkey(d): v for d, v in S.get("CPIAUCSL") or ()}
     avgs = {m: v for m, v in month_avgs(S["DCOILWTICO"]).items() if _mday(m) >= REAL_SINCE}
     if not cpi or not avgs:
@@ -278,7 +279,7 @@ def real_wti(S):
     real = {k: v / cpi[k] for k, v in avgs.items() if k in cpi}
     real[m] = avgs[m] / cpi[base]
     return {"wti_month": _iso(_mday(m)), "wti_avg": _r(avgs[m]), "real_pct": share_le(list(real.values()), real[m]),
-            "nom_pct": share_le(list(avgs.values()), avgs[m]), "real_cpi_month": _iso(_mday(base)), "real_n": len(real)}
+            "nom_pct": share_le([avgs[k] for k in real], avgs[m]), "real_cpi_month": _iso(_mday(base)), "real_n": len(real)}
 
 
 # ---------- 물가 상태 P와 꼬리표 — 운영자 측정 도구(infl_rows·pce_states·infl_tags)를 이 칸이 쓰는 만큼만 옮긴 것 ----------
@@ -433,8 +434,10 @@ def calc_base(S):
     vals = {"flat": _r(flat), "flat_from": _iso(f0), "flat_to": _iso(f1), "m0": _iso(_mday(m0)),
             "cliff": _iso(_mday(cliff)) if cliff is not None else None}
     vals.update({f"p{k}": _r(v) for k, v in enumerate(path)})
-    return {"date": _iso(f1), "values": vals,
-            "lines": {"yoy": hist, "path": [[_iso(_mday(m0 + k)), _r(v, PT_ND)] for k, v in enumerate(path)]}}
+    # 경로 점은 숫자 줄과 같은 소수 한 자리로 — 소수 둘째 자리 점을 화면(pct1)이 다시 반올림하면 4.249가 줄엔 +4.2%, 그래프엔
+    # +4.3%가 된다. 한 자리 double은 JS toFixed(1)도 같은 숫자로 찍는다(+ 0.0: -0.0을 0.0으로). 전년비 이력은 줄에 없어 그대로.
+    pts = [[_iso(_mday(m0 + k)), None if v is None else float(f"{_r(v):.1f}") + 0.0] for k, v in enumerate(path)]
+    return {"date": _iso(f1), "values": vals, "lines": {"yoy": hist, "path": pts}}
 
 
 def calc_products(S):
@@ -939,7 +942,7 @@ def build(results, prev, now):
 # ---------- 수신 ----------
 
 def load_all(work, offline=False, fred_load=None, clock=time.monotonic, budget=BUDGET, opener=None):
-    """{ID: 시계열}과 {ID: 실패 코드}. 온라인에서 캐시로 대신한 것은 실패('cache')."""
+    """{ID: 시계열}과 {ID: 실패 코드}. 온라인에서 캐시로 대신한 것은 실패('cache')(fred_load를 준 경우 — 테스트)."""
     cache = os.path.join(work, CACHE)
     data, errors = {}, {}
     deadline = clock() + budget

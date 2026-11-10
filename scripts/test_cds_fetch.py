@@ -845,6 +845,7 @@ class MainTest(TempDir):
         self.assertEqual(self.run_main(FakeOpener(days), now=NOW + datetime.timedelta(days=1)), 1)
         q = self.saved()["items"]["quotes"]
         self.assertEqual((q["ok"], q["date"]), (True, "2026-10-27"))                     # 끝 날이 아직 4일 안
+        self.assertEqual(q["retrieved"], "2026-10-28")                                   # 받은 것 없는 실행은 받은 날을 옮기지 않는다
         self.assertIn("이번 갱신에서 받지 못한 날이 있다 · 수신 실패 — 다음 갱신에 이어 받는다.", q["extra"])
         self.assertEqual(self.saved(cd.STORE)["status"], {"date": "2026-10-29", "error": "fetch"})
         self.assertIn("::warning::단일종목 CDS 참고: 수신 실패", self.log)
@@ -853,7 +854,8 @@ class MainTest(TempDir):
         self.assertEqual(self.run_main(op, now=NOW + datetime.timedelta(days=1, minutes=30)), 1)
         self.assertEqual(op.calls, [])
         self.assertEqual(self.run_main(op, now=NOW + datetime.timedelta(days=1, minutes=40), args=("--force",)), 0)
-        self.assertEqual(self.saved()["items"]["quotes"]["date"], "2026-10-28")
+        q = self.saved()["items"]["quotes"]
+        self.assertEqual((q["date"], q["retrieved"]), ("2026-10-28", "2026-10-29"))      # 새 날을 받으면 그날로
 
     def test_stale_store_and_broken_store_fall_back(self):
         self.run_main(FakeOpener(self.days_with_rows()))

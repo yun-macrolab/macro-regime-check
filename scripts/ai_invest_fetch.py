@@ -2,13 +2,16 @@
 """참고 자료 — AI 투자 (2026-10-27 추가, 사용자 결정: 판정 없는 블록).
 
 AI 투자를 채널 다섯으로 나눠 공개 통계의 숫자와 그래프만 싣는다. 규칙이 아니다 — 충족·판정·문턱이 없고, 판정·공개본·
-그래프 스크립트는 이 파일(<out>/ai_invest.json)을 읽지 않는다. 채널과 칸(ITEMS — 칸마다 그래프 하나):
+그래프 스크립트는 이 파일(<out>/ai_invest.json)을 읽지 않는다. 채널과 칸(ITEMS — 칸마다 그래프 하나, ai_b2는 표만 ·
+sb_long은 그래프와 표):
   실물 투자   ict_share     정보처리 장비·소프트웨어 투자 / 명목 GDP(%) — BEA A679RC1Q027SBEA, 장비만 Y034RC1Q027SBEA, GDP
                             (분기, 1990년~). 1995~2002년 가운데 가장 높았던 분기를 '2000년 전후 고점'으로 함께 적는다
               tech_orders   컴퓨터·전자 신규 주문(Census A34SNO, 3개월 합 전년비) · 반도체 생산(연준 IPG3344S, 전년비) — 월간 10년
               office_cons   민간 사무실 건설 지출(Census PROFCONS, 데이터센터 포함, 3개월 평균 전년비) — 월간 10년
   조달        financing     비금융기업 설비투자 / 내부자금(연준 Z.1 BOGZ1FA105050005Q / BOGZ1FA106000135Q, 4분기 합의 비율, %)
                             — 분기 1985년~, 1985년 이후 중앙값을 참고선으로
+              hq_spread     고신용 장기 회사채 − 국채 금리차(재무부 HQM par HQMCB30YRP·HQMCB10YRP − 같은 달 DGS30·DGS10 월평균,
+                            bp) — 월간 2000년~
               private_credit 사모대출(2026-10-30, 비공개 알림에서 옮김) — 연준 Z.1(분기) 잔액·전년비, 비금융기업 부채 중 몫
                             (BOGZ1FL103167205Q / BCNSDODNS), 부채/금융자산(사모대출펀드 BOGZ1FL444190005Q/…090000Q · BDC
                             BOGZ1FL454190005Q/…090003Q), 은행이 펀드·BDC에 빌려준 돈(BOGZ1FL443168000Q + BOGZ1FL453168003Q),
@@ -21,6 +24,8 @@ AI 투자를 채널 다섯으로 나눠 공개 통계의 숫자와 그래프만 
               partial60     S&P 500을 통제한 60영업일 부분상관(AI 지수·나스닥100 기술) — 주간 3년
               ai_b2         AI 고유 몫 b2(2026-10-30, 비공개 알림에서 옮김) — 2025년부터 해마다 따로 Δ10년(bp) = a + b1·S&P(%) +
                             b2·(AI − S&P)(%), HC1 견고 t. 해·b1·t1·b2·t2·관측일 수·처음·끝 날짜만 싣는다(표 하나, 그래프 없음)
+              sb_long       주가-금리 252영업일 상관(NASDAQCOM 1972년~ · SP500)과 두 규칙 조건의 띠(근원 PCE 전년비 3% 초과 ·
+                            실업률 상승 폭 0.5%p 이상), 시대 × 조건 평균 표 — 월말
 계산은 모두 이 파일이 한다(원본 파이프라인 ai_corr_check.py·ai_invest_block.py와 같은 산식 — 코드는 가져오지 않고 여기서 따로
 쓴다). 상관은 fred_fetch.corr_summary와 같은 방식: 두 시계열의 공통 날짜에서 수익률(가격 0인 날은 건너뜀)과 금리 변화를 짝짓는다.
 b2의 짝은 ai_corr_check.changes와 같다(S&P·AI·10년 셋의 공통 날짜, 이웃한 두 날 사이 변화, 끝 날짜의 해로 묶는다).
@@ -750,9 +755,10 @@ def _l(key, label, role, series):
     return {"key": key, "label": label, "role": role, "series": series}
 
 
+# years: 그래프의 햇수(공통 ChartSpec 칸). None = 시작이 고정된 칸 — present()가 자료의 처음·끝 해로 센다. 그래프 없는 ai_b2엔 없다.
 ITEMS = [
     {"key": "ict_share", "channel": "invest", "title": "정보처리 장비·소프트웨어 투자 / 명목 GDP",
-     "series": ["A679RC1Q027SBEA", "Y034RC1Q027SBEA", "GDP"], "calc": calc_ict_share, "unit": "%", "years": 36,
+     "series": ["A679RC1Q027SBEA", "Y034RC1Q027SBEA", "GDP"], "calc": calc_ict_share, "unit": "%", "years": None,
      "zero": False, "note": "1990년 이후 · 분기 · 명목 투자 ÷ 명목 GDP(계절조정 연율)",
      "values": {"share": "num", "share_1y": "num?", "peak": "num", "peak_date": "day", "hw": "num?", "hw_peak": "num",
                 "hw_peak_date": "day"},
@@ -771,20 +777,20 @@ ITEMS = [
      "values": {"yoy": "num", "level_bn": "num", "level_date": "day"}, "ends": ["level_date"],
      "lines": [_l("yoy", "사무실 건설 지출", "main", ["PROFCONS"])]},
     {"key": "financing", "channel": "finance", "title": "비금융기업 설비투자 / 내부자금 (4분기 합)",
-     "series": ["BOGZ1FA105050005Q", "BOGZ1FA106000135Q"], "calc": calc_financing, "unit": "%", "years": 41,
+     "series": ["BOGZ1FA105050005Q", "BOGZ1FA106000135Q"], "calc": calc_financing, "unit": "%", "years": None,
      "zero": False, "note": "1985년 이후 · 분기 · 연준 Z.1 금융계정",
      "values": {"ratio": "num", "ratio_1y": "num?", "median": "num", "above100": "num", "n": "int", "from": "day"},
      "lines": [_l("ratio", "설비투자 / 내부자금", "main", ["BOGZ1FA105050005Q", "BOGZ1FA106000135Q"]),
                _l("median", "1985년 이후 중앙값", "ref", ["BOGZ1FA105050005Q", "BOGZ1FA106000135Q"])]},
     {"key": "hq_spread", "channel": "finance", "title": "고신용 장기 회사채 − 국채 금리차 (par)",
-     "series": ["HQMCB30YRP", "HQMCB10YRP", "DGS30", "DGS10"], "calc": calc_hq_spread, "unit": "bp", "years": 26,
+     "series": ["HQMCB30YRP", "HQMCB10YRP", "DGS30", "DGS10"], "calc": calc_hq_spread, "unit": "bp", "years": None,
      "zero": False, "note": "2000년 이후 · 월간 · 재무부 HQM 회사채 par 수익률 − 같은 달 국채 금리 평균",
      "values": {"s30": "num", "s30_date": "day", "s30_1y": "num?", "le30": "num?", "n30": "int", "pct_from": "day",
                 "s10": "num", "s10_date": "day", "s10_1y": "num?"},
      "ends": ["s30_date", "s10_date"],
      "lines": [_l("s30", "30년", "main", ["HQMCB30YRP", "DGS30"]), _l("s10", "10년", "series", ["HQMCB10YRP", "DGS10"])]},
     {"key": "private_credit", "channel": "finance", "title": "사모대출 — 잔액·비금융기업 부채 중 몫·레버리지 (연준 Z.1)",
-     "series": list(PC.values()), "calc": calc_private_credit, "unit": "%", "years": 14, "zero": False,
+     "series": list(PC.values()), "calc": calc_private_credit, "unit": "%", "years": None, "zero": False,
      "note": "분기 · 그래프는 비금융기업 부채(부채증권+대출) 중 사모대출 몫",
      "values": {"total_tn": "num", "total_yoy": "num?", "share": "num", "share_1y": "num?", "pdf_lev": "num",
                 "pdf_lev_1y": "num?", "bdc_lev": "num", "bdc_lev_1y": "num?", "bank_bn": "num", "bank_yoy": "num?",
@@ -823,13 +829,13 @@ ITEMS = [
      "lines": [_l("ai", "AI 지수", "main", ["SP500", "NASDAQNQINTEL", "DGS10"]),
                _l("ndx", "나스닥100 기술", "series", ["SP500", "NASDAQNDXTMC", "DGS10"])]},
     {"key": "ai_b2", "channel": "corr", "title": "AI 고유 몫 b2 — 해마다 회귀 (측정 기록, 예측 아님)",
-     "series": ["SP500", "NASDAQNQINTEL", "DGS10"], "calc": calc_ai_b2, "unit": "bp", "years": 2, "zero": True,
+     "series": ["SP500", "NASDAQNQINTEL", "DGS10"], "calc": calc_ai_b2, "unit": "bp", "zero": True,
      "note": "2025년부터 해마다 · 일간 · Δ10년(bp) = a + b1·S&P 500(%) + b2·(AI − S&P 500)(%) · HC1",
      "values": {"years": "coef_rows"}, "bounded": True, "notice": COEF_NOTICE, "lines": []},
 ]
 ITEMS.append(
     {"key": "sb_long", "channel": "corr", "title": "주가-금리 252영업일 상관과 물가·고용 조건 — 1972년 이후",
-     "series": ["NASDAQCOM", "SP500", "DGS10", "PCEPILFE", "UNRATE"], "calc": calc_sb_long, "unit": "", "years": 54,
+     "series": ["NASDAQCOM", "SP500", "DGS10", "PCEPILFE", "UNRATE"], "calc": calc_sb_long, "unit": "", "years": None,
      "zero": True, "note": "월말 값 · 양(+)이면 주가와 금리가 같은 방향 · 아래 띠는 조건이 맞은 달(자료 달 기준)",
      "values": {"rho": "num", "first": "day", "sp": "num?", "sp_date": "day?", "pce": "num", "pce_month": "day", "ur": "num",
                 "ur_month": "day",
@@ -908,7 +914,7 @@ def texts(key, v, date):
                  "연료 가격·날씨도 같이 움직인다."])
     if key == "curve_30_10":
         return (f"{date} {_f(v['spread'], 0, True, 'bp')} · 1년 전 {_f(v['spread_1y'], 0, True, 'bp')} · "
-                f"최근 5년 범위 {_f(v['lo'], 0, True, 'bp')} ~ {_f(v['hi'], 0, True, 'bp')}",
+                f"최근 5년 범위(일간) {_f(v['lo'], 0, True, 'bp')} ~ {_f(v['hi'], 0, True, 'bp')}",
                 ["장기물 공급·기간 프리미엄이 함께 실리는 금리 쪽 결과다. AI 투자 때문인지는 이 숫자로 가릴 수 없다"
                  "(물가·연준 경로·국채 발행이 같이 움직인다)."])
     if key == "corr60":
@@ -1036,7 +1042,11 @@ def present(key, core, retrieved):
            "values": core["values"], "retrieved": retrieved, "line": line, "extra": extra,
            "notices": notices(spec), "sources": sources_of(spec, retrieved)}
     if spec["lines"]:                                    # 선이 없는 칸(ai_b2 — 표만)은 그래프를 싣지 않는다
-        chart = {"key": f"ai_{key}", "title": spec["title"], "unit": spec["unit"], "years": spec["years"],
+        years = spec["years"]
+        if years is None:                                # 시작이 고정된 칸(1990·1985·2000년~ 등) — 손으로 적은 햇수는 해가 바뀌면
+            firsts = [int(p[0][0][:4]) for p in core["lines"].values() if p]   # 어긋나므로 자료의 처음·끝 해로 센다
+            years = int(core["date"][:4]) - min(firsts) if firsts else 0
+        chart = {"key": f"ai_{key}", "title": spec["title"], "unit": spec["unit"], "years": years,
                  "zero": spec["zero"], "threshold": None, "note": spec["note"], "source_note": source_note(spec),
                  "notices": [],
                  "lines": [{**ln, "derived": derived, "points": core["lines"][ln["key"]]} for ln in spec["lines"]]}
@@ -1217,6 +1227,9 @@ def fetch_csv(sid, deadline, clock=time.monotonic, opener=None):
             if size > MAX_BYTES:
                 raise ValueError("too large")
             chunks.append(chunk)
+        rest = getattr(r, "length", None)           # Content-Length에서 아직 덜 받은 바이트(다 받으면 0, chunked면 None)
+        if isinstance(rest, int) and not isinstance(rest, bool) and rest > 0:
+            raise ValueError("truncated")           # read1은 일찍 끊겨도 오류를 내지 않는다 — 마지막 숫자가 잘린 채 실리지 않게
     return b"".join(chunks).decode("utf-8", "replace")
 
 

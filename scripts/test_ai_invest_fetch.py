@@ -5,7 +5,7 @@
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
 네트워크 불필요 — FRED는 가짜 loader 또는 합성 캐시(--offline). 숫자는 모두 지어낸 것이다.
 """
-import os, sys, io, re, json, math, random, datetime, tempfile, unittest, shutil, contextlib
+import os, sys, io, re, json, math, random, datetime, tempfile, unittest, shutil, contextlib, http.client
 from unittest import mock
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
@@ -242,6 +242,8 @@ class ArithmeticTest(unittest.TestCase):
         self.assertAlmostEqual(v["spread_1y"], ff.on_or_before(sp, D(2026, 10, 23) - datetime.timedelta(days=364))[1], 4)
         win = [x for d, x in sp if d >= D(2021, 10, 23)]
         self.assertEqual((v["lo"], v["hi"]), (round(min(win), 4), round(max(win), 4)))
+        line = ai.texts("curve_30_10", v, "2026-10-23")[0]                 # 범위는 일간 — 그래프·표는 주의 마지막 관측
+        self.assertIn(f"최근 5년 범위(일간) {ai._f(v['lo'], 0, True, 'bp')} ~ ", line)
 
     def test_corr20_share_outside_the_band(self):
         v = ai.calc_corr20(self.S)["values"]
@@ -459,6 +461,27 @@ class MainTest(unittest.TestCase):
                 self.assertTrue(src["citation"].endswith("October 27, 2026."))
         self.assertEqual(js["items"]["corr60"]["date"], "2026-10-23")
         self.assertEqual(js["items"]["ict_share"]["date"], "2026-04-01")
+
+    def test_fixed_start_chart_years_come_from_the_data(self):
+        """시작이 고정된 칸의 그래프 햇수는 자료의 처음·끝 해로 센다 — 손으로 적은 수가 해가 바뀌면 한 해씩 어긋나지 않게."""
+        core = ai.compute(world(), {}, NOW.date())
+        fixed = []
+        for spec in ai.ITEMS:
+            if not spec["lines"]:
+                self.assertNotIn("years", spec)                                   # 그래프가 없는 칸(ai_b2)
+                continue
+            c = core[spec["key"]]
+            years = ai.present(spec["key"], c, "2026-10-27")["chart"]["years"]
+            if spec["years"] is None:
+                fixed.append(spec["key"])
+                first = min(int(p[0][0][:4]) for p in c["lines"].values() if p)
+                self.assertEqual(years, int(c["date"][:4]) - first, spec["key"])
+                later = dict(c, date=f"{int(c['date'][:4]) + 1}{c['date'][4:]}")  # 한 해 뒤에는 한 해 더
+                self.assertEqual(ai.present(spec["key"], later, "2027-10-27")["chart"]["years"], years + 1, spec["key"])
+            else:
+                self.assertEqual(years, spec["years"], spec["key"])
+        self.assertEqual(fixed, ["ict_share", "financing", "hq_spread", "private_credit", "sb_long"])
+        self.assertEqual(ai.present("ict_share", core["ict_share"], "2026-10-27")["chart"]["years"], 36)   # 1990 ~ 2026
 
     def test_restricted_index_levels_never_appear(self):
         self.run_main()
@@ -965,6 +988,25 @@ class FetchTest(unittest.TestCase):
             ai.fetch_csv("DGS30", deadline=60, clock=clock, opener=opener)
         self.assertLessEqual(clock.t, 70)
 
+    @staticmethod
+    def http_response(body, length):
+        """진짜 http.client.HTTPResponse — 머리의 Content-Length는 length, 실제로 오는 본문은 body(짧으면 일찍 끊긴 것)."""
+        class Sock:
+            def makefile(self, mode):
+                return io.BytesIO(b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n" % length + body)
+        r = http.client.HTTPResponse(Sock())
+        r.begin()
+        return r
+
+    def test_a_body_cut_short_of_content_length_is_a_failure(self):
+        body = b"observation_date,WRBWFRBL\n2026-10-28,2962804.0\n2026-11-04,2911026.0\n"
+        whole = ai.fetch_csv("WRBWFRBL", deadline=1e12, opener=lambda url, timeout: self.http_response(body, len(body)))
+        self.assertEqual(whole, body.decode())
+        cut = body[:-8]                                         # 마지막 숫자 안에서 끊김 — '2026-11-04,29'
+        self.assertTrue(cut.endswith(b",29"))
+        with self.assertRaises(ValueError):
+            ai.fetch_csv("WRBWFRBL", deadline=1e12, opener=lambda url, timeout: self.http_response(cut, len(body)))
+
     def test_online_reads_never_fall_back_to_the_cache(self):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp)
@@ -1079,8 +1121,7 @@ class StaticTest(unittest.TestCase):
         self.assertNotIn("화면 맨 아래", guide)
         self.assertLess(page.index('<section id="ai-wrap"'), page.index('<section id="ai-credit"'))
         self.assertIn('el("a", { href: "#ai" }', guide)
-        for word in FORBIDDEN_TEXT:
-            block = guide[guide.index("stock_bond_corr: {"):]
+        block = guide[guide.index("stock_bond_corr: {"):]
         block = block[:block.index("\n};")]
         for word in FORBIDDEN_TEXT:
             self.assertNotIn(word, block, word)

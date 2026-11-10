@@ -6,7 +6,7 @@
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
 네트워크 불필요 — FRED는 가짜 loader 또는 합성 캐시(--offline). 숫자는 모두 지어낸 것이다.
 """
-import os, sys, io, re, json, datetime, tempfile, unittest, shutil, contextlib
+import os, sys, io, re, json, datetime, tempfile, unittest, shutil, contextlib, http.client
 from unittest import mock
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
@@ -394,6 +394,37 @@ class MainTest(unittest.TestCase):
         self.assertEqual([s for s, _ in seen], liq.SERIES)
         self.assertTrue(all(0 < t <= ai.TIMEOUT for _, t in seen))
         self.assertTrue(os.path.exists(os.path.join(self.work, liq.CACHE, "WRBWFRBL.csv")))
+
+    def test_a_body_cut_short_keeps_the_previous_numbers(self):
+        """Content-Length보다 일찍 끊긴 응답(마지막 숫자 안에서)은 새 값으로 싣지 않는다 — 수신 실패, 직전 숫자 그대로."""
+        bodies = {sid: ("observation_date," + sid + "\n" + "".join(f"{d.isoformat()},{v}\n" for d, v in s)).encode()
+                  for sid, s in self.S.items()}
+
+        def response(body, length):
+            class Sock:
+                def makefile(self, mode):
+                    return io.BytesIO(b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n" % length + body)
+            r = http.client.HTTPResponse(Sock())
+            r.begin()
+            return r
+
+        def opener(cut=()):
+            def open_(url, timeout=None):
+                sid = url.split("id=")[1]
+                body = bodies[sid]
+                return response(body[:-5] if sid in cut else body, len(body))   # '-160000.0' → '-1600'
+            return open_
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            self.assertEqual(liq.main(["--out", self.out, "--work", self.work], now=NOW, opener=opener()), 0)
+            before = self.saved()["items"]["fiscal"]
+            liq.main(["--out", self.out, "--work", self.work], now=NOW + datetime.timedelta(days=1),
+                     opener=opener({"MTSDS133FMS"}))
+        it = self.saved()["items"]["fiscal"]
+        self.assertTrue(bodies["MTSDS133FMS"][:-5].endswith(b",-1600"))
+        self.assertEqual((it["ok"], it["stale"], it["error"]), (False, True, liq.REASONS["fetch"]))
+        self.assertEqual((it["line"], it["values"], it["retrieved"]), (before["line"], before["values"], "2026-10-30"))
+        self.assertTrue(self.saved()["items"]["reserves"]["ok"])
 
     def test_older_data_is_not_taken(self):
         self.run_main()

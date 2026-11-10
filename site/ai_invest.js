@@ -41,7 +41,7 @@ window.AiInvest = (() => {
       texts(it.notices).length > 0;
   }
 
-  // 표(있는 칸만 — sb_long의 시대 × 조건 평균). 머리글·칸 글자는 자료 파일에 숫자로 만든 것, 꼴이 어긋나면 표를 빼고 나머지는 그린다
+  // 표(있는 칸만 — sb_long의 시대 × 조건 평균 · ai_b2의 해마다 계수). 머리글·칸 글자는 자료 파일에 숫자로 만든 것, 꼴이 어긋나면 표를 빼고 나머지는 그린다
   function table(t) {
     const strs = a => Array.isArray(a) && a.every(x => typeof x === "string");
     if (!isObj(t) || !strs(t.columns) || !t.columns.length || !Array.isArray(t.rows) ||

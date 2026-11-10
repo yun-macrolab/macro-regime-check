@@ -133,6 +133,21 @@ class ArithmeticTest(unittest.TestCase):
         self.assertAlmostEqual(path2[0] - path2[2], 30.0)
         self.assertIsNone(cliff2)                                                  # '넘게'만 — 30%p는 절벽이 아니다
 
+    def test_base_path_points_print_like_the_number_line(self):
+        """경로 그래프 점은 숫자 줄과 같은 소수 한 자리 — 4.249는 줄에서도 그래프(표·툴팁)에서도 +4.2%."""
+        days = bdays(D(2025, 1, 1), D(2026, 10, 23))
+        s = [(d, 104.249 if i >= len(days) - 20 else 100.0) for i, d in enumerate(days)]   # 1년 전 달은 모두 100
+        c = oil.calc_base({"DCOILBRENTEU": s})
+        self.assertAlmostEqual(c["values"]["p1"], 4.249)
+        line, _ = oil.texts("base", c["values"], c["date"])
+        for day, pt in c["lines"]["path"]:
+            self.assertEqual(pt, round(pt, 1))                     # 한 자리 — 화면의 toFixed(1)이 다시 반올림할 것이 없다
+            self.assertIn(f"{day[:7]} {pt:+.1f}%", line)
+        self.assertEqual(c["lines"]["path"][1][1], 4.2)
+        flat = [(d, 100.0 - 0.0465 if i >= len(days) - 20 else 100.0) for i, d in enumerate(days)]
+        pt = oil.calc_base({"DCOILBRENTEU": flat})["lines"]["path"][1][1]    # -0.0465 → 줄 '0.0%', 점 0.0(-0.0 아님)
+        self.assertEqual((pt, str(pt)), (0.0, "0.0"))
+
     def test_base_month_with_few_days_is_left_blank(self):
         s = [p for p in self.S["DCOILBRENTEU"] if not (p[0].year == 2025 and p[0].month == 12 and p[0].day > 5)]
         *_, path, cliff = oil.base_path(s)
@@ -341,8 +356,25 @@ class AddedLinesTest(unittest.TestCase):
         r = oil.real_wti(self.wti_world())
         n = len(months(D(1986, 1, 1), D(2026, 10, 1))) - 1                           # 2000-02(관측 5일) 빠짐
         self.assertEqual((r["wti_month"], r["real_cpi_month"], r["real_n"], r["wti_avg"]), ("2026-10-01", "2026-09-01", n, 50.0))
-        self.assertAlmostEqual(r["real_pct"], round(2 / n * 100, 1))                  # 10월 = 50 ÷ 9월 CPI = 9월 실질 — 둘이 가장 낮다
+        self.assertAlmostEqual(r["real_pct"], round(2 / n * 100, 4))                  # 10월 = 50 ÷ 9월 CPI = 9월 실질 — 둘이 가장 낮다
         self.assertEqual(r["nom_pct"], 100.0)                                         # 명목은 모두 50 — 같은 값은 '이하'에 든다
+
+    def test_nominal_percentile_uses_the_same_months_as_the_real_one(self):
+        """CPI가 빈 달은 명목 분위에서도 빠진다 — 문구의 'N개 달'이 실질·명목 둘에 같게."""
+        nominal = {1: 10.0, 2: 20.0, 3: 30.0, 4: 40.0, 5: 50.0, 6: 35.0}
+        S = {"DCOILWTICO": [(d, nominal[d.month]) for d in bdays(D(2025, 1, 1), D(2025, 6, 30))],
+             "CPIAUCSL": [(m, 100.0) for m in months(D(2025, 1, 1), D(2025, 6, 1)) if m.month != 2]}   # 2월 CPI 없음
+        r = oil.real_wti({**S, "DCOILBRENTEU": S["DCOILWTICO"]})
+        self.assertEqual(r["real_n"], 5)
+        self.assertEqual((r["real_pct"], r["nom_pct"]), (60.0, 60.0))                # 10·30·35 ≤ 35 — 5개 달 가운데 셋(2월 20은 빠짐)
+
+    def test_the_percentile_is_rounded_once(self):
+        """분위는 한 번만 반올림한다 — 377/480 = 78.54%는 p79(소수 한 자리 78.5를 다시 반올림하면 p78이 됐다)."""
+        share = oil.share_le([float(i) for i in range(480)], 376.0)
+        self.assertAlmostEqual(share, 377 / 480 * 100, places=4)
+        self.assertEqual(oil._p(share), "p79")
+        self.assertEqual(oil._p(oil.share_le([float(i) for i in range(480)], 40.0)), "p9")    # 41/480 = 8.54%
+        self.assertEqual(oil._p(oil.share_le([float(i) for i in range(480)], 54.0)), "p11")   # 55/480 = 11.46%
 
     def test_real_wti_needs_a_cpi_within_three_months(self):
         self.assertEqual(oil.real_wti(self.wti_world(cpi_end=D(2026, 7, 1)))["real_cpi_month"], "2026-07-01")
@@ -359,7 +391,8 @@ class AddedLinesTest(unittest.TestCase):
     def test_crude_line_shows_the_percentiles(self):
         v = oil.calc_crude(self.wti_world())["values"]
         line, extra = oil.texts("crude", v, "2026-10-23")
-        self.assertTrue(line.endswith(f" · 실질 WTI 2026-10 월평균 p{v['real_pct']:.0f} (명목 p100, 1986~)"), line)
+        n = v["real_n"]
+        self.assertTrue(line.endswith(f" · 실질 WTI 2026-10 월평균 p{int(2 / n * 100 + 0.5)} (명목 p100, 1986~)"), line)   # 셈에서 바로
         self.assertIn("이번엔 2026-09", extra[1])
         self.assertIn(f"1986년 이후 {v['real_n']}개 달", extra[1])
 

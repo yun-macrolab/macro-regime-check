@@ -167,10 +167,6 @@ def _is_int(v, hi=None):
     return type(v) is int and v >= 0 and (hi is None or v <= hi)
 
 
-def _iso(d):
-    return d.isoformat()
-
-
 def _day(s):
     try:
         return D.fromisoformat(str(s)[:10])
@@ -762,7 +758,13 @@ def _since(prev, today):
 
 
 def _retrieved(old, core, today):
-    same = old and json.loads(json.dumps(old[0])) == json.loads(json.dumps(core))
+    """숫자가 같으면 처음 받은 날을 지킨다. 이번 갱신의 실패 사유(last_error)는 받은 숫자가 아니라 견주지 않는다 —
+    아무것도 받지 못한 실패 실행이 받은 날을 그날로 옮기지 않게."""
+    def bare(c):
+        c = json.loads(json.dumps(c))
+        c["values"].pop("last_error", None)
+        return c
+    same = old and bare(old[0]) == bare(core)
     return old[1] if same else today.isoformat()
 
 
