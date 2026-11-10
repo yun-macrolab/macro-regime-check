@@ -10,7 +10,8 @@
             전 이하 마지막 공통 관측(NEAR_DAYS 안). 문구는 보이는 숫자끼리 합이 맞게 '그 밖'이 반올림 차를 받는다
   rule      지준/명목GDP와 규칙 하한(regime_rules.TH['reserves_gdp_low'])의 차(값 − 하한)를 %p와 달러로 — 값·GDP 분기는
             regime_check.compute와 같은 식(주 평균 WRESBAL의 마지막 값 ÷ 1000 ÷ 마지막 분기 GDP × 100)이라 규칙 카드와
-            같은 숫자다(테스트가 견준다). 판정이 아니라 산술
+            같은 숫자다(테스트가 견준다). 판정이 아니라 산술. 비율은 6자리로 한 번만 반올림해 두고, 화면의 %p는 보이는 둘째
+            자리 비율에서 하한을 뺀 값이다(shown_gap — 따로 반올림하면 x.xx5 바로 아래 주에 두 숫자가 어긋났다)
   fiscal    연방 재정수지 12개월 합(MTSDS133FMS, 정확히 12개 달이 있을 때만)과 명목 GDP 대비 · 1년 전 12개월 · 연방 이자
             지출(국민계정 A091RC1Q027SBEA, 연율)/같은 분기 GDP · 시장성 국채 중 단기채 비중(Z.1 BOGZ1FL313161110Q /
             (그것 + BOGZ1FL313161275Q)) · 1년 전 같은 분기
@@ -125,8 +126,7 @@ def calc_reserves(S):
     parts["other"] = ch["res"] - sum(parts.values())
     return {"date": _iso(d1),
             "values": {"from": _iso(d0), "res": _r(ch["res"]), "res_level": _r(v["res"][d1] / 1000),
-                       "tga_level": _r(v["tga"][d1] / 1000), **{k: _r(x) for k, x in parts.items()}},
-            "lines": {}}
+                       "tga_level": _r(v["tga"][d1] / 1000), **{k: _r(x) for k, x in parts.items()}}}
 
 
 def reserves_gdp(S):
@@ -138,13 +138,19 @@ def reserves_gdp(S):
     return wres[-1][1] / 1000 / g * 100, wres[-1][0], gd, g
 
 
+def shown_gap(value, low):
+    """화면의 하한 대비 차(%p) — 화면에 보이는 둘째 자리 비율에서 하한을 뺀다. 저장한 차를 따로 반올림하면 비율이
+    x.xx5 경계 바로 아래일 때(약 0.5%의 주) '9.86% · 대비 +0.85%p'처럼 보이는 두 숫자가 어긋났다(2026-11-10 점검).
+    연준 재무상태표 카드(fedbs_fetch)도 이것을 쓴다."""
+    return float(f"{value:.2f}") - low
+
+
 def calc_rule(S):
     value, wd, gd, g = reserves_gdp(S)
     low = float(rr.TH["reserves_gdp_low"])
     return {"date": _iso(wd),
-            "values": {"value": _r(value), "gdp_quarter": _iso(gd), "gdp_bn": _r(g), "low": low,
-                       "gap_pp": _r(value - low), "gap_bn": _r((value - low) / 100 * g)},
-            "lines": {}}
+            "values": {"value": round(value, 6) + 0.0, "gdp_quarter": _iso(gd), "gdp_bn": _r(g), "low": low,
+                       "gap_pp": _r(value - low), "gap_bn": _r((value - low) / 100 * g)}}
 
 
 def calc_fiscal(S):
@@ -176,8 +182,7 @@ def calc_fiscal(S):
                        "interest_gdp": _r(i_v / gq[_qkey(i_d)] * 100) if gq.get(_qkey(i_d)) else None,
                        "bills_share": _r(share(qb)) if qb is not None else None,
                        "bills_share_1y": _r(share(qb - 4)) if qb is not None else None,
-                       "bills_q": _iso(bills[qb][0]) if qb is not None else None},
-            "lines": {}}
+                       "bills_q": _iso(bills[qb][0]) if qb is not None else None}}
 
 
 # ---------- 칸 정의 (차례 = 화면 차례) ----------
@@ -238,10 +243,11 @@ def texts(key, v, date):
                  "익일물 역레포와 해외 공적 역레포 풀을 합친 전체(WLRRAL)다. '그 밖'은 MBS 상환·현금 통화·대출·기타 부채의 "
                  "합(나머지)이고, 보이는 숫자끼리 합이 맞게 반올림 차를 받는다.",
                  "연준 이표채 13주 변화가 +면 연준의 명목 이표채(장기물) 보유가 늘었다는 뜻이다. 규칙 카드의 지준/GDP는 주 평균"
-                 "(WRESBAL)을 써서 이 나눔의 지준(수요일 수준)과 조금 다르다."])
+                 "(WRESBAL)을 써서 이 나눔의 지준(수요일 수준)과 다르다 — 수준 차는 1% 안팎이지만 13주 변화는 주에 따라 수십bn, "
+                 "월말·분기말 수요일이 끼면 100bn 넘게 다를 수 있어 규칙 카드의 3개월 변화와 이 나눔의 합은 맞지 않을 수 있다."])
     if key == "rule":
         return (f"지준/명목GDP {v['value']:.2f}% ({date}, GDP {_q(v['gdp_quarter'])}) · 규칙 하한 {v['low']:.1f}% 대비 "
-                f"{_s(v['gap_pp'], 2)}%p ≈ {_s(v['gap_bn'])}bn",
+                f"{_s(shown_gap(v['value'], v['low']), 2)}%p ≈ {_s(v['gap_bn'])}bn",
                 [f"규칙 카드 '지준과 통화승수'와 같은 값·같은 GDP 분기다: 주 평균 지준(WRESBAL) ÷ 마지막 분기 명목 GDP"
                  f"(계절조정 연율, {_q(v['gdp_quarter'])} {v['gdp_bn']:,.0f}bn). 달러 환산 = (값 − 하한) × 그 분기 GDP.",
                  "하한 대비 차(값 − 하한)는 산술이다 — 다른 항목이 그대로일 때 +면 재무부 현금(TGA)이 그만큼 더 늘면 하한에 "
@@ -308,7 +314,7 @@ def core_of(item, key):
         return None
     if not ok:
         return None
-    return {"date": item["date"], "values": dict(vals), "lines": {}}, item["retrieved"]
+    return {"date": item["date"], "values": dict(vals)}, item["retrieved"]
 
 
 def previous(out):

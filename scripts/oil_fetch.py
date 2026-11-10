@@ -60,7 +60,6 @@ FILE = "oil.json"
 CACHE = "oil"                                 # <work>/oil/<ID>.csv
 
 BUDGET = 60                                   # 수신 전체(초) — 워크플로 단계 제한(2분) 안에서 끝나게
-NUM_ND = 4
 PT_ND = 2
 MIN_DAYS = 10                                 # 월평균에 필요한 관측일 수
 FLAT_N = 20                                   # 기저 경로의 '그대로' 가격 = 최근 20영업일 평균

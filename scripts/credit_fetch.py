@@ -119,7 +119,7 @@ BAND_NAME = {"in10": "10% 안", "10to20": "10~20% 아래", "over20": "20% 넘게
 # 구간 코드 → 정수 낙폭 %가 놓일 수 있는 범위(반올림 때문에 경계 −10·−20은 양쪽에 들 수 있다) — 직전 파일 검사
 BAND_RANGE = {"in10": (-10, 0), "10to20": (-20, -10), "over20": (-100, -20)}
 
-_BOARD, _BEA = "Board of Governors of the Federal Reserve System (US)", "U.S. Bureau of Economic Analysis"
+_BOARD = "Board of Governors of the Federal Reserve System (US)"
 # FRED 권장 인용의 출처·제목(2026-10-30 시리즈 쪽 제목 그대로)
 SOURCES = {
     "DRTSCILM": (_BOARD, "Net Percentage of Domestic Banks Tightening Standards for Commercial and Industrial Loans to "
@@ -331,10 +331,11 @@ def fund_axis(S):
     except ai.ItemError:
         raise ItemError("format")
     v = f["values"]
-    pts = [x for d, x in ai.quarterly_ratio(S["BOGZ1FA105050005Q"], S["BOGZ1FA106000135Q"], 4) if d >= SINCE]
+    ratio = ai.quarterly_ratio(S["BOGZ1FA105050005Q"], S["BOGZ1FA106000135Q"], 4)
+    pts = [x for d, x in ratio if d >= SINCE]
     high = round(v["ratio"], 6) > round(v["median"], 6)
     return {"quarter": f["date"], "ratio": v["ratio"], "median": v["median"], "median_from": v["from"],
-            "pct": _pct(pts, v["ratio"]), "high": high, "axis": "부채 조달" if high else "현금 조달"}
+            "pct": _pct(pts, ratio[-1][1]), "high": high, "axis": "부채 조달" if high else "현금 조달"}   # 분위는 반올림 전 값
 
 
 def calc_cell(S, today):
@@ -544,11 +545,11 @@ def calc_ebp(S, today):
     d1, v1 = e[-1]
     back = dict(e).get(_add_months(d1, -EBP_BACK))
     gz = dict(S[EBP].get("gz") or ()).get(d1)
-    return {"date": _iso(d1),
-            "values": {"ebp": _r(v1 * 100, 1), "month": _iso(d1), "since": _iso(e[0][0]),
+    return {"date": _iso(d1),                                     # bp는 소수 둘째 자리로 두고 글에서 정수로 한 번만 반올림
+            "values": {"ebp": _r(v1 * 100, 2), "month": _iso(d1), "since": _iso(e[0][0]),
                        "pct": _pct([v for _, v in e], v1),
-                       "ch3": None if back is None else _r((v1 - back) * 100, 1),
-                       "gz": None if gz is None else _r(gz * 100, 1)}}
+                       "ch3": None if back is None else _r((v1 - back) * 100, 2),
+                       "gz": None if gz is None else _r(gz * 100, 2)}}
 
 
 def _local(tag):

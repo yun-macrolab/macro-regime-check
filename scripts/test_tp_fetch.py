@@ -249,15 +249,15 @@ class ArithmeticTest(unittest.TestCase):
         sa, sk = statistics.stdev(A_D), statistics.stdev(K_D)
         self.assertAlmostEqual(v["acm_z"], 2 / sa, places=2)
         self.assertAlmostEqual(v["kw_month_z"], 12 / sk, places=2)
-        pairs = tp.month_pairs(kw, [(r["date"], r["tp"]) for r in acm])          # 원값 z — 비공개 tp_auto처럼 3자리로 한 번만
+        pairs = tp.month_pairs(kw, [(r["date"], r["tp"]) for r in acm])          # 원값 z — 비공개 tp_auto처럼 6자리로 한 번만
         za = pairs[-1][1] / statistics.stdev(p[1] for p in pairs)
         zk = pairs[-1][2] / statistics.stdev(p[2] for p in pairs)
-        self.assertEqual((v["acm_z"], v["kw_month_z"]), (round(za, 3), round(zk, 3)))
+        self.assertEqual((v["acm_z"], v["kw_month_z"]), (round(za, 6), round(zk, 6)))
         self.assertEqual((v["models_case"], v["models_split"]), ("KW만", True))
         _, extra = tp.texts("weekly", v, v["kw_asof"])
         ref = [t for t in extra if t.startswith("ACM 참고")][0]
-        self.assertEqual(ref, f"ACM 참고: 2024-12 +2.0bp, 같은 기간 Kim-Wright +12.0bp — 해석 갈림(z ACM {round(za, 3):+.2f} · "
-                              f"KW {round(zk, 3):+.2f}): 이 점수만 보지 말고 정책 기대의 변화와 함께 볼 것")
+        self.assertEqual(ref, f"ACM 참고: 2024-12 +2.0bp, 같은 기간 Kim-Wright +12.0bp — 해석 갈림(z ACM {tp.z_text(za)} · "
+                              f"KW {tp.z_text(zk)}): 이 점수만 보지 말고 정책 기대의 변화와 함께 볼 것")
 
     def test_weekly_numbers_round_once_like_the_private_line(self):
         # 원값을 비공개 tp_auto의 자리(bp 1 · 몫 3)로 곧장 — 4자리로 저장한 뒤 다시 반올림하면 -8.14999가 -8.2로 보였다
@@ -371,7 +371,7 @@ class ArithmeticTest(unittest.TestCase):
         self.assertEqual(v["corr12"], tp.ff.pearson([r["acm_dtp"] for r in recent], [r["kw_dtp"] for r in recent]))
         line, extra = tp.texts("models", v, v["month"])
         self.assertTrue(line.startswith("2024-12 해석 갈림: 10년 +13bp 중 기간 프리미엄 몫 KW +12bp(96%) · ACM +2bp(16%)"), line)
-        self.assertIn(f"(z ACM {last['acm_dtp'] / sa:+.2f} · KW {last['kw_dtp'] / sk:+.2f}는 2024-12)", extra[1])
+        self.assertIn(f"(z ACM {tp.z_text(last['acm_dtp'] / sa)} · KW {tp.z_text(last['kw_dtp'] / sk)}는 2024-12)", extra[1])
 
     def test_models_low_trust_is_strictly_below_0_6(self):
         # 비공개 tp_compare: corr < 0.6이면 신뢰 낮음(0.6은 아님)
@@ -408,6 +408,23 @@ class ArithmeticTest(unittest.TestCase):
         self.assertEqual(v["n"], 22)                                              # 6월과 7월이 빠진다
         moved = [(d - datetime.timedelta(days=7), x) if d == D(2024, 6, 30) else (d, x) for d, x in kw]
         self.assertEqual(tp.calc_models({tp.KW_ID: moved, tp.ACM: acm})["values"]["n"], 24)
+
+    def test_month_waits_until_kim_wright_reaches_the_acm_month_end(self):
+        # ACM 월말 행이 Kim-Wright보다 먼저 나온 며칠(2026-11-03에 실제로 있었다) — 마지막 KW 관측이 ACM 마지막 월말보다 이르면
+        # 그 달은 견주지 않는다. 전엔 7일 안이면 짧은 기간의 KW를 '같은 기간'으로 견줬다(주간 칸은 날 수 제한도 없었다)
+        kw, acm = month_world()
+        for back in (1, 3, 7):
+            early = kw[:-1] + [(kw[-1][0] - datetime.timedelta(days=back), kw[-1][1])]
+            v = tp.calc_models({tp.KW_ID: early, tp.ACM: acm})["values"]
+            self.assertEqual((v["month"], v["n"]), ("2024-11-30", 23), back)
+            w = tp.calc_weekly({tp.KW_ID: early, tp.ACM: acm}, D(2025, 1, 10))["values"]
+            self.assertEqual((w["acm_month"], w["acm_month_bp"]), ("2024-12-31", 2.0))
+            self.assertEqual((w["kw_same_month_bp"], w["models_agree"], w["acm_z"], w["kw_month_z"], w["models_case"],
+                              w["models_split"]), (None,) * 6, back)
+            ref = [t for t in tp.texts("weekly", w, w["kw_asof"])[1] if t.startswith("ACM 참고")][0]
+            self.assertEqual(ref, "ACM 참고: 2024-12 +2.0bp")
+        self.assertEqual(tp.calc_models({tp.KW_ID: kw, tp.ACM: acm})["values"]["month"], "2024-12-31")   # 월말에 닿으면 견준다
+        self.assertIsNone(tp.kw_at([], D(2024, 12, 31)))
 
     def test_models_ten_year_is_gsw_only_like_the_private_block(self):
         # 비공개 월간 점검은 models_block에 적합 10년을 넘기지 않는다 — GSW가 없으면 10년·몫·평소를 비우고 적합 10년으로 대신하지 않는다
@@ -448,6 +465,24 @@ class ArithmeticTest(unittest.TestCase):
 
     def test_z_text_truncates_toward_zero(self):
         self.assertEqual([tp.z_text(z) for z in (0.998, -0.998, 1.555, -1.559, 0.004)], ["+0.99", "-0.99", "+1.55", "-1.55", "0.00"])
+        self.assertEqual([tp.corr_text(c) for c in (0.5996, 0.6, 0.849, -0.004, None)], ["0.59", "0.60", "0.84", "0.00", "—"])
+
+    def test_month_z_and_correlation_never_show_a_threshold_they_did_not_reach(self):
+        # 문턱 바로 아래(|z| 0.9962 · 상관 0.5996) — 반올림하면 '+1.00'·'0.60'이 'KW만'(ACM은 유의 아님)·'0.6 미만'과 나란히 보였다
+        kw, acm = month_world()
+        v = tp.calc_models({tp.KW_ID: kw, tp.ACM: acm})["values"]
+        v = dict(v, z_acm=0.9962, z_kw=1.75, case=tp.classify(0.9962, 1.75), split=tp.is_split(0.9962, 1.75), corr12=0.5996,
+                 low_trust=True)
+        self.assertEqual((v["case"], v["split"]), ("KW만", True))
+        _, extra = tp.texts("models", v, v["month"])
+        self.assertIn("(z ACM +0.99 · KW +1.75는 2024-12)", extra[1])
+        self.assertTrue(extra[2].startswith("12개월 일치도: 상관 0.59 · "), extra[2])
+        self.assertNotIn("1.00", " ".join(extra))
+        w = tp.calc_weekly({tp.KW_ID: kw, tp.ACM: acm}, D(2025, 1, 10))["values"]
+        w = dict(w, acm_z=0.9962, kw_month_z=1.75, models_case="KW만", models_split=True)
+        ref = [t for t in tp.texts("weekly", w, w["kw_asof"])[1] if t.startswith("ACM 참고")][0]
+        self.assertIn("해석 갈림(z ACM +0.99 · KW +1.75)", ref)
+        self.assertEqual(tp.Z_ND, 6)                                              # 저장도 문턱 쪽으로 반올림하지 않게 6자리
 
     def test_observations_after_today_are_dropped(self):
         S, rows = full_world()
@@ -475,8 +510,8 @@ class WordingTest(unittest.TestCase):
                                f"평소 KW 40% · ACM {v['typ_acm'] * 100:.0f}%")
         self.assertEqual(extra[0], "이 움직임을 KW는 기간 프리미엄 변화로, ACM은 기대 경로 변화로 더 읽음 — 이 달 기간 프리미엄 "
                                    "해석은 정책 기대의 변화와 함께 볼 것")
-        self.assertEqual(extra[1], f"최근 3달: 10월 ACM만 · 11월 둘 다 약함 · 12월 해석 갈림 (z ACM {v['z_acm']:+.2f} · "
-                                   f"KW {v['z_kw']:+.2f}는 2024-12)")
+        self.assertEqual(extra[1], f"최근 3달: 10월 ACM만 · 11월 둘 다 약함 · 12월 해석 갈림 (z ACM {tp.z_text(v['z_acm'])} · "
+                                   f"KW {tp.z_text(v['z_kw'])}는 2024-12)")
         self.assertTrue(extra[2].startswith("12개월 일치도: 상관 "))
         self.assertEqual(extra[3], "표본 2023-01~2024-12 24개월. 10년은 ACM 파일의 실제 10년 무이표 금리(GSW).")
         self.assertEqual(extra[-1], tp.MODELS_DEF)

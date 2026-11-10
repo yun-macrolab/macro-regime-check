@@ -17,7 +17,8 @@ q4w.from, 문구에 그 해를 적는다) 이후 4주 변화 분포의 p5·p50·
 딜러는 2022년 말(그 이하 마지막 관측) 이후 변화와, 거기에 Dallas Fed WP 2613 표 2의 TFP 계수(0.038bp/십억 달러)를 곱한
 산술 참고값도 — 원본 파이프라인 월간 점검의 [수급 구조]와 같은 계산이다(코드는 가져오지 않고 여기서 따로 쓴다).
 
-뉴욕 연은 단일 시계열 주소(/api/pd/get/PDPOSGST-TOT.json)의 응답 형식은 이 저장소에서 확인하지 못했다 — 너그럽게 읽는다:
+뉴욕 연은 단일 시계열 주소(/api/pd/get/PDPOSGST-TOT.json)의 응답 형식은 이 저장소에서 확인하지 못했다(2026-10-14 첫 Actions 실행부터
+이 방식으로 값이 실렸다) — 너그럽게 읽는다:
 아무 깊이의 dict 가운데 날짜 필드(asofdate·asOfDate·date …)와 value 필드가 함께 있는 것만 관측으로 보고, 키 필드(keyid …)가
 있으면 PDPOSGST-TOT만(바깥 dict의 키·시리즈 구분을 물려받는다), '*'(기밀)·숫자가 아닌 값은 버리며, 같은 날이 여러 시리즈
 구분(series break)에 있으면 가장 새 구분(이름 끝 숫자가 큰 것)의 값. 수준의 중앙값이 그럴듯한 범위(PLAUSIBLE) 밖이면 단위를
@@ -30,7 +31,8 @@ q4w.from, 문구에 그 해를 적는다) 이후 4주 변화 분포의 p5·p50·
 원자료 전체로 다시 계산하므로 잃는 것이 없다. 같은 내용이면(생성 시각만 다르면) 파일을 다시 쓰지 않는다.
 문구는 이 파일에 정해 둔 것뿐이다(오류 원문·주소·예외 문자열은 공개 파일에 싣지 않는다 — Actions 로그에는 예외 이름만).
 출처 표기: 딜러 쪽은 뉴욕 연은 이용약관의 기본 출처 형식과 관계없음 고지(render_public — SOFR과 같은 원칙, Conditions 2·4),
-수탁 쪽은 FRED 권장 인용 형식. FRED 시리즈 제목(FRED_TITLE)과 뉴욕 연은 통계 쪽 주소(PD_PAGE)는 이 환경에서 확인하지 못했다.
+수탁 쪽은 FRED 권장 인용 형식. FRED 시리즈 제목(FRED_TITLE)과 뉴욕 연은 통계 쪽 주소(PD_PAGE)는 처음 쓴 2026-10-14엔 이 환경에서
+접속하지 못했고, 2026-11-10 FRED 시리즈 쪽 권장 인용·뉴욕 연은 페이지(제목 'Primary Dealer Statistics')와 대조해 같았다.
 
 종료코드: 0 한쪽이라도 이번에 받음 / 1 둘 다 못 받음(또는 파일을 쓰지 못함). 워크플로 단계는 continue-on-error이고 알림도
 띄우지 않는다(.github/workflows/daily.yml 머리말). 그래서 한쪽만 못 받은 날은 단계가 성공으로 끝난다 — 실패는 못 받은 쪽마다
@@ -58,10 +60,10 @@ FILE = "supply.json"
 PD_KEY = "PDPOSGST-TOT"
 PD_HOST = "markets.newyorkfed.org"
 PD_URL = f"https://{PD_HOST}/api/pd/get/{PD_KEY}.json"
-PD_PAGE = "https://www.newyorkfed.org/markets/counterparties/primary-dealers-statistics"   # 미확인(이 환경에서 접속 불가)
+PD_PAGE = "https://www.newyorkfed.org/markets/counterparties/primary-dealers-statistics"   # 2026-11-10 확인(Primary Dealer Statistics)
 PD_CACHE = f"pd_{PD_KEY}.json"
 FRED_ID = "WMTSECL1"
-# FRED 권장 인용의 출처·제목 — 제목은 2026-10-14 이 환경에서 FRED에 접속하지 못해 확인하지 못했다(첫 실행 뒤 시리즈 쪽과 대조)
+# FRED 권장 인용의 출처·제목 — 2026-11-10 FRED 시리즈 쪽 권장 인용과 대조해 같았다(처음 쓴 2026-10-14엔 접속하지 못했다)
 FRED_SOURCE = "Board of Governors of the Federal Reserve System (US)"
 FRED_TITLE = "Memorandum Items: Custody Holdings: Marketable U.S. Treasury Securities: Wednesday Level"
 

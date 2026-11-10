@@ -10,23 +10,26 @@ tp_auto.compute)과 월간 점검의 [TP 모형 대조] 블록(비공개 원본 
           −부호(z) × min(2, ⌊|z|⌋)(+는 금리 하락 쪽). 마지막 관측이 오늘보다 14일 넘게 이르면 점수를 매기지 않는다(숫자만).
           설명 줄: 같은 4주의 Kim-Wright 적합 10년(THREEFY10 — 관측일이 정확히 같을 때만) 변화, 그중 기간 프리미엄 몫(10년
           변화가 10bp 이상일 때만), 평소 몫(σ와 같은 주간 표본의 회귀 기울기, 20쌍 이상). ACM 참고: ACM 마지막 두 관측의 변화와
-          같은 기간 Kim-Wright 변화(그날 이하 마지막 관측), 같은 기간 월간 변화 12쌍 이상이고 그 마지막 쌍이 ACM 마지막 달일
-          때만 각자 σ로 나눈 z의 해석 갈림(마지막 달에 Kim-Wright 짝이 없으면 앞 달의 z를 싣지 않는다)
+          같은 기간 Kim-Wright 변화(각 월말에서 7일 안의 그날 이하 마지막 관측 — Kim-Wright가 아직 ACM 마지막 월말까지 나오지
+          않았으면 싣지 않는다), 같은 기간 월간 변화 12쌍 이상이고 그 마지막 쌍이 ACM 마지막 달일 때만 각자 σ로 나눈 z의
+          해석 갈림(마지막 달에 Kim-Wright 짝이 없으면 앞 달의 z를 싣지 않는다)
   models  ACM과 Kim-Wright 월간 대조 — ACM 월말(달마다 마지막 행)에서 다음 월말까지와 같은 기간의 Kim-Wright 변화(각 월말에서
-          7일 안의 그날 이하 마지막 관측), 2023년 이후 달. 각자 σ로 나눈 z와 경우(공통 TP↑ · 공통 TP↓ · ACM만 · KW만 · 반대 ·
-          둘 다 약함, |z| ≥ 1을 유의로), 해석 갈림(한쪽만 유의 또는 반대이고 z 차이 ≥ 0.7), 같은 달 10년(ACM 파일의 GSW 무이표
+          7일 안의 그날 이하 마지막 관측, 2023년 이후 달 — Kim-Wright가 ACM 월말까지 나오기 전엔 그 달을 견주지 않아 앞 달이
+          마지막 달이다). 각자 σ로 나눈 z와 경우(공통 TP↑ · 공통 TP↓ · ACM만 · KW만 · 반대 ·
+          둘 다 약함, |z| ≥ 1을 유의로), 해석 갈림(한쪽만 유의 또는 둘 다 유의하고 반대이며 z 차이 ≥ 0.7), 같은 달 10년(ACM 파일의 GSW 무이표
           — 그 열이 없는 달은 비운다. 비공개 원본 월간 점검도 적합 10년으로 대신하지 않는다) 변화 중 기간 프리미엄 몫(10bp
           이상이고 0~200%일 때만)과 평소 몫(표본 회귀 기울기), 최근 3달, 최근 12개월 상관(0.6 미만이면 '신뢰 낮음')·같은 방향 비율
 숫자 자리: 비공개 원본과 같은 자리로 싣고 문구는 그 값에서 한 번만 반올림한다 — 주간 칸은 tp_auto.compute 그대로(bp 1자리,
-몫 3자리, z 6자리 — 표시 때 0 쪽으로 자른다, ACM·KW 월간 z 3자리), 월간 칸은 tp_compare.models_block이 반올림하지 않은 값으로
-그리므로 원값(-0.0만 0.0으로). 그래서 같은 원자료면 카드의 숫자가 비공개 줄의 숫자와 같다(4자리로 저장한 뒤 다시 반올림하면
+몫 3자리, z와 ACM·KW 월간 z 6자리), 월간 칸은 tp_compare.models_block이 반올림하지 않은 값으로 그리므로 원값(-0.0만 0.0으로).
+z와 12개월 상관은 표시 때 0 쪽으로 자른다(문턱 |z| ≥ 1·상관 0.6 바로 아래 값이 반올림으로 문턱 값처럼 보여 경우 이름과
+어긋나지 않게). 그래서 같은 원자료면 카드의 숫자가 비공개 줄의 숫자와 같다(4자리로 저장한 뒤 다시 반올림하면
 -8.14999가 -8.2로 보이는 식으로 어긋났다).
 비공개 원본에서 옮기지 않은 것: 사람 메모의 ACM 수치가 우선하는 채점, 메모용 ACM 월간 σ, 공급 일정 조정(±0.5), 시트의
 기간 프리미엄 돌파 표시(−2 고정) — 모두 운영자가 손으로 넣는 것이다. ACM 판 보관도 하지 않는다. 오늘은 실행 시각(UTC)의 날짜다.
 
 자료 이용 조건: THREEFYTP10·THREEFY10은 연준 이사회 자료(FRED, 'Public Domain: Citation Requested' — FRED 권장 인용을 싣는다).
-ACM은 뉴욕 연은 웹 사이트의 acmPlot_data.csv(이 환경에서는 접속하지 못해 실제 응답을 보지 못했다 — 머리말 열 이름 TERMYld·
-ACMFITYld·GSWYld와 '31-Aug-2026' 꼴 날짜는 비공개 원본의 해석기 그대로). 뉴욕 연은 이용약관의 기본 출처 형식·관계없음 고지와
+ACM은 뉴욕 연은 웹 사이트의 acmPlot_data.csv(머리말 열 이름 TERMYld·ACMFITYld·GSWYld와 '31-Aug-2026' 꼴 날짜는 비공개 원본의
+해석기 그대로 — 이 저장소의 작업 환경에서는 접속하지 못하지만, 2026-10-31 첫 Actions 실행부터 GSW 열까지 읽혀 월간 대조가 나왔다). 뉴욕 연은 이용약관의 기본 출처 형식·관계없음 고지와
 계산값 표시(render_public — 수급 참고의 딜러 쪽과 같은 원칙), ACM 논문 인용을 함께 싣는다. 재배포가 제한된 시리즈는 쓰지 않는다.
 
 실패·이어 싣기·문구 원칙은 oil_fetch와 같다: 칸마다 따로(칸에 꼭 필요한 자료 가운데 하나라도 이번에 받지 못하면 — 온라인에서
@@ -60,8 +63,7 @@ MAX_BYTES = 5_000_000                         # ACM 응답 하나의 상한
 # 저장 자리 — 비공개 원본(tp_auto.compute)과 같게(위 머리말 '숫자 자리'). 월간 칸은 원값(_raw)
 BP_ND = 1                                     # 4주 변화·σ·10년 변화·ACM/KW 월간 변화(bp)
 SHARE_ND = 3                                  # 10년 중 기간 프리미엄 몫·평소 몫(비율)
-Z_ND = 6                                      # 주간 z — 표시에서 0 쪽으로 자르므로 더 길게 둔다
-MZ_ND = 3                                     # 주간 칸의 ACM·KW 월간 z
+Z_ND = 6                                      # 주간 z·주간 칸의 ACM·KW 월간 z — 표시에서 0 쪽으로 자르므로 더 길게 둔다
 
 KW_ID, FY_ID, ACM = "THREEFYTP10", "THREEFY10", "ACM"
 ACM_HOST = "www.newyorkfed.org"
@@ -91,7 +93,8 @@ SPLIT_CASES = ("ACM만", "KW만", "반대")
 YIELD_SRC = ("GSW",)                          # 월간 칸의 10년은 ACM 파일의 GSW만(비공개 원본과 같게 — 적합 10년으로 대신하지 않는다)
 
 _BOARD = "Board of Governors of the Federal Reserve System (US)"
-# FRED 권장 인용의 출처·제목 — THREEFY10 제목은 이 환경에서 FRED 시리즈 쪽과 대조하지 못했다(첫 실행 뒤 대조)
+# FRED 권장 인용의 출처·제목(수집은 시리즈 제목을 받지 않는다 — 제목을 고치려면 FRED 시리즈 쪽과 손으로 대조.
+# THREEFYTP10·THREEFY10은 2026-11-10 시리즈 쪽 제목과 대조해 같았다)
 SOURCES = {KW_ID: (_BOARD, "Term Premium on a 10 Year Zero Coupon Bond"),
            FY_ID: (_BOARD, "Fitted Yield on a 10 Year Zero Coupon Bond"),
            ACM: ("Federal Reserve Bank of New York", "Treasury Term Premia (Adrian, Crump, and Moench), 10-year term premium")}
@@ -197,12 +200,15 @@ def classify(za, zk, t=SPLIT_Z):
 
 
 def is_split(za, zk):
-    """해석 갈림 — 한쪽만 유의(또는 둘이 반대)이면서 z 차이 ≥ SPLIT_GAP."""
+    """해석 갈림 — 한쪽만 유의(또는 둘 다 유의하고 반대)이면서 z 차이 ≥ SPLIT_GAP. 둘 다 약하면 방향이 반대여도 아니다."""
     return classify(za, zk) in SPLIT_CASES and abs(za - zk) >= SPLIT_GAP
 
 
 def kw_at(series, d):
-    """d 이하 가장 최근 관측 — MONTH_GAP_DAYS보다 멀면 None."""
+    """d 이하 가장 최근 관측 — Kim-Wright가 아직 d까지 나오지 않았거나(마지막 관측이 d보다 이름) MONTH_GAP_DAYS보다 멀면
+    None. ACM 월말 행이 Kim-Wright보다 먼저 나온 며칠 동안 짧은 기간의 Kim-Wright를 '같은 기간'으로 견주지 않게."""
+    if not series or series[-1][0] < d:
+        return None
     hit = ff.on_or_before(series, d)
     return hit if hit and (d - hit[0]).days <= MONTH_GAP_DAYS else None
 
@@ -285,7 +291,7 @@ def calc_weekly(S, today):
         (d0, v0), (d1, v1) = acm[-2], acm[-1]
         acm_bp = round((v1 - v0) * 100, BP_ND)
         vals.update(acm_month=_iso(d1), acm_month_bp=_r(acm_bp, BP_ND))
-        k0, k1 = ff.on_or_before(kw, d0), ff.on_or_before(kw, d1)          # 같은 기간의 Kim-Wright
+        k0, k1 = kw_at(kw, d0), kw_at(kw, d1)          # 같은 기간의 Kim-Wright — 아직 d1까지 나오지 않았으면 싣지 않는다
         if k0 and k1:
             kw_bp = round((k1[1] - k0[1]) * 100, BP_ND)
             vals["kw_same_month_bp"] = _r(kw_bp, BP_ND)
@@ -296,7 +302,7 @@ def calc_weekly(S, today):
         sa, sk = statistics.stdev(p[1] for p in pairs), statistics.stdev(p[2] for p in pairs)
         if sa > 0 and sk > 0:
             za, zk = pairs[-1][1] / sa, pairs[-1][2] / sk
-            vals.update(acm_z=_r(za, MZ_ND), kw_month_z=_r(zk, MZ_ND), models_case=classify(za, zk),
+            vals.update(acm_z=_r(za, Z_ND), kw_month_z=_r(zk, Z_ND), models_case=classify(za, zk),
                         models_split=is_split(za, zk))
     return {"date": _iso(last_d), "values": vals}
 
@@ -414,9 +420,14 @@ def _f(v, nd=1, sign=False, unit=""):
 
 
 def z_text(z):
-    """표시용 z — 0 쪽으로 자른 둘째 자리(반올림하면 0.998이 '+1.00'으로 보여 점수와 어긋난다)."""
+    """표시용 z — 0 쪽으로 자른 둘째 자리(반올림하면 0.998이 '+1.00'으로 보여 점수·경우 이름과 어긋난다)."""
     t = math.trunc(z * 100) / 100
     return "0.00" if t == 0 else f"{t:+.2f}"
+
+
+def corr_text(c):
+    """표시용 상관 — 0 쪽으로 자른 둘째 자리(반올림하면 0.5996이 '0.60'으로 보여 '0.6 미만 — 신뢰 낮음'과 어긋난다)."""
+    return _f(None if c is None else math.trunc(c * 100) / 100, 2)
 
 
 def score_text(v):
@@ -456,7 +467,7 @@ SCORE_NOTE = ("운영자가 주간 평가에 쓰는 점수를 그대로 옮긴 �
               "금리의 4주 추세를 따른다.")
 MODELS_DEF = (f"ACM 월말에서 다음 월말까지와 같은 기간의 Kim-Wright 변화를 각자 σ({SIGMA_SINCE.year}년 이후 같은 기간 월간 "
               f"변화의 표준편차)로 나눈 z로 견준다(bp끼리 견주면 ACM이 늘 커 보인다). |z| ≥ {SPLIT_Z:g}을 유의로 보고, 한쪽만 "
-              f"유의이거나 둘이 반대 방향이면서 두 z의 차이가 {SPLIT_GAP:g} 이상이면 '해석 갈림'이다. 기간 프리미엄 몫(%)은 10년 "
+              f"유의이거나, 둘 다 유의인데 방향이 반대이면서 두 z의 차이가 {SPLIT_GAP:g} 이상이면 '해석 갈림'이다. 기간 프리미엄 몫(%)은 10년 "
               f"변화가 {MIN_SHARE_BP}bp 이상이고 몫이 0~200%일 때만 적고, '평소'는 같은 표본의 회귀 기울기(10년 1bp 중 기간 "
               "프리미엄으로 돌린 몫)다. 수준은 모형마다 체계적으로 달라 견주지 않는다.")
 
@@ -483,7 +494,7 @@ def texts(key, v, date):
             if v["kw_same_month_bp"] is not None:
                 t += f", 같은 기간 Kim-Wright {_f(v['kw_same_month_bp'], 1, True, 'bp')}"
             if v["models_split"]:
-                t += (f" — 해석 갈림(z ACM {_f(v['acm_z'], 2, True)} · KW {_f(v['kw_month_z'], 2, True)}): 이 점수만 보지 말고 "
+                t += (f" — 해석 갈림(z ACM {z_text(v['acm_z'])} · KW {z_text(v['kw_month_z'])}): 이 점수만 보지 말고 "
                       "정책 기대의 변화와 함께 볼 것")
             elif v["models_agree"] is False:
                 t += " — 모형 방향 다름"
@@ -501,8 +512,8 @@ def texts(key, v, date):
         if v["split"]:
             extra.append(f"{split_reading(v['case'])} — 이 달 기간 프리미엄 해석은 정책 기대의 변화와 함께 볼 것")
         extra.append("최근 3달: " + " · ".join(f"{_mon(m)} {case_text(c, sp)}" for m, c, sp in v["recent"])
-                     + f" (z ACM {_f(v['z_acm'], 2, True)} · KW {_f(v['z_kw'], 2, True)}는 {_ml(v['month'])})")
-        trust = f"{v['n12']}개월 일치도: 상관 {_f(v['corr12'], 2)} · 같은 방향 {_pct(v['agree12'])}"
+                     + f" (z ACM {z_text(v['z_acm'])} · KW {z_text(v['z_kw'])}는 {_ml(v['month'])})")
+        trust = f"{v['n12']}개월 일치도: 상관 {corr_text(v['corr12'])} · 같은 방향 {_pct(v['agree12'])}"
         if v["low_trust"]:
             trust += f" · 신뢰 낮음 — 요즘은 기간 프리미엄 해석 자체를 덜 믿을 때(상관 {LOW_TRUST_CORR:g} 미만)"
         extra.append(trust)

@@ -6,7 +6,7 @@
 제한 시리즈(S&P·ICE·Moody's)는 다른 어떤 값과도 겹치지 않는 구간(70~80, 5000대)으로 덮어써서,
 그 원값이 그래프 자료에 섞이면 숫자 범위만으로 잡히게 한다.
 """
-import os, sys, re, json, math, datetime, tempfile, unittest, shutil
+import os, sys, re, json, math, datetime, tempfile, unittest, shutil, subprocess
 from unittest import mock
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
@@ -145,6 +145,12 @@ class ChartsTest(unittest.TestCase):
             for l in spec["lines"]:
                 self.assertEqual(l["role"], "series")
                 self.assertLastEquals(l, l["key"])
+        # 단위가 다른 두 선(기간 프리미엄 수준 % · 금리차 %p)은 그래프 단위를 비우고 선 이름에 단위를 싣는다 —
+        # 같은 숫자가 카드·주요 지표에서는 %인데 그래프에서만 %p로 보이지 않게
+        term = next(s for s in self.charts["overview"] if s["key"] == "term")
+        self.assertEqual(term["unit"], "")
+        self.assertEqual([l["label"] for l in term["lines"]], ["기간 프리미엄(%)", "10년−2년(%p)"])
+        self.assertEqual((rr.SERIES["THREEFYTP10"][2], rr.SERIES["T10Y2Y"][2]), ("%", "%p"))    # 선 이름의 단위 = 시리즈 단위
 
     def test_rolling_corr_matches_corr_summary(self):
         S = {sid: ff.load(sid, os.path.join(self.work, "fred"), offline=True)[0] for sid in ("SP500", "DGS10")}
@@ -242,7 +248,16 @@ class ChartsTest(unittest.TestCase):
                 else:
                     self.assertTrue(set(l["series"]) <= rc.ALLOWED, l["key"])
         self.assertEqual(derived, {"rho60"})
-        self.assertEqual(rc.ALLOWED, set(rr.SERIES) - set(rp.RESTRICTED))
+        # 그래프에 쓸 수 없는 시리즈 — 제한 셋과 BAA10Y(회색 지대: 카드 값만, 그래프 자료에는 파생값도 넣지 않는다)
+        self.assertEqual(set(rr.SERIES) - rc.ALLOWED, {"SP500", "BAMLH0A0HYM2", "BAMLC0A0CM", "BAA10Y"})
+
+    def test_no_chart_line_uses_baa10y(self):
+        # 표 쪽에서도 — 파생 선(3개월 변화·12개월 저점 대비)이면 원값 구간 검사로는 잡히지 않는다
+        table = rc.chart_table()
+        for spec in table["overview"] + list(table["rules"].values()):
+            for l in spec["lines"]:
+                self.assertNotIn("BAA10Y", l["series"], (spec["key"], l["key"]))
+                self.assertTrue(set(l["series"]) & set(rp.RESTRICTED) or set(l["series"]) <= rc.ALLOWED, l["key"])
 
     def test_restricted_band_is_really_in_the_cache(self):
         # 위 검사가 헛돌지 않게 — 원본 결과에는 그 구간 값이 실제로 있다
@@ -633,6 +648,42 @@ class PageStaticTest(unittest.TestCase):
         html = self.read("index.html")
         self.assertIn('<script src="charts.js"></script>', html)
         self.assertIn("data/charts.json", html)
+
+    def test_stale_chart_notice_reaches_every_view_with_rule_cards(self):
+        # 그래프 자료만 실패한 날의 안내 — 큰 그래프 절(전체·금리 보기에만 보인다) 곁뿐 아니라 규칙 카드 묶음 위에도.
+        # 큰 그래프를 하나도 못 그려도 안내는 싣는다
+        html = self.read("index.html")
+        wrap = html[html.index('<section id="overview-wrap"'):]
+        wrap = wrap[:wrap.index("</section>")]
+        rules = html[html.index('<section id="rules-wrap"'):]
+        rules = rules[:rules.index('<div id="rules">')]
+        self.assertIn('id="charts-note"', wrap)
+        self.assertNotIn('id="charts-note-rules"', wrap)
+        self.assertIn('<p id="charts-note-rules" class="muted" hidden></p>', rules)
+        if shutil.which("node") is None:
+            self.skipTest("node 없음")
+        i = html.index("function renderOverview(")
+        j, depth = html.index("{", i), 0
+        while True:
+            depth += (html[j] == "{") - (html[j] == "}")
+            j += 1
+            if depth == 0:
+                break
+        code = html[i:j]
+        harness = ("const ids={'charts-note':{hidden:true,textContent:''},'charts-note-rules':{hidden:true,textContent:''},"
+                   "overview:{replaceChildren(){}}};const available={};const document={getElementById:id=>ids[id]};"
+                   "const chartFigure=()=>null;const el=()=>({});" + code +
+                   ";const out=[];for(const [c,d] of JSON.parse(process.argv[1])){for(const k in ids)if(k!=='overview')"
+                   "Object.assign(ids[k],{hidden:true,textContent:''});renderOverview(c,d);"
+                   "out.push([ids['charts-note'].hidden,ids['charts-note-rules'].hidden,ids['charts-note-rules'].textContent,"
+                   "!!available.overview]);}process.stdout.write(JSON.stringify(out));")
+        cases = [[{"date": "2026-09-18", "overview": []}, "2026-09-22"],      # 그래프만 실패 — 큰 그래프 없음
+                 [{"date": "2026-09-22", "overview": []}, "2026-09-22"]]      # 같은 날 — 안내 없음
+        p = subprocess.run(["node", "-e", harness, json.dumps(cases)], capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(json.loads(p.stdout),
+                         [[False, False, "그래프는 2026-09-18 기준이다(최근 그래프 자료 생성 실패).", False],
+                          [True, True, "", False]])
 
 
 if __name__ == "__main__":

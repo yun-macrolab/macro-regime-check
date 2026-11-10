@@ -181,8 +181,11 @@ def js_array(block, name):
     return json.loads(m.group(1))
 
 
+@unittest.skipUnless(os.path.exists(os.path.join(REPO, "scripts", "people_push.py")),
+                     "scripts/people_push.py를 지웠다(발언 칸 전체를 내림 — README '보류 · 내리기')")
 class RemarksCodeTest(unittest.TestCase):
-    """자동 분류 발언 칸(2026-11-04) — 같은 출처 파일 하나를 읽고, 게시기(scripts/people_push.py)와 같은 약속으로 다시 검사하고, 글자로만 넣는다."""
+    """자동 분류 발언 칸(2026-11-04) — 같은 출처 파일 하나를 읽고, 게시기(scripts/people_push.py)와 같은 약속으로 다시 검사하고, 글자로만 넣는다.
+    칸 전체를 내려 게시기를 지운 저장소에서는 건너뛴다 — 아침 검사가 떨어져 내리는 push가 배포되지 않는 일이 없게(test_people_push.TakedownTest)."""
 
     @classmethod
     def setUpClass(cls):
@@ -436,6 +439,37 @@ class DataTest(unittest.TestCase):
                 self.assertEqual(pres["seat"], "ny")
             else:
                 self.assertEqual((pres["seat"], pres["district"]), ("bank", d["n"]), d["n"])
+
+    def test_ledger_tallies_and_chairs(self):
+        # 표결 장부의 '칸 합'(people.js)은 배포된 화면에서만 '?'를 띄우고, 의장 키가 틀리면 그 표시도 없다 — 회의 결과를 손으로
+        # 옮길 때(12월 회의 등) 여기서 먼저 본다. 칸을 세는 규칙은 people.js와 같다: 2026 투표권자 가운데 지금 자리 시작일(memberSince —
+        # 지금 자리 기록의 note에 적힌 날짜) 이후인 사람 + 명단 밖 위원(OFFROSTER)은 until까지
+        off = re.search(r'const OFFROSTER = \{ miran: \{[^}]*until: "(\d{4}-\d{2}-\d{2})" \} \};', read("people.js"))
+        self.assertIsNotNone(off, "people.js의 OFFROSTER 꼴이 다르다 — 이 검사도 같이 고친다")
+        until = off.group(1)
+        voters = [p for p in self.people if p["voter_2026"]]
+        self.assertEqual(len(voters), 12)
+
+        def since(p):
+            j = next((x for x in p["journey"] if x.get("now") and x.get("from") == "2026"), None)
+            m = re.search(r"(\d{4})-(\d{2})(?:-(\d{2}))?", (j or {}).get("note") or "")
+            return f"{m.group(1)}-{m.group(2)}-{m.group(3) or '01'}" if j and m else None
+        for m in self.data["meetings_2026"]:
+            day = m["date"]
+            self.assertIn(m["chair"], self.keys, f"{day}: 의장 {m['chair']!r}이 명단의 키가 아니다")
+            dis = [x["key"] for x in m.get("dissents", [])]
+            self.assertEqual(len(dis), len(set(dis)), day)
+            self.assertEqual(m["vote"] is None, m["decision"] == "예정", f"{day}: 표가 없는 회의만 '예정'")
+            if m["vote"] is None:
+                self.assertEqual(dis, [], day)
+                continue
+            got = re.fullmatch(r"(\d{1,2})-(\d{1,2})", m["vote"])
+            self.assertIsNotNone(got, f"{day}: 표 {m['vote']!r}")
+            a, b = int(got.group(1)), int(got.group(2))
+            seated = {p["key"] for p in voters if not since(p) or since(p) <= day} | ({"miran"} if day <= until else set())
+            self.assertLessEqual(set(dis), seated, f"{day}: 반대표를 낸 사람이 그때 위원이 아니다")
+            self.assertEqual((a, b), (len(seated) - len(dis), len(dis)),
+                             f"{day}: 발표 {m['vote']} ≠ 칸 합 {len(seated) - len(dis)}-{len(dis)}")
 
     def test_every_2026_dissent_appears_in_a_meeting(self):
         held = {(m["date"], d["key"], d["side"]) for m in self.data["meetings_2026"] for d in m.get("dissents", [])}

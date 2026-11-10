@@ -141,8 +141,8 @@ def ebp_rows(end=EBP_LAST):
     """1973-01부터 end까지 — EBP는 0.1·sin, GZ는 1.5 + 0.3·cos(퍼센트포인트). 마지막·3개월 전·마지막 GZ만 정해 둔다."""
     ms = months(1973, 1, end.year, end.month)
     rows = [[m, round(0.1 * math.sin(i / 5), 4), round(1.5 + 0.3 * math.cos(i / 4), 4), EST_PROB] for i, m in enumerate(ms)]
-    rows[-1][1], rows[-1][2] = 0.1234, 1.8765                    # → EBP +12.3bp · GZ 187.7bp
-    rows[-4][1] = 0.0567                                          # 3개월 전 → 변화 +6.7bp
+    rows[-1][1], rows[-1][2] = 0.1234, 1.8765                    # → EBP +12.34bp · GZ 187.65bp
+    rows[-4][1] = 0.0567                                          # 3개월 전 → 변화 +6.67bp
     return rows
 
 
@@ -455,6 +455,12 @@ class AxisTest(unittest.TestCase):
         self.assertEqual((v["ratio"], v["high"], v["axis"]), (90.0, False, "현금 조달"))
         pts = [x for d, x in ai.quarterly_ratio(S["BOGZ1FA105050005Q"], S["BOGZ1FA106000135Q"], 4) if d >= D(1990, 1, 1)]
         self.assertEqual(v["pct"], round(sum(x <= 90.0 for x in pts) / len(pts) * 100, 1))
+        S2 = dict(S, BOGZ1FA105050005Q=[(d, 90.00004 if x == 90.0 else x) for d, x in S["BOGZ1FA105050005Q"]])
+        v2 = cf.fund_axis(S2)                    # 분위는 반올림 전 값으로(2026-11-10 점검 cr-01) — 저장 90.0 < 실제 90.00004
+        raw = ai.quarterly_ratio(S2["BOGZ1FA105050005Q"], S2["BOGZ1FA106000135Q"], 4)
+        pts2 = [x for d, x in raw if d >= D(1990, 1, 1)]
+        self.assertEqual((v2["ratio"], v2["pct"]), (90.0, round(sum(x <= raw[-1][1] for x in pts2) / len(pts2) * 100, 1)))
+        self.assertGreater(v2["pct"], round(sum(x <= 90.0 for x in pts2) / len(pts2) * 100, 1))   # 지금 분기도 '그 값 이하'
         S["BOGZ1FA105050005Q"] = [(d, 99.9) if d >= D(2025, 7, 1) else (d, x) for d, x in S["BOGZ1FA105050005Q"]]
         v = cf.fund_axis(S)                                                       # 100% 아래여도 자기 중앙값보다 높으면 부채 조달
         self.assertLess(v["median"], v["ratio"])
@@ -848,11 +854,15 @@ class EbpTest(_Same, unittest.TestCase):
         v = cf.calc_ebp({cf.EBP: data}, TODAY)
         allv = [e for _, e in data["ebp"]]
         self.assertEqual(v["date"], "2026-09-01")
-        self.assertEqual(v["values"], {"ebp": 12.3, "month": "2026-09-01", "since": "1973-01-01",
+        self.assertEqual(v["values"], {"ebp": 12.34, "month": "2026-09-01", "since": "1973-01-01",
                                        "pct": round(sum(x <= 0.1234 for x in allv) / len(allv) * 100, 1),
-                                       "ch3": 6.7, "gz": 187.7})
+                                       "ch3": 6.67, "gz": 187.65})
         line, extra = cf.texts("ebp", v["values"], v["date"])
         self.assertEqual(line, f"EBP +12bp (2026-09, 1973~ p{v['values']['pct']:.0f}) · 3개월 +7bp · GZ 스프레드 188bp")
+        tie = cf.calc_ebp({cf.EBP: {"ebp": [(D(2026, 6, 1), 0.0), (D(2026, 9, 1), 0.1251)],    # 둘째 자리로 두고 글에서 한 번만
+                                    "gz": [(D(2026, 9, 1), 2.3451)]}}, TODAY)["values"]      # 반올림(2026-11-10 점검 cr-03)
+        self.assertEqual((tie["ebp"], tie["ch3"], tie["gz"]), (12.51, 12.51, 234.51))      # 첫째 자리 12.5·234.5면 +12·234
+        self.assertEqual(cf.texts("ebp", tie, "x")[0], "EBP +13bp (2026-09, 2026~ p100) · 3개월 +13bp · GZ 스프레드 235bp")
         no_back = {"ebp": [x for x in data["ebp"] if x[0] != D(2026, 6, 1)], "gz": data["gz"][:-1]}
         w = cf.calc_ebp({cf.EBP: no_back}, TODAY)["values"]                      # 정확히 3개월 전 달이 없으면 변화 없음
         self.assertEqual((w["ch3"], w["gz"]), (None, None))
@@ -1587,7 +1597,7 @@ class StaticTest(unittest.TestCase):
         self.assertEqual(cf.CARD, cf.ORDER + ["flow", "bal"])
         self.assertEqual(re.findall(r'"(\w+)"', js[js.index("const SEC_ROWS = ["):].split("]")[0]),
                          [k for k in sf.ORDER if k != "funding"])
-        self.assertEqual(re.findall(r'"(\w+)"', js[js.index("const LATE = ["):].split("]")[0]), ["bond_flow", "flow", "bal"])
+        self.assertEqual(re.findall(r'"(\w+)"', js[js.index("const LATE = ["):].split("]")[0]), ["flow", "bal"])
         reasons = re.findall(r'"([^"]+)"', js[js.index("const REASONS = ["):].split("];")[0])
         want = list(cf.REASONS.values()) + [r for r in sf.REASONS.values() if r not in cf.REASONS.values()]
         self.assertEqual(reasons, want)

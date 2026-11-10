@@ -13,7 +13,7 @@
 네트워크 불필요 — FRED는 가짜 loader 또는 합성 캐시(--offline), 뉴욕 연은 국채 운영 결과·공식 계획 페이지는 가짜 ops_load·
 plan_load·가짜 opener. 숫자와 계획 페이지 HTML은 모두 지어낸 것이다(실자료 숫자를 넣지 않는다).
 """
-import os, sys, io, re, json, datetime, tempfile, unittest, shutil, contextlib
+import os, sys, io, re, json, random, datetime, tempfile, unittest, shutil, contextlib
 from unittest import mock
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
@@ -345,6 +345,23 @@ class ArithmeticTest(unittest.TestCase):
             self.assertAlmostEqual(v["gap_bn"], rule["gap_bn"], places=4)
             self.assertEqual(f"{v['value']:.2f}", f"{rule['value']:.2f}")            # 화면의 같은 숫자
 
+    def test_visible_gap_is_the_visible_ratio_minus_the_floor_and_both_cards_show_one_ratio(self):
+        # 2026-11-10 점검: 차를 4자리로 저장해 다시 반올림하면 x.xx5 경계 바로 아래 주(약 0.5%)에 '9.86% · 대비 +0.85%p'로
+        # 어긋났고, 지준·재정 카드는 비율을 4자리로 두 번 반올림해 '9.85%'였다 — 차는 보이는 비율에서 빼고 비율은 한 번만
+        S = {"WRESBAL": [(d, 3_188_028.0) for d in weds(D(2026, 9, 2), WED)], "GDP": [(D(2026, 7, 1), 32_349.279)]}
+        line = fb.texts("reserves", fb.calc_reserves(S, NOW.date())["values"], "2026-10-28")[0]
+        self.assertIn("명목 GDP의 9.86% (2026Q3) · 규칙 하한 9.0% 대비 +0.86%p ≈ +276.6bn", line)
+        self.assertIn("지준/명목GDP 9.86% ", liq.texts("rule", liq.calc_rule(S)["values"], "2026-10-28")[0])
+        rng = random.Random(7)
+        for _ in range(3000):
+            S = {"WRESBAL": [(d, float(rng.randrange(2_700_000, 3_300_000))) for d in weds(D(2026, 9, 2), WED)],
+                 "GDP": [(D(2026, 7, 1), rng.randrange(32_000_000, 34_000_000) / 1000)]}
+            line = fb.texts("reserves", fb.calc_reserves(S, NOW.date())["values"], "2026-10-28")[0]
+            ratio, gap = re.search(r"명목 GDP의 ([\d.]+)% .* 대비 ([+-]?[\d.]+)%p", line).groups()
+            self.assertAlmostEqual(float(ratio) - 9.0, float(gap), places=9, msg=line)
+            rule = liq.texts("rule", liq.calc_rule(S)["values"], "2026-10-28")[0]
+            self.assertIn(f"지준/명목GDP {ratio}% ", rule)                             # 두 카드가 같은 비율을 보인다
+
     def test_four_week_average_needs_four_consecutive_weeks(self):
         S = world()
         S["WRESBAL"] = S["WRESBAL"][:-3] + S["WRESBAL"][-2:]                           # 10-14 주가 빠졌다
@@ -428,6 +445,24 @@ class ArithmeticTest(unittest.TestCase):
         self.assertAlmostEqual(nxt["denom_pp"], 2800 / 32000 * 100 - 2800 / 30000 * 100, places=6)
         self.assertEqual((nxt["first_quarter"], nxt["first_bn"]), ("2026-07-01", 32000.0))
 
+    def test_denominator_change_inside_a_shown_week_shows_that_day_and_the_next_week(self):
+        # 기준이 있는 평소의 주(처음 싣는 주가 아님): 같은 주 안에서 GDP가 바뀌면 그날부터 보이고, 다음 주에도 같은 기준으로 싣는다
+        q2 = world()
+        q2["GDP"] = q2["GDP"][:-1]                                                      # 10-28 주를 처음엔 2026Q2 GDP 30,000으로
+        prev_week = self.shown_with(calc("reserves", q2), "2026-04-01", 30000.0)        # 10-21 주(직전 주)
+        first_day = fb.with_base(calc("reserves", q2), prev_week)
+        self.assertEqual((first_day["values"]["base_quarter"], first_day["values"]["denom_pp"]), ("2026-04-01", None))
+        same_week = fb.with_base(calc("reserves"), first_day)                          # 같은 주, GDP 2026Q3 32,000이 나온 날
+        want = 2800 / 32000 * 100 - 2800 / 30000 * 100
+        self.assertAlmostEqual(same_week["values"]["denom_pp"], want, places=6)
+        self.assertTrue(fb.texts("reserves", same_week["values"], "2026-10-28")[0].endswith(
+            " · 분모 바뀜 -0.58%p (GDP 2026Q2에서 2026Q3로)"))
+        nxt = fb.with_base(calc("reserves", world(last_wed=D(2026, 11, 4))), same_week)["values"]   # 11-04 주
+        self.assertEqual((nxt["base_quarter"], nxt["base_bn"]), ("2026-04-01", 30000.0))
+        self.assertAlmostEqual(nxt["denom_pp"], want, places=6)
+        guide = open(os.path.join(REPO, "site", "fedbs.js"), encoding="utf-8").read()
+        self.assertIn("그 주에 견줄 기준이 있으면 그날부터, 다음 주에도 싣습니다", "".join(re.findall(r'"([^"]*)"', guide)))
+
     def test_decomposition_adds_up(self):
         c = calc("dec")
         v = c["values"]
@@ -453,6 +488,23 @@ class ArithmeticTest(unittest.TestCase):
         for mine, theirs in ((v["res13"], "res"), (v["tga13"], "tga"), (v["bills13"], "bills"), (v["coupons13"], "coupons"),
                              (v["onrrp13"] + v["pool13"], "rrp"), (v["mbs13"] + v["cur13"] + v["other13"], "other")):
             self.assertAlmostEqual(mine, lq["values"][theirs], places=6, msg=theirs)
+        # 같은 것은 반올림 전 값 — 화면의 정수는 카드마다 따로 반올림해(각자의 '그 밖'이 반올림 차를 받는다) 1 다를 수 있다고 적는다
+        # (2026-11-10 점검: 실자료에서 역레포 -16 대 -15, 그 밖 -64 대 -65로 보였다)
+        extra = fb.texts("dec", v, v["to"])[1]
+        self.assertTrue(extra[-1].endswith("두 카드의 보이는 정수 합은 1 다를 수 있다)."), extra[-1])
+        # 1보다 더 벌어지지는 않는다 — 지준·TGA·단기채·이표채는 두 카드가 같은 값을 같게 반올림하고, 역레포의 차는
+        # round(a + b) − round(a) − round(b)라 1 안이며, '그 밖' 합의 차는 그 차의 부호만 바뀐 값이다(검토 R1)
+        rnd = random.Random(7)
+        for _ in range(5000):
+            m = {k: rnd.randint(-400000, 400000) for k in ("res", *fb.SIGN)}
+            w = {"from13": "2026-01-07", **{f"{k}13": ai._r(x / 1000) for k, x in m.items()},
+                 "other13": ai._r((m["res"] - sum(m[k] for k in fb.SIGN)) / 1000)}
+            res, sh = fb.shown(w, "13")
+            lres, lsh, loth = liq.shown_parts({"res": w["res13"], "tga": w["tga13"], "bills": w["bills13"],
+                                               "coupons": w["coupons13"], "rrp": ai._r((m["onrrp"] + m["pool"]) / 1000)})
+            self.assertEqual((res, sh["tga"], sh["bills"], sh["coupons"]), (lres, lsh["tga"], lsh["bills"], lsh["coupons"]))
+            self.assertLessEqual(abs(lsh["rrp"] - sh["onrrp"] - sh["pool"]), 1, m)
+            self.assertLessEqual(abs(loth - sh["mbs"] - sh["cur"] - sh["other"]), 1, m)
 
     def test_one_window_can_be_missing(self):
         S = world()
@@ -507,6 +559,15 @@ class ArithmeticTest(unittest.TestCase):
         self.assertEqual(fb.cal_tag(D(2026, 11, 30), days), "월말")                      # 다음 관측이 다음 달
         self.assertEqual(fb.cal_tag(D(2026, 10, 30), bdays(D(2026, 10, 1), D(2026, 10, 30))), "월말")   # 마지막 관측(금), 뒤 평일 없음
         self.assertEqual(fb.cal_tag(D(2026, 10, 29), bdays(D(2026, 10, 1), D(2026, 10, 29))), "")    # 마지막 관측이지만 30일(금)이 남음
+        # 마지막 영업일 뒤에 그 달 평일 공휴일만 남은 달 — 2027-05-28(금) 뒤 05-31(월)은 메모리얼 데이라 그날이 마지막 관측일 때도 월말
+        may = bdays(D(2027, 5, 3), D(2027, 5, 28))
+        self.assertEqual(fb.cal_tag(D(2027, 5, 28), may), "월말")
+        self.assertEqual(fb.cal_tag(D(2027, 5, 27), may[:-1]), "")                       # 28일(금)이 남음
+        self.assertEqual(fb.cal_tag(D(2032, 5, 28), bdays(D(2032, 5, 3), D(2032, 5, 28))), "월말")
+        S = world()
+        S["RRPONTSYD"] = [(d, 1.0) for d in bdays(D(2027, 5, 3), D(2027, 5, 28))]
+        r = calc("rrp", S)
+        self.assertEqual(fb.texts("rrp", r["values"], r["date"])[0], "익일물 역레포 1.0bn (2027-05-28 월말)")
 
     def test_short_term_funding(self):
         v = calc("spread")["values"]
@@ -527,6 +588,14 @@ class ArithmeticTest(unittest.TestCase):
         S["RPONTTLD"] = [(d, 0.0) for d, _ in S["RPONTTLD"]]
         self.assertEqual(calc("spread", S)["values"]["max_date"], "2026-10-27")         # 같은 최대면 이른 날(월말이 가져가지 않게)
         self.assertEqual(calc("srf", S)["values"]["max_date"], "2026-10-26")
+        self.assertEqual(fb.texts("srf", calc("srf", S)["values"], "2026-10-30")[0],
+                         "상시 레포 이용 최대 0.0bn (2026-10-26) · 2026-10-26~2026-10-30")
+        # 0보다 크고 0.05bn 미만인 이용(2026-11-03 실자료 5백만 달러)은 셋째 자리 — '0.0bn (이른 날 아닌 날)'로 동률 규칙과 어긋나 보이지 않게
+        S["RPONTTLD"] = [(d, 0.005 if d == D(2026, 10, 27) else 0.0) for d, _ in S["RPONTTLD"]]
+        s = calc("srf", S)
+        self.assertEqual(fb.texts("srf", s["values"], s["date"])[0],
+                         "상시 레포 이용 최대 0.005bn (2026-10-27) · 2026-10-26~2026-10-30")
+        self.assertEqual([fb._bn_small(x) for x in (0.049, 0.05, 0.0, 12.5, 1234.56)], ["0.049", "0.1", "0.0", "12.5", "1,234.6"])
         S["IORB"] = [p for p in S["IORB"] if p[0] <= D(2026, 10, 25)]                   # IORB가 10-25에서 끊겼다
         v = calc("spread", S)["values"]
         self.assertEqual((v["n"], v["days"]), (3, 5))                                   # 10-26·27·28(3일 안)만
@@ -544,6 +613,9 @@ class ArithmeticTest(unittest.TestCase):
         line, extra = fb.texts("week", v, "2026-10-28")
         self.assertEqual(line, "이 주(2026-10-22~2026-10-28) FOMC 뒤 첫 H.4.1(2026-10-28 결정) · 다음 FOMC 2026-12-09")
         self.assertTrue(extra[0].startswith("FOMC 결정일(수)이 이 주의 마지막 날이라"), extra[0])
+        # 목요일 공휴일 주(다음: 2026-11-26 추수감사절)엔 H.4.1이 금요일에 나온다 — 늘 싣는 덧줄이 그 말을 함께 적는다
+        self.assertTrue(extra[-1].endswith("목요일이 연방 공휴일이면 다음 영업일(금)에 나와 그날 갱신에 실린다."), extra[-1])
+        self.assertIn(D(2026, 11, 26), fb.fed_holidays(2026))
         S = world(last_wed=D(2026, 9, 30))                                               # 09-24~09-30: 월말(분기말) 포함, FOMC 없음
         v = fb.calc_week(S, D(2026, 10, 1))["values"]
         self.assertEqual((v["month_end"], v["d15"], v["fomc"], v["next_fomc"]), (True, False, [], "2026-10-28"))
@@ -553,11 +625,21 @@ class ArithmeticTest(unittest.TestCase):
         self.assertIn("15일 포함 · FOMC 뒤 첫 H.4.1(2026-09-16 결정)", fb.texts("week", v, "2026-09-16")[0])
         v = fb.calc_week(world(last_wed=D(2026, 10, 21)), D(2026, 10, 21))["values"]
         self.assertTrue(fb.texts("week", v, "2026-10-21")[0].startswith("이 주(2026-10-15~2026-10-21) 15일 포함 · 다음 FOMC"))
-        v = fb.calc_week(world(), D(2026, 12, 10))["values"]                             # 2027년은 연준 일정 페이지의 잠정 일정
-        self.assertEqual((v["next_fomc"], v["next_tentative"]), ("2027-01-27", True))
-        self.assertTrue(fb.texts("week", v, "2026-10-28")[0].endswith("다음 FOMC 2027-01-27(잠정)"))
+        # 2027년은 연준 일정 페이지의 잠정 일정 — 다만 '다음' 회의는 직전 회의(12-09)의 성명 뒤라 연준 고지대로 이미 확정됐다
+        v = fb.calc_week(world(), D(2026, 12, 10))["values"]
+        self.assertEqual((v["next_fomc"], v["next_tentative"]), ("2027-01-27", False))
+        self.assertTrue(fb.texts("week", v, "2026-10-28")[0].endswith("다음 FOMC 2027-01-27"))
         v = fb.calc_week(world(), D(2027, 3, 18))["values"]                              # 검토 F1: 3월 뒤에도 4월 회의가 있다
-        self.assertEqual((v["next_fomc"], v["next_tentative"]), ("2027-04-28", True))
+        self.assertEqual((v["next_fomc"], v["next_tentative"]), ("2027-04-28", False))
+        late = datetime.datetime(2026, 12, 9, 22, 17, tzinfo=datetime.timezone.utc)      # 12-09 성명 뒤 첫 실행부터
+        self.assertEqual(fb.next_fomc(D(2026, 12, 9), late), (D(2027, 1, 27), False))
+        self.assertTrue(all(not fb.next_fomc(None, datetime.datetime.combine(d, datetime.time(22, 17),
+                                                                             tzinfo=datetime.timezone.utc))[1]
+                            for d in (D(2026, 12, 9) + datetime.timedelta(days=k) for k in range(0, 360, 3))))
+        first = (("2027-01-26", "2027-01-27", True), ("2027-03-16", "2027-03-17", True))
+        with mock.patch.object(fb, "FOMC", first):                                       # 표의 첫 회의 — 앞 회의가 없어 표대로
+            self.assertEqual(fb.next_fomc(D(2026, 12, 20)), (D(2027, 1, 27), True))
+            self.assertEqual(fb.next_fomc(D(2027, 2, 1)), (D(2027, 3, 17), False))
         S = world()
         S["WRESBAL"] = [(D(2027, 4, 21), 3_000_000.0), (D(2027, 4, 28), 3_000_000.0)]     # 04-22~04-28 주 = 04-28 결정 주
         v = fb.calc_week(S, D(2027, 4, 30))["values"]
@@ -903,6 +985,11 @@ class RmpTest(unittest.TestCase):
         self.assertEqual(r["line"], first["line"])
         self.assertIn("끝난 10창에서 -0.4~+0.2bn", first["view"]["notes"][-1])
         self.assertIn(f"{fb.CHK_HEAD}: 미수신(수신 실패)", r["view"]["notes"][-1])       # 대조 한 줄만 미수신
+        # 그날 받지 못한 운영 결과의 권장 인용은 싣지 않는다(출처 이름은 남긴다) — 계획 페이지는 그날 받은 인용 그대로(2026-11-10 점검)
+        src = {s["series"]: s for s in r["sources"]}
+        self.assertNotIn("citation", src[fb.OPS])
+        self.assertTrue(src[fb.PLAN]["citation"].endswith("October 31, 2026."), src[fb.PLAN]["citation"])
+        self.assertIn("citation", {s["series"]: s for s in first["sources"]}[fb.OPS])
         self.assertNotIn("::warning::", buf.getvalue())
         self.assertNotIn("xyz-77", buf.getvalue() + json.dumps(r, ensure_ascii=False))
 
@@ -1013,7 +1100,6 @@ class PlanTest(unittest.TestCase):
                  lambda w: w[0].update(form="weird"),
                  lambda w: w[0].update(**{"from": "2025-12-01"}),                       # RMP_FROM 앞
                  lambda w: w[1].update(**{"from": "2025-12-31"}),                       # 시작일이 그 달이 아니다
-                 lambda w: w[1].update(**{"from": "2026-01-14"}),                       # 앞 창과 겹친다
                  lambda w: w[1].update(until=None),                                     # 날짜가 하나만
                  lambda w: w[1].update(until="2026-12-31"),                             # 기간이 너무 길다
                  lambda w: w[2].update(form="missing", reinvest=None, rmp=None),        # 없는데 날짜가 있다
@@ -1063,6 +1149,15 @@ class PlanTest(unittest.TestCase):
         ws = rule_checks(ops=ops, plan=plan)
         self.assertEqual({w["bound"] for w in ws}, {"rule"})
         self.assertEqual([w["bn"] for w in ws], [12.0, 8.0, 11.0, 4.2])
+        # 칸 전체도 그대로 싣는다 — 전엔 창 목록 검사가 겹침을 거절해 칸이 '계산할 자료가 모자람'으로 멈췄다(2026-11-10 점검)
+        rows = view_rows()
+        i = next(k for k, r in enumerate(rows) if r[0].startswith("8/14/2026"))
+        rows[i] = ("8/14/2026 -<br>9/15/2026", rows[i][1])                              # 8월 창 끝이 9월 창 시작(09-15)과 겹친다
+        c = view(plan=plan_html(rows))
+        self.assertTrue(fb._plan_windows_ok(c["values"]["windows"]))
+        self.assertTrue(fb.values_ok(fb.BY_KEY["rmp_view"], c["values"], {}))
+        self.assertTrue(fb.item_ok("rmp_view", c, None, NOW.date())["ok"])
+        self.assertEqual({w["bound"] for w in c["values"]["checks"]}, {"rule"})
         # 끝 날이 공식 기간이면 '끝난 창'도 그 날로 — 오늘이 공식 끝 날(규칙의 끝 날보다 이르다) 뒤면 끝남. 다음 달 기간이 바로
         # 이어질 때만(10-30 금 → 11-02 월, 사이는 주말뿐) — 다음 달 기간이 아직 없으면 사이(10-30~11-13)가 비어 규칙으로(아래)
         plan = fb.parse_plan(plan_html([("10/15/2026 - 10/30/2026", plan_text("9.0")), ("11/2/2026 - 11/27/2026", plan_text("8.0"))]))
@@ -1288,7 +1383,7 @@ class ViewTest(unittest.TestCase):
         self.assertEqual(t["mean"], fb.RMP_MEAN + " 위 나눔 칸의 연준 단기채(4주/13주 +30/+60)는 둘의 합입니다.")
         self.assertEqual(t["bridge"], {"tag": "RMP 시작 뒤 지준", "text": "-100bn = 연준 단기채+MBS -53 · 재무부 현금(TGA) -80 · "
                                        "현금 통화 -15 · 역레포 +8 · 그 밖 +40 (수요일 수준 네 주 평균의 차, 부호는 지준 쪽)"})
-        self.assertEqual(t["floor"], {"tag": "같은 기간 규칙 하한의 달러 크기",
+        self.assertEqual(t["floor"], {"tag": "규칙 하한의 달러 크기 — RMP 시작 분기에서 마지막 GDP 분기로",
                                       "text": "2,520bn(2025Q4)에서 2,880bn(2026Q3)으로 +360bn (9.0% × 분기 명목 GDP)"})
         self.assertEqual(t["notes"], [
             "네 주 = RMP 시작 앞 2025-11-19~12-10과 최근 2026-10-07~10-28 · GDP는 현재 개정치. 9.0%는 이 사이트 규칙 카드의 "
@@ -1534,7 +1629,7 @@ class ViewTest(unittest.TestCase):
                           {"kind": "plan", "month": "2026-12", "date": "2026-12-11", "official": False}])
         self.assertEqual(fb.next_dates((2026, 12), None, D(2026, 12, 20)),
                          [{"kind": "plan", "month": "2027-01", "date": "2027-01-14", "official": False},
-                          {"kind": "fomc", "date": "2027-01-27", "tentative": True},
+                          {"kind": "fomc", "date": "2027-01-27", "tentative": False},
                           {"kind": "plan", "month": "2027-02", "date": "2027-02-11", "official": False}])
         # 결정일의 성명(14:00 미 동부) 뒤에는 그 회의가 '다음'이 아니다 — 주 칸과 같은 규칙
         late = datetime.datetime(2026, 12, 9, 22, 17, tzinfo=datetime.timezone.utc)
@@ -1955,6 +2050,24 @@ class MainTest(unittest.TestCase):
         self.run_main(fred=FakeFred(short), now=NOW + TD(days=2))
         self.assertEqual(self.saved()["items"]["reserves"]["error"], fb.REASONS["older"])
 
+    def test_rmp_cell_is_not_taken_when_its_reserves_or_gdp_lines_go_back(self):
+        # 2026-11-10 점검: RMP 칸의 날짜는 창 시작일이라 FRED가 이른 판을 준 날에도 칸 날짜가 그대로였다 — 위 칸들은 직전 값을 지키는데
+        # 이 칸만 시작 뒤 지준이 한 주 앞으로, 하한 크기가 한 분기 앞으로 돌아갔다. 그 끝 날짜·분기도 직전보다 이르면 받지 않는다
+        self.run_main()
+        first = self.saved()["items"]["rmp_view"]
+        short = dict(self.S, GDP=self.S["GDP"][:-1])                                    # 마지막 분기 GDP가 빠진 판
+        self.run_main(fred=FakeFred(short), now=NOW + TD(days=1))
+        it = self.saved()["items"]["rmp_view"]
+        self.assertEqual((it["ok"], it["stale"], it["error"]), (False, True, fb.REASONS["older"]))
+        self.assertEqual(it["values"]["floor"], first["values"]["floor"])
+        weekly = {sid: (ser[:-1] if sid in fb.BRIDGE.values() else ser) for sid, ser in self.S.items()}   # H.4.1이 한 주 앞
+        self.run_main(fred=FakeFred(weekly), now=NOW + TD(days=2))
+        it = self.saved()["items"]["rmp_view"]
+        self.assertEqual((it["ok"], it["stale"], it["error"]), (False, True, fb.REASONS["older"]))
+        self.assertEqual(it["values"]["bridge"], first["values"]["bridge"])
+        self.run_main(now=NOW + TD(days=3))                                              # 다시 따라잡으면 받는다
+        self.assertTrue(self.saved()["items"]["rmp_view"]["ok"])
+
     def test_same_numbers_keep_the_file(self):
         self.run_main()
         with open(self.path, "rb") as f:
@@ -2159,6 +2272,10 @@ class StaticTest(unittest.TestCase):
             self.assertIn(f"`{sid}`", sec, sid)
         self.assertIn("python -X utf8 scripts/fedbs_fetch.py", readme)
         self.assertIn("node --test scripts/test_fedbs_render.cjs", readme)
+        run = next(l for l in readme.splitlines() if "scripts/fedbs_fetch.py --out" in l)
+        self.assertIn(f"요청 {len(fb.SERIES)} + 2회", run)                                # FRED + 뉴욕 연은 둘(운영 결과·계획 페이지)
+        self.assertIn("이 칸의 창 표시·다음 날짜도 그날 기준", self.read("site", "fedbs.js"))   # README가 옮긴 화면 글
+        self.assertIn("이 칸의 창 표시·다음 날짜도 그날 기준", sec)
 
     def test_page_wires_the_card(self):
         page = self.read("site", "index.html")

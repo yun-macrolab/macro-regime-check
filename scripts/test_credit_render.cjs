@@ -64,7 +64,7 @@ test('card draws every row in order with the label and the definition, and no st
  assert.deepEqual(rows,['stage','ebp','cmdi','cell','gap','drawdown','bond_flow','sec','흐름','잔액']);
  assert.deepEqual([...api.CARD],['stage','ebp','cmdi','cell','gap','drawdown','bond_flow','sec','flow','bal']);
  assert.deepEqual([...api.SEC_ROWS],['flow','bal']);
- assert.deepEqual([...api.LATE],['bond_flow','flow','bal']);
+ assert.deepEqual([...api.LATE],['flow','bal']);
  assert.equal(api.LABEL,'참고 — 금리 예측 아님');
  assert.ok(text.includes('참고 — 금리 예측 아님'));
  assert.ok(text.includes(api.STAGE_DEF));
@@ -94,11 +94,12 @@ test('the public credit stress group sits after the definition with its one-sent
  assert.ok(/ICE/.test(api.STRESS_NOTE)&&/공개할 수 없어/.test(api.STRESS_NOTE)&&/EBP/.test(api.STRESS_NOTE)&&/CMDI/.test(api.STRESS_NOTE));
 });
 
-test('the stress group is left out for an older file and shows fixed reasons when a source fails',()=>{
- let t=load();const d=data();delete d.items.ebp;delete d.items.cmdi;
- assert.equal(t.api.render(d,secFile()),true);
- assert.equal(cls(t.ids['credit-slot'],'credit-group').length,0);
- assert.ok(!t.ids['credit-slot'].textContent.includes('신용 스트레스'));
+test('the stress group always shows, with fixed reasons when a source fails or a row is missing',()=>{
+ let t=load();const d=data();delete d.items.ebp;delete d.items.cmdi;                     // credit_fetch는 두 칸을 늘 쓴다 — 빠지면
+ assert.equal(t.api.render(d,secFile()),true);                                           // 묶음은 두고 줄마다 '자료 없음'
+ const empty=cls(t.ids['credit-slot'],'credit-group');
+ assert.equal(empty.length,1);
+ assert.ok(empty[0].textContent.includes('ebp — 자료 없음')&&empty[0].textContent.includes('cmdi — 자료 없음'));
  t=load();const e=data();
  e.items.cmdi={key:'cmdi',ok:false,stale:false,error:'받은 파일의 꼴을 알아보지 못함',name:'CMDI 이름'};
  delete e.items.ebp;
@@ -195,7 +196,7 @@ test('flow and balance rows come from sec.json only and fold their company lines
  assert.ok(!t.ids['credit-slot'].textContent.includes('흐름 이름'));
 });
 
-test('new rows fail with a fixed reason, and an older credit.json has no bond row',()=>{
+test('new rows fail with a fixed reason, and a credit.json without the bond row shows it as missing',()=>{
  const d=data();d.items.bond_flow={key:'bond_flow',ok:false,stale:false,error:'수신 실패',name:'회사채 이름'};
  const f=secFile();f.items.bal={key:'bal',ok:false,stale:false,error:'SEC 거절 · 요청 한도 또는 미신고 도구',name:'잔액 이름'};
  f.items.flow={key:'flow',ok:false,stale:false,error:'<i>원문 https://bad.invalid</i>',name:'흐름 이름'};
@@ -205,11 +206,11 @@ test('new rows fail with a fixed reason, and an older credit.json has no bond ro
  assert.ok(text.includes('잔액 이름 — 미수신 — SEC 거절 · 요청 한도 또는 미신고 도구'));
  assert.ok(text.includes('흐름 이름 — 자료 없음'));
  assert.ok(!text.includes('bad.invalid'));
- const old=data();delete old.items.bond_flow;
+ const old=data();delete old.items.bond_flow;                                           // sec.json 칸(LATE)만 빠지면 줄을 두지 않는다
  t=load();t.api.render(old,secFile());
  text=t.ids['credit-slot'].textContent;
- assert.ok(!text.includes('bond_flow'));
- assert.equal(rowsOf(t.ids['credit-slot']).length,9);
+ assert.ok(text.includes('bond_flow — 자료 없음'));
+ assert.equal(rowsOf(t.ids['credit-slot']).length,10);
  const st=secFile();Object.assign(st.items.bal,{ok:false,stale:true,error:'수신 실패',failed_since:'2026-11-01'});
  t=load();t.api.render(data(),st);
  const bal=rowsOf(t.ids['credit-slot']).at(-1);

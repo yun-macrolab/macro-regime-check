@@ -1,5 +1,8 @@
 "use strict";
-// 사이트 그래프 — data/charts.json의 그래프 하나(ChartSpec, 형태는 scripts/render_charts.py 머리말)를 <figure>로 그린다.
+// 사이트 그래프 — 그래프 하나(ChartSpec)를 <figure>로 그린다. ChartSpec = {title, unit, zero, threshold, note, source_note,
+// notices, bands?, lines: [{key, label, role(main|series|ref), points: [["YYYY-MM-DD", 수|null], …]}]} — 읽는 곳은 아래
+// parse·parseBands·lineChart. data/charts.json의 것은 scripts/render_charts.py의 _render_chart가 만든다(키는
+// test_render_charts.py의 SPEC_KEYS·LINE_KEYS). lineChart를 부르는 다른 화면(korea·fedbs·oil·notes)도 이 꼴로 넘긴다.
 // 외부 라이브러리 없음. 글자는 textContent로만 넣는다(자료를 HTML로 해석하지 않게). 색은 site/dashboard.css의 CSS 변수(--ch-*).
 // 툴팁은 보조 — 모든 값은 "표로 보기"에도 있다. 키보드: 그래프에 초점 → ←/→ 이동, Home/End, Esc 닫기.
 (function () {

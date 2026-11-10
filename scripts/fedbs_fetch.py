@@ -7,17 +7,19 @@
 '지준과 통화승수'의 지준/GDP와 지준·재정 카드의 13주 나눔을 주간으로 읽는 재료다. 칸(ITEMS — 화면 차례):
   reserves  지준(주 평균 WRESBAL)과 지준/명목GDP — regime_check.compute와 같은 식(liquidity_fetch.reserves_gdp: 주 평균의 마지막
             값 ÷ 1000 ÷ 마지막 분기 GDP × 100)이라 규칙 카드와 같은 숫자다(테스트가 견준다). 규칙 하한(regime_rules.TH
-            ['reserves_gdp_low'])의 차 %p·bn. 4주 평균 = (최근 4주 WRESBAL 평균) ÷ 최신 GDP — 정의는 이것 하나(네 주가 이어질
-            때만, 첫 주와 마지막 주가 21일 차). 분모 바뀜: 직전 fedbs.json의 주를 처음 실을 때의 GDP(first)와 이번 GDP가
-            다르면(새 분기·개정) 같은 지준으로 견준 분모 몫(%p) — 같은 주를 다시 실을 때는 그 주의 견줌을 그대로 두고, 같은 주
-            안에서 GDP만 바뀌면 다음 주가 싣는다(비공개가 메일로 실은 주의 GDP와 견주는 것과 같은 뜻). 그래프: 최근 52주 지준과
-            규칙 하한 × 마지막 분기 GDP(지난 주들도 지금 GDP로 그은 선)
+            ['reserves_gdp_low'])의 차 %p·bn — 화면의 %p는 보이는 둘째 자리 비율에서 하한을 뺀 값(liquidity_fetch.shown_gap).
+            4주 평균 = (최근 4주 WRESBAL 평균) ÷ 최신 GDP — 정의는 이것 하나(네 주가 이어질 때만, 첫 주와 마지막 주가 21일
+            차). 분모 바뀜: 직전 fedbs.json의 주를 처음 실을 때의 GDP(first)와 이번 GDP가 다르면(새 분기·개정) 같은 지준으로
+            견준 분모 몫(%p) — 같은 주를 다시 실을 때는 그 주의 기준을 그대로 두고, 같은 주 안에서 GDP가 바뀌면 그 주에 견줄
+            기준이 있으면 그날부터, 다음 주에도 싣는다(처음 싣는 주만 다음 주부터 — 비공개가 메일로 실은 주의 GDP와 견주는 것과
+            같은 뜻). 그래프: 최근 52주 지준과 규칙 하한 × 마지막 분기 GDP(지난 주들도 지금 GDP로 그은 선)
   dec       지준 변화의 나눔 4주/13주 — 수요일 수준(WRBWFRBL) = 재무부 현금 TGA(WDTGAL) · 익일물 역레포(WLRRAOL — H.4.1
             '역레포: 그 밖', 익일물 역레포 기구가 대부분) · 해외 공적 역레포 풀(WLRRAFOIAL — 부채 쪽, 자산 쪽 FIMA 레포 기구가
             아니다) · 연준 단기채(WSHOBL) · 이표채(WSHONBNL) · MBS(WSHOMCB) · 현금 통화(WCICL) · 그 밖(나머지). 부호는 지준 쪽.
             창 규칙은 liquidity_fetch.calc_reserves와 같다(여덟 시리즈가 모두 있는 마지막 수요일과 그 28·91일 전 이하 마지막
-            공통 관측 — NEAR_DAYS 안). 13주는 지준·재정 카드의 13주 나눔과 같은 창·같은 값이다(역레포 = 익일물 + 해외 공적,
-            그 카드의 그 밖 = MBS + 현금 통화 + 이 카드의 그 밖 — 테스트가 견준다). 보이는 정수끼리 합이 맞게 '그 밖'이 반올림을
+            공통 관측 — NEAR_DAYS 안). 13주는 지준·재정 카드의 13주 나눔과 같은 창·반올림 전 같은 값이다(역레포 = 익일물 +
+            해외 공적, 그 카드의 그 밖 = MBS + 현금 통화 + 이 카드의 그 밖 — 테스트가 견준다. 보이는 정수는 카드마다 따로
+            반올림해 1 다를 수 있다). 보이는 정수끼리 합이 맞게 '그 밖'이 반올림을
             받는다. 1주는 15일·월말 하루에 크게 흔들려 싣지 않는다. 두 창의 출발·끝 수요일이 월말(분기 끝 달이면 분기말)·15일이면
             표시한다(창은 옮기지 않는다)
   spread    SOFR − IORB 최근 5영업일(SOFR의 마지막 관측 다섯): 최대 bp와 날짜(같은 값이면 이른 날)·0보다 큰 날 n/m(그 SOFR
@@ -92,15 +94,16 @@
             규칙' 절에 있다. compute에 공식 계획(plan)을 넘기지 않는 호출(비공개 쪽 짝 테스트 등)에서는 이 칸을 셈하지 않고 파일에도
             넣지 않는다. 운영 결과(ops)를 받지 못하면 대조 한 줄만 '미수신', FRED 시리즈를 받지 못하면 그 줄(시작 뒤 나눔·하한 —
             WSHOMCB면 대조 줄도)만 '미수신'. 계획 페이지를 받지 못해 직전 값을 다시 실을 때 화면(site/fedbs.js)은 그 알림을 칸
-            머리 바로 위에 둔다('창 표시·다음 날짜도 그 값을 받은 날 기준'). 다음 달부터 공지일이 지났는데 페이지에
-            행이 없는 달(late_dates, LATE_MAX까지)은 창이 무엇이든 머리에 '(공지일 MM-DD께 지남)' — 페이지의 날짜면 '께' 없이,
+            머리 바로 위에 둔다('… 받은 값을 싣습니다 — 이 칸의 창 표시·다음 날짜도 그날 기준'). 다음 달부터 공지일이 지났는데
+            페이지에 행이 없는 달(late_dates, LATE_MAX까지)은 창이 무엇이든 머리에 '(공지일 MM-DD께 지남)' — 페이지의 날짜면 '께' 없이,
             셋까지 이름, 넷부터 'M월~N월 창 k달 …(첫 공지일 …)'. 마지막 창이 끝났는데 공지일은 아직 앞이면 'M월 창 계획은 페이지에
             아직 없음'만. 칸 끝의 접는 설명(site/fedbs.js rmpGuide)은 뜻 덧줄(view.mean — 합니다체)을 싣는다
   week      그 H.4.1 주(목~수)가 15일·월말·FOMC 결정일을 품는지('FOMC 뒤 첫 H.4.1' — 결정일(수)이 그 주 마지막 날이라 그 주
             숫자는 시행 전 값)와 다음 FOMC 결정일(실행 시각에 아직 성명 — 결정일 14:00 미 동부 — 이 나오지 않은 첫 회의: 예약
             실행 UTC 22:17은 결정일에도 성명 뒤라 그날 회의는 '다음'이 아니다). FOMC 일정은 이 파일의 FOMC 표(2026년은
             site/people-data.js의 회의 장부와 같다, 테스트가 견준다. 2027년은 연준 FOMC 일정 페이지(2026-10-28 갱신)의 여덟
-            회의 — 연준 고지대로 각 회의는 직전 회의에서 확정되기 전까지 잠정이라 '(잠정)')
+            회의 — 연준 고지대로 각 회의는 직전 회의에서 확정되기 전까지 잠정이다. '다음 FOMC'는 직전 회의의 성명 뒤라 이미
+            확정된 날짜여서 '(잠정)'을 붙이지 않는다 — 표의 잠정 표시는 next_fomc가 직전 회의를 보고 지운다)
 산식은 비공개 파이프라인의 fed_bs.py와 같다(저장소를 넘어 가져오지 않고 여기서 따로 쓴다 — 고치면 양쪽을 같이 — rmp_view
 칸은 이 카드에만 있다). 비공개 쪽과 다른 곳: 상태 파일이 없다 — 날마다 받고, '분모 바뀜'은 직전 fedbs.json의 주를 처음 실을 때의
 GDP와 견준다(비공개는 메일로 실은 주의 GDP와 — 같은 뜻, 같은 주를 다시 실을 때도 그 견줌을 보인다).
@@ -127,13 +130,15 @@ GDP와 견준다(비공개는 메일로 실은 주의 GDP와 — 같은 뜻, 같
 User-Agent·이메일 없음, https·같은 호스트만, 다른 곳으로 넘겨지면 받지 않음), FRED와 따로 두 요청을 합쳐 OPS_BUDGET초(요청 하나엔
 min(10초, 남은 예산) — 운영 결과가 늦으면 계획 페이지는 남은 시간만). 받으면 원문을 <work>/fedbs/tsy_ops.json·tsy_plan.html에
 둔다(공개 data에는 싣지 않는다, --offline이면 이것만 읽는다). 온라인에서 받지 못하면 캐시로 대신하지 않는다 — 계획 페이지를
-받지 못하면 RMP 칸이 직전 값 + '받지 못함', 운영 결과를 받지 못하면 그 칸의 대조 한 줄만 '미수신'. 주간·일간 모두 실행마다 받는다(공개 쪽은 하루 1회 실행
+받지 못하면 RMP 칸이 직전 값 + '받지 못함', 운영 결과를 받지 못하면 그 칸의 대조 한 줄만 '미수신'(그날은 운영 결과의 권장
+인용도 싣지 않는다 — sources_of). 주간·일간 모두 실행마다 받는다(공개 쪽은 하루 1회 실행
 — 상태 파일 없음).
 H.4.1은 목요일 16:30(미 동부)에 나오고 FRED에 몇 분 안에 들어온다 — 예약 실행(UTC 22:17, 미 동부 같은 날 17:17·18:17)이 같은
 날 받는다(국경일이 끼면 하루 늦게 나온다).
 
 실패·이어 싣기·문구 원칙은 liquidity_fetch·oil_fetch와 같다: 칸마다 따로, 못 받은 칸은 직전 숫자를 '받지 못함'과 그날부터라는
-날짜와 함께(직전 값이 없으면 사유만), 받은 자료가 직전보다 이르면 받지 않는다, 문구는 이 파일에 정해 둔 것뿐(오류 원문은 싣지
+날짜와 함께(직전 값이 없으면 사유만), 받은 자료가 직전보다 이르면 받지 않는다(RMP 칸은 칸 날짜 말고도 시작 뒤 지준의 끝 수요일·
+하한 크기의 마지막 GDP 분기를 견준다 — _ends), 문구는 이 파일에 정해 둔 것뿐(오류 원문은 싣지
 않는다), 같은 내용이면 다시 쓰지 않는다.
 
 종료코드: 0 한 칸이라도 이번에 받음 / 1 하나도 못 받음(또는 파일을 쓰지 못함). 워크플로 단계는 continue-on-error, 알림 없음.
@@ -279,7 +284,7 @@ BRIDGE_NAME = {"bm": "연준 단기채+MBS", "tga": "재무부 현금(TGA)", "cu
 RMP_NAME = "지준 관리 매입(RMP) — 뉴욕 연은 월 일정 계획"
 TABLE_HEAD = ("창(시작 달)", "RMP 계획", "RMP 누적", "재투자 계획")
 BRIDGE_TAG = "RMP 시작 뒤 지준"
-FLOOR_TAG = "같은 기간 규칙 하한의 달러 크기"
+FLOOR_TAG = "규칙 하한의 달러 크기 — RMP 시작 분기에서 마지막 GDP 분기로"   # 끝은 마지막 GDP 분기 — 시작 뒤 지준과 같은 기간이 아니다
 RMP_MEAN = ("재투자는 MBS 상환분만큼 단기채를 사들이는 보유 교체라 MBS 감소와 합하면 지준에 대략 0이고, 지준을 늘리는 몫은 "
             "RMP입니다.")                    # 칸 끝의 접는 설명(합니다체) 첫 항목
 AMPLE = ("는 이 사이트 규칙 카드의 추정값이고 연준이 말하는 'ample'의 기준이 아니다(단기자금 여건은 아래 SOFR − IORB·상시 "
@@ -354,13 +359,15 @@ def level_tag(d):
 
 def cal_tag(d, dates):
     """일간 관측 날짜의 표시 — 월말(그 달의 마지막 관측: 다음 관측이 다음 달이거나, 마지막 관측이면 그 뒤 사흘 안에 그 달
-    평일이 없음) · 15일(15일, 또는 15일이 주말이라 밀린 16·17일의 첫 관측) — 아니면 ''."""
+    영업일(평일 − 연방 공휴일 fed_holidays)이 없음 — 2027-05-28(금) 뒤 05-31(월)은 메모리얼 데이) · 15일(15일, 또는 15일이
+    주말이라 밀린 16·17일의 첫 관측) — 아니면 ''."""
     i = dates.index(d)
     nxt = dates[i + 1] if i + 1 < len(dates) else None
     if nxt is not None:
         end = nxt.month != d.month
     else:
-        end = all((d + TD(days=k)).month != d.month or (d + TD(days=k)).weekday() >= 5 for k in range(1, 4))
+        end = not any(x.month == d.month and x.weekday() < 5 and x not in fed_holidays(x.year)
+                      for x in (d + TD(days=k) for k in range(1, 4)))
     if end:
         return "월말"
     prev = dates[i - 1] if i else None
@@ -413,8 +420,8 @@ def with_base(core, old):
     """분모 바뀜 — 기준은 직전 주를 처음 실을 때의 GDP(비공개 fed_bs가 메일로 실은 주의 GDP와 견주는 것과 같은 뜻).
     직전 파일의 칸(old core)이 이번보다 이른 주면 그 주의 first(처음 실을 때의 GDP)를, 같은 주면 그 주가 견준 기준과 first를
     그대로 둔다. 기준과 이번 GDP(분기·크기)가 다르면 같은 지준으로 견준 분모 몫 = 지준 ÷ 이번 GDP − 지준 ÷ 기준 GDP(%p).
-    first는 이번 주를 처음 실을 때의 GDP다 — 같은 주 안에서 GDP만 바뀌어도(H.4.1이 하루 늦은 주의 GDP 발표 등) 다음 주가 그
-    바뀜을 분모 바뀜으로 싣는다."""
+    first는 이번 주를 처음 실을 때의 GDP다 — 같은 주 안에서 GDP가 바뀌면(H.4.1이 하루 늦은 주의 GDP 발표 등) 그 주에 견줄
+    기준이 있으면 그날부터, 다음 주에도(그 주의 first와 견줘) 분모 바뀜으로 싣는다 — 처음 싣는 주만 다음 주부터."""
     v = dict(core["values"], base_quarter=None, base_bn=None, denom_pp=None,
              first_quarter=core["values"]["gdp_quarter"], first_bn=core["values"]["gdp_bn"])
     base = None
@@ -513,12 +520,18 @@ def calc_rrp(S, today):
 
 def next_fomc(today, now=None):
     """다음 FOMC — now(실행 시각, UTC)에 아직 성명(decided_at)이 나오지 않은 첫 회의 → (결정일, 잠정) 또는 None. now가 없으면
-    today 0시(UTC)로 본다(그날 회의는 '다음'). 주 칸과 RMP 칸의 다음 날짜가 같이 쓴다."""
+    today 0시(UTC)로 본다(그날 회의는 '다음'). 주 칸과 RMP 칸의 다음 날짜가 같이 쓴다. 잠정은 표의 표시이되, 연준 고지대로
+    각 회의는 직전 회의에서 확정되므로 직전 회의의 성명이 이미 나왔으면 잠정이 아니다 — '다음' 회의는 늘 그렇다(표의 첫
+    회의만 예외)."""
     if now is None:
         now = datetime.datetime.combine(today, datetime.time(0), tzinfo=datetime.timezone.utc)
     elif now.tzinfo is None:
         now = now.replace(tzinfo=datetime.timezone.utc)
-    return next(((b, t) for _, b, t in meetings() if decided_at(b) > now), None)
+    ms = meetings()
+    for i, (_, b, t) in enumerate(ms):
+        if decided_at(b) > now:
+            return b, bool(t and not (i and decided_at(ms[i - 1][1]) <= now))
+    return None
 
 
 def calc_week(S, today, now=None):
@@ -1112,11 +1125,12 @@ STATES = ("now", "next", "between", "unknown")
 
 def _plan_windows_ok(ws):
     """RMP 칸의 창 목록(values.windows) — 1~PLAN_ROWS_MAX개, RMP 시작 달부터 달이 이어지고, 꼴(ok: 날짜·숫자 글 둘 · unknown:
-    숫자 없음, 날짜는 둘 다 있거나 둘 다 없음 · missing: 모두 없음), 시작일이 그 달이고 RMP_FROM 이상, 날짜 있는 창끼리 겹치지
-    않고, 마지막 창은 페이지에 있다(이어 싣는 값도 다시 맞춰 본다)."""
+    숫자 없음, 날짜는 둘 다 있거나 둘 다 없음 · missing: 모두 없음), 시작일이 그 달이고 RMP_FROM 이상, 마지막 창은 페이지에
+    있다(이어 싣는 값도 다시 맞춰 본다). 이웃 창끼리 겹쳐도 받는다 — 그때 대조의 창은 plan_bounds가 모두 규칙으로 잡고(README
+    'RMP 칸의 셈 규칙'), 칸 전체를 멈추지 않는다(2026-11-10 점검: 전엔 겹치는 행 하나로 칸이 '계산할 자료가 모자람'으로 멈췄다)."""
     if not isinstance(ws, list) or not 1 <= len(ws) <= PLAN_ROWS_MAX:
         return False
-    prev, last_until = None, None
+    prev = None
     amt = lambda v: isinstance(v, str) and _PLAN_AMT.fullmatch(v) is not None
     for w in ws:
         if not isinstance(w, dict) or set(w) != set(PLAN_KEYS):
@@ -1146,9 +1160,6 @@ def _plan_windows_ok(ws):
         a, b = _day(w["from"]), _day(w["until"])
         if _ym(a) != ym or (b - a).days > PLAN_SPAN_MAX or a < RMP_FROM:
             return False
-        if last_until is not None and not last_until < w["from"]:
-            return False
-        last_until = w["until"]
     return ws[-1]["form"] != "missing"
 
 
@@ -1268,6 +1279,12 @@ def _s(v, nd=0):
 
 def _q(day):
     return liq._q(day)
+
+
+def _bn_small(x):
+    """상시 레포 이용 bn — 0보다 크고 0.05bn(5천만 달러) 미만이면 셋째 자리까지(소수 한 자리면 0.0bn으로 보여 이용이 없는 날과
+    가려지지 않는다 — FRED 값이 백만 달러 단위라 셋째 자리가 끝이다), 아니면 한 자리."""
+    return f"{x:,.3f}" if 0 < x < 0.05 else f"{x:,.1f}"
 
 
 def _tagged(day, tag):
@@ -1509,7 +1526,8 @@ def texts(key, v, date):
     if key == "reserves":
         avg4 = "—" if v["avg4"] is None else f"{v['avg4']:.2f}%"
         line = (f"지준 {v['level']:,.1f}bn (주 평균) = 명목 GDP의 {v['value']:.2f}% ({_q(v['gdp_quarter'])}) · "
-                f"규칙 하한 {v['low']:.1f}% 대비 {_s(v['gap_pp'], 2)}%p ≈ {_s(v['gap_bn'], 1)}bn · 4주 평균 {avg4}")
+                f"규칙 하한 {v['low']:.1f}% 대비 {_s(liq.shown_gap(v['value'], v['low']), 2)}%p ≈ {_s(v['gap_bn'], 1)}bn · "
+                f"4주 평균 {avg4}")
         extra = [f"{date} 주(목~수)의 주 평균 지준(WRESBAL) ÷ 마지막 분기 명목 GDP(계절조정 연율, {_q(v['gdp_quarter'])} "
                  f"{v['gdp_bn']:,.0f}bn)다 — 규칙 카드 '지준과 통화승수'와 같은 식·같은 GDP 분기다. 달러 환산 = (값 − 하한) × "
                  "그 분기 GDP."]
@@ -1541,7 +1559,8 @@ def texts(key, v, date):
                      "이표채·MBS가 늘면 +. '그 밖'은 나머지(대출·상시 레포·기타 부채 등)이고, 보이는 정수끼리 합이 맞게 반올림 "
                      "차를 받는다. 1주 변화는 15일·월말 하루에 크게 흔들려 싣지 않는다.")
         extra.append("13주 칸은 위 지준·재정 카드의 13주 나눔과 같은 규칙으로 낸 값이다 — 그 카드의 역레포는 익일물 + 해외 "
-                     "공적 역레포, 그 카드의 '그 밖'은 연준 MBS + 현금 통화 + 이 카드의 '그 밖'이다.")
+                     "공적 역레포, 그 카드의 '그 밖'은 연준 MBS + 현금 통화 + 이 카드의 '그 밖'이다(반올림 전 값끼리 같다 — "
+                     "칸마다 따로 반올림해 각 카드의 '그 밖'이 반올림 차를 받으므로 두 카드의 보이는 정수 합은 1 다를 수 있다).")
         return line, extra
     if key == "rmp_view":
         t = rmp_text(v, date)
@@ -1558,7 +1577,7 @@ def texts(key, v, date):
             extra.append(f"IORB 관측이 {IORB_GAP}일보다 먼 날은 비워 {v['days']}일 중 {v['n']}일만 견줬다.")
         return line, extra
     if key == "srf":
-        line = f"상시 레포 이용 최대 {v['max_bn']:,.1f}bn ({_tagged(v['max_date'], v['max_tag'])}) · {v['from']}~{date}"
+        line = f"상시 레포 이용 최대 {_bn_small(v['max_bn'])}bn ({_tagged(v['max_date'], v['max_tag'])}) · {v['from']}~{date}"
         return line, ["뉴욕 연은 임시 공개시장 운영의 익일물 레포 합계(RPONTTLD — 상시 레포 기구 SRF 이용), 십억 달러다. "
                       "시리즈의 마지막 관측 다섯 가운데 최대이고, 같은 값이면 이른 날을 적는다."]
     if key == "rrp":
@@ -1579,7 +1598,8 @@ def texts(key, v, date):
                          "IORB·역레포 금리·운용 변경은 결정 다음 날(목)부터라 결정의 흔적은 다음 주 숫자에서 본다.")
         if marks:
             extra.append("15일·월말이 든 주는 수요일 수준이 그날 하루의 결제(국채 결제·세금)에 흔들릴 수 있다.")
-        extra.append("H.4.1 주는 목요일부터 수요일까지이고, 연준이 다음 날(목) 16:30(미 동부)에 발표한다.")
+        extra.append("H.4.1 주는 목요일부터 수요일까지이고, 연준이 다음 날(목) 16:30(미 동부)에 발표한다 — 목요일이 연방 공휴일이면 "
+                     "다음 영업일(금)에 나와 그날 갱신에 실린다.")
         return line, extra
     raise KeyError(key)
 
@@ -1600,8 +1620,11 @@ def ops_citation(retrieved, title=OPS_TITLE, url=OPS_URL):
 EXT = {OPS: (OPS_URL, OPS_TITLE), PLAN: (PLAN_URL, PLAN_TITLE)}
 
 
-def sources_of(spec, retrieved=None):
+def sources_of(spec, retrieved=None, values=None):
+    """칸의 출처 — retrieved가 있으면 권장 인용(받은 날)도. RMP 칸에서 운영 결과를 받지 못한 날(대조 줄이 '미수신(수신 실패)')은
+    그 출처의 인용을 싣지 않는다 — 그날 받았다는 인용이 '받지 못함' 바로 아래 나오지 않게(출처 이름은 남긴다)."""
     out = []
+    ops_missing = bool(values) and values.get("checks") is None and values.get("chk_why") == "fetch"
     for sid in spec["series"]:
         s = {"series": sid, "name": SOURCES[sid][0], "url": rp.FRED_URL.format(sid), "licence": LICENCE[sid]}
         if retrieved:
@@ -1610,7 +1633,7 @@ def sources_of(spec, retrieved=None):
     for ext in spec.get("ext", ()):
         url, title = EXT[ext]
         s = {"series": ext, "name": _NYFED, "url": url, "licence": OPS_LICENCE}
-        if retrieved:
+        if retrieved and not (ext == OPS and ops_missing):
             s["citation"] = ops_citation(retrieved, title, url)
         out.append(s)
     return out
@@ -1641,7 +1664,8 @@ def present(key, core, retrieved):
     spec = BY_KEY[key]
     line, extra = texts(key, core["values"], core["date"])
     out = {"key": key, "name": spec["title"], "date": core["date"], "values": core["values"], "retrieved": retrieved,
-           "line": line, "extra": extra, "notices": notices(key, retrieved), "sources": sources_of(spec, retrieved)}
+           "line": line, "extra": extra, "notices": notices(key, retrieved),
+           "sources": sources_of(spec, retrieved, core["values"])}
     if key == "rmp_view":
         out["view"] = rmp_text(core["values"], core["date"])     # 화면이 칸 안의 줄·표를 나눠 그린다(같은 글)
     if spec.get("lines"):
@@ -1692,7 +1716,13 @@ def previous(out):
 
 
 def _ends(key, core):
-    return [("date", core["date"])] + [(k, core["values"].get(k)) for k in BY_KEY[key].get("ends", ())]
+    out = [("date", core["date"])] + [(k, core["values"].get(k)) for k in BY_KEY[key].get("ends", ())]
+    if key == "rmp_view":
+        # 칸 날짜(창 시작일)와 따로 움직이는 줄 — RMP 시작 뒤 지준의 끝 수요일·하한 크기의 마지막 GDP 분기. FRED가 직전보다 이른
+        # 판을 준 날 이 칸만 앞 주·앞 분기로 돌아가 위 칸들(직전 값 유지)과 어긋나지 않게(2026-11-10 점검)
+        v = core["values"]
+        out += [("bridge_e1", (v.get("bridge") or {}).get("e1")), ("floor_q1", (v.get("floor") or {}).get("q1"))]
+    return out
 
 
 def item_ok(key, core, prev, today):

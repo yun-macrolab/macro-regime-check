@@ -34,9 +34,6 @@ try { KEYS_ON = localStorage.getItem("keys") !== "off"; } catch (e) {}
 const people = DATA.people || [];
 const byKey = Object.create(null);
 people.forEach((p, i) => { p._i = i; byKey[p.key] = p; });
-const ALIAS = Object.create(null);   // 옛 주소 → 사람 키(지금은 없다)
-const HASH = Object.assign(Object.create(null), Object.fromEntries(Object.entries(ALIAS).map(([a, k]) => [k, a])));
-const hashOf = p => HASH[p.key] || p.key;
 const hashKey = () => { try { return decodeURIComponent(location.hash.slice(1)); } catch (e) { return ""; } };
 const SEAL = n => "ABCDEFGHIJKL"[n - 1] || "?";
 const DIST = Object.assign(Object.create(null), Object.fromEntries((DATA.districts || []).map(d => [d.n, d])));
@@ -63,7 +60,7 @@ const CODES = {
   "Oxford, United Kingdom": "OXF", "Philadelphia, PA": "PHL", "Poughkeepsie, NY": "POU", "Princeton, NJ": "PRN", "Pullman, WA": "PUL",
   "Redondo Beach, CA": "RDB", "Richmond, VA": "RIC", "Sacramento, CA": "SAC", "San Francisco, CA": "SFO", "Scotland, United Kingdom": "SCO",
   "St. Louis, MO": "STL", "Stamford, CT": "STM", "Swarthmore, PA": "SWA", "Syracuse, NY": "SYR", "Topeka, KS": "TOP", "Urbana, IL": "URB",
-  "Versailles, KY": "VRS", "Williamstown, MA": "WMS", "(도시 미상), Japan": "JPN", "(도시 미상), Senegal": "SEN"
+  "Versailles, KY": "VRS", "(도시 미상), Japan": "JPN", "(도시 미상), Senegal": "SEN"
 };
 function code(place) {
   if (!place) return "???";
@@ -106,6 +103,10 @@ function nextMeeting() {
   const days = Math.round((Date.parse(start + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 864e5);
   return { m, start, days, label: days > 0 ? `D-${days}` : "회의 중" };
 }
+/* 결정일(한국 날짜)이 지났는데 표가 아직 자료에 없는 회의 — 사람이 결과를 옮기기 전(FOMC 뒤 1주 안)이라 '예정'이라 하지 않는다 */
+const waitsResult = m => m.vote == null && (m.date || "") < todayKST();
+const WAITS_TITLE = "날짜는 지났고 결과를 아직 옮기지 않음";
+const decOf = m => (m.decision === "예정" && waitsResult(m) ? "결과 미반영" : m.decision);
 
 /* ───────── 투영 (지도와 같은 앨버스) ───────── */
 const P = MAP.proj, R = Math.PI / 180;
@@ -182,7 +183,7 @@ function nearestOnBox(b, x, y) { return [Math.max(b.x, Math.min(x, b.x + b.w)), 
 
 /* ───────── 노선도 ───────── */
 const routeSvg = sv("svg", { id: "route-svg", role: "img", "aria-label": "걸어온 길 노선도" });
-const route = { svg: routeSvg, vb: { x: 0, y: 0, w: MAP.w, h: MAP.h }, mode: "fit", p: null, anim: 0, raf: 0, timer: 0, items: [], legs: [] };
+const route = { vb: { x: 0, y: 0, w: MAP.w, h: MAP.h }, mode: "fit", p: null, anim: 0, raf: 0, timer: 0, items: [] };
 function buildRouteBase() {
   buildBase(routeSvg);
   route.ghosts = sv("g"); route.seals = sv("g"); route.arcs = sv("g"); route.stops = sv("g"); route.hubs = sv("g"); route.labs = sv("g");
@@ -392,7 +393,7 @@ function drawRoute(p, opt) {
   }
   const blockers = labelItems.map(x => x.box).concat(stopBoxes, hubBoxes, homeBoxes);
   sealBoxes.forEach(({ g, box, isHome }) => { if (!isHome && blockers.some(b => overlap(box, b) > 0)) g.style.display = "none"; });
-  route.items = items; route.legs = legs;
+  route.items = items;
   if (opt.fly && MOTION && opt.from) animateVB(view, opt.from); else { cancelAnimationFrame(route.anim); route.vb = view; setVB(routeSvg, view); }
   capRest();
   if (opt.trace && MOTION && !all) startTrace(items, legs, opt.fly ? 220 : 0);
@@ -472,7 +473,7 @@ function hlStop(n, on, quiet) {
 /* ───────── 연대표 ───────── */
 const ASOF_Y = (() => { const m = /(\d{4})-(\d{2})/.exec(DATA.asof || ""); return m ? +m[1] + (+m[2] - .5) / 12 : 2026.8; })();
 function textPx(s) { let w = 0; for (const ch of String(s)) w += /[ᄀ-ᇿ㄰-㆏가-힣]/.test(ch) ? 12.4 : /[A-Z]/.test(ch) ? 8 : 6.6; return w; }
-function ribbon(p, items, availPx) {
+function ribbon(items, availPx) {
   const wrap = el("div", { class: "ribbon-wrap" });
   const yr = v => v == null ? null : +v;
   const dated = items.filter(x => yr(x.from) != null || yr(x.to) != null);
@@ -634,7 +635,7 @@ function renderFile(p, ropt) {
       el("span", { class: "lamp" + (p.voter_2027 ? " on" : ""), text: p.voter_2027 ? "2027 투표" : "2027 투표 없음" })),
     el("p", { class: "diss" }, ds.length
       ? [`반대 ${ds.length}회 — `, ...ds.flatMap((d, i) => { const s = SIDE(d.side); return [i ? " · " : "", el("span", { class: s.cls, text: s.mark }), ` ${md(d.date)} ${d.side}`]; })]
-      : (p.voter_2026 ? "올해 반대 기록 없음" : "올해 투표권 없음 — 토론·점도표만")),
+      : (p.voter_2026 ? "2026 반대 기록 없음" : "2026 투표권 없음 — 토론·점도표만")),
     p.voter_note ? el("p", { class: "vnote", text: p.voter_note }) : null);
   const head = el("header", { class: "file-head", id: "file-head" }, seal, idblock, idcard,
     el("div", { class: "headline" }, el("span", { class: "k", text: "올해의 흐름 · 운영자 해석" }), headlineNode(p.shift_note || "기록 없음")));
@@ -708,7 +709,7 @@ function renderFile(p, ropt) {
   });
   grid.append(ol);
   const cs = getComputedStyle(f);
-  routeSec.append(ribbon(p, items, f.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2));
+  routeSec.append(ribbon(items, f.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2));
   /* 말·기록 */
   const st = p.style || [], ph = p.phrases || [];
   const talk = el("div", {},
@@ -721,17 +722,17 @@ function renderFile(p, ropt) {
   const strip = el("div", { class: "mstrip", role: "list", "aria-label": "2026 회의별 이 사람의 표" });
   meetings.forEach(m => {
     const c = cellOf(p, m);
-    const label = c.t === "dissent" ? c.side : c.t === "with" ? "다수" : c.t === "before" ? "취임 전" : c.t === "plan" ? "예정" : "–";
+    const label = c.t === "dissent" ? c.side : c.t === "with" ? "다수" : c.t === "before" ? "취임 전" : c.t === "plan" ? (waitsResult(m) ? "미반영" : "예정") : "–";
     const cls = c.t === "dissent" ? SIDE(c.side).cls : c.t;
     strip.append(el("div", { class: `mcell ${cls}${c.chair ? " chair" : ""}`, role: "listitem",
-      title: `${m.date} ${m.decision}${m.vote ? " (" + m.vote + ")" : ""} — ${c.t === "dissent" ? c.side + " 쪽 반대" : c.t === "with" ? "반대 기록 없음(다수 쪽으로 봄)" : c.t === "before" ? "그때는 위원 아님" : c.t === "plan" ? "아직 열리지 않음" : "투표권 없음"}${c.chair ? " · 의장" : ""}` },
+      title: `${m.date} ${decOf(m)}${m.vote ? " (" + m.vote + ")" : ""} — ${c.t === "dissent" ? c.side + " 쪽 반대" : c.t === "with" ? "반대 기록 없음(다수 쪽으로 봄)" : c.t === "before" ? "그때는 위원 아님" : c.t === "plan" ? (waitsResult(m) ? WAITS_TITLE : "아직 열리지 않음") : "투표권 없음"}${c.chair ? " · 의장" : ""}` },
       el("span", { class: "md", text: md(m.date) }), el("span", { class: "mv", text: label })));
   });
   const rec = p.recent || [];
   const record = el("div", {},
     el("h4", { class: "sub" }, "2026 회의", el("span", { text: p.voter_2026 ? "투표권자" : "투표권 없음 — 토론·점도표만" })),
     strip,
-    el("p", { class: "mlegend", text: "다수 = 반대 기록 없음(다수 쪽으로 봄) · – = 투표권 없음 · 점선 = 아직 열리지 않은 회의 · 호박색 밑줄 = 그 회의 의장" }),
+    el("p", { class: "mlegend", text: "다수 = 반대 기록 없음(다수 쪽으로 봄) · – = 투표권 없음 · 점선 = 아직 열리지 않았거나 결과를 아직 옮기지 않은(미반영) 회의 · 호박색 밑줄 = 그 회의 의장" }),
     el("h4", { class: "sub", text: "최근 기록" }),
     el("ul", { class: "recent" }, ...rec.map(r => el("li", {}, el("time", { text: r.date }), el("span", { text: r.text })))));
   f.append(el("section", { id: "sec-talk", "aria-labelledby": "h-talk" },
@@ -859,14 +860,17 @@ function rmWho(p) {
   return b;
 }
 function rmNone(text) { return el("p", { class: "rm-none", text }); }
-/* 사람 파일 안의 발언 하나 */
-function remarkCard(r) {
+/* 사람 파일 안의 발언 하나 — ref = 칸 머리 문구가 기준일을 말하는 발언(그 사람의 가장 새 발언). 비교는 처음 공개한 날의 기준선으로
+   굳어 있어(baseline_asof) 옛 발언이 다른 기준일에 견줬으면 그 날짜를 카드에 붙인다 — 머리 문구의 새 기준선에 견준 것처럼 읽히지 않게 */
+function remarkCard(r, ref) {
   const side = r.dissent ? SIDE(r.dissent) : null;
   return el("li", { class: "rm " + (VS_LOOK[r.vs_base] || ["same"])[0] },
     el("div", { class: "rm-meta" }, el("time", { text: r.said_on }), el("span", { class: "rm-venue", text: r.venue }), rmHearsay(r),
       vsChip(r.vs_base),
       side ? el("span", { class: "rm-dis " + side.cls, text: `반대표 ${side.mark} ${r.dissent}` }) : null,
-      ...r.tags.map(t => el("span", { class: "cert", text: t }))),
+      ...r.tags.map(t => el("span", { class: "cert", text: t })),
+      ref && r.baseline_asof !== ref.baseline_asof
+        ? el("span", { class: "cert", title: "이 발언이 견준 기준선의 기준일 — 처음 공개한 날의 것으로 고정", text: `기준선 ${r.baseline_asof}` }) : null),
     r.topic ? el("p", { class: "rm-topic", text: r.topic }) : null,
     r.quote ? el("p", { class: "rm-quote", lang: "en", text: `“${r.quote}”` }) : null,
     r.why ? el("p", { class: "rm-why", text: r.why }) : null,
@@ -884,9 +888,9 @@ function fillRemarks(sec, p) {
   else if (remarks.state !== "ok") kids.push(rmNone("자동 발언 기록 없음"));
   else if (!mine.length) kids.push(rmNone(rmNoneFor()));
   else {
-    kids.push(el("ol", { class: "rm-list" }, ...mine.slice(0, RM.show).map(remarkCard)));
+    kids.push(el("ol", { class: "rm-list" }, ...mine.slice(0, RM.show).map(r => remarkCard(r, mine[0]))));
     if (mine.length > RM.show) kids.push(el("details", { class: "rm-more" }, el("summary", { text: `나머지 ${mine.length - RM.show}건` }),
-      el("ol", { class: "rm-list" }, ...mine.slice(RM.show).map(remarkCard))));
+      el("ol", { class: "rm-list" }, ...mine.slice(RM.show).map(r => remarkCard(r, mine[0])))));
   }
   sec.replaceChildren(...kids);
 }
@@ -1007,7 +1011,7 @@ function drawDmapMarks() {
   const compact = svg.getBoundingClientRect().width < 480;      /* 휴대폰 폭: 이름은 표에 맡기고 표지 글자만 */
   dmap.seals.replaceChildren(); dmap.labs.replaceChildren();
   const obstacles = [], labs = [];
-  const sealG = (d, p, x, y, r) => {
+  const sealG = (d, p) => {
     const g = sv("g", { class: "seal", "data-key": p ? p.key : "", tabindex: "0", role: "button",
       "aria-label": `${d.n}지구 ${d.bank_ko} — 표지 ${SEAL(d.n)}, 총재 ${p ? p.name_ko : "미상"}. 파일 열기` });
     const go = () => p && select(p.key, { push: true, scroll: true });
@@ -1116,7 +1120,7 @@ function buildSpectrum() {
   const sl = $("scale-labels");
   const labels = (DATA.stance_scale || {}).labels || {};
   Object.keys(labels).map(Number).sort((a, b) => b - a).forEach(v => sl.append(el("li", {}, el("b", { text: fmtS(v).replace(".0", "") }), labels[String(v)])));
-  sl.append(el("li", { text: "근거: " + plainKo((DATA.stance_scale || {}).basis || "") + " · 라벨: " + plainKo(DATA.camp_note || "") }));
+  sl.append(el("li", { text: "근거: " + ((DATA.stance_scale || {}).basis || "") + " · 라벨: " + (DATA.camp_note || "") }));
   const setT = t => { if (spec.time === t) return; spec.time = t; $("t-now").setAttribute("aria-pressed", t === "now" ? "true" : "false"); $("t-jan").setAttribute("aria-pressed", t === "jan" ? "true" : "false"); paintSpec(true); };
   const setC = c => { if (spec.color === c) return; spec.color = c; $("c-camp").setAttribute("aria-pressed", c === "camp" ? "true" : "false"); $("c-vote").setAttribute("aria-pressed", c === "vote" ? "true" : "false"); paintSpec(false); };
   $("t-now").addEventListener("click", () => setT("now")); $("t-jan").addEventListener("click", () => setT("jan"));
@@ -1200,11 +1204,11 @@ function buildLedger() {
   let prevRate = null, prevChair = null;
   meetings.forEach(m => {
     const plan = m.vote == null, soon = nm && nm.m === m;
-    r1.append(el("th", { scope: "col", class: soon ? "cur-col" : null, title: `${m.first_day || ""} ~ ${m.date} · ${m.decision}${m.note ? " — " + m.note : ""}`, text: `${+m.date.slice(5, 7)}/${+m.date.slice(8, 10)}` }));
-    r2.append(el("th", { class: plan ? "plan" : /인상/.test(m.decision) ? "hike" : null, text: plan ? "예정" : decShort(m) }));
+    r1.append(el("th", { scope: "col", class: soon ? "cur-col" : null, title: `${m.first_day || ""} ~ ${m.date} · ${decOf(m)}${m.note ? " — " + m.note : ""}`, text: `${+m.date.slice(5, 7)}/${+m.date.slice(8, 10)}` }));
+    r2.append(el("th", { class: plan ? "plan" : /인상/.test(m.decision) ? "hike" : null, title: plan && waitsResult(m) ? WAITS_TITLE : null, text: plan ? (waitsResult(m) ? "미반영" : "예정") : decShort(m) }));
     r3.append(el("th", { text: plan ? "?" : m.vote }));
     const u = upper(m), up = u && prevRate && +u > +prevRate;
-    r4.append(el("th", { class: up ? "up" : null, title: u ? `범위 윗값 ${u}%` : "아직 열리지 않음", text: u ? (up ? "▲" : "") + u : "—" }));
+    r4.append(el("th", { class: up ? "up" : null, title: u ? `범위 윗값 ${u}%` : waitsResult(m) ? WAITS_TITLE : "아직 열리지 않음", text: u ? (up ? "▲" : "") + u : "—" }));
     if (u) prevRate = u;
     const ch = byKey[m.chair] ? sur(byKey[m.chair]) : (m.chair || "");
     r5.append(el("th", { class: prevChair && prevChair !== m.chair ? "chg" : null, text: ch }));
@@ -1221,14 +1225,19 @@ function buildLedger() {
         const c = cell(r, m);
         const cls = (c.t === "dissent" ? SIDE(c.side).cls : c.t === "with" ? "with" : c.t === "plan" ? "plan" : "off") + (c.chair ? " chair" : "");
         const kid = c.t === "dissent" ? c.side : c.t === "with" ? "·" : c.t === "plan" ? el("span", { class: "q", text: "?" }) : "–";
-        return el("td", { class: cls, title: `${r.full} · ${m.date}: ${c.t === "dissent" ? c.side + " 쪽 반대" : c.t === "with" ? "반대 기록 없음" : c.t === "plan" ? "아직 열리지 않음" : "위원 아님"}${c.chair ? " · 의장" : ""}` }, kid);
+        return el("td", { class: cls, title: `${r.full} · ${m.date}: ${c.t === "dissent" ? c.side + " 쪽 반대" : c.t === "with" ? "반대 기록 없음" : c.t === "plan" ? (waitsResult(m) ? WAITS_TITLE : "아직 열리지 않음") : "위원 아님"}${c.chair ? " · 의장" : ""}` }, kid);
       })));
   });
   t.append(tb);
   /* 칸 합계 확인 */
   const foot = el("tr", {}, el("th", { scope: "row", text: "칸 합" }));
   meetings.forEach(m => {
-    if (!m.vote) { foot.append(el("td", { class: "soon", title: nm && nm.m === m ? `첫날까지 ${nm.label}(한국 날짜)` : "예정", text: nm && nm.m === m ? nm.label : "예정" })); return; }
+    if (!m.vote) {
+      const cur = nm && nm.m === m, wait = !cur && waitsResult(m);
+      foot.append(el("td", { class: "soon", title: cur ? (nm.days > 0 ? `첫날까지 ${nm.label}(한국 날짜)` : "회의 중(한국 날짜)") : wait ? WAITS_TITLE : "예정",
+        text: cur ? nm.label : wait ? "미반영" : "예정" }));
+      return;
+    }
     const [a, b] = m.vote.split("-").map(Number);
     let w = 0, d = 0;
     rows.forEach(r => { const c = cell(r, m); if (c.t === "with") w++; else if (c.t === "dissent") d++; });
@@ -1238,7 +1247,7 @@ function buildLedger() {
   t.append(el("tfoot", {}, foot));
   const ol = $("meets");
   meetings.forEach(m => ol.append(el("li", {}, el("time", { text: md(m.date) }),
-    el("div", {}, el("b", { text: m.decision }), m.vote ? ` · ${m.vote}` : "", m.note ? el("span", { text: " — " + m.note }) : null))));
+    el("div", {}, el("b", { text: decOf(m) }), m.vote ? ` · ${m.vote}` : "", m.note ? el("span", { text: " — " + m.note }) : null))));
   /* 2027 교대 */
   const sw = $("swap");
   const outP = people.filter(p => p.voter_2026 && !p.voter_2027), inP = people.filter(p => !p.voter_2026 && p.voter_2027);
@@ -1310,7 +1319,7 @@ function buildTape() {
   const who = (key, cls, text) => el("span", { class: "tw" + (cls ? " " + cls : ""), "data-key": key, text });
   const items = [];
   meetings.forEach(m => items.push({ d: m.date, node: () => el("span", { class: "tape-item" }, el("time", { text: m.date.slice(2) }),
-    el("span", { text: "FOMC " + (m.vote == null ? `예정 ${md(m.first_day || m.date)}~${m.date.slice(8)}` : m.decision) }),
+    el("span", { text: "FOMC " + (m.vote == null ? `${waitsResult(m) ? "결과 미반영" : "예정"} ${md(m.first_day || m.date)}~${m.date.slice(8)}` : m.decision) }),
     m.vote ? el("em", { text: m.vote }) : null,
     (m.dissents || []).length ? el("small", {}, "반대 ", ...m.dissents.flatMap((x, i) => { const s = SIDE(x.side); return [i ? " " : "", who(x.key, s.cls, s.mark + nameOfKey(x.key))]; })) : null) }));
   (DATA.events_2026 || []).forEach(e => items.push({ d: e.date, node: () => {
@@ -1365,7 +1374,6 @@ function buildSearch() {
     if (/^[a-l]$/.test(n)) { const d = DIST["abcdefghijkl".indexOf(n) + 1]; return d ? [byKey[d.president_key]].filter(Boolean) : []; }
     const dn = /^제?(\d{1,2})(지구)?$/.exec(n); if (dn) { const d = DIST[+dn[1]]; return d ? [byKey[d.president_key]].filter(Boolean) : []; }
     if (n === "dc" || n === "이사" || n === "이사회") return people.filter(p => p.seat === "board");
-    if (ALIAS[n]) return [byKey[ALIAS[n]]].filter(Boolean);
     if (byKey[n]) return [byKey[n]];
     const hits = [];
     const score = p => {
@@ -1391,7 +1399,7 @@ function buildSearch() {
 let current = null;
 function select(key, opt) {
   opt = opt || {};
-  const p = byKey[ALIAS[key] || key] || byKey.warsh || people[0]; if (!p) return;
+  const p = byKey[key] || byKey.warsh || people[0]; if (!p) return;
   const changed = current !== p.key;
   const from = { ...route.vb };
   current = p.key;
@@ -1403,7 +1411,7 @@ function select(key, opt) {
   markDmap();
   markTape();
   if (anim) { const f = $("file"); f.classList.remove("flash"); void f.offsetWidth; f.classList.add("flash"); }
-  if (opt.push && location.hash !== "#" + hashOf(p)) { try { history.replaceState(null, "", "#" + hashOf(p)); } catch (e) { location.hash = hashOf(p); } }
+  if (opt.push && location.hash !== "#" + p.key) { try { history.replaceState(null, "", "#" + p.key); } catch (e) { location.hash = p.key; } }
   if (opt.scroll) {
     const top = $("file-wrap").getBoundingClientRect().top;
     if (top < 0 || top > window.innerHeight * 0.6) jump("file-wrap");
@@ -1416,7 +1424,7 @@ function cycleBoard() {
   const i = board.findIndex(p => p.key === current);
   select(board[(i + 1) % board.length].key, { push: true, scroll: true });
 }
-window.addEventListener("hashchange", () => { const k = hashKey(); const kk = ALIAS[k] || k; if (kk && kk !== current && byKey[kk]) select(kk, { push: true, scroll: true }); });
+window.addEventListener("hashchange", () => { const k = hashKey(); if (k && k !== current && byKey[k]) select(k, { push: true, scroll: true }); });
 /* 한 글자 단축키 — 머리의 ‘단축키’로 끈다(WCAG 2.1.4). 입력칸·조합 중·수정 키와 함께면 무시 */
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && e.target === $("q")) { $("q").value = ""; $("q").blur(); return; }
@@ -1433,13 +1441,6 @@ document.addEventListener("keydown", e => {
 });
 
 /* 숫자 줄 · 주의 한 줄 · 읽기 전에 */
-/* 읽는 글에 자료의 칸 이름(영문 식별자)이 그대로 나오지 않게 — 자료(people-data.js)의 notes에 칸 이름을 쓰면 화면에서만 바꿔 보여 준다 */
-const PLAIN_WORDS = { shift_note: "올해의 흐름", stance_basis: "위치 근거", loc_guess: "위치 추정",
-  phrases: "자주 나온 말", baseline: "기준선", events_2026: "2026 사건 기록", voter_2026: "2026 투표권", voter_2027: "2027 투표권", approx: "근사 메모",
-  camp: "관찰자 라벨", stance: "위치 숫자", states: "주 목록", cert: "확인 수준" };
-function plainKo(s) {
-  return String(s || "").replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)*\b/g, w => PLAIN_WORDS[w] || w);
-}
 function buildStatus() {
   const held = meetings.filter(m => m.vote);
   const dis = held.flatMap(m => m.dissents || []);
@@ -1464,12 +1465,15 @@ function buildNotes() {
   const toNotes = el("button", { type: "button", text: "전문 ↓" }); toNotes.addEventListener("click", () => jump("sec-notes"));
   const draft = DATA.review !== "approved";
   if (!draft) { const m = document.querySelector(".mark"); if (m) { m.title = "참고 자료이고 금리 예측이 아니다"; m.replaceChildren("참고 — 예측 아님"); } }
-  c.append(el("b", { text: draft ? "초안" : "확인" }), draft ? " 사람 확인 전, 대부분 2차 보도" : " 사람이 출처를 확인함", el("i", { "aria-hidden": "true", text: "|" }),
+  /* 초안이면 사람마다의 확인 상태(p.review — 없으면 페이지 전체)를 센다: 2026-11-04부터 일부만 확인함 */
+  const okN = people.filter(p => reviewOf(p) === "approved").length;
+  const draftNote = okN ? ` 섞임 — ${okN}명 확인함 · ${people.length - okN}명 사람 확인 전` : " 사람 확인 전";
+  c.append(el("b", { text: draft ? "초안" : "확인" }), draft ? draftNote : " 사람이 출처를 확인함", el("i", { "aria-hidden": "true", text: "|" }),
     el("b", { text: "라벨" }), " 매파·중도는 관찰자 평판, ±2 위치는 운영자 해석", el("i", { "aria-hidden": "true", text: "|" }),
     el("b", { text: "미확인" }), " ‘사전 지식’·‘위치 추정’ 표시", el("i", { "aria-hidden": "true", text: "|" }), "금리 예측 아님 ", toNotes);
   const ol = $("notes");
-  (DATA.notes || []).forEach(t => ol.append(el("li", { text: plainKo(t) })));
-  if (DATA.camp_note) ol.append(el("li", { text: plainKo(DATA.camp_note) }));
+  (DATA.notes || []).forEach(t => ol.append(el("li", { text: t })));
+  if (DATA.camp_note) ol.append(el("li", { text: DATA.camp_note }));
   const now = specCounts("stance_now"), jan = specCounts("stance_start_2026");
   const nulls = people.filter(p => typeof p.stance_now !== "number").map(sur).join("·");
   ol.append(el("li", { text: "이 페이지가 덧붙인 것(사실 자료 아님): 도시 약호(공항 약호를 닮게 붙인 이름표) · 지구 바탕색 · 표결 장부의 ‘다수’ 칸(반대 기록이 없는 투표권자를 다수 쪽으로 보고 발표된 표 수와 맞춰 본 것)과 ‘취임 전’ 칸(지금 자리 기록의 시작일 — 워시 2026-05-22) · 마이런의 마지막 회의(2026 사건 기록의 05-22 워시 취임 무렵 퇴임으로 보고 그 뒤를 ‘위원 아님’으로) · 장부의 상단 금리 줄(결정 문구 범위의 윗값) · " +
@@ -1491,7 +1495,7 @@ $("next").addEventListener("click", () => step(1));
 function syncHead() { document.documentElement.style.setProperty("--head-h", $("head").offsetHeight + "px"); }
 syncHead();
 {
-  const h = hashKey(), k = ALIAS[h] || h;
+  const k = hashKey();
   select(byKey[k] ? k : "warsh", {});
   /* 사람 주소로 열었고 명단이 파일 위에 쌓이는 좁은 화면이면 곧장 파일로 */
   if (byKey[k] && window.innerWidth <= 1079) requestAnimationFrame(() => jump("file-wrap", true));
@@ -1503,7 +1507,6 @@ window.addEventListener("resize", () => {
   rz = setTimeout(() => { if (Math.abs(window.innerWidth - lastW) < 2) return; lastW = window.innerWidth; if (route.p) drawRoute(route.p, {}); drawDmapMarks(); }, 150);
 });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { syncHead(); if (route.p && !route.raf) drawRoute(route.p, {}); drawDmapMarks(); }).catch(() => {});
-/* 흐름에 따라 기능 키 불 켜기 */
 /* 흐름에 따라 기능 키 불 켜기 — 위에서부터 머리선(머리 높이 + 16px)을 넘어선 마지막 절. 없으면 첫 절 */
 let spyRaf = 0;
 function spy() {
