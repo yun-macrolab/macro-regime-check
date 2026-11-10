@@ -375,7 +375,7 @@ test("core 상태: 위에서부터 처음 맞는 하나 — 일곱 가지의 차
   assert.deepEqual(F.plain(C.pickStatus({ ...base, queueN: 3 })), { name: "QUEUE", key: "ST_QUEUE", vars: { n: 3 }, tone: "" });
 });
 
-test("core 공유: 그날의 글 — 도장 · 그날 쓴 개념 · 질문을 줄마다, 가린 줄 · 기기 이름 · 녹음 초는 넣지 않는다", () => {
+test("core 공유: 그날의 글 — 도장 · 그날 마지막으로 쓴 개념 · 질문을 줄마다, 가린 줄 · 기기 이름 · 녹음 초는 넣지 않는다", () => {
   const st = stamp(TODAY, "full", { stuck: "볼록성을 말로 잇지 못함", dev: "기기이름" });
   const n = mk("next", { text: "기간 프리미엄" }, kst(TODAY, "08:45"), "기기이름", "n001");
   const q1 = ask("A사의 듀레이션은", TODAY, "21:00", "q001");
@@ -386,16 +386,22 @@ test("core 공유: 그날의 글 — 도장 · 그날 쓴 개념 · 질문을 �
   assert.deepEqual([/기기이름|77|97|가릴|어제/.test(text), C.shareDay(viewOf([n, q1]), TODAY), C.shareDay(viewOf([stamp(TODAY, "min")]), TODAY)],
     [false, null, "10-13 화 · 2분 말하기 △"]);
   assert.equal(C.shareDay(viewOf([stamp(TODAY, "min", { stuck: "{mark} $& <b>" })]), TODAY), "10-13 화 · 2분 말하기 △\n막힌 곳: {mark} $& <b>");
+  // 그날 개념을 고쳐 다시 적으면 마지막 것만 — 화면의 '내일:'과 다음 날 '오늘 말할 개념'(topicFor)처럼
+  const n2 = mk("next", { text: "기간 프리미엄 (고침)" }, kst(TODAY, "08:46"), "기기이름", "n002");
+  const two = viewOf([st, n, n2, q1]);
+  assert.equal(C.shareDay(two, TODAY), "10-13 화 · 2분 말하기 ○\n막힌 곳: 볼록성을 말로 잇지 못함\n내일 말할 개념: 기간 프리미엄 (고침)\n질문: A사의 듀레이션은");
+  assert.equal(C.topicFor(two, "2026-10-14"), "기간 프리미엄 (고침)");
 });
 
-test("core 공유: 그 주의 글 — 판정과, 있으면 채점. 판정이 없으면 없다", () => {
+test("core 공유: 그 주의 글 — 그 주의 판정만(채점은 넣지 않는다 — 화면의 '이번 주 판정만'과 같다). 판정이 없으면 없다", () => {
   const w = mk("week", { wk: "2026-10-05", dur: "ow", cur: "steep", why: "고용 둔화", wrong_if: "근원 물가" }, kst("2026-10-05", "08:00"), "PC", "w001");
   const G = { wk: "2026-10-05", ref: idOf(w), actual: "10년 금리 8bp 하락", dur_hit: "y", cur_hit: "na", miss: "단기가 더 내렸다" };
   const head = "2026-10-05 주 · 듀레이션 비중 확대 · 커브 스티프닝\n근거: 고용 둔화\n틀릴 조건: 근원 물가";
   const share = lines => C.shareWeek(viewOf(lines), "2026-10-05");
   assert.equal(share([w]), head);
-  assert.equal(share([w, mk("grade", G, kst("2026-10-12", "08:00"), "PC", "g001")]), head + "\n실제: 10년 금리 8bp 하락\n듀레이션 맞음 · 커브 판단 보류\n빗나간 이유: 단기가 더 내렸다");
-  assert.equal(share([w, mk("grade", { ...G, dur_hit: "n", miss: "" }, kst("2026-10-12", "08:00"), "PC", "g001")]), head + "\n실제: 10년 금리 8bp 하락\n듀레이션 빗나감 · 커브 판단 보류");
+  const graded = viewOf([w, mk("grade", G, kst("2026-10-12", "08:00"), "PC", "g001")]);
+  assert.equal(C.gradeFor(graded, "2026-10-05").actual, "10년 금리 8bp 하락");          // 채점이 있어도
+  assert.equal(C.shareWeek(graded, "2026-10-05"), head);                                // 공유 글은 판정 세 줄 그대로
   assert.deepEqual([C.shareWeek(viewOf([w]), "2026-10-12"), share([]), /PC|w001/.test(share([w]))], [null, null, false]);
   const flat = mk("week", { wk: "2026-10-05", dur: "uw", cur: "flat", why: "근거", wrong_if: "조건" }, kst("2026-10-05", "08:00"), "PC", "w002");
   assert.equal(share([flat]).split("\n")[0], "2026-10-05 주 · 듀레이션 비중 축소 · 커브 플래트닝");

@@ -10,7 +10,8 @@
             이 값 이하인 달의 비율)와 명목 분위. CPI를 받지 못하면 분위만 빠진다(OPTIONAL)
   base      최근 20영업일 평균이 그대로일 때 Brent 전년비의 이번 달과 앞 6개월(1년 전 같은 달 월평균 대비 — 기저 경로),
             그 경로에서 전년비가 이번 달보다 CLIFF_PP 넘게 낮아지는 첫 달(기저 절벽). 그래프 = 월평균 전년비 5년 + 그 경로
-  products  미국 소매 휘발유·경유(EIA, 주간) 수준 · 13주 · 전년비 · 이번 달 평균(마지막 관측의 달) 대 지난달 평균
+  products  미국 소매 휘발유·경유(EIA, 주간) 수준 · 13주 · 전년비(52주 = 364일 전 이하 마지막 관측 — 같은 요일) ·
+            이번 달 평균(마지막 관측의 달) 대 지난달 평균
   cracks    3-2-1 정제 마진(뉴욕항 휘발유×2 + 초저유황 경유×1) ÷ 3 − WTI, 경유 − Brent(달러/배럴) — 마지막 값 · 20영업일
             평균 · 1년 전 20영업일 평균
   spread    Brent − WTI — 마지막 값 · 20영업일 평균 · 13주 전 20영업일 평균
@@ -66,6 +67,8 @@ FLAT_N = 20                                   # 기저 경로의 '그대로' 가
 AVG_N = 20                                    # 마진·스프레드의 평균 창(영업일)
 STEP_DAYS = 91                                # 13주
 TOL_DAYS = 7                                  # 견줄 관측이 목표 날짜보다 이만큼 넘게 이르면 비운다(휴일·주간 자료 여유)
+WEEK_YEAR_DAYS = 364                          # 주간 자료(소매 휘발유·경유)의 전년비 = 52주 전(같은 요일) — 1년 전 같은 날은 일요일이라
+                                              # 그 이하 마지막 관측이 늘 53주 전이었다(2026-11-10)
 PATH_MONTHS = 6
 CLIFF_PP = 30.0                               # 기저 절벽: 이번 달보다 30%p 넘게 낮아지는 첫 달
 STATE_PCT = 10.0                              # 상태: 3개월 로그 변화 ±10%
@@ -169,10 +172,12 @@ def pct(a, b):
     return None if a is None or b is None or b == 0 else (a / b - 1) * 100
 
 
-def level_moves(series):
-    """마지막 관측 → (날짜, 값, 13주 %, 전년비 %)."""
+def level_moves(series, year_days=None):
+    """마지막 관측 → (날짜, 값, 13주 %, 전년비 %). 전년비는 1년 전 같은 날 이하 마지막 관측 대비 — year_days를 주면 그 날수 전
+    이하 마지막 관측 대비(주간 자료는 WEEK_YEAR_DAYS = 52주 전, 같은 요일)."""
     d1, v1 = series[-1]
-    b13, b1y = at_or_before(series, d1 - datetime.timedelta(days=STEP_DAYS)), at_or_before(series, ff.shift_year(d1))
+    y0 = d1 - datetime.timedelta(days=year_days) if year_days else ff.shift_year(d1)
+    b13, b1y = at_or_before(series, d1 - datetime.timedelta(days=STEP_DAYS)), at_or_before(series, y0)
     return d1, v1, pct(v1, b13 and b13[1]), pct(v1, b1y and b1y[1])
 
 
@@ -441,8 +446,8 @@ def calc_base(S):
 
 def calc_products(S):
     g, s = S["GASREGW"], S["GASDESW"]
-    gd, gv, g13, gy = level_moves(g)
-    dd, dv, d13, dy = level_moves(s)
+    gd, gv, g13, gy = level_moves(g, WEEK_YEAR_DAYS)
+    dd, dv, d13, dy = level_moves(s, WEEK_YEAR_DAYS)
     if gy is None or dy is None:
         raise ItemError("format")
     vals = {"gas": _r(gv), "gas_date": _iso(gd), "gas_13w": _r(g13), "gas_yoy": _r(gy),
@@ -728,7 +733,8 @@ def texts(key, v, date):
                 f"전년비 {_f(v['gas_yoy'], sign=True, unit='%')}{_mtd(v, 'gas')} / 경유 {_usd(v['diesel'])}/갤런"
                 f"{_asof(v['diesel_date'], date)} · 13주 {_f(v['diesel_13w'], sign=True, unit='%')} · "
                 f"전년비 {_f(v['diesel_yoy'], sign=True, unit='%')}{_mtd(v, 'diesel')}",
-                [f"{date} 기준 EIA 미국 평균 소매가(휘발유는 보통 등급·모든 제형, 주간). 원유 현물보다 CPI 에너지 항목에 가까운 가격이다.",
+                [f"{date} 기준 EIA 미국 평균 소매가(휘발유는 보통 등급·모든 제형, 주간). 원유 현물보다 CPI 에너지 항목에 가까운 가격이다. "
+                 "13주 변화는 91일 전, 전년비는 52주 전(364일 전 — 같은 요일, 그 주가 비면 그 전 마지막 관측)과 견준다.",
                  "이번 달 평균은 마지막 관측이 든 달의 주간 값 평균을 지난달 평균과 견준 것이다(계절조정 없음 — 달 초에는 한두 주뿐)."])
     if key == "cracks":
         return (f"{date} 3-2-1 {_usd(v['c321'])} (20영업일 평균 {_usd(v['c321_avg'])}, 1년 전 {_usd(v['c321_avg_1y'])}) · "

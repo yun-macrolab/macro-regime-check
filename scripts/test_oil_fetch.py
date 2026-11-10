@@ -292,6 +292,20 @@ class ArithmeticTest(unittest.TestCase):
         self.assertAlmostEqual(v["diesel_13w"], 0.0)
         self.assertEqual((v["gas_m"], v["gas_m_n"], v["gas_m_avg"], v["gas_m_ch"]), ("2026-10-01", 3, 4.0, 0.0))
 
+    def test_weekly_year_on_year_is_52_weeks_back(self):
+        # 월요일 주간 자료의 1년 전 같은 날은 일요일 — 그 이하 마지막 관측이면 늘 53주 전(371일)을 집었다(2026-11-10 바로잡음)
+        d1 = D(2026, 11, 2)
+        s = [(d1 - datetime.timedelta(days=371), 2.0), (d1 - datetime.timedelta(days=364), 3.0), (d1, 4.5)]
+        self.assertEqual(oil.WEEK_YEAR_DAYS, 364)
+        v = oil.calc_products(dict(self.S, GASREGW=s, GASDESW=s))["values"]
+        self.assertAlmostEqual(v["gas_yoy"], 50.0)                                 # 52주 전 3.0(53주 전 2.0이면 +125%)
+        self.assertAlmostEqual(v["diesel_yoy"], 50.0)
+        gap = [s[0], s[2]]                                                         # 52주 전 주가 비면 그 전 마지막 관측(7일 안)
+        self.assertAlmostEqual(oil.calc_products(dict(self.S, GASREGW=gap, GASDESW=gap))["values"]["gas_yoy"], 125.0)
+        self.assertAlmostEqual(oil.level_moves(s)[3], 125.0)                       # 일간 원유는 1년 전 같은 날 이하 그대로
+        _, extra = oil.texts("products", v, "2026-11-02")
+        self.assertIn("전년비는 52주 전(364일 전 — 같은 요일", extra[0])
+
     def test_observations_after_today_are_dropped(self):
         S = dict(self.S, DCOILBRENTEU=self.S["DCOILBRENTEU"] + [(D(2026, 11, 2), 999.0)])
         v = oil.compute(S, {}, NOW.date())["crude"]

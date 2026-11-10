@@ -364,22 +364,20 @@ window.StudyCore = (() => {
     const lines = [
       t("SH_DAY", { date: headDate(date), mark: stamp.mark === "full" ? T.MARK_FULL : T.MARK_MIN }),
       ...(stamp.stuck ? [t("SH_STUCK", { text: stamp.stuck })] : []),
-      ...mine.filter(r => r.k === "next").map(r => t("SH_NEXT", { text: r.text })),
+      ...mine.filter(r => r.k === "next").slice(-1).map(r => t("SH_NEXT", { text: r.text })),   // 화면 · 다음 날 개념처럼 마지막 것만
       ...mine.filter(r => r.k === "q").map(r => t("SH_Q", { text: r.text })),
     ];
     return lines.join("\n");
   }
+  // 그 주의 판정만 — 채점은 그 주가 지난 뒤에만 적을 수 있고 화면은 이번 주만 공유하므로 넣지 않는다
   function shareWeek(view, wk) {
     const call = weekCall(view, wk);
     if (!call) return null;
-    const grade = gradeFor(view, wk);
     const word = (group, value) => T[group + "_" + value.toUpperCase()];
     const lines = [
       t("SH_WEEK", { wk, dur: word("DUR", call.dur), cur: word("CUR", call.cur) }),
       t("SH_WHY", { text: call.why }),
       t("SH_WRONG", { text: call.wrong_if }),
-      ...(grade ? [t("SH_ACTUAL", { text: grade.actual }), t("SH_HIT", { dur: word("HIT", grade.dur_hit), cur: word("HIT", grade.cur_hit) })] : []),
-      ...(grade && grade.miss ? [t("SH_MISS", { text: grade.miss })] : []),
     ];
     return lines.join("\n");
   }

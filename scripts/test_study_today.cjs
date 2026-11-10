@@ -364,6 +364,19 @@ test("오늘 공유: 글에는 그날의 도장 · 내일 말할 개념 · 질�
   assert.deepEqual([/기기A1|77|97|가릴|어제/.test(text), F.byTag(w.doc, "b").length, F.all(w.at("td-sharebox")).length], [false, 0, 1]);
 });
 
+test("오늘 공유: 내일 말할 개념을 고쳐 다시 적으면 글에도 화면의 '내일: …'과 같은 마지막 것 하나만 실린다", async () => {
+  const w = await stamped({ share: "deny", clip: "deny" });
+  F.type(w.at("td-next"), "기간 프리미엄 (오타)");
+  F.press(w.at("td-nextsave"));
+  w.clock.advance(30000);
+  F.type(w.at("td-next"), "기간 프리미엄");
+  F.press(w.at("td-nextsave"));
+  F.press(w.at("td-share"));
+  await F.settle();
+  assert.deepEqual([w.wrote().map(r => r.text), F.text(w.at("td-nextdone")), F.text(w.at("td-sharebox"))],
+    [["기간 프리미엄 (오타)", "기간 프리미엄"], "내일: 기간 프리미엄", SHARED + "\n내일 말할 개념: 기간 프리미엄"]);
+});
+
 test("오늘 공유: 날짜가 바뀐 뒤 누른 [공유]는 어제 것을 넘기지 않는다 — 공유할 기록이 없다는 말만 한다", async () => {
   const w = await stamped({ share: "ok", clip: "ok", now: kstMs("2026-10-13T23:00:00") });
   w.clock.set(kstMs("2026-10-14T04:00:00"));

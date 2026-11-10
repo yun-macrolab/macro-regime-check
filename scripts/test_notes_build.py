@@ -521,6 +521,13 @@ class RepoTest(unittest.TestCase):
             charts = json.load(f)["charts"]
         self.assertLessEqual(wanted, set(charts))
 
+    def test_notes_with_static_charts_leave_the_retrieval_date_to_the_source_line(self):
+        # 받은 날은 그래프 아래 출처 줄(notes_charts.json — notes_charts.py를 다시 돌리면 그날로 바뀐다)에만 둔다. 본문에 날짜를
+        # 글자로 적어 두면 다시 받은 뒤 한 화면에 받은 날이 둘이 된다(2026-11-10 점검)
+        for note in self.built["notes"]:
+            if any(d.get("kind") == "static_chart" for d in walk(note)):
+                self.assertNotRegex(json.dumps(note, ensure_ascii=False), r"\d{4}-\d{2}-\d{2}에 받은", note["slug"])
+
 
 if __name__ == "__main__":
     unittest.main()
