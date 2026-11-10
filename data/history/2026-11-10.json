@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-11-10",
-  "generated_at": "2026-11-10T09:34:00+00:00",
+  "generated_at": "2026-11-10T16:24:37+00:00",
   "notice": "공개 통계에 사전에 정한 규칙을 적용한 결과다. 투자 판단이나 권유가 아니다.",
   "attribution": [
     "Source: FRED®, Federal Reserve Bank of St. Louis (https://fred.stlouisfed.org/).",
@@ -150,7 +150,7 @@
       "rule": "S&P500 일간 수익률과 미 10년 금리 일간 변화의 60영업일 상관이 126영업일 이상 계속 양(+)이면 충족",
       "status": "not_met",
       "scenario": "B",
-      "reading": "ρ60 -0.00, 음(−) 161영업일 지속 = 분산 붕괴·전사 위험 한도 압박",
+      "reading": "ρ60 +0.00, 양(+) 1영업일째(126일 미만)",
       "observations": [
         {
           "label": "60영업일 상관",
@@ -161,8 +161,8 @@
           ],
           "derived": true,
           "computed": true,
-          "value": -0.002,
-          "asof": "2026-11-05"
+          "value": 0.003,
+          "asof": "2026-11-06"
         },
         {
           "label": "같은 부호 연속",
@@ -173,8 +173,8 @@
           ],
           "derived": true,
           "computed": true,
-          "value": 161,
-          "asof": "2026-11-05"
+          "value": 1,
+          "asof": "2026-11-06"
         }
       ],
       "restricted_series": [],
@@ -254,7 +254,7 @@
       "rule": "근원 PCE 전년비가 3% 이하이면 충족 (근원 CPI는 참고)",
       "status": "not_met",
       "scenario": "B, D",
-      "reading": "근원 PCE 3.12% (근원 CPI 2.57%, 괴리 -0.56%p) → 3% 초과 = D2 쪽(붕괴 시 채권 방어 불완전)",
+      "reading": "근원 PCE 3.12% (근원 CPI —%, 괴리 —%p) → 3% 초과 = D2 쪽(붕괴 시 채권 방어 불완전)",
       "observations": [
         {
           "label": "근원 PCE 전년비",
@@ -275,8 +275,8 @@
           ],
           "derived": false,
           "computed": true,
-          "value": 2.566,
-          "asof": "2026-09-01"
+          "value": null,
+          "asof": null
         }
       ],
       "restricted_series": [],
@@ -322,7 +322,7 @@
       "rule": "SOFR이 3개월 전보다 0.25%p 이상 높아지면 충족",
       "status": "met",
       "scenario": "A, D",
-      "reading": "SOFR 3.89% (3개월 +0.27) → 재상승 = 2021 빈티지 이자보상 재악화·PIK 증가",
+      "reading": "SOFR 3.88% (3개월 +0.25) → 재상승 = 2021 빈티지 이자보상 재악화·PIK 증가",
       "observations": [
         {
           "label": "SOFR",
@@ -332,8 +332,8 @@
           ],
           "derived": false,
           "computed": false,
-          "value": 3.89,
-          "asof": "2026-11-06"
+          "value": 3.88,
+          "asof": "2026-11-09"
         },
         {
           "label": "3개월 변화",
@@ -343,8 +343,8 @@
           ],
           "derived": false,
           "computed": true,
-          "value": 0.27,
-          "asof": "2026-11-06"
+          "value": 0.25,
+          "asof": "2026-11-09"
         }
       ],
       "restricted_series": [],
@@ -363,7 +363,7 @@
       "rule": "지준/명목GDP가 9% 미만이거나, 3개월 새 0.3%p 이상 늘고 근원 PCE 전년비가 2%를 넘으면 충족",
       "status": "met",
       "scenario": "A, C",
-      "reading": "승수 4.30 · 지준/명목GDP 8.9% (3개월 -0.19%p) → 8%대 = 대차대조표 임대료 상승(A)",
+      "reading": "승수 4.30 · 지준/명목GDP 8.88% (3개월 -0.19%p) → 9% 미만 = 대차대조표 임대료 상승(A)",
       "observations": [
         {
           "label": "지준/명목GDP",
@@ -536,14 +536,14 @@
       "candidate": "A′",
       "candidate_note": "사분면 판정",
       "sp_13w": "하락",
-      "sp_asof": "2026-11-05",
+      "sp_asof": "2026-11-09",
       "y10_13w_bp": 21.0,
       "y10_asof": "2026-11-06",
-      "rho60": -0.002,
-      "rho60_run_days": 161,
+      "rho60": 0.003,
+      "rho60_run_days": 1,
       "rho60_alert": false,
-      "core_cpi_lt3": "Y",
-      "core_cpi_yoy": 2.566,
+      "core_cpi_lt3": null,
+      "core_cpi_yoy": null,
       "core_pce_yoy": 3.121,
       "transition": {
         "t2": "OFF",
@@ -552,8 +552,8 @@
       },
       "lines": [
         "국면 후보 A′ (사분면 판정) · S&P 500 13주 하락 · 미 10년 13주 +21bp",
-        "ρ60 -0.00 (161일 연속)",
-        "근원 CPI<3% Y (근원 CPI 2.57% · 근원 PCE 3.12% — D1/D2 갈림은 근원 PCE 기준)",
+        "ρ60 +0.00 (1일 연속)",
+        "근원 CPI<3% ? (근원 CPI —% · 근원 PCE 3.12% — D1/D2 갈림은 근원 PCE 기준)",
         "전환 경계 자동 트리거 1/2 (t2 OFF · t4 ON; t1·t3 수동, 넷 중 둘 이상이면 ON)"
       ]
     },
@@ -693,8 +693,8 @@
           "PCEPILFE"
         ],
         "computed": true,
-        "value": -0.555,
-        "asof": "2026-09-01"
+        "value": null,
+        "asof": null
       }
     ],
     "legend": [
@@ -841,8 +841,8 @@
       "label": "HY OAS",
       "owner": "ICE Data Indices",
       "url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2",
-      "last": "2026-11-06",
-      "age_days": 4,
+      "last": "2026-11-09",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "status_only",
@@ -854,8 +854,8 @@
       "label": "IG OAS",
       "owner": "ICE Data Indices",
       "url": "https://fred.stlouisfed.org/series/BAMLC0A0CM",
-      "last": "2026-11-06",
-      "age_days": 4,
+      "last": "2026-11-09",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "status_only",
@@ -867,8 +867,8 @@
       "label": "S&P500",
       "owner": "S&P Dow Jones Indices",
       "url": "https://fred.stlouisfed.org/series/SP500",
-      "last": "2026-11-05",
-      "age_days": 5,
+      "last": "2026-11-09",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "status_only",
@@ -945,8 +945,8 @@
       "label": "근원 CPI",
       "owner": "BLS",
       "url": "https://fred.stlouisfed.org/series/CPILFESL",
-      "last": "2026-09-01",
-      "age_days": 70,
+      "last": "2026-10-01",
+      "age_days": 40,
       "fetched": "net",
       "stale": false,
       "display": "value",
@@ -958,8 +958,8 @@
       "label": "SOFR",
       "owner": "FRBNY",
       "url": "https://fred.stlouisfed.org/series/SOFR",
-      "last": "2026-11-06",
-      "age_days": 4,
+      "last": "2026-11-09",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "value",
@@ -1008,6 +1008,7 @@
   ],
   "warnings": [
     "근원 CPI 결측월 2025-10 — 그 달이 기준치가 되는 12개월 뒤 YoY는 산출 불가(None)로 둔다. BLS 대체입력 탓에 결측 이후 값도 편의가 있을 수 있음",
+    "근원 CPI YoY 산출 불가 — 1년 전 같은 달 관측치 없음(결측월). 근원 PCE로 판단",
     "실업률 결측월 2025-10 — 그 달이 낀 3개월 평균은 남은 2개월로 계산한다. 값은 현재 개정치라 첫 발표 당시와 다를 수 있음"
   ]
 }
