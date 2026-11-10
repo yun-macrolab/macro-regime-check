@@ -343,12 +343,11 @@ test('an older remark compared with an earlier baseline shows that date, under t
 });
 
 test('the caveat counts who was checked, per person', async () => {
-  const ok = PEOPLE.filter(p => p.review === 'approved').length;
   const cav = t => t.doc.getElementById('caveat').textContent;
-  const live = boot(file([]));
-  assert.ok(ok > 0 && ok < PEOPLE.length);
-  assert.ok(cav(live).startsWith(`초안 섞임 — ${ok}명 확인함 · ${PEOPLE.length - ok}명 사람 확인 전|`), cav(live));
-  assert.doesNotMatch(cav(live), /대부분 2차 보도/);
+  const ok = 3;                                                                                  // 지금 자료가 아니라 아는 섞임으로 — 나머지를 승인해도 테스트가 그대로
+  const mix = boot(file([]), '', d => { d.review = 'draft'; d.people.forEach((p, i) => { p.review = i < ok ? 'approved' : 'draft'; }); });
+  assert.ok(cav(mix).startsWith(`초안 섞임 — ${ok}명 확인함 · ${PEOPLE.length - ok}명 사람 확인 전|`), cav(mix));
+  assert.doesNotMatch(cav(boot(file([]))), /대부분 2차 보도/);                                    // 지금 자료: 옛 고정 문구가 없다
   const none = boot(file([]), '', d => { d.review = 'draft'; d.people.forEach(p => { delete p.review; }); });
   assert.ok(cav(none).startsWith('초안 사람 확인 전|'), cav(none));                               // 사람 칸이 없으면 페이지 전체(초안)
   const all = boot(file([]), '', d => { d.review = 'approved'; });
@@ -367,15 +366,18 @@ test('the notes are shown as the data writes them', async () => {
 test('a meeting whose date has passed without a result is not called upcoming (fixed clock, Korean date)', async () => {
   const kst = s => Date.parse(s + '+09:00');
   const ledgerTitles = t => all(t.doc.getElementById('ledger'), n => (n.attrs.title || '').includes('2026-12-09')).map(n => n.attrs.title);
+  // 마지막 회의를 결과 없는 12-08~09로 고정한다 — 지금 자료에 12월 결과를 옮겨도 테스트가 그대로
+  const pinDec = d => Object.assign(d.meetings_2026[d.meetings_2026.length - 1],
+    { first_day: '2026-12-08', date: '2026-12-09', decision: '예정', vote: null, dissents: [] });
   // 회의 첫날(한국 12-08) — 꼬리말은 '회의 중', '첫날까지 회의 중'이 아니다
-  const d8 = boot(file([]), '', null, kst('2026-12-08T10:00:00'));
+  const d8 = boot(file([]), '', pinDec, kst('2026-12-08T10:00:00'));
   const foot8 = byClass(d8.doc.getElementById('ledger'), 'soon');
   assert.equal(foot8.length, 1);
   assert.equal(foot8[0].textContent, '회의 중');
   assert.equal(foot8[0].attrs.title, '회의 중(한국 날짜)');
   assert.match(d8.doc.getElementById('tape').textContent, /FOMC 예정 12-08~09/);
   // 결정일 다음 날(한국 12-10) — 일정은 끝났고, 결과를 옮기기 전의 12월 회의는 '미반영'
-  const d10 = boot(file([]), '', null, kst('2026-12-10T10:00:00'));
+  const d10 = boot(file([]), '', pinDec, kst('2026-12-10T10:00:00'));
   assert.equal(d10.doc.getElementById('dday').textContent, '2026 일정 끝');
   const dec = byClass(d10.doc.getElementById('ledger'), 'r-dec')[0];
   assert.equal(dec.kids[dec.kids.length - 1].textContent, '미반영');
@@ -393,7 +395,7 @@ test('a meeting whose date has passed without a result is not called upcoming (f
   assert.equal(byClass(last, 'mv')[0].textContent, '미반영');
   assert.match(last.attrs.title, /날짜는 지났고 결과를 아직 옮기지 않음/);
   // 전날(한국 12-07) — 아직 열리지 않은 회의는 그대로 '예정'
-  const d7 = boot(file([]), '', null, kst('2026-12-07T10:00:00'));
+  const d7 = boot(file([]), '', pinDec, kst('2026-12-07T10:00:00'));
   assert.equal(byClass(byClass(d7.doc.getElementById('ledger'), 'r-dec')[0], 'plan')[0].textContent, '예정');
   assert.ok(ledgerTitles(d7).some(s => s.includes('아직 열리지 않음')));
   // 2027년 초 — 투표권 줄은 '올해'가 아니라 '2026'
