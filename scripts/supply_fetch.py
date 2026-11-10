@@ -140,6 +140,9 @@ def fetch_text(url, opener=None, clock=time.monotonic):
             if size > MAX_BYTES:
                 raise SideError("fetch")
             chunks.append(chunk)
+        rest = getattr(r, "length", None)           # Content-Length에서 아직 덜 받은 바이트(ai_invest_fetch.fetch_csv와 같다)
+        if isinstance(rest, int) and not isinstance(rest, bool) and rest > 0:
+            raise SideError("fetch")                # read1은 일찍 끊겨도 오류를 내지 않는다 — 잘린 마지막 값을 싣지 않게
     return b"".join(chunks).decode("utf-8", "replace")
 
 

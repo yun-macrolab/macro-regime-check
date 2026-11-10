@@ -13,6 +13,7 @@ SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
 import tp_fetch as tp
 import ai_invest_fetch as ai
+import test_ai_invest_fetch as tai
 import render_public as rp
 from test_render_public import FORBIDDEN_TEXT
 
@@ -608,6 +609,24 @@ class MainTest(unittest.TestCase):
             self.assertEqual((m["ok"], m["error"]), (False, tp.REASONS["fetch"]))
             self.assertTrue(self.saved()["items"]["weekly"]["ok"])
             self.assertFalse(os.path.exists(os.path.join(self.work, tp.CACHE, tp.ACM_CACHE)))
+
+    def test_an_acm_body_cut_short_of_content_length_is_a_failure(self):
+        """Content-Length보다 일찍 끊긴 ACM 파일(마지막 숫자 안에서)은 받지 않는다 — 대조 칸은 수신 실패, 주간 칸은 그대로."""
+        body = acm_csv(self.rows).encode("utf-8")
+        def opener(cut):
+            def call(url, timeout=None):
+                r = tai.FetchTest.http_response(body[:-cut] if cut else body, len(body))   # 진짜 http.client.HTTPResponse
+                r.url = url
+                return r
+            return call
+        self.assertEqual(tp.fetch_acm(1e12, opener=opener(0)), body.decode())
+        with self.assertRaisesRegex(ValueError, "^truncated$"):
+            tp.fetch_acm(1e12, opener=opener(4))
+        code, log = self.run_main(opener=opener(4))
+        m = self.saved()["items"]["models"]
+        self.assertEqual((m["ok"], m["error"]), (False, tp.REASONS["fetch"]))
+        self.assertTrue(self.saved()["items"]["weekly"]["ok"])
+        self.assertFalse(os.path.exists(os.path.join(self.work, tp.CACHE, tp.ACM_CACHE)))
 
     def test_acm_read_stops_at_the_deadline(self):
         clock = Clock()

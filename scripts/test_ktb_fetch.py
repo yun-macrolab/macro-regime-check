@@ -9,6 +9,7 @@ import os, sys, io, re, json, html, datetime, tempfile, unittest, shutil, contex
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
 import ktb_fetch as kf
+import test_ai_invest_fetch as tai
 
 REPO = os.path.dirname(SCRIPTS)
 D = datetime.date
@@ -245,6 +246,18 @@ class CollectTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             kf.fetch(kf.search_url(), op, clock=lambda: next(ticks))
         self.assertEqual(kf.fetch(kf.search_url(), FakeOpener(["abc"]), clock=lambda: 0), "abc")
+
+    def test_a_body_cut_short_of_content_length_is_an_error(self):
+        body = page(daily_post(1, 2026, 10, 7)).encode("utf-8")
+        def opener(cut):
+            def call(url, timeout=None):
+                r = tai.FetchTest.http_response(body[:-cut] if cut else body, len(body))   # 진짜 http.client.HTTPResponse
+                r.url = url
+                return r
+            return call
+        self.assertEqual(kf.fetch(kf.search_url(), opener(0)), body.decode())
+        with self.assertRaisesRegex(RuntimeError, "중간에 끊김"):
+            kf.fetch(kf.search_url(), opener(40))
 
 
 def row(d, post, y3=3.9, y5=4.1, y10=4.35, y30=4.6, chg=None):

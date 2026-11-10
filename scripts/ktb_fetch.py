@@ -188,6 +188,9 @@ def fetch(url, opener=None, clock=time.monotonic):
             if size > MAX_BYTES:
                 raise RuntimeError("응답이 너무 큼")
             chunks.append(chunk)
+        rest = getattr(r, "length", None)           # Content-Length에서 아직 덜 받은 바이트(ai_invest_fetch.fetch_csv와 같다)
+        if isinstance(rest, int) and not isinstance(rest, bool) and rest > 0:
+            raise RuntimeError("응답이 중간에 끊김")   # read1은 일찍 끊겨도 오류를 내지 않는다 — 잘린 글의 숫자를 싣지 않게
     return b"".join(chunks).decode("utf-8", "replace")
 
 

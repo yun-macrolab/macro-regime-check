@@ -21,6 +21,7 @@ import sec_fetch as sf
 import ai_invest_fetch as ai
 import render_public as rp
 import test_sec_fetch as tsf
+import test_ai_invest_fetch as tai
 from test_render_public import FORBIDDEN_TEXT
 
 REPO = os.path.dirname(SCRIPTS)
@@ -1186,6 +1187,25 @@ class ExtFetchTest(unittest.TestCase):
         web = FakeWeb()                                                           # 마감이 멀어도 요청 하나엔 10초까지
         self.assertEqual(cf.fetch_bytes(cf.EBP_URL, cf.EBP_HOST, 1e9, clock=lambda: 0.0, opener=web), ebp_csv())
         self.assertEqual(web.calls, [(cf.EBP_URL, cf.UA, cf.REQ_TIMEOUT)])
+
+    def test_a_body_cut_short_of_content_length_is_a_failure(self):
+        """Content-Length보다 일찍 끊긴 응답(마지막 숫자 안에서)은 받지 않는다 — 수신 실패, 캐시에도 쓰지 않는다."""
+        body = ebp_csv()
+        def web(cut):
+            def opener(req, timeout=None):
+                r = tai.FetchTest.http_response(body[:-cut] if cut else body, len(body))   # 진짜 http.client.HTTPResponse
+                r.url = req.full_url
+                return r
+            return opener
+        self.assertEqual(cf.fetch_bytes(cf.EBP_URL, cf.EBP_HOST, 1e9, clock=lambda: 0.0, opener=web(0)), body)
+        with self.assertRaisesRegex(ValueError, "^truncated$"):
+            cf.fetch_bytes(cf.EBP_URL, cf.EBP_HOST, 1e9, clock=lambda: 0.0, opener=web(3))
+        both = lambda req, timeout=None: (web(3) if req.full_url == cf.EBP_URL else FakeWeb())(req, timeout)
+        with contextlib.redirect_stdout(io.StringIO()):
+            data, errors = cf.load_all(self.tmp, fred_load=FakeFred(world()), opener=both)
+        self.assertEqual(errors, {cf.EBP: "fetch"})
+        self.assertNotIn(cf.EBP, data)
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, cf.CACHE, "ebp_csv.csv")))
 
     def test_size_cap_is_five_megabytes_and_exact(self):
         self.assertEqual(cf.MAX_BYTES, 5_000_000)

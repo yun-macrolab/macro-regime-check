@@ -11,6 +11,7 @@ from unittest import mock
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
 import supply_fetch as sf
+import test_ai_invest_fetch as tai
 from test_render_public import FORBIDDEN_TEXT
 
 REPO = os.path.dirname(SCRIPTS)
@@ -152,6 +153,19 @@ class FetchTest(unittest.TestCase):
         op = FakeOpener("{}", final="http://markets.newyorkfed.org/api/pd/get/PDPOSGST-TOT.json")   # 같은 호스트·경로라도
         with self.assertRaises(sf.SideError) as e:
             sf.fetch_text(sf.PD_URL, op)
+        self.assertEqual(e.exception.code, "fetch")
+
+    def test_a_body_cut_short_of_content_length_is_a_failure(self):
+        body = pd_json(dealer_series()[-3:]).encode("utf-8")
+        def opener(cut):
+            def call(url, timeout=None):
+                r = tai.FetchTest.http_response(body[:-cut] if cut else body, len(body))   # 진짜 http.client.HTTPResponse
+                r.url = url
+                return r
+            return call
+        self.assertEqual(sf.fetch_text(sf.PD_URL, opener(0)), body.decode())
+        with self.assertRaises(sf.SideError) as e:                              # 마지막 값 안에서 끊김
+            sf.fetch_text(sf.PD_URL, opener(len(body) - body.rindex(b'"value": "') - 12))
         self.assertEqual(e.exception.code, "fetch")
 
     def test_an_oversized_response_is_a_failure(self):

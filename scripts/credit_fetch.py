@@ -1176,6 +1176,9 @@ def fetch_bytes(url, host, deadline, clock=time.monotonic, opener=None):
             if size > MAX_BYTES:
                 raise ValueError("too large")
             chunks.append(chunk)
+        rest = getattr(r, "length", None)           # Content-Length에서 아직 덜 받은 바이트(ai_invest_fetch.fetch_csv와 같다)
+        if isinstance(rest, int) and not isinstance(rest, bool) and rest > 0:
+            raise ValueError("truncated")           # read1은 일찍 끊겨도 오류를 내지 않는다
     return b"".join(chunks)
 
 
