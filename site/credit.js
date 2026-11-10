@@ -94,7 +94,7 @@ window.CreditCard = (() => {
     if (!usable(it, key))
       return el("div", { class: "credit-row" }, el("p", { class: "credit-name" }, el("strong", {}, name), " — ", missing(it)));
     const detail = texts(it.detail);
-    return el("div", { class: "credit-row" + (key === "stage" ? " credit-stage" : "") },
+    return el("div", { class: "credit-row" },
       el("p", { class: "credit-name" }, el("strong", {}, name), " ", el("small", {}, it.date)),
       el("p", { class: "credit-num" }, it.line),
       ...texts(it.extra).map(t => el("p", { class: "muted" }, t)),

@@ -1036,6 +1036,15 @@ class StaticTest(unittest.TestCase):
         self.assertIn('href="#ai" data-view="ai"', page)
         self.assertIn('"sources", "ai"]', page)                                 # 알려진 화면
 
+    def test_card_cites_only_licences_the_collector_writes(self):
+        # 카드가 인용을 싣는 licence(CITE_LICENCES)는 수집기가 실제로 쓰는 값 가운데 인용이 필요한 것(UNLABELED)뿐이다
+        js = self.read("site", "ai_invest.js")
+        code = re.sub(r"/\*.*?\*/|//[^\n]*", "", js, flags=re.S)
+        lics = re.findall(r'"([^"]+)"', re.search(r"const CITE_LICENCES = \[([^\]]*)\];", code).group(1))
+        self.assertEqual(lics, [ai.UNLABELED])
+        self.assertLessEqual(set(lics), set(ai.LICENCE.values()))
+        self.assertEqual(set(ai.LICENCE.values()), {"public-domain", "restricted", ai.UNLABELED})
+
     def test_screen_order_matches_the_file(self):
         js = self.read("site", "ai_invest.js")
         keys = re.findall(r'\["(\w+)"(?:, "\w+")*\]\]', js)

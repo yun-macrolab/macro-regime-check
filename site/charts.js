@@ -218,17 +218,17 @@
       const p = onOrBefore(l.pts, t), dot = st.focus[j];
       if (!p || p[1] === null) {
         dot.setAttribute("visibility", "hidden");
-        return html("div", { class: "ch-tip-row" }, keyOf(l), html("strong", {}, "—"), l.label);
+        return html("div", {}, keyOf(l), html("strong", {}, "—"), l.label);
       }
       dot.setAttribute("cx", st.X(p[0]));
       dot.setAttribute("cy", st.Y(p[1]));
       dot.setAttribute("visibility", "visible");
       dotYs.push(st.Y(p[1]));
-      return html("div", { class: "ch-tip-row" }, keyOf(l), html("strong", {}, st.fmt(p[1])), l.label,
+      return html("div", {}, keyOf(l), html("strong", {}, st.fmt(p[1])), l.label,
         p[0] !== t ? html("span", { class: "ch-tip-asof" }, ` (${iso(p[0])})`) : null);
     });
     const bandRows = st.bands.filter(b => inBand(b, t)).map(b =>
-      html("div", { class: "ch-tip-row" }, keyOf(b), b.label));
+      html("div", {}, keyOf(b), b.label));
     st.tip.replaceChildren(html("div", { class: "ch-tip-date" }, iso(t)), ...rows, ...bandRows);
     st.tip.hidden = false;
     const w = st.tip.offsetWidth, h = st.tip.offsetHeight;
@@ -311,7 +311,7 @@
     const plot = html("div", { class: "ch-plot" }, el, tip);
     const legend = lines.length > 1 || bands.length ? html("div", { class: "ch-legend" }, ...lines.map(l =>
       html("span", {}, keyOf(l), l.role === "ref" ? `${l.label} (참고)` : l.label)),
-      ...bands.map(b => html("span", { class: "ch-legend-band" }, keyOf(b), `아래 띠: ${b.label}`))) : null;
+      ...bands.map(b => html("span", {}, keyOf(b), `아래 띠: ${b.label}`))) : null;
     const fig = html("figure", { class: "ch" },
       o.caption ? html("figcaption", { class: "ch-title" }, title) : null, legend, plot,
       spec.note ? html("p", { class: "ch-note muted" }, String(spec.note)) : null,

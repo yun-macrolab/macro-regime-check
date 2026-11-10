@@ -75,7 +75,7 @@ window.CdsCard = (() => {
   function card(d) {
     const items = d.items, notices = [];
     for (const k of CARD) if (usable(items[k], k)) for (const t of texts(items[k].notices)) if (!notices.includes(t)) notices.push(t);
-    return el("article", { class: "oil-card cds-card", "aria-label": "단일종목 CDS 참고" },
+    return el("article", { class: "oil-card", "aria-label": "단일종목 CDS 참고" },
       el("h3", {}, "단일종목 CDS — 하이퍼스케일러·AI 칩 12곳", el("span", { class: "reference-label" }, LABEL)),
       el("p", { class: "muted" }, ABOUT),
       ...CARD.map(k => row(items[k], k)),

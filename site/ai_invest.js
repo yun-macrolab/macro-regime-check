@@ -28,8 +28,8 @@ window.AiInvest = (() => {
   const ABOUT = "AI 투자를 다섯 갈래로 나눠 공개 통계의 숫자와 그래프만 싣습니다. 이 사이트의 규칙 판정에 쓰지 않는 참고 자료라 " +
     "충족·미충족이나 상태 판정이 없고, 값의 크기나 방향을 시장 전망으로 읽지 않습니다.";
   const DAY = /^\d{4}-\d{2}-\d{2}$/;
-  // 권장 인용 — 이 licence의 출처만(scripts/ai_invest_fetch.py UNLABELED · 인용 필요). 꼴('…, retrieved from …, October 30, 2026.')이 다르면 싣지 않는다
-  const CITE_LICENCES = ["board-public-domain (FRED unlabeled)", "citation-required"];
+  // 권장 인용 — 이 licence의 출처만(scripts/ai_invest_fetch.py UNLABELED). 꼴('…, retrieved from …, October 30, 2026.')이 다르면 싣지 않는다
+  const CITE_LICENCES = ["board-public-domain (FRED unlabeled)"];
   const CITE = /^[^<>]{1,300}, retrieved from [^<>]{1,300}, [A-Z][a-z]+ \d{1,2}, \d{4}\.$/;
   const texts = v => (Array.isArray(v) ? v : []).filter(x => typeof x === "string" && x);
   const isObj = v => v && typeof v === "object" && !Array.isArray(v);

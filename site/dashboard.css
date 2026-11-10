@@ -10,7 +10,7 @@
   --blue: #5ab1ff; --key: #f6d200; --go: #36d07f; --alert: #ff5449;
   --gold: #d3a45f; --gold-cell: #1f1810;   /* 흐름도(읽는 법) 전용 — 호박색보다 차분한 금색 테두리 · 표 머리 칸의 갈색 바탕 */
   /* 한국 시장 절(korea.js가 그리는 표·탭)이 쓰는 이름. 아랫줄 --ch-*는 그래프 색 — 검정 위 대비 3:1 이상, 선 셋은 밝기와 색상이 모두 다르다 */
-  --bg: var(--black); --fg: var(--ink); --muted: var(--dim); --line: var(--rule); --card: var(--black); --link: var(--blue);
+  --fg: var(--ink); --muted: var(--dim); --line: var(--rule); --card: var(--black);
   --ch-1: #f4f4f4; --ch-2: #ff9e1b; --ch-3: #3ec6ff; --ch-ref: #808080; --ch-band-1: #e2574c; --ch-band-2: #9b87f5; --ch-th: var(--key); --ch-grid: #2e2e2e; --ch-axis: #6a6a6a;
   --f-text: "IBM Plex Sans KR", "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   --f-mono: "IBM Plex Mono", "D2Coding", "Cascadia Mono", "Consolas", "Menlo", monospace;
