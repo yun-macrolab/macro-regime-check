@@ -74,7 +74,7 @@ window.StudyCore = (() => {
   // 마지막 맞춤의 때: 오늘(KST 달력 날짜)이면 시각만, 다른 날이면 날짜도(상태 줄과 설정의 상태 줄이 함께 쓴다)
   function syncedAt(ms, nowMs) {
     const at = stampT(ms);
-    return (at.slice(0, 10) === stampT(nowMs).slice(0, 10) ? "" : at.slice(5, 10) + " ") + at.slice(11, 16);
+    return (at.slice(0, 10) === stampT(nowMs).slice(0, 10) ? "" : at.slice(5, 10) + " ") + hhmm(ms);
   }
   function mmss(sec) {
     return Math.floor(sec / 60) + ":" + pad(sec % 60, 2);
