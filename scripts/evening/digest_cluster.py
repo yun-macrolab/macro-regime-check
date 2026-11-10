@@ -58,7 +58,7 @@ import digest_schema as S
 TH = S.TH
 AB = ("A", "B")
 KEY_GROUPS = ("bond", "analyst")        # 주제 열쇠·일정 열쇠를 만드는 그룹
-AUCTION_A = ("10년", "30년")            # 국고채 입찰 일정의 등급: 10·30년 A, 그 밖 B (설계 4절 E 항)
+AUCTION_A = ("10년", "30년")            # 국고채 입찰 일정의 등급: 10·30년 A, 그 밖 B (digest_score.py 머리말의 E)
 AUCTION_TERM = "국고채 입찰"
 SHARED_MIN = TH["k_result_min_ch"]      # '두 곳 이상이 똑같이 쓴'의 둘 — 숫자 칸과 그 결과 낱말에 쓴다
 MAX_WORDS, MAX_KEYS = 12, 60            # 글·묶음에 싣는 낱말·숫자 수, 묶음의 열쇠 수 — 계약(digest_schema)의 형태 상한과 같다

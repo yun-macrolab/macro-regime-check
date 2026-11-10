@@ -6,6 +6,7 @@
 """
 import contextlib
 import copy
+import datetime
 import io
 import os
 import sys
@@ -192,6 +193,46 @@ class PipelineTest(PipelineCase):
                            ["pipeline", "--work", self.work, "--out", self.data, "--data", self.data])
         self.assertEqual((code, text), (1, "[evening_run] 실패: ValueError\n"))
         self.assertIn("digest_state.json", tree(self.data))
+
+
+class CalendarWarningTest(PipelineCase):
+    """일정표가 곧 끝나면 경고 한 줄 — 게시와 출력 값은 그대로다."""
+
+    def calendar(self, *days):
+        put(self.data, {"calendar.json": {"schema": 1, "updated": "2026-10-01",
+                                          "events": [{"date": d, "time": None, "term": "금통위", "tier": "A"} for d in days]}})
+
+    def test_warns_when_the_last_event_is_near_and_still_publishes(self):
+        today = S.edition_date(S.parse_iso(F.NOW))
+        near = (datetime.date.fromisoformat(today) + datetime.timedelta(days=E.CAL_AHEAD - 1)).isoformat()
+        self.calendar(today, near)
+        code, text = self.run_pipeline(Runner(), "--now", F.NOW)
+        self.assertEqual(code, 0, text)
+        self.assertIn(f"::warning::일정표(data/calendar.json)가 {near}에서 끝난다({E.CAL_AHEAD - 1}일 남음)", text)
+        self.assertEqual(self.outputs(), {"publish": "true", "alert": "false", "reason": "ok", "stage": "done"})
+        self.assertEqual(F.leaks(text), [])
+
+    def test_quiet_when_the_calendar_reaches_far_enough(self):
+        far = (datetime.date.fromisoformat(S.edition_date(S.parse_iso(F.NOW))) + datetime.timedelta(days=E.CAL_AHEAD)).isoformat()
+        self.calendar(far)
+        code, text = self.run_pipeline(Runner(), "--now", F.NOW)
+        self.assertEqual(code, 0, text)
+        self.assertNotIn("::warning::", text)
+
+    def test_empty_or_missing_calendar(self):
+        self.calendar()
+        self.assertIn("::warning::일정표(data/calendar.json)가 비어 있다", self.run_pipeline(Runner(), "--now", F.NOW)[1])
+        os.remove(os.path.join(self.data, "calendar.json"))                      # 못 읽으면 조용히(점수 단계가 알린다)
+        self.assertNotIn("::warning::", self.run_pipeline(Runner(), "--now", F.NOW)[1])
+
+    def test_the_real_calendar_is_read_with_the_edition_date(self):
+        a = types.SimpleNamespace(data=S.DATA, now="2026-12-31T01:30:00+09:00")    # 자정을 넘긴 12-30 판의 재실행
+        cal = S.read_json(os.path.join(S.DATA, "calendar.json"))
+        last = max(e["date"] for e in cal["events"])
+        with contextlib.redirect_stdout(io.StringIO()):
+            msg = E._calendar_warning(a)
+        left = (datetime.date.fromisoformat(last) - datetime.date(2026, 12, 30)).days
+        self.assertEqual(msg is None, left >= E.CAL_AHEAD)
 
 
 class Page:

@@ -117,7 +117,7 @@ class PreviewTest(Screen):
 
     @unittest.skipUnless(NODE, "node가 없다")
     def test_every_case_draws(self):
-        want = {"ok": "꼭 3건", "fewer": "꼭 2건", "none": "오늘은 기준을 넘은 묶음이 없습니다", "short": "수집 부족",
+        want = {"ok": "꼭 3건", "fewer": "꼭 2건", "none": "이 판에는 기준을 넘은 묶음이 없습니다", "short": "수집 부족",
                 "partial": "24채널 중 23 읽음", "hidden": "표시하지 않은 항목 1건", "withdrawn": "이 판은 내렸습니다",
                 "late": "10-09(금) 판이 아직 없습니다", "failed": "판을 내지 않았습니다", "empty": "아직 판이 없습니다"}
         self.assertEqual(set(want), set(PV.CASES))

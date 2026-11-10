@@ -11,7 +11,7 @@
   - 상태만 낸 날(형식 바뀜 · 실행 실패): digest_status.json만 옮긴다 — 직전 판은 그대로 남는다.
   - 이미 올라간 상태보다 앞선 시각의 것은 옮기지 않는다(늦게 끝난 옛 실행이 새 판을 덮지 않게).
 
-사용법: python scripts/evening/digest_publish.py --from <폴더> --data data [--sources data/sources.json]
+사용법: python scripts/evening/digest_publish.py --from <폴더> --data data
 종료코드: 0 옮김 / 1 검사 위반이나 실패(아무것도 옮기지 않음)
 """
 import argparse
@@ -65,10 +65,9 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="저녁판 게시 — 검사를 통과한 공개 폴더의 저녁판 파일만 data/로 옮긴다")
     ap.add_argument("--from", dest="src", required=True, help="수집 잡이 만든 공개 폴더(아티팩트)")
     ap.add_argument("--data", default=S.DATA, help="옮길 곳 (기본: 저장소의 data/)")
-    ap.add_argument("--sources", default=None, help="출처 목록 (기본: <data>/sources.json)")
     a = ap.parse_args(argv)
     src, data = os.path.abspath(a.src), os.path.abspath(a.data)
-    sources = S.validate_sources(S.read_json(a.sources or os.path.join(data, "sources.json")))
+    sources = S.validate_sources(S.read_json(os.path.join(data, "sources.json")))
     bad, files, removed, facts = publish(src, data, sources)
     if bad:
         S.report("digest_publish", violations=bad)

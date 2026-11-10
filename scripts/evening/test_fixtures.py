@@ -69,7 +69,7 @@ class PostsTest(unittest.TestCase):
         for a, b in F.EXPECT_APART:
             self.assertTrue({a, b} <= ids)
             self.assertFalse(any(a in g and b in g for g in F.EXPECT_SAME.values()))
-        cpi = F.EXPECT_SAME["cpi"]                                                         # 설계 4절의 예: 채권 3 · 애널 2 · 개인 3 · 속보형 1
+        cpi = F.EXPECT_SAME["cpi"]                                                         # 지어낸 예: 채권 3 · 애널 2 · 개인 3 · 속보형 1
         count = lambda group, role: len({ch for ch, _ in cpi if (F.GROUP[ch], F.ROLE[ch]) == (group, role)})
         got = (count("bond", "source"), count("analyst", "source"), count("personal", "source"), count("personal", "wire"))
         self.assertEqual(got, (3, 2, 3, 1))

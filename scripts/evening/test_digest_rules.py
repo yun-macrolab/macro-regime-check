@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""저녁판 규칙(digest_rules) 테스트 — 숫자 표가 설계의 예시와 맞는지, 사전이 엉뚱한 글자에 걸리지 않는지, 숫자를 한 꼴로 맞추는지.
+"""저녁판 규칙(digest_rules) 테스트 — 숫자 표가 점수 규칙(digest_score.py 머리말)과 맞는지, 사전이 엉뚱한 글자에 걸리지 않는지, 숫자를 한 꼴로 맞추는지.
 
 실행:  python -m unittest discover -s scripts/evening   (저장소 루트에서)
 네트워크 불필요 — 보기 문장은 전부 지어낸 것이다.
@@ -25,7 +25,7 @@ def nums(text):
 
 
 def group_score(group, n):
-    """설계 4절의 C: 그룹의 첫 채널 w, 둘째부터 0.5w, 그룹 상한 2w."""
+    """다룬 곳 C(digest_score.py 머리말): 그룹의 첫 채널 w, 둘째부터 0.5w, 그룹 상한 2w."""
     w = TH["w"][group]
     return min(w + (n - 1) * TH["w_next"] * w, TH["w_group_cap"] * w) if n else 0
 
@@ -308,6 +308,11 @@ class DropAndPhraseTest(unittest.TestCase):
             self.assertTrue(R.is_phrase(text), code)
         for bad in ("채권 채널 0곳", "채권 채널 세곳", "채권 채널 3곳 ", "채권 채널 3곳\n", "채권 채널 1234곳", "세 그룹 모두!", "", None, 3):
             self.assertFalse(R.is_phrase(bad), repr(bad))
+        self.assertEqual(R.phrase("why_repeat"), "직전 판과 같은 주제")         # 월요일 판은 금요일 판과 견준다 — '어제'가 아니다
+        for old, code in R.LEGACY_PHRASES.items():                             # 지난 판의 옛 문구는 받기만 하고 만들지 않는다
+            self.assertTrue(R.is_phrase(old), old)
+            self.assertIn(code, R.PHRASES)
+            self.assertNotIn(old, R.PHRASES.values())
         for code, slots in (("why_bond", {}), ("why_bond", {"n": "3"}), ("why_bond", {"n": 0}), ("why_all", {"n": 3}),
                             ("why_bond", {"n": 3, "x": 1}), ("why_bond", {"n": True})):
             with self.assertRaises(ValueError):

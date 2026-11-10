@@ -582,11 +582,43 @@ class StateTest(Screen):
     def test_fewer_and_none(self):
         day = datetime.date(2026, 10, 8)
         fewer, none = draws(named(PV.build("fewer", day)), named(PV.build("none", day)))
-        self.shows(fewer, "꼭 2건", "오늘은 2건 — 기준을 넘은 묶음만 싣습니다")
-        self.shows(none, "꼭 볼 것", "오늘은 기준을 넘은 묶음이 없습니다", "나머지", "다가오는 일정",
+        self.shows(fewer, "꼭 2건", "이 판은 2건 — 기준을 넘은 묶음만 싣습니다")
+        self.shows(none, "꼭 볼 것", "이 판에는 기준을 넘은 묶음이 없습니다", "나머지", "다가오는 일정",
                    "아래 '채권 채널 단독 글'과 '나머지'에서 채널들이 쓴 낱말을 볼 수 있습니다")     # 0건인 날 어디를 볼지 말한다
         self.assertIn("꼭 볼 것", none["heads"])
         self.assertNotIn("꼭 0건", none["heads"])                                  # 0건은 제목이 아니라 이유 문구로 말한다
+
+    def test_old_repeat_chip_reads_as_the_previous_edition(self):
+        # 2026-11-10 앞 판의 why 칩 '어제와 같은 주제'는 지금 문구로 그린다(월요일 판의 '직전 판'은 금요일 판)
+        d = fx("digest")
+        d["must"][0]["why"] = [*d["must"][0]["why"][:2], "어제와 같은 주제"]
+        frame, = draws(site(digest=d))
+        self.shows(frame, R.PHRASES["why_repeat"])
+        self.lacks(frame, "어제와 같은 주제")
+        legacy = re.search(r"const LEGACY = \{ (.*?) \};", code_only(JS)).group(1)
+        self.assertEqual(dict(re.findall(r'"([^"]+)": P\.(\w+)', legacy)), R.LEGACY_PHRASES)     # 두 쪽의 옛 문구 표가 같다
+
+    def test_wording_names_only_the_sections_drawn_and_not_today(self):
+        # 나머지가 모두 채권 채널 단독 글인 판 — '나머지' 절이 없으니 그 이름을 대지 않고, 줄인 줄 알림은 그려지는 절 끝에 한 번
+        alone = lambda it: it["coverage"]["bond"] == 1 and not it["coverage"]["analyst"] and not it["coverage"]["personal"]
+        d = fx("digest")
+        d["must"], d["funnel"]["truncated"] = [], 5
+        d["rest"] = [{**g, "items": [it for it in g["items"] if alone(it)]} for g in d["rest"]]
+        d["rest"] = [g for g in d["rest"] if g["items"]]
+        d["notes"] = [R.phrase("note_none"), R.phrase("note_truncated", n=5)]
+        latest, past = draws(site(digest=d), (site(past={"2026-10-07": PV.shift(d, -1)}), THU_EVENING, "2026-10-07"))
+        for frame in (latest, past):
+            self.assertIn("채권 채널 단독 글", frame["heads"])
+            self.assertNotIn("나머지", frame["heads"])
+            self.shows(frame, "이 판에는 기준을 넘은 묶음이 없습니다. 아래 '채권 채널 단독 글'에서 채널들이 쓴 낱말을 볼 수 있습니다.",
+                       "나머지 표(채권 채널 단독 글 포함)에서 5줄을 줄였습니다.")
+            self.lacks(frame, "'나머지'에서", "오늘은", "나머지 표에서 5줄을 줄였습니다")    # 판 머리에도 되풀이하지 않는다
+        self.shows(past, "지난 판(10-07(수))")
+        d["rest"] = [{**g, "items": [{**it, "coverage": {**it["coverage"], "analyst": 1}} for it in g["items"]]} for g in d["rest"]]
+        only_rest, = draws(site(digest=d))
+        self.assertIn("나머지", only_rest["heads"])
+        self.shows(only_rest, "아래 '나머지'에서 채널들이 쓴 낱말을 볼 수 있습니다.", "나머지 표에서 5줄을 줄였습니다.")
+        self.lacks(only_rest, "채권 채널 단독 글", "(채권 채널 단독 글 포함)")
 
     def test_withdrawn_edition_and_withdraw_switch(self):
         blank = S.blank_digest(S.parse_iso(F.NOW))

@@ -222,7 +222,7 @@ def collect_window(now, state=None):
     """수집 창 → {"date", "from", "to", "kind", "capped"}. kind: first(상태 없음, 24시간) · next(직전 판이 제대로 읽은 곳부터) ·
     rerun(같은 판 날짜 — 첫 실행의 시작점 그대로). 96시간 상한은 first·next에만 건다(rerun은 첫 실행 것을 바꾸지 않는다).
     next의 시작점은 직전 판의 read_to('여기까지 제대로 읽었다' — 수집 부족이던 판은 그 앞 판의 것 그대로), 칸이 없으면 창의 끝이다.
-    그래서 수집 부족인 날 못 읽은 글은 다음 판이 다시 읽는다(설계 2절: 수집 창은 직전 성공 ~ 지금)."""
+    그래서 수집 부족인 날 못 읽은 글은 다음 판이 다시 읽는다(수집 창은 직전 성공 ~ 지금)."""
     to = parse_iso(iso(now))
     date, ed = edition_date(to), (state or {}).get("edition")
     start, kind = to - datetime.timedelta(hours=TH["window_first_h"]), "first"
@@ -239,7 +239,7 @@ def collect_window(now, state=None):
 
 def state_base(state, date):
     """판 날짜 date의 계산이 견줄 '직전 판'의 기록(없으면 None). 같은 날짜를 다시 돌 때는 그 판이 아니라 그 앞 판을 준다 —
-    '어제와 같은 주제' 감점, 채널별 마지막 글 번호, 연속 실패·0건 셈은 모두 이것을 기준으로 다시 계산한다."""
+    '직전 판과 같은 주제' 감점, 채널별 마지막 글 번호, 연속 실패·0건 셈은 모두 이것을 기준으로 다시 계산한다."""
     ed = (state or {}).get("edition")
     if ed and ed["date"] == date:
         return copy.deepcopy((state or {}).get("base"))
@@ -252,11 +252,13 @@ def next_state(state, snap):
 
 
 def in_window(window, date, time=None):
-    """일정이 수집 창과 맞는가. 시각(HH:MM, KST)이 있으면 from < 시각 ≤ to, 없으면 날짜가 창의 날짜들에 걸치면 맞다."""
+    """일정이 수집 창과 맞는가. 시각(HH:MM, KST)이 있으면 from < 시각 ≤ to, 없으면 날짜를 판 날짜로 견준다 — 창의 시작이 속한
+    판 날짜 < 날짜 ≤ 창의 끝이 속한 판 날짜(edition_date). 그래서 자정을 넘겨 끝난 전날 판의 재실행이 이튿날의 날짜만 있는 일정
+    (금통위)을 미리 세지 않고, 그 일정은 제 날짜의 판이 한 번만 센다."""
     a, b = parse_iso(window["from"]), parse_iso(window["to"])
     day = datetime.date.fromisoformat(date)
     if time is None:
-        return a.date() <= day <= b.date()
+        return datetime.date.fromisoformat(edition_date(a)) < day <= datetime.date.fromisoformat(edition_date(b))
     h, m = map(int, time.split(":"))
     return a < _at(day, h, m) <= b
 
@@ -319,8 +321,6 @@ class _OgTitle(HTMLParser):
         a = dict(attrs)
         if tag == "meta" and a.get("property") == "og:title" and self.title is None:
             self.title = a.get("content")
-
-    handle_startendtag = handle_starttag
 
 
 def page_title(page):

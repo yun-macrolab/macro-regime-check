@@ -209,7 +209,7 @@ class ClosedTextTest(FolderCase):
 
 
 class ScopeTest(FolderCase):
-    """설계 8절 — 걸린 것만 빼면 되는 위반(link · row · item · rate)과 판을 멈추는 위반(edition)."""
+    """digest_check 머리말 — 걸린 것만 빼면 되는 위반(link · row · item · rate)과 판을 멈추는 위반(edition)."""
 
     def test_bad_links_cost_only_the_link(self):
         good = fx("digest")

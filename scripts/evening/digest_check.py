@@ -9,9 +9,9 @@
 새로 더한 낱말 목록(함께 나온 낱말 words · 링크와 줄의 덧낱말 more)이 글에 나온 순서대로 놓여 있으면 형식(shape)에서 떨어진다 —
 곳 수 → 등급 → 가나다 순만 받는다. 항목의 낱말(terms)과 머리 줄의 주제(top_terms)의 순서는 여기서 보지 않는다(묶기·점수 단계가
 채널 수·등급으로 세운 순서 그대로 나온다 — 글에 나온 순서가 아니다).
-'원문과 8자 이상 겹치지 않는다'는 검사는 두지 않는다 — 8자짜리 사전 낱말에 스스로 걸리고, 닫힌 글자가 더 강한 조건이다(설계 12절).
+'원문과 8자 이상 겹치지 않는다'는 검사는 두지 않는다 — 8자짜리 사전 낱말에 스스로 걸리고, 닫힌 글자가 더 강한 조건이다.
 
-무엇이 걸리면 어떻게 되나 (설계 8절 — 위반마다 scope를 붙인다)
+무엇이 걸리면 어떻게 되나 (위반마다 scope를 붙인다)
   link     허용되지 않은 주소(url) · 원천이 아닌 채널의 링크(role) · --raw: 수집되지 않은 글(unseen) · 그 글에 없는 덧낱말,
            그 글과 다른 길이 구간·그림 표시(mismatch)                                                    → 그 링크만 뺀다
   row      속보형·개인 단독 줄과 참고 줄의 같은 문제 · 닫히지 않은 글자(open) · --raw: 그 글에 없는 낱말·숫자(mismatch) → 그 줄만 뺀다
@@ -289,7 +289,7 @@ def check_file(name, doc, sources):
     return [_f(name, p, "open") for p in S.closed_violations(doc, S.handles_of(sources))]
 
 
-def _human(public, sources):
+def _human(public):
     """사람이 쓰는 파일이 폴더에 같이 있으면(data/를 볼 때) 형식만 본다. 출처 목록은 라벨까지 닫혀 있어야 한다."""
     found = []
     for name in S.HUMAN_FILES:
@@ -511,7 +511,7 @@ def check_folder(public, sources, raw=None, strict=False):
         if not bad:
             docs[name] = doc                           # 위반이 하나도 없는 파일만 서로 맞춰 본다
         found += bad
-    found += _human(public, sources) + ([] if strict else _picks(public, sources))
+    found += _human(public) + ([] if strict else _picks(public, sources))
     st, groups = docs.get("digest_status.json"), {c["handle"]: c["group"] for c in sources["channels"]}
     if "digest_status.json" not in raws:
         found.append(_f("digest_status.json", "$", "missing"))

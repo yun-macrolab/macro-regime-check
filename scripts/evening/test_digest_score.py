@@ -3,7 +3,7 @@
 
 실행:  python -m unittest discover -s scripts/evening   (저장소 루트에서)
 네트워크 불필요 — 묶음은 닫힌 값(낱말·숫자)으로 지어낸 것이고 채널·일정·금리도 fixtures.py의 가짜다.
-설계 4절의 세 예(미 고용 발표일 12.5 · 채권 1곳 국고 5년 입찰 4.0 · 개인 4곳+속보형 소문 2.25)를 DesignExamplesTest가 그대로 셈한다.
+손으로 셈해 둔 세 예(미 고용 발표일 12.5 · 채권 1곳 국고 5년 입찰 4.0 · 개인 4곳+속보형 소문 2.25)를 DesignExamplesTest가 그대로 셈한다.
 """
 import collections
 import contextlib
@@ -97,7 +97,7 @@ PERS = [f"fxpers{i}" for i in range(1, 9)]
 
 
 class DesignExamplesTest(unittest.TestCase):
-    """설계 4절의 세 예 — 숫자가 그대로 나와야 한다."""
+    """손으로 셈해 둔 세 예 — 숫자가 그대로 나와야 한다."""
 
     def test_us_jobs_day_scores_12_5_and_passes(self):
         who = BONDS[:3] + ANALS[:2] + PERS[:3] + ["fxwire1"]
@@ -277,7 +277,7 @@ class PenaltyTest(unittest.TestCase):
         same = cluster(*[member(ch, i + 1, lead=["금통위"]) for i, ch in enumerate(BONDS[:2] + ANALS[:1])], keys=[key])
         got = one(same, state=F.state())
         self.assertEqual((got["score"]["C"], got["score"]["P"], got["score"]["total"]), (4.0, 1.5, 4.5))
-        self.assertIn("어제와 같은 주제", got["why"])
+        self.assertIn("직전 판과 같은 주제", got["why"])
         grown = cluster(*[member(ch, i + 1, lead=["금통위"]) for i, ch in enumerate(BONDS[:3] + ANALS[:1])], keys=[key])
         self.assertEqual(points(grown, state=F.state())["P"], 0)                      # C가 1.0 늘었다
         self.assertEqual(points(same)["P"], 0)                                        # 어제 판이 없다
@@ -437,6 +437,21 @@ class TomorrowTest(unittest.TestCase):
         self.assertEqual([(e["date"], e["time"], e["term"]) for e in got], [("2026-10-08", "21:30", "미 PPI"), ("2026-10-12", None, "금통위")])
         many = events(*[("2026-10-09", f"{h:02d}:00", "미 PPI", "B") for h in range(8, 20)])
         self.assertEqual(len(score(calendar=many)["tomorrow"]), TH["tomorrow_max"])
+
+    def test_date_only_event_after_a_rerun_past_midnight_is_still_ahead(self):
+        # 10-08 판의 재실행이 자정을 넘겨(10-09 01:35) 끝나도 10-09의 날짜만 있는 일정은 그 판의 '다가오는 일정'에 남고 E는 0 —
+        # 그 일정은 10-09 판이 센다
+        cal = events(("2026-10-09", None, "금통위", "A"))
+        c = cluster(member("fxbond1", 1, "08 21:00", lead=["금통위"]), member("fxbond2", 2, "09 00:30", lead=["금통위"]))
+        rerun = {"window": {"from": F.WINDOW["from"], "to": "2026-10-09T01:35:00+09:00"}, "collected_at": "2026-10-09T01:37:00+09:00"}
+        got = score(c, calendar=cal, **rerun)
+        self.assertEqual([(e["date"], e["term"]) for e in got["tomorrow"]], [("2026-10-09", "금통위")])
+        self.assertEqual((got["clusters"][0]["score"]["E"], got["clusters"][0]["score"]["K"]), (0, 1.0))
+        c2 = cluster(member("fxbond1", 3, "09 09:00", lead=["금통위"]), member("fxbond2", 4, "09 09:10", lead=["금통위"]))
+        nxt = {"edition": "2026-10-09", "window": {"from": "2026-10-09T01:35:00+09:00", "to": "2026-10-09T17:47:00+09:00"},
+               "collected_at": "2026-10-09T17:49:00+09:00"}
+        got = score(c2, calendar=cal, **nxt)
+        self.assertEqual((got["tomorrow"], got["clusters"][0]["score"]["E"], got["clusters"][0]["score"]["K"]), ([], 2.0, 2.0))
 
 
 class FixtureTest(unittest.TestCase):

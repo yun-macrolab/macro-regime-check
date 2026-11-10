@@ -27,7 +27,6 @@ class Element {
   constructor(tag) { this.nodeType = 1; this.tagName = tag; this.attrs = {}; this.children = []; this.hidden = false; }
   setAttribute(k, v) { this.attrs[k] = String(v); }
   getAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k) ? this.attrs[k] : null; }
-  removeAttribute(k) { delete this.attrs[k]; }
   append(...xs) {
     for (const x of xs) {
       if (x instanceof Element || x instanceof Text) this.children.push(x);
@@ -36,14 +35,11 @@ class Element {
     }
   }
   replaceChildren(...xs) { this.children = []; this.append(...xs); }
-  addEventListener() {}
   get textContent() { return this.children.map(c => c.textContent).join(''); }
-  set textContent(v) { this.children = v === '' ? [] : [new Text(String(v))]; }
   get classList() {
     const el = this, names = () => (el.attrs.class || '').split(/\s+/).filter(Boolean);
     const save = xs => { el.attrs.class = xs.join(' '); };
-    return { add: n => { if (!names().includes(n)) save([...names(), n]); }, remove: n => save(names().filter(x => x !== n)),
-      contains: n => names().includes(n) };
+    return { add: n => { if (!names().includes(n)) save([...names(), n]); }, remove: n => save(names().filter(x => x !== n)) };
   }
 }
 
@@ -60,7 +56,7 @@ function world(files) {
     getElementById: id => (id === 'evening-wrap' && scope.wrapOn ? root : null),
     addEventListener: (type, fn) => { if (type === 'visibilitychange') waking.push(fn); } };
   const scope = { document, console, calmNow: false, clockNow: 0, wrapOn: true,
-    setInterval: fn => { beats.push(fn); return beats.length; }, clearInterval() {}, setTimeout: () => 0, clearTimeout() {},
+    setInterval: fn => { beats.push(fn); return beats.length; }, setTimeout: () => 0,
     getJson: p => {                                    // 화면이 부르는 getJson — 없는 파일은 404처럼 거절한다
       requested.push(p);
       const v = Object.prototype.hasOwnProperty.call(files, p) ? files[p] : null;

@@ -5,7 +5,6 @@
 네트워크 불필요 — 보기 문장은 전부 지어낸 것이다. 공식 주소가 실제로 열리는지는 여기서 보지 않는다(넣기 전에 사람이 urllib로 확인한다).
 """
 import os
-import re
 import sys
 import unicodedata
 import unittest

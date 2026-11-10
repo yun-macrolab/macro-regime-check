@@ -216,7 +216,7 @@ def _parts(scored, collect, sources, overrides, base, rows=None):
 
 
 def _guard(parts, sources):
-    """쓰기 전의 마지막 거름 — 검사에 걸릴 링크·줄·항목을 미리 뺀다(설계 8절: 걸린 것만 뺀다). → (재료, 뺀 것의 수)"""
+    """쓰기 전의 마지막 거름 — 검사에 걸릴 링크·줄·항목을 미리 뺀다(digest_check 머리말: 걸린 것만 뺀다). → (재료, 뺀 것의 수)"""
     must, a = C.keep_items(parts["must"], sources, "$.must")
     rest, b = C.keep_items(parts["rest"], sources, "$.rest")
     wire, c = C.keep_side(parts["wire"], "wire", sources)

@@ -19,7 +19,7 @@ import evening_llm as L
 import fixtures as F
 from test_evening_llm import CPI, GOOD, SHORT_OK, Claude, Net, fx, picked
 from test_evening_llm_run import NOW, RunCase
-from test_picks_push import MOD, NEW, OFF, Tool, good, runs
+from test_picks_push import MOD, NEW, OFF, Tool, good
 
 TH = R.TH
 LONG = "지어낸 긴 글의 한 줄이다. " * 30

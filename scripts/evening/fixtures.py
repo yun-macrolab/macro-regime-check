@@ -11,7 +11,7 @@
   예시 산출  clusters_doc() · scored_doc() · digest() · index() · status() · state_after()
              — digest()에는 2026-10-08 저녁에 더한 칸의 보기가 다 들어 있다: 함께 나온 낱말(words) · 첫 글~마지막 글(span) · 직전 판의
                채널 수(prev) · 링크별 덧낱말·길이 구간·그림(more · size · pic) · 숫자 없는 줄(fxpers8) · 낱말 풀이(gloss)
-             — 뒤 단계가 앞 단계를 기다리지 않고 만들 수 있게 손으로 맞춘 값이다(점수는 설계 4절을 따라 셈한 예시일 뿐, 정답이 아니다)
+             — 뒤 단계가 앞 단계를 기다리지 않고 만들 수 있게 손으로 맞춘 값이다(점수는 digest_score.py 머리말의 규칙대로 셈한 예시일 뿐, 정답이 아니다)
   AI 요약 층 picks() — data/digest_picks.json의 보기(지어낸 문장 둘 + 검사에 걸려 개수만 남은 항목 하나). 화면 테스트가 digest()와 함께 쓴다
   파일로     python scripts/evening/fixtures.py --out .work/evening/sample   → <out>/(원문) · <out>/public/(공개 형태)
              예시는 .work/ 아래에만 쓴다. data/에 넣지 않는다.

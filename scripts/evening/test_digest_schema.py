@@ -133,8 +133,20 @@ class EditionWindowTest(unittest.TestCase):
         self.assertFalse(S.in_window(monday, "2026-10-09", "17:41"))        # 시작 시각은 지난 판의 것
         self.assertTrue(S.in_window(monday, "2026-10-12", "17:50"))
         self.assertFalse(S.in_window(monday, "2026-10-12", "21:30"))
-        self.assertTrue(S.in_window(monday, "2026-10-10"))                  # 시각이 없으면 날짜가 걸치는지만
+        self.assertTrue(S.in_window(monday, "2026-10-10"))                  # 시각이 없으면 판 날짜로 견준다
         self.assertFalse(S.in_window(monday, "2026-10-13"))
+        self.assertFalse(S.in_window(monday, "2026-10-09"))                 # 금요일 날짜만 있는 일정은 금요일 판 몫
+
+    def test_date_only_events_belong_to_the_edition_of_their_date(self):
+        # 11-25 판의 재실행이 자정을 넘겨(11-26 01:35) 끝나도 11-26의 날짜만 있는 일정(금통위)은 아직 그 판 몫이 아니다
+        rerun = {"from": "2026-11-25T01:30:00+09:00", "to": "2026-11-26T01:35:00+09:00"}
+        self.assertFalse(S.in_window(rerun, "2026-11-26"))
+        self.assertTrue(S.in_window(rerun, "2026-11-25"))
+        self.assertTrue(S.in_window(rerun, "2026-11-26", "00:30"))          # 시각이 있으면 시각대로
+        nxt = {"from": "2026-11-26T01:35:00+09:00", "to": "2026-11-26T17:47:00+09:00"}
+        self.assertEqual((S.in_window(nxt, "2026-11-26"), S.in_window(nxt, "2026-11-25")), (True, False))   # 제 날짜의 판이 한 번만
+        early = {"from": "2026-11-24T23:06:00+09:00", "to": "2026-11-25T17:47:00+09:00"}    # 전날 판이 자정 전에 끝난 날
+        self.assertEqual((S.in_window(early, "2026-11-24"), S.in_window(early, "2026-11-25")), (False, True))
 
     def test_rates_count_only_when_their_close_is_inside_the_window(self):
         w = F.WINDOW                                                         # 10-07 18:02 ~ 10-08 18:07

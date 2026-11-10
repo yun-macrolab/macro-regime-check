@@ -22,7 +22,7 @@ sys.path.insert(0, HERE)
 import digest_rules as R
 import digest_schema as S
 import fixtures as F
-from test_evening_site import (C1, C3, C4, C5, C7, NODE, POST, REPO, TAKEDOWN, THU_EVENING, Screen, blob, calls, draw, draws, flat, fx,
+from test_evening_site import (C1, C3, C4, C5, C7, NODE, POST, REPO, TAKEDOWN, Screen, blob, calls, draw, draws, flat, fx,
                                outside, posts, rules_block, site)
 
 NEW_ITEM, NEW_LINK = ("words", "span", "prev"), ("more", "size", "pic", "n_terms")

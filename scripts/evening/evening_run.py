@@ -13,6 +13,8 @@ pipeline   tg_collect → digest_cluster → digest_score → digest_build → d
   - 결과는 한 줄로 찍고, --github-output을 주면 그 파일에도 쓴다:
       publish  true면 <out>을 게시한다          alert  true면 워크플로가 마지막에 실행을 실패로 끝낸다(메일)
       reason   ok · short · empty_streak · broken · withdrawn · channel(채널 바뀜) · error      stage  done 또는 실패한 단계
+  - 일정표(<data>/calendar.json)의 마지막 일정이 CAL_AHEAD일 안이면 Actions 경고 한 줄(날짜와 남은 날수만)을 찍는다 —
+    일정표가 끝나면 '발표일 일치'·A급 낱말 점수·'다가오는 일정'의 달력 줄이 조용히 사라지므로. 실행은 막지 않는다.
   종료코드: 0 <out>에 게시할 것이 있다(publish=true) / 1 없다
 
 watch      수집하지 않는다(텔레그램 요청 0회). main의 data/digest_status.json이 오늘 판을 낸 상태인지 보고,
@@ -42,6 +44,7 @@ STAGES = ("collect", "cluster", "score", "build", "check", "done")
 SAME = ("edition", "checked_at", "published")       # 페이지와 main의 상태 파일에서 견주는 칸
 TIMEOUT = 20
 MAX_BYTES = 200_000
+CAL_AHEAD = 30                                       # 일정표의 마지막 일정까지 이 날수가 안 남으면 경고(실행은 그대로)
 
 
 def _emit(path, name, **facts):
@@ -107,9 +110,30 @@ def _fallback(a, run, stage):
     return 0 if ok else 1
 
 
+def _calendar_warning(a):
+    """일정표가 CAL_AHEAD일 안에 끝나면 Actions 경고 한 줄을 찍고 그 글을 돌려준다(아니면 None). 일정표를 못 읽으면 조용히
+    넘긴다 — 그때는 점수 단계가 실패로 알린다. 날짜는 판 날짜로 센다(자정을 넘긴 재실행도 그 판의 날)."""
+    try:
+        cal = S.validate_calendar(S.read_json(os.path.join(a.data, "calendar.json")))
+        today = datetime.date.fromisoformat(S.edition_date(S.parse_iso(a.now) if a.now else datetime.datetime.now(S.KST)))
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
+    last = max((e["date"] for e in cal["events"]), default=None)
+    left = (datetime.date.fromisoformat(last) - today).days if last else None
+    if left is not None and left >= CAL_AHEAD:
+        return None
+    end = f"{last}에서 끝난다({left}일 남음)" if last else "비어 있다"
+    msg = (f"::warning::일정표(data/calendar.json)가 {end} — 그 뒤로는 '발표일 일치'와 '다가오는 일정'의 달력 줄이 비고 "
+           "A급 낱말이 B급으로 센다. 공식 일정 쪽에서 다음 일정을 읽어 calendar.json과 scripts/evening/test_calendar.py의 "
+           "LEDGER·CHECKED를 같은 커밋에서 고친다")
+    print(msg)
+    return msg
+
+
 def pipeline(a, run=subprocess.run):
     if os.path.abspath(a.out) == os.path.abspath(a.data):
         raise ValueError("--out은 data 폴더와 달라야 한다(data/로 옮기는 일은 digest_publish가 한다)")
+    _calendar_warning(a)
     _clear(a.out)
     alert = False
     for stage, script, args in _commands(a):

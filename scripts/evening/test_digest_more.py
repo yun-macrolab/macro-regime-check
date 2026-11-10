@@ -13,7 +13,6 @@
 import copy
 import datetime
 import os
-import shutil
 import sys
 import unittest
 from unittest import mock

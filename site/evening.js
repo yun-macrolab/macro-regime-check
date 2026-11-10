@@ -16,7 +16,7 @@
      AI 요약    닫힌 값이 아닌 하나뿐인 칸 — data/digest_picks.json의 문장(AI가 채권·애널 원천 채널의 글을 읽고 쓴 것, 2026-10-09). 최신 판 화면이고
                판 날짜 · 항목의 key · 읽힌 글(그 항목의 걸린 링크)이 맞을 때만, 꼴을 한 번 더 보고(fact) 'AI 요약' 표시와 함께 — picksOf() · aiOf()
    2026-10-08 저녁에 더한 칸(함께 나온 낱말 · 첫 글~마지막 글 · 직전 판 · 덧낱말 · 낱말 수 · 길이 · 붙은 것 · 풀이)은 모두 없어도 되는 칸이다 —
-   있을 때만 그리고, 없는 판(10-08 첫 판)은 예전 그대로 그린다. 낱말 목록은 자료의 순서 그대로 둔다(화면이 다시 섞지 않는다).
+   있을 때만 그리고, 없으면 그 칸만 빼고 그린다. 낱말 목록은 자료의 순서 그대로 둔다(화면이 다시 섞지 않는다).
    글자는 전부 el()의 텍스트 노드로 넣는다. 바깥 요청은 없다(자료는 data/ 아래 JSON뿐).
    숨김 목록(digest_overrides.json)이나 출처 목록(sources.json)을 읽지 못하면 닫는 쪽으로 간다 — 항목을 가리고, 링크를 걸지 않는다. */
 "use strict";
@@ -28,7 +28,7 @@ window.Evening = (() => {
       "why_wire": "속보형 겹침", "why_cross": "채권 + 다른 그룹", "why_all": "세 그룹 모두",
       "why_grade_a": "A급 낱말", "why_result": "같은 결과 낱말 {n}곳", "why_num": "같은 숫자 {n}곳",
       "why_event": "발표일 일치", "why_auction": "입찰일 일치", "why_bond_alone": "채권 1곳 + 일정",
-      "why_move": "금리 변동 큼", "why_repeat": "어제와 같은 주제", "why_fwd": "전달 글이 절반 넘음",
+      "why_move": "금리 변동 큼", "why_repeat": "직전 판과 같은 주제", "why_fwd": "전달 글이 절반 넘음",
       "note_short": "수집 부족 — 꼭 볼 것을 비웠습니다", "note_withdrawn": "이 판은 내렸습니다",
       "note_fewer": "오늘은 {n}건", "note_none": "오늘은 기준을 넘은 묶음이 없습니다",
       "note_prev_close": "금리는 전일 종가 — 방향 표시를 비웠습니다", "note_no_rates": "금리 자료를 읽지 못했습니다",
@@ -75,7 +75,7 @@ window.Evening = (() => {
       "e7368c35e7aa03e6e880cb42eab5a9f7eae05ae2ee1af6def2296ffaf26d0c52f361d288f518ce19f6d8622bf9f96225fa0f8bcefa1e0b51fd249389fec68596"]
   };
   const P = RULES.phrases;
-  const QUIET_NOTES = ["note_short", "note_withdrawn", "note_fewer", "note_none", "note_channels"];   // 판 머리가 아닌 자리에서 말하는 알림
+  const QUIET_NOTES = ["note_short", "note_withdrawn", "note_fewer", "note_none", "note_channels", "note_truncated"];   // 판 머리가 아닌 자리에서 말하는 알림
   const SCORE_PARTS = [["C", "다룬 곳"], ["X", "그룹을 넘은 확인"], ["K", "낱말 등급"], ["E", "일정"], ["M", "금리 변동"], ["Y", "유튜브"],
     ["P", "감점"]];
   const HOW = [
@@ -144,6 +144,7 @@ window.Evening = (() => {
   // 숫자 + 허용 단위. 보기 좋게 정수부에 쉼표만 넣는다("4732계약" → "4,732계약")
   const num = v => (typeof v === "string" && NUM_RE.test(v)
     ? v.replace(/^(-?)(\d+)/, (_, sign, n) => sign + n.replace(/\B(?=(\d{3})+$)/g, ",")) : null);
+  const LEGACY = { "어제와 같은 주제": P.why_repeat };   // 지난 판의 옛 문구 → 지금 문구(digest_rules.LEGACY_PHRASES와 같이 지운다)
   function phraseCode(v) {
     const hit = typeof v === "string" ? PHRASE_RES.find(([, rx]) => rx.test(v)) : null;
     return hit ? hit[0] : null;
@@ -412,7 +413,7 @@ window.Evening = (() => {
     try { return make(); } catch (e) { return el("p", { class: "empty-state" }, "이 절을 그리지 못했습니다 — 자료의 형식을 확인해야 합니다."); }
   }
   const quiet = make => { try { return make(); } catch (e) { return null; } };      // 줄 하나 — 깨졌으면 그 줄만 뺀다
-  const section = (title, sub, ...children) => el("section", { class: "eve-sec" },
+  const section = (title, sub, ...children) => el("section", {},
     el("div", { class: "section-heading" }, el("h2", {}, title), sub ? el("span", {}, sub) : null), ...children);
 
   // ---------- 판 머리 ----------
@@ -574,10 +575,10 @@ window.Evening = (() => {
   // ---------- 꼭 볼 것 ----------
   function mustSection(ctx, d) {
     const shown = items(ctx, d.must), n = shown.length, lost = list(d.must).length - n;
-    const sub = n >= 3 ? "여러 곳이 함께 다룬 묶음 가운데 기준을 모두 넘은 것"
-      : n ? `${P.note_fewer.replace("{n}", n)} — 기준을 넘은 묶음만 싣습니다` : null;
-    const why = d.status === "short" ? P.note_short : lost ? "표시할 수 있는 항목이 없습니다" : P.note_none;
-    const where = d.status === "ok" && !lost ? " 아래 '채권 채널 단독 글'과 '나머지'에서 채널들이 쓴 낱말을 볼 수 있습니다." : "";
+    const sub = n >= 3 ? "여러 곳이 함께 다룬 묶음 가운데 기준을 모두 넘은 것" : n ? `이 판은 ${n}건 — 기준을 넘은 묶음만 싣습니다` : null;
+    const why = d.status === "short" ? P.note_short : lost ? "표시할 수 있는 항목이 없습니다" : "이 판에는 기준을 넘은 묶음이 없습니다";
+    const rest = quiet(() => restGroups(ctx, d).flatMap(g => g.items)) || [], at = [rest.some(bondAlone) && "'채권 채널 단독 글'", rest.some(it => !bondAlone(it)) && "'나머지'"];
+    const where = d.status === "ok" && !lost && rest.length ? ` 아래 ${at.filter(Boolean).join("과 ")}에서 채널들이 쓴 낱말을 볼 수 있습니다.` : "";   // 그려지는 절만
     return section(n ? `꼭 ${n}건` : "꼭 볼 것", sub,
       n ? el("ol", { class: "eve-must" }, ...shown.map((it, i) => el("li", {}, mustCard(ctx, it, i + 1))))
         : el("p", { class: "empty-state" }, why + "." + where),
@@ -596,7 +597,7 @@ window.Evening = (() => {
       posts || wire ? el("small", {}, " ", posts, posts ? el("span", { class: "eve-when" }, sp.text) : null,
         wire ? `${posts ? " · " : ""}${ctx.role.wire} ${wire}곳 겹침` : null) : null);
   }
-  // 함께 나온 낱말과 곳 수 — 자료의 순서(곳 수 → 등급 → 가나다) 그대로. 막대는 곳 수만큼의 칸이고 화면 읽기에는 숫자만 읽힌다(좁으면 감춘다)
+  // 함께 나온 낱말과 곳 수 — 자료의 순서(곳 수 → 등급 → 넓은 낱말은 뒤 → 가나다) 그대로. 막대는 곳 수만큼의 칸이고 화면 읽기에는 숫자만 읽힌다(좁으면 감춘다)
   function wordBars(words) {
     if (!words.length) return null;
     const pips = n => el("span", { class: "eve-pips", "aria-hidden": "true" },
@@ -618,8 +619,8 @@ window.Evening = (() => {
   }
   // 카드 안은 세 토막 — 주제 → 원문 링크 → 함께 나온 낱말 · 고른 이유 · 접어 둔 것. 넓으면 나란히, 좁으면 이 순서로 쌓인다
   function mustCard(ctx, it, rank) {
-    const why = list(it.raw.why).filter(phraseCode).slice(0, 4), p = it.prev, sp = it.span;
-    const rich = it.links.some(l => l.size || l.pic || l.more.length);        // 옛 판에는 고를 거리가 없다 — 안내도 붙이지 않는다
+    const why = list(it.raw.why).map(t => (own(LEGACY, t) ? LEGACY[t] : t)).filter(phraseCode).slice(0, 4), p = it.prev, sp = it.span;
+    const rich = it.links.some(l => l.size || l.pic || l.more.length);        // 고를 거리(길이·붙은 것·덧낱말)가 없으면 안내도 붙이지 않는다
     const some = sp && sp.posts > it.links.length ? `채널마다 한 글 · 묶인 글 ${sp.posts}건 중 ${it.links.length}건` : null;
     return el("article", { class: "eve-item" },
       el("div", { class: "eve-item-head" }, el("span", { class: "eve-rank", "aria-hidden": "true" }, String(rank)), cellTag(it.cell)),
@@ -712,7 +713,8 @@ window.Evening = (() => {
   }
   // 사전 낱말이 하나도 없는 글만 한데 접는다(첫머리에 없어도 본문에 있으면 '본문 낱말'로 보여 준다)
   function bondSection(ctx, d) {
-    const alone = restGroups(ctx, d).flatMap(g => g.items.filter(bondAlone));
+    const all = restGroups(ctx, d).flatMap(g => g.items), alone = all.filter(bondAlone);
+    const cut = all.length === alone.length ? count(isObj(d.funnel) ? d.funnel.truncated : null) : 0;   // '나머지' 절이 없는 날은 여기에
     const named = alone.filter(it => it.head.length), bare = alone.filter(it => !it.head.length);
     const iso = it => (it.links[0].st ? it.links[0].st.iso : ""), early = (a, b) => (iso(a) > iso(b) ? 1 : iso(a) < iso(b) ? -1 : 0);
     const mine = ch => named.filter(it => it.links[0].ch === ch).sort(early);       // 채널 안에서는 올린 시각순
@@ -721,8 +723,8 @@ window.Evening = (() => {
         el("p", {}, el("strong", {}, ctx.label(ch)), ` ${mine(ch).length}건`),
         el("ul", { class: "eve-rows" }, ...mine(ch).map(it => bondRow(ctx, it))))),
       bare.length ? el("details", { class: "eve-fold" }, el("summary", {}, el("strong", {}, `사전 낱말이 없는 글 ${bare.length}건`), " 링크만"),
-        el("ul", { class: "eve-rows" }, ...bare.map(it => el("li", {}, el("span", { class: "eve-main" }, ...it.links.map(l => rowLink(l))))))) : null)
-      : null;
+        el("ul", { class: "eve-rows" }, ...bare.map(it => el("li", {}, el("span", { class: "eve-main" }, ...it.links.map(l => rowLink(l))))))) : null,
+      cut ? el("p", { class: "reading-note" }, `나머지 표(채권 채널 단독 글 포함)에서 ${cut}줄을 줄였습니다.`) : null) : null;
   }
 
   // ---------- 속보형 · 개인 단독 · 참고 ----------

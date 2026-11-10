@@ -6,7 +6,6 @@
 네트워크 · 모델 호출 · 실제 git이 없다 — 가짜 수신(Net) · 가짜 claude(Claude) · 가짜 git/gh(Tool)로 돈다. 글은 fixtures.py의 지어낸 글이다.
 """
 import contextlib
-import copy
 import io
 import os
 import shutil
@@ -24,7 +23,7 @@ import fixtures as F
 from unittest import mock
 
 from test_evening_llm import AUCTION, CARD, CPI, GOOD, SHORT_OK, Claude, Net, fx, no_net
-from test_picks_push import MOD, NEW, PATH, Tool, good, runs
+from test_picks_push import MOD, NEW, Tool, good, runs
 
 TH = R.TH
 NOW = "2026-10-08T18:20:00+09:00"

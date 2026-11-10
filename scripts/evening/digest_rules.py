@@ -41,12 +41,12 @@ ROLES = {"source": "원천", "wire": "속보형", "topic": "주제 한정", "con
 TOPIC_TAG = "ai"         # 주제 한정(topic) 채널은 이 꼬리표가 붙은 낱말이 있는 묶음에서만 센다
 RATE_TAG = "rate"        # 금리 변동 가산(M)은 채권 채널 + 이 꼬리표가 붙은 낱말이 있는 묶음에만
 
-# ---------- 숫자 표 (설계 4절 + 12절) ----------
+# ---------- 숫자 표 (점수 규칙은 digest_score.py 머리말) ----------
 
 TH = {
     # 수집 — t.me/s/<채널> 미리보기, urllib 기본 머리말
     "pause_s": 3.0, "timeout_s": 20, "page_budget_s": 45, "max_bytes": 3_000_000,
-    "max_requests": 30, "budget_s": 360, "max_pages": 2,        # 채널당 1쪽, 직전 글 번호에 못 닿으면 1쪽 더
+    "max_requests": 30, "budget_s": 360,        # 채널당 1쪽, 직전 글 번호에 못 닿으면 1쪽 더(tg_collect.read_channel)
     "long_window_h": 48, "max_requests_long": 40, "budget_long_s": 480,     # 수집 창이 이보다 길면(월요일·연휴 뒤) 상한을 늘린다
     "wire_query": "금리",                                         # 속보형은 미리보기 검색 1쪽(안 되면 최근 1쪽)
     # 판 날짜 · 수집 창
@@ -72,7 +72,7 @@ TH = {
     "k": {"A": 2.0, "B": 1.0, "C": 0.5}, "k_result": 0.25, "k_result_min_ch": 2, "k_cap": 2.25,
     "e": {"A": 2.0, "B": 1.0}, "e_cap": 2.0,
     "m_obs": 60, "m_steps": ((0.90, 1.5), (0.75, 1.0)), "m_cap": 1.5,
-    "y_bonus": 1.0, "y_cap": 1.0,                               # 4단계(유튜브) — 1단계는 늘 0
+    "y_cap": 1.0,                                               # 4단계(유튜브) — 1단계는 늘 0
     "p_repeat": 1.5, "p_repeat_waive_c": 1.0, "p_fwd": 1.0, "p_fwd_share": 0.5, "p_c_only_etc": 2.0, "p_cap": 4.5,
     "l_min": -2.0, "l_max": 1.0,                                # 3단계(하지 않는다) — 1단계는 늘 null
     "s_max": 15.5,
@@ -146,7 +146,7 @@ PHRASES = {
     "why_wire": "속보형 겹침", "why_cross": "채권 + 다른 그룹", "why_all": "세 그룹 모두",
     "why_grade_a": "A급 낱말", "why_result": "같은 결과 낱말 {n}곳", "why_num": "같은 숫자 {n}곳",
     "why_event": "발표일 일치", "why_auction": "입찰일 일치", "why_bond_alone": "채권 1곳 + 일정",
-    "why_move": "금리 변동 큼", "why_repeat": "어제와 같은 주제", "why_fwd": "전달 글이 절반 넘음",
+    "why_move": "금리 변동 큼", "why_repeat": "직전 판과 같은 주제", "why_fwd": "전달 글이 절반 넘음",
     # notes (판 머리에 붙는 알림 줄)
     "note_short": "수집 부족 — 꼭 볼 것을 비웠습니다", "note_withdrawn": "이 판은 내렸습니다",
     "note_fewer": "오늘은 {n}건", "note_none": "오늘은 기준을 넘은 묶음이 없습니다",
@@ -159,7 +159,11 @@ DIRS = ("약세", "강세", "보합")            # 국고 10년 일간 변화가
 CURVES = ("스팁", "플랫", "보합")          # 10년−3년 변화
 BASES = ("당일 종가", "전일 종가")
 TENORS = ("2년", "3년", "5년", "10년", "20년", "30년", "50년", "물가채")     # 입찰 일정의 만기 낱말
-_PHRASE_RES = tuple(re.compile("^" + re.escape(t).replace(r"\{n\}", r"[1-9][0-9]{0,2}") + "$") for t in PHRASES.values())
+# 지난 판에 실려 있어 아직 받아야 하는 옛 문구(새 판에는 쓰지 않는다 — phrase()가 만들지 않는다). why_repeat는 2026-11-10까지
+# '어제와 같은 주제'였다(월요일 판은 금요일 판과 견준다). 그 문구가 실린 판(data/digest/2026-11-09.json)이 목차에서 빠지면
+# (keep_days, 2026-12-14께) 화면의 LEGACY와 함께 지운다
+LEGACY_PHRASES = {"어제와 같은 주제": "why_repeat"}
+_PHRASE_RES = tuple(re.compile("^" + re.escape(t).replace(r"\{n\}", r"[1-9][0-9]{0,2}") + "$") for t in [*PHRASES.values(), *LEGACY_PHRASES])
 
 
 def phrase(code, **slots):
@@ -260,7 +264,6 @@ def solo_num_ok(v):
 _X = r"(?:한국|국내|중국|일본|유로존|유럽|독일|영국|호주|캐나다)"       # 미국이 아닌 곳
 _MON = r"(?:\d{1,2}월\s*)?"
 _US = r"(?<![가-힣])미국?의?"                # "의미"·"흥미"의 미에 걸리지 않게
-_NB = r"(?:(?!바이백).)"                      # 바이백을 건너뛰지 않는 한 글자 — 한 줄에 미 재무부·국고채 바이백이 다 있을 때
 _NBK = r"(?:(?!바이백|국고채).)"              # 바이백·국고채를 건너뛰지 않는 한 글자 — "재무부 … 국고채 바이백"을 미 바이백으로 삼키지 않게
 _MOF = r"(?:기재부|재경부|재정경제부|기획재정부)"
 _STOCKBB = (r"(?:자사주|기업|빅테크|상장사|대형주|기술주|주주\s?환원|주식|증시|애플|엔비디아|알파벳|구글|메타|마이크로소프트|아마존|오라클"
