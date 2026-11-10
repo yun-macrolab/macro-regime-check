@@ -759,9 +759,12 @@ function renderRegime(g) {
   const ref = g.reference && typeof g.reference === "object" ? g.reference : {};
   const values = (Array.isArray(g.more_values) ? g.more_values : []).filter(o => o && typeof o.label === "string");
   const manual = (Array.isArray(g.manual_checks) ? g.manual_checks : []).filter(m => m && typeof m.item === "string");
-  // 국면 후보·13주 변화의 자료일(S&P 500·미 10년 마지막 관측 — FRED가 며칠 늦는 날도 기준일 값처럼 보이지 않게). 꼴이 맞는 날짜만
+  // 국면 후보·13주 변화의 자료일(S&P 500·미 10년 마지막 관측 — FRED가 며칠 늦는 날도 기준일 값처럼 보이지 않게). 꼴이 맞는 날짜만,
+  // 그 줄(국면 후보 줄) 바로 아래에만 — 전환 경계 t2·t4는 완성된 주로 따로 세어 이 날짜의 주가 아닐 수 있다. 국면 후보 줄이 빠진 날은 싣지 않는다
   const refDates = [["S&P 500", ref.sp_asof], ["미 10년", ref.y10_asof]]
     .filter(([, d]) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)).map(([n, d]) => `${n} ${d}`);
+  const refLines = texts(ref.lines);
+  const candLine = refLines.findIndex(t => t.startsWith("국면 후보"));
   const shown = o => {                                   // % · %p는 붙여, 나머지 단위는 띄워 쓴다
     if (!Number.isFinite(o.value)) return "자료 없음";
     const unit = typeof o.unit === "string" ? o.unit : "";
@@ -776,8 +779,8 @@ function renderRegime(g) {
       el("p", {}, el("span", { class: "reference-label" }, "참고 — 예측 아님"), " · 운영자의 월간 점검 메모를 옮긴 것")),
     el("div", { class: "panel" },
       el("p", { class: "supply-num" }, g.headline),
-      ...texts(ref.lines).map(t => el("p", {}, t)),
-      refDates.length ? el("p", { class: "muted" }, "자료일 — " + refDates.join(" · ")) : null,
+      ...refLines.flatMap((t, i) => [el("p", {}, t),
+        i === candLine && refDates.length ? el("p", { class: "muted" }, "자료일 — " + refDates.join(" · ")) : null]),
       values.length ? el("details", { class: "rule-detail" }, el("summary", {}, "그 밖의 관측값"),
         el("ul", { class: "health" }, ...values.map(o => el("li", {}, `${o.label} ${shown(o)}`,
           el("small", {}, ` · ${typeof o.asof === "string" ? o.asof : "자료일 없음"}${o.computed ? " · 계산값" : ""}`)))),

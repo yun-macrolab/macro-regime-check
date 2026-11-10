@@ -1267,7 +1267,14 @@ class PageTest(unittest.TestCase):
         self.assertRegex(sp or "", r"^\d{4}-\d{2}-\d{2}$")
         text = self.draw(g, [])["text"]
         self.assertIn(f"자료일 — S&P 500 {sp} · 미 10년 {y10}", text)
-        self.assertLess(text.index(ref["lines"][-1]), text.index("자료일 — "))      # 참고 줄 바로 아래
+        # 국면 후보 줄(13주 변화) 바로 아래, 다음 참고 줄(ρ60) 앞 — 전환 경계 트리거 줄의 날짜로 읽히지 않게
+        self.assertTrue(ref["lines"][0].startswith("국면 후보"), ref["lines"][0])
+        self.assertLess(text.index(ref["lines"][0]), text.index("자료일 — "))
+        self.assertLess(text.index("자료일 — "), text.index(ref["lines"][1]))
+        self.assertEqual(text.count("자료일 — "), 1)
+        rest = copy.deepcopy(g)                                                    # 국면 후보 줄이 빠진 날은 자료일도 없다
+        rest["reference"]["lines"] = ref["lines"][1:]
+        self.assertNotIn("자료일 — ", self.draw(rest, [])["text"])
         ref.update(sp_asof="2026/09/18", y10_asof=None)
         self.assertNotIn("자료일", self.draw(g, [])["text"])
         ref.update(sp_asof={"x": 1}, y10_asof=y10)
