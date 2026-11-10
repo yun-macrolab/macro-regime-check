@@ -27,10 +27,10 @@
     </form>
     <div class="head-right">
       <span class="dday" id="dday" title="다음 FOMC 첫날까지 — 한국 날짜 기준"></span>
-      <span class="mark" title="참고 자료이고 금리 예측이 아니다. 사람이 확인하기 전의 초안이다"><span class="mark-long">참고 — 예측 아님 · </span><span class="mark-short">참고 · </span>초안</span>
+      <span class="mark" title="참고 자료이고 금리 예측이 아니다. 사람이 확인하기 전의 초안이 섞여 있다(사람마다 확인함/초안)"><span class="mark-long">참고 — 예측 아님 · </span><span class="mark-short">참고 · </span>초안</span>
     </div>
   </div>
-  <div class="keyrow" id="keyrow">
+  <div class="keyrow">
     <nav class="fkeys" id="fkeys" aria-label="화면 이동"></nav>
     <div class="toggles">
       <button class="motion" id="motion" type="button" aria-pressed="true">움직임 켬</button>
@@ -94,7 +94,7 @@
           <div class="ledger-grid">
             <div>
               <div class="tbl-scroll" tabindex="0" role="group" aria-label="표결 장부 — 좁은 화면에서는 가로로 밀어 볼 수 있음"><table class="ledger" id="ledger"></table></div>
-              <p class="small-note">칸: <b style="color:var(--hawk)">인상</b>·<b style="color:var(--dove)">인하</b>·<b style="color:var(--gold)">문구</b> = 그쪽으로 낸 반대표, · = 반대 기록 없음(다수 쪽으로 봄), – = 그 회의 때 위원 아님, <b class="q-key">?</b> = 아직 열리지 않은 회의, 호박색 밑줄 = 의장. 상단 금리는 결정 문구의 범위 윗값. 맨 아래 줄은 칸의 합이 발표된 표 수와 맞는지 본 것이다.</p>
+              <p class="small-note">칸: <b style="color:var(--hawk)">인상</b>·<b style="color:var(--dove)">인하</b>·<b style="color:var(--gold)">문구</b> = 그쪽으로 낸 반대표, · = 반대 기록 없음(다수 쪽으로 봄), – = 그 회의 때 위원 아님, <b class="q-key">?</b> = 아직 열리지 않았거나 결과를 아직 옮기지 않은(미반영) 회의, 호박색 밑줄 = 의장. 상단 금리는 결정 문구의 범위 윗값. 맨 아래 줄은 칸의 합이 발표된 표 수와 맞는지 본 것이다.</p>
             </div>
             <ol class="meets" id="meets"></ol>
           </div>

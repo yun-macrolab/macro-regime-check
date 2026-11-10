@@ -4,7 +4,8 @@
 // 보는 것: 머리 띠(최신 10개, 이름을 누르면 그 사람 파일) · 사람 파일의 칸(최신 8개 + 접기) · 고정 문구(언어 모델 · 사람 확인 없음) ·
 // 인용마다 출처와 전언 표시(띠에도) · 사람마다 기준선 확인 상태 · 이 사람 발언이 없을 때 파일이 담은 기간 · 늦게 온 띠의 스크롤 맞춤 ·
 // 틀린 발언은 그것만 빠짐 · 머리의 꼴이 틀리거나 파일이 없거나 받지 못하면 '자동 발언 기록 없음' 한 줄 · 한 번만 · 같은 출처 ·
-// no-store로 읽음 · 글은 글자로만.
+// no-store로 읽음 · 글은 글자로만 · 옛 기준선에 견준 발언의 기준일 표시 · 주의 줄의 사람마다 확인 셈 · 자료의 읽기 전에 글 그대로 ·
+// 고정 시계로 날짜가 지난 회의(결과 미반영)와 회의 날의 꼬리말 · 2027년의 '2026' 표기.
 // 모양(칩 색 · 좁은 화면)은 여기서 볼 수 없다 — 그건 브라우저로 확인한다.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -66,7 +67,7 @@ const all = (node, pred, out = []) => { if (node instanceof Elem) { if (pred(nod
 const byClass = (node, c) => all(node, n => n.cls().includes(c));
 const settle = async () => { for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r)); };
 
-function boot(answer, hash = '', prep = null) {
+function boot(answer, hash = '', prep = null, now = null) {
   const doc = { ids: Object.create(null), activeElement: null };
   doc.root = new Elem('html', doc);
   const body = new Elem('body', doc); doc.root.append(body);
@@ -95,6 +96,10 @@ function boot(answer, hash = '', prep = null) {
     localStorage: { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) },
     location: { hash }, history: { replaceState: (a, b, h) => { scope.location.hash = h; } }
   };
+  if (now != null) {                                                          // 고정 시계(ms) — new Date()와 Date.now()만 바꾼다
+    const Real = Date;
+    scope.Date = class extends Real { constructor(...a) { super(...(a.length ? a : [now])); } static now() { return now; } };
+  }
   scope.window = scope;
   vm.createContext(scope);
   vm.runInContext(DATA_JS, scope, { filename: 'people-data.js' });
@@ -320,4 +325,80 @@ test('a strip painted above the view scrolls by the change, and only then', asyn
     assert.ok(painted);
     assert.deepEqual(moves, want, `${before} → ${after}`);           // 화면 위(아래 끝 ≤ 0)였을 때만, 띠 아래 끝이 움직인 만큼
   }
+});
+
+test('an older remark compared with an earlier baseline shows that date, under the newest remark\'s label', async () => {
+  const list = [remark('cook', '2026-11-03', '연설', { baseline_asof: '2026-11-04' }),
+    remark('cook', '2026-10-30', '연설', { baseline_asof: '2026-11-04' }),
+    remark('cook', '2026-10-20', '인터뷰', { baseline_asof: '2026-10-31' })];
+  const t = boot(file(list), '#cook');
+  await settle();
+  assert.match(t.sec().textContent, /기준선\(2026-11-04 · 초안\)에 견준 결과입니다/);          // 머리 문구는 가장 새 발언의 기준선
+  const cards = byClass(t.sec(), 'rm');
+  const chips = c => byClass(c, 'cert').map(n => n.textContent);
+  assert.deepEqual(chips(cards[0]), ['기준선 초안']);                                          // 머리와 같은 기준일 — 날짜 없음
+  assert.deepEqual(chips(cards[1]), ['기준선 초안']);
+  assert.deepEqual(chips(cards[2]), ['기준선 초안', '기준선 2026-10-31']);                     // 옛 기준선에 견줬다(고정)
+  assert.match(byClass(cards[2], 'cert')[1].attrs.title, /처음 공개한 날/);
+});
+
+test('the caveat counts who was checked, per person', async () => {
+  const ok = PEOPLE.filter(p => p.review === 'approved').length;
+  const cav = t => t.doc.getElementById('caveat').textContent;
+  const live = boot(file([]));
+  assert.ok(ok > 0 && ok < PEOPLE.length);
+  assert.ok(cav(live).startsWith(`초안 섞임 — ${ok}명 확인함 · ${PEOPLE.length - ok}명 사람 확인 전|`), cav(live));
+  assert.doesNotMatch(cav(live), /대부분 2차 보도/);
+  const none = boot(file([]), '', d => { d.review = 'draft'; d.people.forEach(p => { delete p.review; }); });
+  assert.ok(cav(none).startsWith('초안 사람 확인 전|'), cav(none));                               // 사람 칸이 없으면 페이지 전체(초안)
+  const all = boot(file([]), '', d => { d.review = 'approved'; });
+  assert.ok(cav(all).startsWith('확인 사람이 출처를 확인함|'), cav(all));
+});
+
+test('the notes are shown as the data writes them', async () => {
+  const s = { window: {} }; vm.runInNewContext(DATA_JS, s);
+  const D = s.window.PEOPLE_DATA;
+  const t = boot(file([]));
+  const li = t.doc.getElementById('notes').kids.map(k => k.textContent);
+  assert.deepEqual(li.slice(0, D.notes.length + 1), [...D.notes, D.camp_note]);                 // 글자를 바꾸지 않는다(파일 이름 us-states.json 등)
+  assert.ok(li.some(x => x.includes('us-states.json')));
+});
+
+test('a meeting whose date has passed without a result is not called upcoming (fixed clock, Korean date)', async () => {
+  const kst = s => Date.parse(s + '+09:00');
+  const ledgerTitles = t => all(t.doc.getElementById('ledger'), n => (n.attrs.title || '').includes('2026-12-09')).map(n => n.attrs.title);
+  // 회의 첫날(한국 12-08) — 꼬리말은 '회의 중', '첫날까지 회의 중'이 아니다
+  const d8 = boot(file([]), '', null, kst('2026-12-08T10:00:00'));
+  const foot8 = byClass(d8.doc.getElementById('ledger'), 'soon');
+  assert.equal(foot8.length, 1);
+  assert.equal(foot8[0].textContent, '회의 중');
+  assert.equal(foot8[0].attrs.title, '회의 중(한국 날짜)');
+  assert.match(d8.doc.getElementById('tape').textContent, /FOMC 예정 12-08~09/);
+  // 결정일 다음 날(한국 12-10) — 일정은 끝났고, 결과를 옮기기 전의 12월 회의는 '미반영'
+  const d10 = boot(file([]), '', null, kst('2026-12-10T10:00:00'));
+  assert.equal(d10.doc.getElementById('dday').textContent, '2026 일정 끝');
+  const dec = byClass(d10.doc.getElementById('ledger'), 'r-dec')[0];
+  assert.equal(dec.kids[dec.kids.length - 1].textContent, '미반영');
+  const foot = byClass(d10.doc.getElementById('ledger'), 'soon');
+  assert.deepEqual(foot.map(n => [n.textContent, n.attrs.title]), [['미반영', '날짜는 지났고 결과를 아직 옮기지 않음']]);
+  const titles = ledgerTitles(d10);
+  assert.ok(titles.length > 1);
+  assert.ok(titles.every(s => !s.includes('아직 열리지 않음') && !/· 예정/.test(s)), titles.join('\n'));
+  assert.match(d10.doc.getElementById('tape').textContent, /FOMC 결과 미반영 12-08~09/);
+  assert.doesNotMatch(d10.doc.getElementById('tape').textContent, /FOMC 예정/);
+  const meets = d10.doc.getElementById('meets').kids;
+  assert.match(meets[meets.length - 1].textContent, /결과 미반영/);
+  const cells = byClass(d10.doc.getElementById('file'), 'mcell');                               // 처음 연 파일(워시, 투표권자)의 회의 띠
+  const last = cells[cells.length - 1];
+  assert.equal(byClass(last, 'mv')[0].textContent, '미반영');
+  assert.match(last.attrs.title, /날짜는 지났고 결과를 아직 옮기지 않음/);
+  // 전날(한국 12-07) — 아직 열리지 않은 회의는 그대로 '예정'
+  const d7 = boot(file([]), '', null, kst('2026-12-07T10:00:00'));
+  assert.equal(byClass(byClass(d7.doc.getElementById('ledger'), 'r-dec')[0], 'plan')[0].textContent, '예정');
+  assert.ok(ledgerTitles(d7).some(s => s.includes('아직 열리지 않음')));
+  // 2027년 초 — 투표권 줄은 '올해'가 아니라 '2026'
+  const y27 = boot(file([]), '#barkin', null, kst('2027-01-05T10:00:00'));
+  const ft = y27.doc.getElementById('file').textContent;
+  assert.match(ft, /2026 투표권 없음 — 토론·점도표만/);
+  assert.doesNotMatch(ft, /올해 (투표권|반대 기록)/);
 });
