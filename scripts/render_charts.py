@@ -72,7 +72,9 @@ def _ndfi_yoy(S, d):
 
 
 def _reserves_gdp(S, d):
-    """지준/명목GDP(%). 지난 점은 d 이하 최신 분기 GDP로 나눈다(나중에 나온 GDP로 과거 비율을 다시 쓰지 않게).
+    """지준/명목GDP(%). 지난 점은 관측일(분기 시작일)이 d 이하인 최신 분기 GDP — 그 주가 속한 분기의 GDP(현재 개정치)로
+    나눈다. 그 분기 GDP는 분기 시작 약 4개월 뒤에야 처음 나오므로, 나오는 날 그 분기의 지난 점이 다시 그려져 그날 카드에
+    실렸던 값·충족 여부와 다를 수 있다(발표 시차를 두지 않는 정의 — 그래프 note·README '그래프'에 적는다).
     마지막 점만은 regime_check.compute처럼 기준일 이하 최신 GDP로 — 분기 첫 주에 기준일을 과거로 준 재계산에서
     분기 시작일(GDP 관측일)이 마지막 지준 주보다 늦어도 카드 값과 같게."""
     w = upto(S["WRESBAL"], d)
@@ -185,7 +187,8 @@ def chart_table():
             _line("tp_chg_3m", "기간 프리미엄 3개월 변화", "main", ["THREEFYTP10"],
                   _sampled("THREEFYTP10", _chg3m("THREEFYTP10")))]),
         "reserves_multiplier": _chart("reserves_multiplier", "지준/명목GDP", "%", 3, threshold=th["reserves_gdp_low"],
-                                      lines=[_line("reserves_gdp", "지준/명목GDP", "main", ["WRESBAL", "GDP"],
+                                      note="지난 점은 그 주가 속한 분기의 GDP(현재 개정치)로 나눈 값 — 그 분기 GDP가 나오면 "
+                                           "다시 그려져 그날 카드 값과 다를 수 있다", lines=[_line("reserves_gdp", "지준/명목GDP", "main", ["WRESBAL", "GDP"],
                                                    _sampled("WRESBAL", _reserves_gdp))]),
         "employment": _chart("employment", "미 증권·투자업 고용 전년비", "%", 3, threshold=0.0, lines=[
             _line("emp_yoy", "고용 전년비", "main", ["CES5552300001"],

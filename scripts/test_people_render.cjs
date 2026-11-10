@@ -5,7 +5,8 @@
 // 인용마다 출처와 전언 표시(띠에도) · 사람마다 기준선 확인 상태 · 이 사람 발언이 없을 때 파일이 담은 기간 · 늦게 온 띠의 스크롤 맞춤 ·
 // 틀린 발언은 그것만 빠짐 · 머리의 꼴이 틀리거나 파일이 없거나 받지 못하면 '자동 발언 기록 없음' 한 줄 · 한 번만 · 같은 출처 ·
 // no-store로 읽음 · 글은 글자로만 · 옛 기준선에 견준 발언의 기준일 표시 · 주의 줄의 사람마다 확인 셈 · 자료의 읽기 전에 글 그대로 ·
-// 고정 시계로 날짜가 지난 회의(결과 미반영)와 회의 날의 꼬리말 · 2027년의 '2026' 표기.
+// 고정 시계로 날짜가 지난 회의(결과 미반영)와 회의 날의 꼬리말 · 2027년의 '2026' 표기 · 출처 줄의 '매체 미기재'와 '요약 제목' ·
+// 지구의 근사 설명(표의 줄 · 두 지도의 표지) · 위치의 때 이름(자료의 stance_label) · 기준선 칸의 '주로 이 세 칸'.
 // 모양(칩 색 · 좁은 화면)은 여기서 볼 수 없다 — 그건 브라우저로 확인한다.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -190,7 +191,7 @@ test('person file shows eight newest and folds the rest', async () => {
   assert.equal(byClass(first, 'rm-quote')[0].textContent, '“rates find the cracks”');
   assert.equal(byClass(first, 'rm-quote')[0].attrs.lang, 'en');
   assert.equal(byClass(first, 'rm-basis')[0].textContent, '견준 항목: 늘 하는 말');
-  assert.equal(byClass(first, 'rm-src')[0].textContent, '출처: 지어낸 매체 · 지어낸 제목');
+  assert.equal(byClass(first, 'rm-src')[0].textContent, '출처: 지어낸 매체 · 요약 제목 ‘지어낸 제목’');   // 제목은 분류기가 쓴 한 줄 — 원제처럼 적지 않는다
   assert.match(byClass(first, 'vs')[0].textContent, /■ 평소와 같음/);
 });
 
@@ -223,7 +224,7 @@ test('baseline review: the section tag follows the person (else the page), the r
   assert.match(n.sec().textContent, /기준선\(확인함\)/);                                       // 발언이 없으면 지금 프로필의 것
 });
 
-test('every quote carries its source, and hearsay is marked in the strip too', async () => {
+test('every quote carries its source (no outlet is said so, the title is a summary title), and hearsay is marked in the strip too', async () => {
   const list = [remark('warsh', '2026-11-02', '연설', { source: '', title: '' }),
     remark('hammack', '2026-11-01', '인터뷰', { access: '전언', quote: 'we may need to do more', source: '', title: '지어낸 제목' }),
     remark('cook', '2026-10-31', '연설', { quote: '', source: '', title: '' }),
@@ -233,7 +234,7 @@ test('every quote carries its source, and hearsay is marked in the strip too', a
   const rows = byClass(t.strip(), 'rm-row');
   const src = r => byClass(r, 'rm-src').map(n => n.textContent);
   assert.deepEqual(src(rows[0]), ['출처: 운영자가 모은 기사(매체 미기재)']);                     // 둘 다 비면 그렇다고
-  assert.deepEqual(src(rows[1]), ['출처: 지어낸 제목']);
+  assert.deepEqual(src(rows[1]), ['출처: 매체 미기재 · 요약 제목 ‘지어낸 제목’']);               // 제목만 있으면 매체가 없다고 말하고, 제목은 요약 제목으로
   assert.deepEqual(src(rows[2]), []);                                                           // 인용이 없는 줄에는 붙이지 않는다
   const kids = rows[1].kids.map(k => (k.cls ? k.cls().join(' ') : '#text'));
   assert.ok(kids.indexOf('rm-src') === kids.indexOf('rm-quote') + 1, kids.join(','));            // 인용 바로 뒤
@@ -403,4 +404,73 @@ test('a meeting whose date has passed without a result is not called upcoming (f
   const ft = y27.doc.getElementById('file').textContent;
   assert.match(ft, /2026 투표권 없음 — 토론·점도표만/);
   assert.doesNotMatch(ft, /올해 (투표권|반대 기록)/);
+});
+
+test('each district shows its state-level approximation on hover — the table row and the map seals', async () => {
+  // 주의 줄(notes)이 '지구마다 근사 설명이 붙어 있다'고 말한다 — 자료의 approx를 표의 줄(단추)과 두 지도의 표지(SVG title)에 싣는다(2026-11-10 점검)
+  const s = { window: {} }; vm.runInNewContext(DATA_JS, s);
+  const D = s.window.PEOPLE_DATA;
+  assert.equal(D.districts.filter(d => typeof d.approx === 'string' && d.approx.trim()).length, 12);
+  const t = boot(file([]), '#collins');
+  const rows = all(t.doc.getElementById('dtable'), n => n.tag === 'tr' && 'data-key' in n.attrs);
+  assert.equal(rows.length, D.districts.length);
+  D.districts.forEach((d, i) => {
+    const btns = all(rows[i], n => n.tag === 'button');
+    assert.equal(btns.length, 5);
+    assert.deepEqual([...new Set(btns.map(b => b.attrs.title))], [`주 단위 근사: ${d.approx}`], `${d.n}지구`);
+  });
+  const titleOf = g => g.kids.find(k => k.tag === 'title').textContent;
+  const seals = all(t.doc.getElementById('dmap'), n => n.tag === 'g' && n.cls().includes('seal'));
+  assert.equal(seals.length, 12);
+  for (const d of D.districts) {
+    const g = seals.find(x => x.attrs['aria-label'].startsWith(`${d.n}지구 `));
+    assert.ok(titleOf(g).endsWith(` (주 단위 근사: ${d.approx})`), titleOf(g));
+  }
+  const route = all(t.doc.getElementById('file'), n => n.tag === 'title' && /^\d+지구 .* — 표지 [A-L]/.test(n.textContent)).map(n => n.textContent);
+  assert.equal(route.length, 12);                                                                // 노선도의 흐린 표지에도
+  for (const d of D.districts) assert.ok(route.includes(`${d.n}지구 ${d.bank_ko} — 표지 ${'ABCDEFGHIJKL'[d.n - 1]} (주 단위 근사: ${d.approx})`), `${d.n}지구`);
+  const bare = boot(file([]), '', x => { delete x.districts[0].approx; });                         // 설명이 없는 지구는 이름만
+  const row0 = all(bare.doc.getElementById('dtable'), n => n.tag === 'tr' && 'data-key' in n.attrs)[0];
+  assert.ok(all(row0, n => n.tag === 'button').every(b => !('title' in b.attrs)));
+});
+
+test('the "now" positions are named by the data (stance_label), not by a fixed month', async () => {
+  // 위치 눈금이 가리키는 때 — 기준일(asof)과 따로 자료의 stance_label에서 읽는다(2026-11-10 점검: '10월'이 여덟 곳에 박혀 있었다)
+  const s = { window: {} }; vm.runInNewContext(DATA_JS, s);
+  const D = s.window.PEOPLE_DATA;
+  assert.equal(boot(file([])).doc.getElementById('t-now').textContent, D.stance_label);
+  const lbl = '12월 중순';
+  const t = boot(file([]), '', d => { d.stance_label = lbl; });
+  const $ = id => t.doc.getElementById(id);
+  const notes = $('notes').kids.map(k => k.textContent).join('\n');
+  const foot = byClass($('rail'), 'rail-foot')[0].textContent;
+  assert.equal($('t-now').textContent, lbl);
+  assert.ok($('spec-lede').textContent.includes(`연초 → ${lbl}, 위원회 전체가`), $('spec-lede').textContent);
+  assert.ok($('tiles').textContent.includes(`중간값 · ${lbl}`));
+  assert.ok($('spec-key').textContent.includes(`찬 점 = ${lbl} · 빈 원 = 1월 연초`));
+  assert.ok(foot.includes(`찬 점 ${lbl},`), foot);
+  assert.ok(notes.includes(`운영자 해석 — ${lbl} 매파 쪽`));
+  const rows = byClass($('spec'), 'spec-row');
+  assert.ok(rows.length > 0 && rows.every(r => r.attrs['aria-label'].includes(`: ${lbl} `)));
+  const shown = [$('t-now'), $('spec-lede'), $('tiles'), $('spec-key')].map(n => n.textContent).join('\n') + foot + notes
+    + rows.map(r => r.attrs['aria-label']).join('\n');
+  assert.doesNotMatch(shown, /10월/);
+  $('t-jan').click();                                                                            // 1월로 — '지금' 쪽 이름은 빈 원 · 지난 값으로
+  assert.ok($('spec-key').textContent.includes(`찬 점 = 1월 연초 · 빈 원 = ${lbl}`));
+  const was = byClass($('tiles'), 'was').map(n => n.textContent);
+  assert.ok(was.length === 4 && was.every(x => x.startsWith(`${lbl} `)), was.join(' | '));
+  assert.ok(byClass($('spec'), 'spec-row').every(r => r.attrs['aria-label'].includes(`, ${lbl} `)));
+  const none = boot(file([]), '', d => { delete d.stance_label; });                              // 칸이 없으면 '지금'
+  assert.equal(none.doc.getElementById('t-now').textContent, '지금');
+});
+
+test('the baseline section says remarks are compared mainly with its three columns, and names the other profile lines', async () => {
+  // 자동 분류는 지금 입장 · 뉴스 아님 · 반대표 기록에도 견준다 — 그 글이 '견준 항목'에 실리므로 '이 세 칸에 견준다'고만 하지 않는다(2026-11-10 점검)
+  const t = boot(file([remark('warsh', '2026-11-02', '연설', { basis: [{ path: 'baseline.stance_now', text: '지어낸 지금 입장' }] })]));
+  await settle();
+  const base = t.doc.getElementById('sec-base').textContent;
+  assert.match(base, /새 발언은 주로 이 세 칸에 견준다/);
+  assert.match(base, /이 칸 밖의 운영자 정리\(지금 입장 · 뉴스 아님 목록 · 반대표 기록\)에 견준 발언은 그 줄을 ‘견준 항목’에 그대로 싣는다/);
+  assert.doesNotMatch(base, /새 발언은 이 세 칸에 견준다/);
+  assert.equal(byClass(byClass(t.sec(), 'rm')[0], 'rm-basis')[0].textContent, '견준 항목: 지어낸 지금 입장');
 });

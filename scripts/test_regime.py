@@ -4,7 +4,7 @@
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
 네트워크 불필요 — FRED는 합성 CSV 캐시로 대체하고 urlopen은 몽키패치한다.
 """
-import os, sys, json, math, datetime, tempfile, unittest, shutil, subprocess
+import os, re, sys, json, math, datetime, tempfile, unittest, shutil, subprocess
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
@@ -677,6 +677,144 @@ class CoreGapTest(unittest.TestCase):
         self.assertAlmostEqual(ind["core_gap"]["value"],
                                ind["core_cpi_yoy"]["value"] - ind["core_pce_yoy"]["value"], places=12)
         self.assertEqual(ind["core_gap"]["asof"], "2026-08-01")
+
+
+class RegimeBufferTest(unittest.TestCase):
+    """국면 완충 구간(±2% · ±10bp)의 경계 — 13주 변화가 정확히 문턱이면 값의 수준과 무관하게 완충이다. 소수 둘째 자리 금리끼리 뺀
+    정확히 +0.10%p는 10.000000000000053bp나 9.999999999999964bp가 된다(audit 2026-11-10 regime-02). 숫자는 지어낸 것이다."""
+    END = D(2026, 9, 18)
+
+    def inputs(self, y10, sp=(1.0, 1.1)):
+        base = self.END - datetime.timedelta(days=91)
+        series = {"DGS10": [(base, y10[0]), (self.END, y10[1])], "SP500": [(base, sp[0]), (self.END, sp[1])]}
+        _, inputs, _ = MOD.compute(series, TODAY)
+        return inputs
+
+    def test_exact_ten_bp_is_buffer_at_every_yield_level(self):
+        for y10 in ((4.84, 4.94), (4.69, 4.79), (4.94, 4.84), (4.79, 4.69)):
+            i = self.inputs(y10)
+            self.assertEqual(abs(i["y10_13w_bp"]), 10.0, y10)
+            self.assertIsNone(i["regime_candidate"], y10)
+            self.assertTrue(i["regime_note"].startswith("완충 구간"), (y10, i["regime_note"]))
+
+    def test_just_outside_the_buffer_is_a_quadrant(self):
+        i = self.inputs((4.84, 4.95))
+        self.assertEqual((i["regime_candidate"], i["regime_note"]), ("A", "사분면 판정"))
+        i = self.inputs((4.95, 4.84))
+        self.assertEqual((i["regime_candidate"], i["regime_note"]), ("C", "사분면 판정"))
+
+    def test_exact_two_percent_stock_change_is_buffer_either_side_of_float_noise(self):
+        for sp in ((1.0, 1.02), (1.6, 1.632)):                 # 2.0000000000000018% · 1.999999999999988%
+            i = self.inputs((4.0, 4.5), sp)
+            self.assertEqual(i["sp_13w_pct"], 2.0, sp)
+            self.assertIsNone(i["regime_candidate"], sp)
+            self.assertTrue(i["regime_note"].startswith("완충 구간"), sp)
+
+
+class ReadingNumberTest(unittest.TestCase):
+    """해석 줄의 숫자(audit 2026-11-10 regime-04 · liq-02) — 임계값은 TH에서 만들고(TH만 고치면 규칙 문장과 해석 줄이 같은
+    문턱을 말한다), 앞부분 값은 임계값 바로 옆이면 비교가 뒤집히지 않는 자리까지 싣는다('9.0% → 8%대'가 없게). 숫자는 지어낸 것이다."""
+
+    def text(self, key, **kw):
+        return next(s for s in rr.evaluate({**BASE_IND, **kw}) if s["key"] == key)["text"]
+
+    def test_reserves_ratio_has_two_decimals_and_never_crosses_the_floor_in_print(self):
+        below, above = "9% 미만 = 대차대조표 임대료 상승(A)", "9% 이상 유지(B 산술)"
+        for v, shown, clause in ((8.95, "8.95", below), (8.996, "8.996", below), (8.999, "8.999", below),
+                                 (8.9996, "8.9996", below), (7.96, "7.96", below),
+                                 (9.0, "9.00", above), (9.004, "9.00", above), (10.4, "10.40", above),
+                                 (8.9999999, "9.00", above)):    # 소수 6자리 반올림이 9.0 — 규칙(_cmp)도 미만이 아니라고 본다
+            t = self.text("reserves_multiplier", reserves_gdp=v)
+            self.assertIn(f"지준/명목GDP {shown}% (3개월 ", t, v)
+            self.assertTrue(t.endswith(" → " + clause), (v, t))
+            self.assertNotIn("8%대", t)
+            self.assertNotIn("9%대", t)
+
+    def test_core_pce_and_ndfi_heads_agree_with_their_clause(self):
+        for v, shown, clause in ((3.004, "3.004", "3% 초과 = D2 쪽(붕괴 시 채권 방어 불완전)"),
+                                 (2.996, "3.00", "3% 이하 = D1 쪽, SEP 경로 추종이면 B"),
+                                 (3.0, "3.00", "3% 이하 = D1 쪽, SEP 경로 추종이면 B"),
+                                 (3.34, "3.34", "3% 초과 = D2 쪽(붕괴 시 채권 방어 불완전)")):
+            t = self.text("core_inflation", core_pce_yoy=v)
+            self.assertTrue(t.startswith(f"근원 PCE {shown}% (근원 CPI "), (v, t))
+            self.assertTrue(t.endswith(" → " + clause), (v, t))
+        for v, shown, clause in ((9.96, "+9.96", "두 자릿수 붕괴 = A→D 방아쇠 주의"),
+                                 (9.94, "+9.9", "두 자릿수 붕괴 = A→D 방아쇠 주의"),
+                                 (10.04, "+10.0", "두 자릿수 유지 = A 진행")):
+            t = self.text("ndfi_credit", ndfi_yoy=v)
+            self.assertTrue(t.startswith(f"NDFI 대출 YoY {shown}%(계단 제외)"), (v, t))
+            self.assertTrue(t.endswith(" → " + clause), (v, t))
+
+    def test_reading_numbers_follow_the_threshold_table(self):
+        new = {"corr_run_days": 100, "real_rate_c": 1.5, "core_pce_split": 2.5, "reserves_gdp_low": 8.0}
+        old = {k: rr.TH[k] for k in new}
+        rr.TH.update(new)
+        try:
+            hi = {s["key"]: s["text"] for s in rr.evaluate({**BASE_IND, "rho60_sign": "+", "rho60_run": 110, "rho60": 0.3,
+                                                            "dfii10": 1.4, "bei_chg_3m": 0.1, "core_pce_yoy": 2.7,
+                                                            "reserves_gdp": 7.995})}
+            lo = {s["key"]: s["text"] for s in rr.evaluate({**BASE_IND, "rho60_sign": "+", "rho60_run": 90, "rho60": 0.3,
+                                                            "dfii10": 1.6, "core_pce_yoy": 2.4, "reserves_gdp": 8.5})}
+        finally:
+            rr.TH.update(old)
+        self.assertTrue(hi["stock_bond_corr"].endswith("양(+) 110영업일 = 100일 복귀 → B 신호"), hi["stock_bond_corr"])
+        self.assertTrue(lo["stock_bond_corr"].endswith("양(+) 90영업일째(100일 미만)"), lo["stock_bond_corr"])
+        self.assertTrue(hi["real_rate_bei"].endswith("→ 실질 1.5% 하회 + BEI 상승 = C 신호"), hi["real_rate_bei"])
+        self.assertTrue(lo["real_rate_bei"].endswith("→ 실질 1.5% 위 = C 반증(F-01-C-01)"), lo["real_rate_bei"])
+        self.assertTrue(hi["core_inflation"].endswith("→ 2.5% 초과 = D2 쪽(붕괴 시 채권 방어 불완전)"), hi["core_inflation"])
+        self.assertTrue(lo["core_inflation"].endswith("→ 2.5% 이하 = D1 쪽, SEP 경로 추종이면 B"), lo["core_inflation"])
+        self.assertIn("지준/명목GDP 7.995% (", hi["reserves_multiplier"])
+        self.assertTrue(hi["reserves_multiplier"].endswith("→ 8% 미만 = 대차대조표 임대료 상승(A)"), hi["reserves_multiplier"])
+        self.assertTrue(lo["reserves_multiplier"].endswith("→ 8% 이상 유지(B 산술)"), lo["reserves_multiplier"])
+        for t in list(hi.values()) + list(lo.values()):
+            for old_number in ("126일", "실질 2%", "3% 이하", "3% 초과", "9% 미만", "9% 이상"):
+                self.assertNotIn(old_number, t)
+
+    def test_neutral_rules_and_three_month_changes_beside_the_threshold(self):
+        # 검토 반영: 중립 규칙 둘(구절에 0.5%p)과 문턱이 규칙 문장에만 있는 3개월 변화(TP·SOFR)도 같은 자리 규칙 —
+        # '+0.50%p → 0.5%p 미만'·'(3개월 -0.25) → 하락 없음'이 없게
+        mom = {"core_pce_a6": 3.896, "core_pce_yoy": 3.4}
+        for key, kw, tail in (
+                ("core_momentum", {**mom, "core_mom": 0.496}, "= +0.496%p → 0.5%p 미만"),
+                ("core_momentum", {**mom, "core_mom": 0.4999}, "= +0.4999%p → 0.5%p 미만"),
+                ("core_momentum", {**mom, "core_mom": 0.5}, "= +0.50%p → 0.5%p 이상(6개월 연율이 전년비보다 높음)"),
+                ("core_momentum", {**mom, "core_mom": 0.504}, "= +0.50%p → 0.5%p 이상(6개월 연율이 전년비보다 높음)"),
+                ("unemployment_rise", {"unrate_rise": 0.4996}, "= +0.4996%p → 0.5%p 미만"),
+                ("unemployment_rise", {"unrate_rise": 0.5}, "= +0.50%p → 0.5%p 이상(현재 개정치 기준)"),
+                ("term_premium", {"tp_chg_3m": -0.2496}, "(3개월 -0.2496) → 하락 없음(A 진행)"),
+                ("term_premium", {"tp_chg_3m": -0.25}, "(3개월 -0.25) → 하락 = 듀레이션 수요 충분 후보(A 반증, 발행 지속 여부 수동 확인)"),
+                ("term_premium", {"tp_chg_3m": None}, "(3개월 —) → 일부 자료 없음(판정 불가)"),
+                ("sofr", {"sofr_chg_3m": 0.2496}, "(3개월 +0.2496) → 재상승 없음"),
+                ("sofr", {"sofr_chg_3m": 0.25}, "(3개월 +0.25) → 재상승 = 2021 빈티지 이자보상 재악화·PIK 증가"),
+                ("reserves_multiplier", {"reserves_gdp_chg_3m": 0.2996}, "(3개월 +0.2996%p) → 9% 이상 유지(B 산술)")):
+            t = self.text(key, **kw)
+            self.assertTrue(t.endswith(tail), (key, kw, t))
+
+    def test_every_value_compared_in_the_head_agrees_with_the_comparison_in_print(self):
+        # 앞부분에서 임계값과 견주는 값은 모두 — 실린 숫자를 다시 읽어 같은 비교를 하면 규칙의 비교와 같다(문턱 ±0.01 안을 훑는다).
+        # C&I 대 명목GDP처럼 두 값을 견주는 것은 반올림해도 순서가 뒤집히지 않아(같아 보일 뿐) 여기 없다
+        th = rr.TH
+        spec = (("ndfi_credit", "ndfi_yoy", "<", th["ndfi_two_digit"], r"YoY ([+-][\d.]+)%", {}),
+                ("credit_spread", "baa10y_from_low", ">=", th["spread_widen_pp"], r"바닥 대비 ([+-][\d.]+),", {}),
+                ("credit_spread", "hy_oas", ">", th["hy_oas_break"], r"HY OAS ([\d.]+)%p", {}),
+                ("curve_inversion", "t10y2y", "<", 0, r"2s10s ([+-][\d.]+)%p", {}),
+                ("real_rate_bei", "dfii10", "<", th["real_rate_c"], r"10년 실질 ([\d.]+)%", {}),
+                ("real_rate_bei", "bei_chg_3m", ">", 0, r"%\(3개월 ([+-][\d.]+)\)", {"dfii10": 1.5}),
+                ("core_inflation", "core_pce_yoy", "<=", th["core_pce_split"], r"근원 PCE ([\d.]+)% \(", {}),
+                ("term_premium", "tp_chg_3m", "<=", -th["tp_drop_3m"], r"\(3개월 ([+-][\d.]+)\)", {}),
+                ("sofr", "sofr_chg_3m", ">=", th["sofr_rise_3m"], r"\(3개월 ([+-][\d.]+)\)", {}),
+                ("reserves_multiplier", "reserves_gdp", "<", th["reserves_gdp_low"], r"지준/명목GDP ([\d.]+)%", {}),
+                ("reserves_multiplier", "reserves_gdp_chg_3m", ">=", th["reserves_gdp_rise_3m"], r"\(3개월 ([+-][\d.]+)%p\)",
+                 {"core_pce_yoy": 3.4}),
+                ("employment", "emp_yoy", "<", 0, r"YoY ([+-][\d.]+)%", {}),
+                ("core_momentum", "core_mom", ">=", th["core_mom_gap"], r"= ([+-][\d.]+)%p", {}),
+                ("unemployment_rise", "unrate_rise", ">=", th["unrate_rise"], r"= ([+-][\d.]+)%p", {}))
+        for key, field, op, x, pat, extra in spec:
+            for i in range(-100, 101):
+                v = x + i / 10000
+                t = self.text(key, **{**extra, field: v})
+                shown = float(re.search(pat, t).group(1))
+                self.assertEqual(rr._cmp(shown, op, x), rr._cmp(v, op, x), (key, field, v, t))
 
 
 class BuildTest(unittest.TestCase):

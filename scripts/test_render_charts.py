@@ -163,6 +163,14 @@ class ChartsTest(unittest.TestCase):
             cut = ff.corr_summary(rc.upto(S["SP500"], d), rc.upto(S["DGS10"], d), 60)
             self.assertEqual((d, v), (cut["asof"], cut["value"]))
 
+    def test_reserves_chart_note_states_the_gdp_basis(self):
+        # 지난 점의 분모는 그 주가 속한 분기의 GDP(발표 시차 없음) — 그 분기 GDP가 나오면 지난 점이 다시 그려진다는 것을
+        # 그래프 아래에 적는다(audit 2026-11-10 regime-03 · charts-01 · cross-01: 계산은 그대로, 안내만)
+        note = self.charts["rules"]["reserves_multiplier"]["note"]
+        self.assertEqual(note, rc.chart_table()["rules"]["reserves_multiplier"]["note"])
+        for part in ("그 주가 속한 분기의 GDP", "다시 그려져", "카드 값과 다를 수 있다"):
+            self.assertIn(part, note)
+
     def test_every_point_uses_the_rule_function(self):
         # 중간 점도 규칙 함수로 계산한 값이어야 한다 — 마지막 점만 맞추는 구현을 잡는다
         S = {sid: ff.load(sid, os.path.join(self.work, "fred"), offline=True)[0]
@@ -172,7 +180,8 @@ class ChartsTest(unittest.TestCase):
                   ("ndfi_credit", "ndfi_yoy",
                    lambda d: ff.step_excluded_yoy(cut(S["LNFACBW027SBOG"], d), rr.TH["ndfi_step_bn"])["value"]),
                   ("core_inflation", "core_pce_yoy", lambda d: ff.yoy(cut(S["PCEPILFE"], d), same_month=True)["value"]),
-                  # 지난 점은 그 날 이하 최신 GDP로 — 나중에 나온 GDP로 과거 비율을 다시 쓰지 않는다
+                  # 지난 점은 관측일(분기 시작일)이 그 날 이하인 최신 GDP로 — 그 주가 속한 분기의 GDP(현재 개정치). 그 분기
+                  # GDP가 나오면 지난 점이 다시 그려진다(발표 시차를 두지 않는 정의 — 그래프 note에 적는다)
                   ("reserves_multiplier", "reserves_gdp",
                    lambda d: cut(S["WRESBAL"], d)[-1][1] / 1000 / ff.on_or_before(S["GDP"], d)[1] * 100)]
         for rule, key, fn in checks:

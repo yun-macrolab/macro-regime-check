@@ -67,10 +67,6 @@ def load(sid, cache_dir, offline=False, timeout=TIMEOUT):
 
 # ---------- 기본 조회 ----------
 
-def last(series):
-    return series[-1] if series else None
-
-
 def on_or_before(series, d):
     """d 이하 가장 최근 관측치 (date, value). 없으면 None."""
     for dd, v in reversed(series):

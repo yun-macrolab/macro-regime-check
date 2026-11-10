@@ -224,8 +224,10 @@ def compute(series, today, prev_regime=None):
     # S&P 500 13주 변화는 방향만, t2(ICE IG OAS)는 ON/OFF만 싣는다 — 원값은 raw/에만 남는다
     sp13 = ff.pct_change_days(S("SP500"), 91) if S("SP500") else None
     y13 = ff.change_days(S("DGS10"), 91) if S("DGS10") else None
-    sp_pct = sp13["value"] if sp13 else None
-    y10_bp = y13["delta"] * 100 if y13 else None
+    # 완충 구간(±2%·±10bp)과 견주기 전에 소수 6자리로 반올림 — 소수 둘째 자리 금리끼리 뺀 정확히 ±10bp가
+    # 10.000000000000053이나 9.999999999999964가 되어 금리 수준에 따라 완충·사분면으로 갈리지 않게(규칙 판정의 _cmp와 같은 자리)
+    sp_pct = round(sp13["value"], 6) if sp13 else None
+    y10_bp = round(y13["delta"] * 100, 6) if y13 else None
     cand, note = rr.classify_regime(sp_pct, y10_bp, prev_regime)
     rho = ind["rho60"]["value"]
     # 전환 경계는 완성된 주만으로: 평일이면 이번 주 월요일 이후 관측치를 버린다(미완성 주를 한 주로 세지 않음).

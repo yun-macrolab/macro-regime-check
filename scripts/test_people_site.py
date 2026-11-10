@@ -4,7 +4,8 @@
   껍데기   문서 머리(문자 집합 · 화면 폭 · 제목) · 바깥에서는 글꼴만 · 스크립트는 자료 → 그리기 순 · 점검 페이지와 서로 잇는다
   표시     '참고 — 예측 아님'이 머리에 보이고 '초안'은 자료의 review가 draft일 때만 · 비공개 쪽 낱말(비공개 · 분석실 · 발언 판정의 꼴)이
            없다 · 사람 사진 · 기관 로고(이미지)가 없다 · 바깥에서 싣는 것은 글꼴뿐(CSP meta · url( · href · src)
-  자료     people-data.js가 window.PEOPLE_DATA = {JSON}; 꼴이고, 사람 · 회의 · 지구 · 지도의 칸과 범위가 맞는다 ·
+  자료     people-data.js가 window.PEOPLE_DATA = {JSON}; 꼴이고, 사람 · 회의 · 지구 · 지도의 칸과 범위가 맞는다(지구마다 근사 설명) ·
+           위치 눈금의 때 이름(stance_label)은 자료에서만 · '다음 확인'이 기준일 앞의 날짜로 시작하지 않는다 ·
            출처 주소는 https · 이메일 주소가 없다 · 회의 반대표 ↔ 사람 반대표(양쪽) · 지구 총재 ↔ 그 사람의 지구 ·
            인용마다 같은 날짜의 출처 · 사람이 나오는 사건마다 출처 · 진영 꼬리표마다 라벨 출처(없으면 '사전 지식') ·
            이름에 앞뒤 · 겹 공백 없음(띠의 이름 표시가 빈 글자로 멈추지 않게) · 지구 총재는 지구 번호 순
@@ -19,6 +20,7 @@ import os
 import re
 import sys
 import unittest
+from datetime import date
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE = os.path.join(REPO, "site")
@@ -223,8 +225,8 @@ class RemarksCodeTest(unittest.TestCase):
     def test_whole_file_is_dropped_on_a_bad_head_and_bad_items_are_skipped(self):
         check = self.block[self.block.index("function checkRemarks"):self.block.index("const reviewKo")]
         self.assertIn("return null;", check)                                    # 머리의 꼴이 다르면 파일 전체를 버린다
-        self.assertIn("skipped++; continue;", check)                            # 틀린 발언은 그 발언만
-        self.assertIn("(per[r.who] || 0) >= RM.perPerson", check)
+        self.assertIn("(per[r.who] || 0) >= RM.perPerson) continue;", check)   # 틀린 발언은 그 발언만
+        self.assertNotIn("skipped", check)                                      # 뺀 수는 아무도 읽지 않았다(2026-11-10 점검 — 세지 않는다)
         load = self.block[self.block.index("async function loadRemarks"):]
         self.assertIn('{ state: "none", list: [] }', load)
         self.assertIn('rmNone("자동 발언 기록 없음")', self.block)
@@ -264,9 +266,11 @@ class RemarksCodeTest(unittest.TestCase):
                 self.assertIn(p["review"], ("draft", "approved"), p["key"])
 
     def test_quotes_carry_their_source(self):
-        # 인용마다 출처(매체 · 제목, 둘 다 비면 '운영자가 모은 기사(매체 미기재)') — 머리 띠에도 인용 바로 뒤에, 전언 표시도 함께
+        # 인용마다 출처(매체 — 비면 '매체 미기재' · 제목은 '요약 제목 ‘…’', 둘 다 비면 '운영자가 모은 기사(매체 미기재)') — 머리 띠에도
+        # 인용 바로 뒤에, 전언 표시도 함께. 제목(title)은 분류할 때 언어 모델이 쓴 한 줄이라 기사 원제처럼 적지 않는다(2026-11-10 점검)
         b = self.block
-        self.assertIn('"출처: " + ([r.source, r.title].filter(Boolean).join(" · ") || "운영자가 모은 기사(매체 미기재)")', b)
+        self.assertIn('if (!r.source && !r.title) return "출처: 운영자가 모은 기사(매체 미기재)";', b)
+        self.assertIn('return "출처: " + (r.source || "매체 미기재") + (r.title ? ` · 요약 제목 ‘${r.title}’` : "");', b)
         self.assertEqual(b.count("rmHearsay(r)"), 3)                             # 정의 · 사람 파일 · 머리 띠
         strip = b[b.index("function paintStrip"):b.index("async function loadRemarks")]
         self.assertLess(strip.index("r.quote ? el(\"span\", { class: \"rm-quote\""), strip.index("rmSource(r)"))
@@ -328,6 +332,35 @@ class DataTest(unittest.TestCase):
         self.assertTrue(any("참고 — 예측 아님" in n for n in self.data["notes"]))
         scale = self.data["stance_scale"]
         self.assertEqual((scale["min"], scale["max"], scale["step"]), (-2, 2, 0.5))
+
+    def test_now_label_comes_from_the_data(self):
+        # 위치 눈금(stance_now)이 가리키는 때는 자료의 stance_label 하나에서 읽는다 — 화면 · 껍데기에 달 이름을 박지 않는다(2026-11-10 점검:
+        # '10월'이 여덟 곳에 박혀 12월 회의 뒤 위치를 고치면 모두 틀릴 뻔했다). 기준일 asof와 따로 둔다(위치를 고치지 않고 asof만 옮긴 날이 있다)
+        self.assertRegex(self.data["stance_label"], r"^(1[0-2]|[1-9])월( 초| 중순| 말)?$")
+        js, page = read("people.js"), read("people.html")
+        self.assertIn('const NOW_LBL = typeof DATA.stance_label === "string"', js)
+        self.assertIn('$("t-now").textContent = NOW_LBL;', js)
+        self.assertIn('id="t-now" aria-pressed="true">지금</button>', page)
+        for name, text in (("people.js", js), ("people.html", page)):
+            self.assertNotIn("10월", re.sub(r"/\*.*?\*/", "", text, flags=re.S), name)
+
+    def test_watch_items_do_not_start_with_a_past_date(self):
+        # '다음 확인'이 날짜(MM-DD)로 시작하면 그날은 기준일(asof)보다 앞이 아니다 — 지난 날을 '다음'이라 하지 않는다(2026-11-10 점검: 굴스비 11-02).
+        # 해는 기준일에 가까운 쪽(그해 또는 다음 해 — 12월 기준일의 '01-10'은 다음 해)
+        asof = date.fromisoformat(self.data["asof"])
+        for p in self.people:
+            m = re.match(r"(\d{2})-(\d{2})(?!\d)", p["watch"])
+            if not m:
+                continue
+            days = []
+            for y in (asof.year, asof.year + 1):
+                try:
+                    days.append(date(y, int(m.group(1)), int(m.group(2))))
+                except ValueError:                                  # 평년의 02-29
+                    pass
+            self.assertTrue(days, (p["key"], p["watch"]))
+            when = min(days, key=lambda d: abs((d - asof).days))
+            self.assertGreaterEqual(when, asof, f"{p['key']}: '{p['watch']}' — 기준일 {asof} 앞의 날을 다음 확인으로 둔다")
 
     def test_names_have_no_stray_spaces(self):
         # 띠는 사건 글에서 성(이름의 마지막 낱말)을 찾는다 — 끝 공백이면 성이 빈 글자가 된다(2026-11-01 검토: 페이지가 멈춤)
@@ -434,6 +467,7 @@ class DataTest(unittest.TestCase):
         self.assertEqual(ns, list(range(1, 13)))
         for d in self.data["districts"]:
             self.assertIn(d["president_key"], self.keys, d["n"])
+            self.assertTrue(isinstance(d.get("approx"), str) and d["approx"].strip(), d["n"])   # 주의 줄이 '지구마다 근사 설명'을 약속한다 — 화면은 표의 줄 · 지도 표지에
             pres = by_key[d["president_key"]]
             if d["n"] == 2:
                 self.assertEqual(pres["seat"], "ny")
