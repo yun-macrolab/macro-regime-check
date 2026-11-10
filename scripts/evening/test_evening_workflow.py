@@ -259,6 +259,7 @@ class BoundaryTest(WorkflowCase):
 
     def test_watch_collects_nothing(self):
         job = self.jobs["watch"]
+        self.assertIn("- name: 나왔어야 할 판이 main과 공개 페이지에 있는지", job)  # 오늘 판이 아니다 — 22:41이 지난 마지막 평일의 판(ep-03)
         self.assertIn("evening_run.py watch --data data", job)
         self.assertIn('--page-url "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"', job)
         for word in ("pipeline", "tg_collect", "t.me", "upload-artifact", "git "):
@@ -326,6 +327,19 @@ class LayoutTest(WorkflowCase):
             self.assertNotIn(wrong, text)
         for at in ("17:45", "23:30", "07:30"):                                   # AI 요약을 위해 PC가 읽는 때
             self.assertIn(at, text)
+
+    def test_readme_says_how_the_evening_reads_channels(self):
+        # 2026-11-10 점검 ep-03 · ep-04 · ep-05의 검토 반영: '어디서 어떻게 읽는가'와 숨김 문단이 실제 흐름과 같은 말을 한다
+        readme = read("README.md")
+        part = readme.split("### 어디서 어떻게 읽는가\n", 1)[1].split("\n### ", 1)[0]
+        (ai,) = [line for line in part.split("\n") if "'AI 요약'을 쓸 때" in line]
+        self.assertNotIn("한 번 더 읽습니다", ai)                                 # PC는 하루 세 번까지 다시 읽는다(takedown.md와 같은 말)
+        for at in ("17:45", "23:30", "07:30", "고른 글을 다 읽지 못했던 판"):
+            self.assertIn(at, ai)
+        self.assertIn("새 날짜의 판을 내어 그날 저녁 PC의 실행을 막는 일이 없게", part)   # 늦은 예약 실행을 건너뛰는 까닭 — 뜻이 뒤집혀 읽히지 않게
+        self.assertNotIn("실행이 막히지 않게 하려는", part)
+        (hide,) = [line for line in readme.split("\n") if "숨긴 채널의 글은 묶기 전에 빠져" in line]
+        self.assertIn("판의 '읽은 N건'에도 세지 않습니다", hide)                  # funnel.posts도 숨긴 채널의 글을 뺀 수다
 
     def test_readme_evening_test_counts_are_the_suite(self):
         # README의 저녁판 테스트 수 두 곳('테스트' 절과 '검증' 절)이 실제 수와 같다 — 한쪽만 고쳐 어긋난 적이 있다(732 대 733)

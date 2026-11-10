@@ -276,8 +276,9 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
-      # 요청은 공개 페이지의 data/digest_status.json 한 번뿐이다. main에 오늘 판이 없으면 이 단계가 실패한다(메일)
-      - name: 오늘 판이 main과 공개 페이지에 있는지
+      # 요청은 공개 페이지의 data/digest_status.json 한 번뿐이다. main에 나왔어야 할 판(22:41이 지난 마지막 평일의 판, 또는 더 새 판)이
+      # 없으면 이 단계가 실패한다(메일)
+      - name: 나왔어야 할 판이 main과 공개 페이지에 있는지
         id: watch
         run: >-
           python scripts/evening/evening_run.py watch --data data

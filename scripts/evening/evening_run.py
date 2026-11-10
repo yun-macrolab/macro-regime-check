@@ -16,7 +16,7 @@ pipeline   tg_collect → digest_cluster → digest_score → digest_build → d
       stage    done · 실패한 단계 · skip(건너뜀)
   - --event schedule(예약 실행)이 판의 저녁(평일 17:30 ~ 이튿날 06:00 KST — S.in_evening, PC의 evening_llm.due와 같은 규칙) 밖에
     시작하면 아무 단계도 돌리지 않는다(채널 요청 0회): publish=false · alert=false · reason=late · stage=skip, 종료코드 0.
-    몇 시간씩 늦게 온 예약 실행이 이튿날 아침이나 토요일에 새 날짜의 판을 내고, 그 판 때문에 그날 저녁 PC의 실행이 막히지 않게.
+    몇 시간씩 늦게 온 예약 실행이 이튿날 아침이나 토요일에 새 날짜의 판을 내어 그날 저녁 PC의 실행을 막지 않게.
     수동 실행(workflow_dispatch — PC가 시작한 것 포함)은 이 규칙을 따르지 않는다(PC 쪽은 due가 먼저 거른다).
   - 일정표(<data>/calendar.json)의 마지막 일정이 CAL_AHEAD일 안이면 Actions 경고 한 줄(날짜와 남은 날수, 지났으면 지난 날수)을 찍는다 —
     일정표가 끝나면 '발표일 일치'·A급 낱말 점수·'다가오는 일정'의 달력 줄이 조용히 사라지므로. 실행은 막지 않는다.

@@ -292,6 +292,7 @@ class OverridesTest(BuildCase):
         # 2026-11-10 점검 ep-05: 숨긴 채널이 링크에서만 빠지고 곳 수 · 점수 · '채권 채널 N곳'에는 그대로 세어져, 채권 링크 없이
         # '채권 채널 3곳'이라고 적힌 항목이 나올 수 있었다. 이제 묶기 전에 빠지므로 세지도 않는다
         d = self.hidden_run(["fxbond1", "fxwire1", "fxpers6", "fxctx1"])
+        row = self.doc("digest_index.json")["editions"][0]
         cpi = d["must"][0]
         self.assertEqual(cpi["coverage"], {"bond": 2, "analyst": 2, "personal": 3, "wire": 0})       # 숨기기 전: 채권 3 · 속보형 1
         self.assertEqual(cpi["why"][0], "채권 채널 2곳")
@@ -300,6 +301,10 @@ class OverridesTest(BuildCase):
         self.assertNotIn("같은 숫자 2곳", auction["why"])
         for x in d["must"] + [x for g in d["rest"] for x in g["items"]]:
             self.assertLessEqual(sum(x["coverage"].values()), x["span"]["posts"], x["id"])
+        hidden = {"fxbond1", "fxwire1", "fxpers6", "fxctx1"}                    # 판의 '읽은 N건'(funnel.posts)과 목차 줄의 posts에도 들지 않는다
+        posts = sum(p["ch"] not in hidden for p in fx("posts_doc")["posts"])
+        self.assertLess(posts, len(fx("posts_doc")["posts"]))
+        self.assertEqual((d["funnel"]["posts"], row["date"], row["posts"]), (posts, d["date"], posts))
         self.passes_check()
 
     def test_counts_that_include_a_hidden_channel_drop_the_item(self):

@@ -85,8 +85,8 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
       tomorrow    [{date, time|null, term, detail[만기 낱말·숫자], tier(A·B), src(korea·calendar)}]
       id = item_id(판 날짜, 씨앗 글) — 순위가 아니라 seed_of(가장 이른 원천 글). 링크는 pick_links가 고른다
       칸의 뜻     status   short = 수집 부족(must를 비운다) · withdrawn = 내림(모든 절이 빈다, blank_digest)
-                  funnel   posts 창 안에서 읽은 글 · clusters 원천 글이 든 묶음 · candidates 게이트를 모두 통과한 묶음 ·
-                           must 실린 수 · truncated 나머지 표에서 30줄 상한으로 잘린 줄
+                  funnel   posts 창 안에서 읽은 글(숨긴 채널의 글은 빼고) · clusters 원천 글이 든 묶음 ·
+                           candidates 게이트를 모두 통과한 묶음 · must 실린 수 · truncated 나머지 표에서 30줄 상한으로 잘린 줄
                   head     fits = 자료일의 마감이 창 안(rate_fits). kr10이 안 맞으면 dir을, kr10·kr3 중 하나라도 안 맞으면 curve를
                            비운다. basis는 kr10 기준(당일 종가·전일 종가). top_terms = 가장 많이 다뤄진 주제(원인이 아니다)
                   coverage 그 묶음에서 점수에 센 채널 수(그룹별) + 속보형 채널 수
