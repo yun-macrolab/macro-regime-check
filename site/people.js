@@ -1,6 +1,9 @@
 /* 연준 인물 페이지 — 자료는 people-data.js(window.PEOPLE_DATA)가 먼저 싣고, 이 파일은 그리기만 한다 */
 const DATA = window.PEOPLE_DATA || {};
 const MAP = DATA.map || { w: 960, h: 600, paths: [] };
+/* 위치 눈금(stance_now)이 가리키는 때 — 자료의 stance_label(예: '10월 말'). 위치를 고칠 때 자료에서 함께 고친다(기준일 asof와 따로 —
+   위치를 고치지 않고 asof만 옮긴 날이 있다). 없으면 '지금' */
+const NOW_LBL = typeof DATA.stance_label === "string" && DATA.stance_label.trim() ? DATA.stance_label.trim() : "지금";
 if (!Array.isArray(DATA.people) || !DATA.people.length) {
   (document.getElementById("file") || document.body).replaceChildren(document.createTextNode("자료 파일(people-data.js)을 읽지 못했다 — 새로 고침하거나 저장소의 site/people-data.js를 본다."));
   throw new Error("people-data.js 없음");
@@ -36,6 +39,8 @@ const byKey = Object.create(null);
 people.forEach((p, i) => { p._i = i; byKey[p.key] = p; });
 const hashKey = () => { try { return decodeURIComponent(location.hash.slice(1)); } catch (e) { return ""; } };
 const SEAL = n => "ABCDEFGHIJKL"[n - 1] || "?";
+/* 지구의 주 단위 근사 설명(자료의 approx — 나뉜 주를 통째로 넣은 곳) — 표의 줄 · 지도 표지에 마우스를 올리면 보인다 */
+const approxOf = d => (typeof d.approx === "string" && d.approx.trim() ? "주 단위 근사: " + d.approx.trim() : null);
 const DIST = Object.assign(Object.create(null), Object.fromEntries((DATA.districts || []).map(d => [d.n, d])));
 const STATE_D = Object.create(null);
 for (const d of DATA.districts || []) for (const s of d.states || []) STATE_D[s] = d.n;
@@ -311,7 +316,8 @@ function drawRoute(p, opt) {
     const r = (isHome ? 11 : 8) * k;
     const g = sv("g", { class: "seal" + (isHome ? " home" : " dimmed"), transform: `translate(${xy[0].toFixed(1)},${xy[1].toFixed(1)})` });
     g.append(sv("circle", { r, class: "seal-ring", "stroke-width": (isHome ? 1.6 : 1) * k }), sv("text", { class: "seal-txt", "font-size": (isHome ? 11.5 : 9) * k }, SEAL(d.n)));
-    g.append(sv("title", {}, `${d.n}지구 ${d.bank_ko} — 표지 ${SEAL(d.n)}`));
+    const tip = approxOf(d);
+    g.append(sv("title", {}, `${d.n}지구 ${d.bank_ko} — 표지 ${SEAL(d.n)}${tip ? ` (${tip})` : ""}`));
     route.seals.append(g);
     const box = { x: xy[0] - r, y: xy[1] - r, w: r * 2, h: r * 2 };
     sealBoxes.push({ g, box, isHome });
@@ -648,7 +654,8 @@ function renderFile(p, ropt) {
     el("div", { class: "bbody" }, el("h4", {}, title, el("small", { text: q })), el("ul", {}, li(arr))));
   const base = el("section", { id: "sec-base", "aria-labelledby": "h-base" },
     el("div", { class: "sec-h" }, el("h3", { id: "h-base" }, el("span", { class: "no", text: "02" }), "기준선", el("span", { class: "tag", text: "운영자 정리 · " + reviewKo(reviewOf(p)) })),
-      el("p", {}, el("span", { class: "wide", text: "새 발언은 이 세 칸에 견준다 — 가운데 ‘평소’ 안이면 뉴스가 아니다 · 순서는 축과 같다: 비둘기 → 평소 → 매파" }), el("span", { class: "narrow", text: "‘평소’ 안이면 뉴스 아님 · 위에서부터 비둘기 → 평소 → 매파(축 순서)" }))),
+      el("p", {}, el("span", { class: "wide", text: "새 발언은 주로 이 세 칸에 견준다 — 가운데 ‘평소’ 안이면 뉴스가 아니다 · 순서는 축과 같다: 비둘기 → 평소 → 매파 · "
+        + "이 칸 밖의 운영자 정리(지금 입장 · 뉴스 아님 목록 · 반대표 기록)에 견준 발언은 그 줄을 ‘견준 항목’에 그대로 싣는다" }), el("span", { class: "narrow", text: "‘평소’ 안이면 뉴스 아님 · 위에서부터 비둘기 → 평소 → 매파(축 순서)" }))),
     el("div", { class: "base-axis", "aria-hidden": "true" }, el("span", { class: "d", text: "◀ 비둘기 쪽" }), el("span", { class: "u", text: "이 사람의 평소" }), el("span", { class: "h", text: "매파 쪽 ▶" })),
     el("div", { class: "base-grid" },
       col("dove", "▼", "비둘기 쪽 놀랄 일", "나오면 비둘기 쪽 뉴스", b.dove_surprise),
@@ -773,7 +780,8 @@ function safeLink(u) {
    한 번 읽어(no-store) 다시 검사한다: 머리의 꼴이 약속과 다르면 파일 전체를 버리고, 틀린 발언은 그 발언만 뺀다.
    없거나 틀리면 '자동 발언 기록 없음' 한 줄. 글은 글자로만(el → textContent). 사람 확인 없이 올라가는 자동 분류라 그렇게 적는다 —
    판정 · 까닭 · 주제와 인용 고르기는 언어 모델(AI)이 기사를 읽고 운영자가 정리한 기준선에 견준 것이다(규칙 계산이 아니다).
-   인용에는 늘 출처를 붙인다(매체 · 제목, 둘 다 비면 '운영자가 모은 기사(매체 미기재)'), 남이 옮긴 말에는 '전언' */
+   인용에는 늘 출처를 붙인다(매체 — 비면 '매체 미기재' · 요약 제목 ‘…’ — 제목은 분류할 때 언어 모델이 쓴 한 줄이라 기사 원제가 아닐 수 있다,
+   둘 다 비면 '운영자가 모은 기사(매체 미기재)'), 남이 옮긴 말에는 '전언' */
 const RM = {
   url: "data/people_remarks.json", schema: "people-remarks/1",
   top: ["schema", "asof", "window_from", "remarks", "held"],
@@ -791,7 +799,7 @@ const RM = {
 const VS_LOOK = { "평소와 같음": ["same", "■"], "평소보다 매파": ["hawk", "▲"], "평소보다 비둘기": ["dove", "▼"], "새 주제": ["new", "◆"] };
 const RM_INVISIBLE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}]/u;      // 제어 · 서식(폭 없는 글자) · 줄/문단 구분 · 짝 없는 서로게이트
 const RM_PATH = /^[A-Za-z_]\w*(?:\[\d{1,4}\])*(?:\.[A-Za-z_]\w*(?:\[\d{1,4}\])*)*$/;
-const remarks = { state: "wait", list: [], held: 0, asof: "", from: "", skipped: 0 };
+const remarks = { state: "wait", list: [], held: 0, asof: "", from: "" };
 function rmDay(v) {
   if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
   const t = Date.parse(v + "T00:00:00Z");
@@ -821,21 +829,20 @@ function rmItem(r, from, asof) {
   if (!r.basis.every(b => rmKeys(b, ["path", "text"]) && rmText(b.path, RM.pathMax, true) && RM_PATH.test(b.path) && rmText(b.text, RM.basisText, true))) return false;
   return Array.isArray(r.tags) && new Set(r.tags).size === r.tags.length && r.tags.every(t => RM.tags.includes(t));
 }
-/* 파일 → { asof, from, held, list, skipped } 또는 null(머리의 꼴이 약속과 다르다 — 파일 전체를 버린다) */
+/* 파일 → { asof, from, held, list } 또는 null(머리의 꼴이 약속과 다르다 — 파일 전체를 버린다) */
 function checkRemarks(doc) {
   if (!rmKeys(doc, RM.top) || doc.schema !== RM.schema || !rmDay(doc.asof) || !rmDay(doc.window_from) || doc.window_from > doc.asof
     || !Array.isArray(doc.remarks) || doc.remarks.length > RM.maxItems || !Number.isInteger(doc.held) || doc.held < 0) return null;
   const keys = new Set(), ids = new Set(), per = Object.create(null), list = [];
-  let skipped = 0;
   for (const r of doc.remarks) {
     const ok = rmItem(r, doc.window_from, doc.asof), k = ok ? `${r.who}|${r.said_on}|${r.venue}` : "";
-    if (!ok || keys.has(k) || ids.has(r.id) || (per[r.who] || 0) >= RM.perPerson) { skipped++; continue; }
+    if (!ok || keys.has(k) || ids.has(r.id) || (per[r.who] || 0) >= RM.perPerson) continue;          // 틀린 · 겹친 · 넘친 발언은 그것만 뺀다
     keys.add(k); ids.add(r.id); per[r.who] = (per[r.who] || 0) + 1;
     list.push(r);
   }
   const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
   list.sort((a, b) => cmp(b.said_on, a.said_on) || cmp(a.who, b.who) || cmp(a.venue, b.venue));   // 최신순, 같으면 사람 · 자리
-  return { asof: doc.asof, from: doc.window_from, held: doc.held, list, skipped };
+  return { asof: doc.asof, from: doc.window_from, held: doc.held, list };
 }
 const reviewKo = v => (v === "approved" ? "확인함" : "초안");
 /* 기준선의 확인 상태 — 사람마다(자료의 p.review), 없거나 다른 값이면 페이지 전체(DATA.review) */
@@ -847,8 +854,12 @@ function remarkLabel(r, p) {
   const base = p ? (r ? `기준선(${r.baseline_asof} · ${reviewKo(r.baseline_review)})` : `기준선(${reviewKo(reviewOf(p))})`) : "기준선(사람마다 기준일 · 확인함/초안)";
   return `자동 분류 — 언어 모델(AI)이 기사를 읽고 운영자가 정리한 ${base}에 견준 결과입니다. 사람 확인 없이 매일 올라가며 틀릴 수 있고, 예측이 아닙니다. 인용은 발언자 본인의 말을 15단어 이내로 옮긴 것입니다.`;
 }
-/* 인용 · 발언의 출처 — 매체 · 제목, 둘 다 비면 운영자가 모은 기사라고만 */
-function rmSource(r) { return "출처: " + ([r.source, r.title].filter(Boolean).join(" · ") || "운영자가 모은 기사(매체 미기재)"); }
+/* 인용 · 발언의 출처 — 매체(비면 '매체 미기재') · 요약 제목. 제목(title)은 분류할 때 언어 모델이 기사를 한 줄로 줄인 것이라
+   기사 원제처럼 보이지 않게 '요약 제목 ‘…’'으로 적는다. 둘 다 비면 운영자가 모은 기사라고만 */
+function rmSource(r) {
+  if (!r.source && !r.title) return "출처: 운영자가 모은 기사(매체 미기재)";
+  return "출처: " + (r.source || "매체 미기재") + (r.title ? ` · 요약 제목 ‘${r.title}’` : "");
+}
 function rmHearsay(r) { return r.access === "전언" ? el("span", { class: "cert guess", title: "본인이 한 말이 아니라 남이 옮긴 것", text: "전언" }) : null; }
 function vsChip(v) {
   const [cls, glyph] = VS_LOOK[v] || ["same", "■"];
@@ -958,7 +969,7 @@ function buildRail() {
     rail.append(el("div", { class: "rail-group" }, el("span", { class: "rail-label", text: label }), ul));
   }
   rail.append(el("p", { class: "rail-foot" },
-    el("span", { class: "wide-only" }, "눈금: 위치(운영자 해석) — 빈 원 연초, 찬 점 10월 말, 점 색 = 관찰자 라벨(",
+    el("span", { class: "wide-only" }, `눈금: 위치(운영자 해석) — 빈 원 연초, 찬 점 ${NOW_LBL}, 점 색 = 관찰자 라벨(`,
       ...CAMP_ORDER.flatMap((c, i) => [i ? " " : "", el("i", { class: "camp-sq " + CAMP[c], style: "margin:0 3px 0 2px" }), c]), "). "),
     "반대표 ", el("span", { class: "pips" }, el("span", { class: "text", text: "◆" })), " 문구 ", el("span", { class: "pips" }, el("span", { class: "up", text: "▲" })), " 인상 ",
     el("span", { class: "pips" }, el("span", { class: "down", text: "▼" })), " 인하",
@@ -983,9 +994,9 @@ function buildDmap() {
   const tb = el("tbody");
   for (const d of DATA.districts || []) {
     const p = presOf(d);
-    const go = () => p && select(p.key, { push: true, scroll: true });
-    const btn = (cls, ...kids) => { const b = el("button", { type: "button", tabindex: "-1", "aria-hidden": "true" }, ...kids); b.addEventListener("click", go); return el("td", { class: cls }, b); };
-    const main = el("button", { type: "button", "aria-label": `${d.n}지구 ${d.bank_ko}, 표지 ${SEAL(d.n)}, 총재 ${p ? p.name_ko : "미상"} 파일 열기` }, el("span", { text: SEAL(d.n) }));
+    const go = () => p && select(p.key, { push: true, scroll: true }), tip = approxOf(d);
+    const btn = (cls, ...kids) => { const b = el("button", { type: "button", tabindex: "-1", "aria-hidden": "true", title: tip }, ...kids); b.addEventListener("click", go); return el("td", { class: cls }, b); };
+    const main = el("button", { type: "button", title: tip, "aria-label": `${d.n}지구 ${d.bank_ko}, 표지 ${SEAL(d.n)}, 총재 ${p ? p.name_ko : "미상"} 파일 열기` }, el("span", { text: SEAL(d.n) }));
     main.addEventListener("click", go);
     tb.append(el("tr", { "data-key": p ? p.key : "" }, el("td", { class: "ltr" }, main),
       btn("bank", d.bank_ko.replace(" 연은", ""), el("small", {}, `${d.n}지구`, el("span", { class: "city", text: ` · ${d.city}` }))),
@@ -1017,7 +1028,8 @@ function drawDmapMarks() {
     const go = () => p && select(p.key, { push: true, scroll: true });
     g.addEventListener("click", go);
     g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
-    g.append(sv("title", {}, `${SEAL(d.n)} ${d.bank_ko}${p ? " — " + p.name_ko : ""}`));
+    const tip = approxOf(d);
+    g.append(sv("title", {}, `${SEAL(d.n)} ${d.bank_ko}${p ? " — " + p.name_ko : ""}${tip ? ` (${tip})` : ""}`));
     return g;
   };
   /* 1) 북동부 밖의 표지: 제자리 */
@@ -1079,7 +1091,7 @@ function markDmap() {
   document.querySelectorAll("#board-list .namebtn").forEach(b => b.setAttribute("aria-current", b.dataset.key === current ? "true" : "false"));
 }
 
-/* ───────── 스펙트럼 — 셈 칸 · 시점(10월 ↔ 1월) · 색(라벨 ↔ 투표권) ───────── */
+/* ───────── 스펙트럼 — 셈 칸 · 시점(지금 = NOW_LBL ↔ 1월) · 색(라벨 ↔ 투표권) ───────── */
 const spec = { time: "now", color: "camp", rows: [] };
 function median(vs) { const a = vs.filter(v => typeof v === "number").sort((x, y) => x - y); if (!a.length) return null; const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
 const specPos = v => ((v + 2) / 4 * 100).toFixed(2) + "%";
@@ -1094,7 +1106,7 @@ function buildSpectrum() {
   const nulls = people.filter(p => typeof p.stance_now !== "number");
   /* 한 줄 요약 — 숫자는 데이터에서 센다 */
   const dir = now.med > jan.med ? "매파 쪽으로 옮겨 갔다" : now.med < jan.med ? "비둘기 쪽으로 옮겨 갔다" : "중간값은 그대로다";
-  $("spec-lede").append(el("span", { class: "tag", text: "운영자 해석" }), "연초 → 10월 말, 위원회 전체가 ", el("b", { text: dir }),
+  $("spec-lede").append(el("span", { class: "tag", text: "운영자 해석" }), `연초 → ${NOW_LBL}, 위원회 전체가 `, el("b", { text: dir }),
     ` — 중간값 ${fmtS(jan.med)} → ${fmtS(now.med)}, 매파 쪽 ${jan.hawk} → ${now.hawk}명, 0(유지) ${jan.zero} → ${now.zero}명, 비둘기 쪽 ${jan.dove} → ${now.dove}명.`,
     nulls.length ? ` 판단 불가 ${nulls.length}명(${nulls.map(sur).join("·")})은 셈에서 뺐다.` : "");
   const axis = el("div", { class: "spec-axis", "aria-hidden": "true" }, el("span"),
@@ -1121,6 +1133,7 @@ function buildSpectrum() {
   const labels = (DATA.stance_scale || {}).labels || {};
   Object.keys(labels).map(Number).sort((a, b) => b - a).forEach(v => sl.append(el("li", {}, el("b", { text: fmtS(v).replace(".0", "") }), labels[String(v)])));
   sl.append(el("li", { text: "근거: " + ((DATA.stance_scale || {}).basis || "") + " · 라벨: " + (DATA.camp_note || "") }));
+  $("t-now").textContent = NOW_LBL;                                          // 시점 단추의 이름도 자료에서(껍데기의 글은 '지금')
   const setT = t => { if (spec.time === t) return; spec.time = t; $("t-now").setAttribute("aria-pressed", t === "now" ? "true" : "false"); $("t-jan").setAttribute("aria-pressed", t === "jan" ? "true" : "false"); paintSpec(true); };
   const setC = c => { if (spec.color === c) return; spec.color = c; $("c-camp").setAttribute("aria-pressed", c === "camp" ? "true" : "false"); $("c-vote").setAttribute("aria-pressed", c === "vote" ? "true" : "false"); paintSpec(false); };
   $("t-now").addEventListener("click", () => setT("now")); $("t-jan").addEventListener("click", () => setT("jan"));
@@ -1132,12 +1145,12 @@ function paintSpec(animate) {
   box.dataset.time = spec.time; box.dataset.color = spec.color;
   const mainOf = p => jan ? (typeof p.stance_start_2026 === "number" ? p.stance_start_2026 : p.stance_now) : p.stance_now;
   const otherOf = p => jan ? p.stance_now : p.stance_start_2026;
-  const c = spec.cnt[spec.time], o = spec.cnt[jan ? "now" : "jan"], oLab = jan ? "10월" : "1월";
+  const c = spec.cnt[spec.time], o = spec.cnt[jan ? "now" : "jan"], oLab = jan ? NOW_LBL : "1월";
   /* 셈 칸 */
   const tile = (cls, lb, v, unit, was) => el("div", { class: "tile " + cls }, el("div", { class: "lb", text: lb }), el("span", { class: "vl" }, String(v), unit ? el("small", { text: unit }) : null), el("span", { class: "was", text: was }));
   $("tiles").replaceChildren(
     tile("hawk", "매파 쪽 (0 위)", c.hawk, "명", `${oLab} ${o.hawk}명`), tile("zero", "0 — 유지가 기본", c.zero, "명", `${oLab} ${o.zero}명`),
-    tile("dove", "비둘기 쪽 (0 아래)", c.dove, "명", `${oLab} ${o.dove}명`), tile("med", `중간값 · ${jan ? "1월 연초" : "10월 말"}`, fmtS(c.med), "", `${oLab} ${fmtS(o.med)}`));
+    tile("dove", "비둘기 쪽 (0 아래)", c.dove, "명", `${oLab} ${o.dove}명`), tile("med", `중간값 · ${jan ? "1월 연초" : NOW_LBL}`, fmtS(c.med), "", `${oLab} ${fmtS(o.med)}`));
   $("spec-mt").textContent = `중간값 ${fmtS(c.med)}`;
   $("spec-mt").style.left = specPos(c.med);
   /* FLIP: 줄 순서가 바뀌면 옛 자리에서 새 자리로 미끄러진다(움직임을 끄면 즉시) */
@@ -1157,7 +1170,7 @@ function paintSpec(animate) {
     r.s1.style.border = vote ? (p.voter_2026 ? "0" : "2px solid #8a8a8a") : (unk ? "2px dashed var(--unk)" : "0");
     r.mdn.style.left = specPos(c.med);
     r.val.textContent = fmtS(m);
-    r.row.setAttribute("aria-label", `${p.name_ko}: ${jan ? "1월" : "10월"} ${fmtS(m)}, ${jan ? "10월" : "1월"} ${fmtS(ot)}, 관찰자 라벨 ${p.camp}, 2026 투표 ${p.voter_2026 ? "있음" : "없음"} (운영자 해석)`);
+    r.row.setAttribute("aria-label", `${p.name_ko}: ${jan ? "1월" : NOW_LBL} ${fmtS(m)}, ${jan ? NOW_LBL : "1월"} ${fmtS(ot)}, 관찰자 라벨 ${p.camp}, 2026 투표 ${p.voter_2026 ? "있음" : "없음"} (운영자 해석)`);
     box.append(r.row);
   });
   if (go) {
@@ -1175,7 +1188,7 @@ function paintSpec(animate) {
   key.replaceChildren(...(spec.color === "vote"
     ? [el("span", {}, el("i", { style: "background:var(--amber)" }), "2026 투표권"), el("span", {}, el("i", { style: "background:#000;border:2px solid #8a8a8a" }), "투표권 없음")]
     : CAMP_ORDER.map(cn => el("span", {}, el("i", { style: cn === "미상" ? "background:#000;border:2px dashed var(--unk)" : `background:var(--${CAMP[cn]})` }), cn))),
-    el("span", { text: `찬 점 = ${jan ? "1월 연초" : "10월 말"} · 빈 원 = ${jan ? "10월 말" : "1월 연초"} · 호박색 점선 = 중간값 ${fmtS(c.med)}` }),
+    el("span", { text: `찬 점 = ${jan ? "1월 연초" : NOW_LBL} · 빈 원 = ${jan ? NOW_LBL : "1월 연초"} · 호박색 점선 = 중간값 ${fmtS(c.med)}` }),
     el("span", { text: spec.color === "vote" ? "색: 투표권 — 라벨과 위치가 어긋나는 사람은 ‘관찰자 라벨’로 보면 보인다" : "색: 관찰자 라벨(위치 숫자와 다른 출처 — 둘이 어긋나는 사람이 볼거리)" }));
 }
 
@@ -1477,7 +1490,7 @@ function buildNotes() {
   const now = specCounts("stance_now"), jan = specCounts("stance_start_2026");
   const nulls = people.filter(p => typeof p.stance_now !== "number").map(sur).join("·");
   ol.append(el("li", { text: "이 페이지가 덧붙인 것(사실 자료 아님): 도시 약호(공항 약호를 닮게 붙인 이름표) · 지구 바탕색 · 표결 장부의 ‘다수’ 칸(반대 기록이 없는 투표권자를 다수 쪽으로 보고 발표된 표 수와 맞춰 본 것)과 ‘취임 전’ 칸(지금 자리 기록의 시작일 — 워시 2026-05-22) · 마이런의 마지막 회의(2026 사건 기록의 05-22 워시 취임 무렵 퇴임으로 보고 그 뒤를 ‘위원 아님’으로) · 장부의 상단 금리 줄(결정 문구 범위의 윗값) · " +
-    `스펙트럼의 셈 칸과 중간값(운영자 해석 숫자를 센 것이라 이것도 운영자 해석 — 10월 말 매파 쪽 ${now.hawk}·0 ${now.zero}·비둘기 쪽 ${now.dove}·중간값 ${fmtS(now.med)}, 1월 ${jan.hawk}·${jan.zero}·${jan.dove}·${fmtS(jan.med)}, 판단 불가 ${nulls} 제외) · ` +
+    `스펙트럼의 셈 칸과 중간값(운영자 해석 숫자를 센 것이라 이것도 운영자 해석 — ${NOW_LBL} 매파 쪽 ${now.hawk}·0 ${now.zero}·비둘기 쪽 ${now.dove}·중간값 ${fmtS(now.med)}, 1월 ${jan.hawk}·${jan.zero}·${jan.dove}·${fmtS(jan.med)}, 판단 불가 ${nulls} 제외) · ` +
     "위원 모니터의 기울기 눈금(같은 위치 숫자를 그린 것) · ‘19명 겹침’의 도시별 사람 수(걸어온 길의 장소 글자로 센 것 — 확인 수준이 섞여 있다) · 환승역 집계 · 다음 회의까지 D-n(보는 기기의 한국 날짜 기준). 사진·로고는 쓰지 않았다." }));
 }
 
