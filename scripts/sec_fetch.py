@@ -34,10 +34,13 @@
 분기 만들기(회사마다 회계연도대로 — MSFT 6월 말, ORCL 5월 말, 나머지 12월 말):
   - 10-Q·10-K의 기간 사실만(8-K 등 제외). 같은 (시작, 끝)은 늦게 낸 공시가 이긴다(정정 공시·다음 해 비교 수치).
   - 현금흐름표는 누적(YTD)이라 같은 시작일의 앞 누적을 뺀다: 2분기 = 6개월 − 3개월, 4분기 = 연간 − 9개월. 3개월 사실은 그대로.
+    빼는 앞 누적은 빼일 누적을 낸 날까지 낸 판(그날 이하의 가장 늦은 것 — 다음 해 10-Q가 앞 누적 비교 수치만 고쳤을 때 고친 몫이
+    다음 분기로 넘어가지 않게, 2026-11-10).
   - 영업현금·설비투자는 필수. 나머지는 그 분기에 줄이 없거나 쓰지 않는 태그(404)면 0으로 채운다(영업현금이 공시된 분기만).
   - TTM = 마지막 4분기, 분기 끝 사이가 80~100일로 이어질 때만. 1년 전 TTM = 그 앞 4분기, 지금 창에 바로 이어질 때만.
   - 5사 합은 TTM을 낸 회사끼리, 칸 하나라도 모르는 회사가 있으면 그 칸 합은 비운다. 1년 전 FCF 합은 그 회사들 모두에 1년 전
-    TTM이 있을 때만. '영업현금 초과'는 설비투자/영업현금 > 100%(정확히 100%는 아니다).
+    TTM이 있을 때만. '영업현금 초과'는 설비투자/영업현금 > 100%(정확히 100%는 아니다). 그 비율은 소수 넷째 자리로 두고 글에서
+    정수 %로 한 번만 반올림한다(2026-11-10 — 전엔 첫째 자리에서 한 번 더 반올림해 95.48%가 96%로 보였다).
 잔액 만들기(bal):
   - 10-Q·10-K의 시점 사실(USD)만. 같은 날짜의 사실이 여럿이면 늦게 낸 것(같은 날이면 앞에 적은 태그).
   - 칸마다 줄 묶음 — 첫 줄은 필수, 뒤 줄은 그 날짜에 없으면 0으로 채우고 채운 수를 회사별 줄에 적는다. 태그를 받지 못했으면
@@ -186,14 +189,6 @@ def user_agent(env=None):
 
 
 _EMAIL = re.compile(r"[^\s@<>()\"']+@[^\s@<>()\"']+")
-
-
-def scrub(s, ua=None):
-    """글에서 연락처를 가린다 — User-Agent 값과 '@'가 든 낱말. 로그에 예외 이름 밖을 찍을 일이 생겨도 이것을 거친다."""
-    s = str(s)
-    if ua:
-        s = s.replace(ua, "<UA>")
-    return _EMAIL.sub("<연락처>", s)
 
 
 BIT_MIN = 4                                   # 이보다 짧은 조각은 보지 않는다(흔한 글자와 겹쳐 늘 거절하지 않게)
@@ -440,13 +435,6 @@ def _fetch_plan(plan, ua, today, deadline, keep, pace, opener, clock, sleep):
     return got, None, n
 
 
-def fetch_all(ua, today, budget=BUDGET, opener=None, clock=time.monotonic, sleep=time.sleep):
-    """흐름 태그만 — (got, 실패 코드 또는 None, 요청 수). 연락처가 없으면 요청 0번. 하나라도 실패하면 거기서 멈춘다."""
-    if not ua:
-        return {}, "no_ua", 0
-    return _fetch_plan(flow_plan(), ua, today, clock() + budget, trim, [None], opener, clock, sleep)
-
-
 def fetch_both(ua, today, budget=BUDGET, opener=None, clock=time.monotonic, sleep=time.sleep):
     """흐름 태그 먼저, 그다음 잔액 태그 — 한 예산(budget초) 안에서. → {got, code, bgot, bcode, n, nb}(code·bcode = 실패 코드
     또는 None, n·nb = 요청 수). 잔액은 흐름과 따로 실패한다(흐름 태그 하나가 실패해도 잔액 태그는 받는다). 다만 SEC가
@@ -471,15 +459,40 @@ def _days(a, b):
     return (_d(b) - _d(a)).days
 
 
+class Merged(dict):
+    """merged의 결과 — {(시작, 끝): (값, 낸 날, 태그)}에 기간마다 모든 판(hist: {(시작, 끝): [(낸 날, 값)…]}, 적은 차례)을 붙인다."""
+
+    def __init__(self):
+        super().__init__()
+        self.hist = {}
+
+
 def merged(facts_lists):
-    """[(태그, [[시작, 끝, 값, 낸 날, 양식]…])…] → {(시작, 끝): (값, 낸 날, 태그)} — 같은 기간은 늦게 낸 것(같은 날이면 앞 태그)."""
-    best = {}
+    """[(태그, [[시작, 끝, 값, 낸 날, 양식]…])…] → {(시작, 끝): (값, 낸 날, 태그)} — 같은 기간은 늦게 낸 것(같은 날이면 앞 태그).
+    빼는 쪽 앞 누적을 그 시점의 판으로 고르도록 모든 판도 남긴다(as_of)."""
+    best = Merged()
     for tag, facts in facts_lists:
         for s, e, v, f, _form in facts:
             k = (s, e)
+            best.hist.setdefault(k, []).append((f, v))
             if k not in best or f > best[k][1]:
                 best[k] = (v, f, tag)
     return best
+
+
+def as_of(best, k, filed):
+    """기간 k의 값 가운데 filed 이하에 낸 판의 가장 늦은 것(같은 날이면 앞에 적은 태그) — 그런 판이 없으면 가장 이른 판.
+    누적의 차에서 빼는 앞 누적을 빼일 누적을 낸 날의 판으로 맞춘다(다음 해 10-Q가 앞 누적 비교 수치만 고쳐 냈을 때, 아직 다시 내지
+    않은 뒤 누적에서 고친 앞 누적을 빼면 고친 몫이 다음 분기로 넘어간다 — 2026-11-10 점검 sec-01)."""
+    hist = getattr(best, "hist", {}).get(k)
+    if not hist:
+        return best[k][0]
+    on = [(f, v) for f, v in hist if f <= filed]
+    if on:
+        top = max(f for f, _v in on)
+        return next(v for f, v in on if f == top)
+    early = min(f for f, _v in hist)
+    return next(v for f, v in hist if f == early)
 
 
 def ref_quarter_ends(ref):
@@ -498,12 +511,12 @@ def quarters(best, ref=None, optional=False):
     for (s, e), (v, _f, tag) in best.items():
         if Q_MIN <= _days(s, e) <= Q_MAX:
             q[e] = (v, tag)
-    for (s, e), (v, _f, tag) in sorted(best.items()):
+    for (s, e), (v, f, tag) in sorted(best.items()):
         if _days(s, e) <= Q_MAX or e in q:
             continue
         prev = [(s2, e2) for (s2, e2) in best if s2 == s and Q_MIN <= _days(e2, e) <= Q_MAX]
         if prev:
-            q[e] = (v - best[prev[0]][0], tag)
+            q[e] = (v - as_of(best, prev[0], f), tag)         # 앞 누적은 이 누적을 낸 날의 판
         elif optional and ref and any(s2 == s and Q_MIN <= _days(e2, e) <= Q_MAX for (s2, e2) in ref):
             q[e] = (v, tag)                                  # 앞 누적 공시에 이 줄이 없었다 — 앞 = 0
     if optional and ref:
@@ -572,7 +585,7 @@ def _ttm(cq, ends):
     o, c = t["ocf"], t["capex"]
     fcf = None if o is None or c is None else o - c
     out = {k: _bn(v) for k, v in t.items()}
-    out.update({"fcf": _bn(fcf), "ratio": None if not o or c is None else round(c / o * 100, 1) + 0.0,
+    out.update({"fcf": _bn(fcf), "ratio": None if not o or c is None else round(c / o * 100, 4) + 0.0,
                 "fcf_l": _bn(None if fcf is None or t["flease"] is None else fcf - t["flease"]),
                 "debt_net": _bn(None if t["debt_iss"] is None or t["debt_rep"] is None else t["debt_iss"] - t["debt_rep"]),
                 "eq_net": _bn(None if t["eq_iss"] is None or t["buyback"] is None else t["eq_iss"] - t["buyback"]),
@@ -621,7 +634,7 @@ def summary(got):
     full = {f: all(c["ttm"][f] is not None for c in ok) for f in TOTAL_FIELDS}
     tot = {"n": len(ok), "of": len(COMPANIES),
            **{f: (round(v, 3) + 0.0 if full[f] else None) for f, v in s.items()},
-           "ratio": round(s["capex"] / s["ocf"] * 100, 1) + 0.0 if s["ocf"] else None,
+           "ratio": round(s["capex"] / s["ocf"] * 100, 4) + 0.0 if s["ocf"] else None,
            "over": sum(1 for c in ok if c["ttm"]["ratio"] is not None and c["ttm"]["ratio"] > 100),
            "fcf_prev": None, "last_q": max(c["last_q"] for c in ok)}
     if all((c["ttm_prev"] or {}).get("ratio") is not None for c in ok):
@@ -958,7 +971,7 @@ def texts(v):
             detail.append(f"{c['key']}({lab}): {COMPANY_REASONS[c['reason']]}")
             continue
         tt, p = c["ttm"], c["ttm_prev"] or {}
-        axis = "영업현금 초과 · 외부·보유 현금 조달" if tt["ratio"] is not None and tt["ratio"] > 100 else "영업현금 안 · 현금 조달"
+        axis = "영업현금 초과" if tt["ratio"] is not None and tt["ratio"] > 100 else "영업현금 안"   # 잰 것만(조달 추정 없음)
         detail.append(f"{c['key']}({lab}, 회계연도 {fy}월 말, 마지막 분기 {c['last_q']}): 설비투자/영업현금 TTM {_pct(tt['ratio'])}"
                       f" (1년 전 {_pct(p.get('ratio'))}) · FCF TTM {_f(tt['fcf'])}bn · 마지막 분기 {_f(c['last_fcf'])}bn · "
                       f"리스 원금 뺀 FCF TTM {_f(tt['fcf_l'])}bn · 순차입 TTM {_f(tt['debt_net'])}bn (발행 {_g(tt['debt_iss'])} · "
@@ -970,11 +983,12 @@ def texts(v):
                       " · TTM 가운데 0으로 채운 분기 수: " + (" · ".join(fl) or "없음"))
     extra = ["회사마다 자기 마지막 4분기(TTM)의 합이다 — 회계연도가 달라 마지막 분기가 다를 수 있다(마이크로소프트 6월 말, "
              "오라클 5월 말, 나머지 12월 말 · 다르면 비율 옆에 그 달을 적는다). 단위 bn = 십억 달러. FCF = 영업현금 − 설비투자, "
-             "리스 원금 뺀 FCF = FCF − 금융리스 원금, 순차입 = 장기 차입 발행 − 상환(기업어음 제외), 순주식 = 주식 발행(전환우선주 "
-             "포함) − 자사주 매입(배당 제외). 영업현금 초과 = 설비투자/영업현금이 100%를 넘은 회사 수.",
+             "리스 원금 뺀 FCF = FCF − 금융리스 원금, 순차입 = 장기 차입 발행 − 상환(기업어음 제외 — 다만 "
+             "알파벳의 차입 발행·상환 줄은 현금흐름표에 장·단기 구분이 없어 기업어음 등 단기 차입이 섞인다), 순주식 = 주식 발행"
+             "(전환우선주 포함) − 자사주 매입(배당 제외). 영업현금 초과 = 설비투자/영업현금이 100%를 넘은 회사 수.",
              "분기는 누적(YTD) 공시의 차다(2분기 = 6개월 − 3개월, 4분기 = 연간 − 9개월). 같은 기간은 늦게 낸 공시(정정·다음 해 "
-             "비교 수치)를 쓴다. TTM은 4분기가 이어질 때만. 그 분기 공시에 줄이 없거나 회사가 쓰지 않는 줄은 0으로 채우고 회사별 "
-             "줄에 그 수를 적는다(영업현금·설비투자는 채우지 않는다).",
+             "비교 수치)를 쓰고, 빼는 앞 누적은 빼일 누적을 낸 날까지 낸 공시로 맞춘다. TTM은 4분기가 이어질 때만. 그 분기 "
+             "공시에 줄이 없거나 회사가 쓰지 않는 줄은 0으로 채우고 회사별 줄에 그 수를 적는다(영업현금·설비투자는 채우지 않는다).",
              "숫자만 싣는 서술이다 — 단계·점수가 없고 금리를 예측하지 않는다."]
     return line, extra, detail
 
@@ -1015,9 +1029,9 @@ def flow_texts(v):
              "5사 분기 FCF = 그 달력 분기에 모든 회사가 낸 분기의 영업현금 − 설비투자 합이다(한 곳이라도 없으면 비움). "
              f"연속 감소는 마지막 분기부터 거꾸로 바로 앞 분기보다 작았던 분기 수다(최근 {FLOW_HIST}분기 안, 반올림 전 값으로). "
              "앞 분기 대비이고 계절조정이 아니다 — 영업현금은 계절성이 커서 계절만으로도 감소가 세어질 수 있다. "
-             "외부 조달(순) = 순차입(장기 차입 발행 − 상환) + 순주식(주식 발행 − 자사주 매입)이고, 그 몫은 모든 회사에 "
-             "TTM이 있을 때만 낸다(회사마다 자기 마지막 4분기, 1년 전은 그 앞 4분기). 자사주 매입 0의 '줄 없음'은 그 분기 공시에 "
-             "매입 줄이 없어 0으로 채운 회사다 — 공시가 0이라고 낸 것과 달리 다른 줄에 합쳤을 수 있다. 단위 bn = 십억 달러.",
+             "외부 조달(순) = 순차입(장기 차입 발행 − 상환 — 알파벳은 단기 차입이 섞인 줄) + 순주식(주식 발행 − 자사주 "
+             "매입)이고, 그 몫은 모든 회사에 TTM이 있을 때만 낸다(회사마다 자기 마지막 4분기, 1년 전은 그 앞 4분기). "
+             "자사주 매입 0의 '줄 없음'은 그 분기 공시에 매입 줄이 없어 0으로 채운 회사다 — 공시가 0이라고 낸 것과 달리 다른 줄에 합쳤을 수 있다. 단위 bn = 십억 달러.",
              "숫자만 싣는 서술이다 — 단계·점수가 없고 금리를 예측하지 않는다."]
     detail = []
     for c in v["companies"]:

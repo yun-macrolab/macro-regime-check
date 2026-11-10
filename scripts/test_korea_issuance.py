@@ -5,7 +5,6 @@ import datetime as dt
 import html
 import io
 import json
-import os
 import re
 import tempfile
 import unittest

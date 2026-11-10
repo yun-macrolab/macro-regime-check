@@ -5,7 +5,7 @@
 실패한 날에도 상태 파일은 써야 하고(배너), 마지막 성공 시각과 공개본 날짜는 직전 값을 지켜야 한다.
 문구는 정해 둔 것만 — 오류 원문(경로·URL·예외 문자열)은 공개 페이지에 싣지 않는다.
 """
-import os, sys, json, re, datetime, tempfile, unittest, shutil
+import os, sys, json, datetime, tempfile, unittest, shutil
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)

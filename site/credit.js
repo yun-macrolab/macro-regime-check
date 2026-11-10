@@ -1,16 +1,16 @@
 /* 신용 긴축 참고 — data/credit.json(scripts/credit_fetch.py)과 data/sec.json(scripts/sec_fetch.py)을 그린다 (2026-10-30).
    운영자의 비공개 월간 점검에 있던 [신용 긴축] 줄을 공개한 카드다. 이 사이트의 규칙 점검에 쓰지 않고 금리를 예측하지 않는다.
    단계 정의 바로 뒤에 '신용 스트레스(공개 자료)' 묶음(STRESS — 연준 이사회 EBP · 뉴욕 연은 CMDI)을 둔다: 운영자의 비공개 ICE
-   등급별 스프레드 사다리(이용 조건상 공개 불가)를 대신하는 공개 자료라는 한 문장과 두 줄. 자료 파일에 두 칸이 모두 없으면
-   (새 칸이 생기기 전 파일) 묶음을 두지 않는다. 고지(EBP 논문 인용·출처 줄·공공 영역, CMDI 뉴욕 연은 출처 표시·계산값 표시·
-   관계없음 고지·논문 인용)는 그 칸의 notices로 함께 나간다.
+   등급별 스프레드 사다리(이용 조건상 공개 불가)를 대신하는 공개 자료라는 한 문장과 두 줄. 고지(EBP 논문 인용·출처 줄·공공
+   영역, CMDI 뉴욕 연은 출처 표시·계산값 표시·관계없음 고지·논문 인용)는 그 칸의 notices로 함께 나간다.
    자리: #credit-slot. index.html의 el() · link()를 쓴다(부를 때 이미 정의돼 있다). 글자는 전부 el()의 텍스트로만 넣는다.
    카드 이름·안내·단계 정의는 이 파일에 정해 둔 것이고(정의는 늘 함께 나간다), 칸의 숫자 줄·덧붙이는 줄은 자료 파일에 정해 둔
    문구다(그 스크립트가 숫자로 만든다). 형식이 어긋났거나 고지(notices)가 없는 칸은 숫자를 싣지 않고 '미수신 — 까닭' 또는
    '자료 없음' 한 줄로 둔다. 기업별 조달 줄은 sec.json의 칸을 먼저 쓰고, 그것이 없으면 credit.json에 옮겨 둔 칸을 쓴다.
-   2026-11-02에 더한 세 줄(LATE): 회사채 공급 대 흡수(credit.json의 bond_flow — 연준 Z.1)와 조달 흐름·재무상태 잔액
-   (SEC_ROWS — sec.json의 flow·bal을 바로 읽는다, credit.json에는 옮기지 않는다). 자료 파일에 그 칸이 아예 없으면(그 전 파일)
-   줄을 두지 않는다.
+   2026-11-02에 더한 세 줄: 회사채 공급 대 흡수(credit.json의 bond_flow — 연준 Z.1)와 조달 흐름·재무상태 잔액
+   (SEC_ROWS — sec.json의 flow·bal을 바로 읽는다, credit.json에는 옮기지 않는다). 뒤 둘(LATE)은 sec.json에 그 칸이 아예
+   없으면(그 전 파일·읽지 못한 파일) 줄을 두지 않는다 — credit.json의 칸은 credit_fetch가 실행마다 모두 쓰므로(받지 못하면
+   실패 줄) 빠진 칸은 '자료 없음'으로 둔다.
    카드 머리 안내는 ABOUT 하나(합니다체)다 — 자료 파일의 notice(한다체, 같은 뜻)는 겹쳐 싣지 않는다. 인용이 필요한 자료
    (licence 'citation-required' — 시카고 연은 NFCI 신용)와 정수 낙폭 %를 싣는 재배포 제한 자료(licence 'restricted' — 두 Nasdaq
    지수, 2026-10-30 운영자 결정)는 FRED 권장 인용(sources[].citation)을 카드 끝에 글자로 싣는다. Nasdaq 저작권 표시는 그 칸의
@@ -22,8 +22,8 @@ window.CreditCard = (() => {
   const CARD = ["stage", "ebp", "cmdi", "cell", "gap", "drawdown", "bond_flow", "sec", "flow", "bal"];
   // sec.json에서 바로 읽는 칸(scripts/sec_fetch.py의 ORDER에서 funding 밖 — 테스트가 견준다)
   const SEC_ROWS = ["flow", "bal"];
-  // 2026-11-02에 더한 칸 — 자료 파일에 그 칸이 없으면(그 전 파일) 줄을 두지 않는다
-  const LATE = ["bond_flow", "flow", "bal"];
+  // sec.json에서 읽는 2026-11-02 칸 — sec.json에 그 칸이 없으면(그 전 파일·읽지 못한 파일) 줄을 두지 않는다
+  const LATE = ["flow", "bal"];
   // 신용 스트레스(공개 자료) 묶음 — credit_fetch.STRESS와 같다(테스트가 견준다)
   const STRESS = ["ebp", "cmdi"];
   // 실패 사유 — 이 목록의 글만 싣는다(credit_fetch.REASONS · sec_fetch.REASONS와 같다 — 테스트가 견준다)
@@ -58,7 +58,8 @@ window.CreditCard = (() => {
     ["회사채 공급 대 흡수", "연준 Z.1 금융계정에서 회사채·외국채 순발행(모든 부문, 계절조정 흐름의 최근 4분기 합)과 그것을 사들인 쪽 — 해외(미 회사채만)·" +
       "생명보험·사적 연금(회사채·외국채) — 의 몫을 적고, 나머지(은행·펀드·연준·가계 등)는 그 밖으로 둡니다. 비금융기업의 발행 몫은 " +
       "사들인 쪽의 몫이 아닙니다. 하이퍼스케일러 몫은 가를 수 없는 총량입니다."],
-    ["기업별 조달", "마이크로소프트·알파벳·아마존·메타·오라클의 SEC 10-Q·10-K 공시에서 영업현금·설비투자·차입·주식 조달을 분기로 나눠 더한 숫자입니다."],
+    ["기업별 조달", "마이크로소프트·알파벳·아마존·메타·오라클의 SEC 10-Q·10-K 공시에서 영업현금·설비투자·차입·주식 조달을 분기로 나눠 더한 숫자입니다. " +
+      "차입은 장기 차입이지만, 알파벳의 차입 발행·상환 줄은 현금흐름표에 장·단기 구분이 없어 기업어음 등 단기 차입이 섞입니다."],
     ["조달 흐름", "다섯 회사의 분기 FCF(영업현금 − 설비투자)를 달력 분기에 맞춰 더한 값(다섯 회사가 모두 낸 분기만)과 연속 감소 분기 수" +
       "(앞 분기 대비 — 계절조정 아님), " +
       "설비투자 가운데 외부 조달(순차입 + 순주식)의 몫, 자사주 매입을 적습니다. 오라클은 분기 끝이 2·5·8·11월이라 한 달 앞선 분기를 같은 달력 분기로 셉니다."],
@@ -94,7 +95,7 @@ window.CreditCard = (() => {
     if (!usable(it, key))
       return el("div", { class: "credit-row" }, el("p", { class: "credit-name" }, el("strong", {}, name), " — ", missing(it)));
     const detail = texts(it.detail);
-    return el("div", { class: "credit-row" + (key === "stage" ? " credit-stage" : "") },
+    return el("div", { class: "credit-row" },
       el("p", { class: "credit-name" }, el("strong", {}, name), " ", el("small", {}, it.date)),
       el("p", { class: "credit-num" }, it.line),
       ...texts(it.extra).map(t => el("p", { class: "muted" }, t)),
@@ -143,9 +144,8 @@ window.CreditCard = (() => {
     return el("div", { class: "cite-lines" }, ...[...best.values()].map(x => el("p", { class: "muted" }, "권장 인용: " + x.text)));
   }
 
-  // 신용 스트레스(공개 자료) 묶음 — 머리 한 문장과 EBP · CMDI 줄. 자료 파일에 두 칸이 모두 없으면 두지 않는다(null)
+  // 신용 스트레스(공개 자료) 묶음 — 머리 한 문장과 EBP · CMDI 줄(빠진 칸은 그 줄만 '자료 없음')
   function stress(items) {
-    if (!STRESS.some(k => isObj(items[k]))) return null;
     return el("div", { class: "credit-row credit-group" },
       el("p", { class: "credit-name" }, el("strong", {}, STRESS_NAME)),
       el("p", { class: "muted" }, STRESS_NOTE),

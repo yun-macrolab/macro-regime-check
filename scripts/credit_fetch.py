@@ -331,10 +331,11 @@ def fund_axis(S):
     except ai.ItemError:
         raise ItemError("format")
     v = f["values"]
-    pts = [x for d, x in ai.quarterly_ratio(S["BOGZ1FA105050005Q"], S["BOGZ1FA106000135Q"], 4) if d >= SINCE]
+    ratio = ai.quarterly_ratio(S["BOGZ1FA105050005Q"], S["BOGZ1FA106000135Q"], 4)
+    pts = [x for d, x in ratio if d >= SINCE]
     high = round(v["ratio"], 6) > round(v["median"], 6)
     return {"quarter": f["date"], "ratio": v["ratio"], "median": v["median"], "median_from": v["from"],
-            "pct": _pct(pts, v["ratio"]), "high": high, "axis": "부채 조달" if high else "현금 조달"}
+            "pct": _pct(pts, ratio[-1][1]), "high": high, "axis": "부채 조달" if high else "현금 조달"}   # 분위는 반올림 전 값
 
 
 def calc_cell(S, today):
@@ -544,11 +545,11 @@ def calc_ebp(S, today):
     d1, v1 = e[-1]
     back = dict(e).get(_add_months(d1, -EBP_BACK))
     gz = dict(S[EBP].get("gz") or ()).get(d1)
-    return {"date": _iso(d1),
-            "values": {"ebp": _r(v1 * 100, 1), "month": _iso(d1), "since": _iso(e[0][0]),
+    return {"date": _iso(d1),                                     # bp는 소수 둘째 자리로 두고 글에서 정수로 한 번만 반올림
+            "values": {"ebp": _r(v1 * 100, 2), "month": _iso(d1), "since": _iso(e[0][0]),
                        "pct": _pct([v for _, v in e], v1),
-                       "ch3": None if back is None else _r((v1 - back) * 100, 1),
-                       "gz": None if gz is None else _r(gz * 100, 1)}}
+                       "ch3": None if back is None else _r((v1 - back) * 100, 2),
+                       "gz": None if gz is None else _r(gz * 100, 2)}}
 
 
 def _local(tag):

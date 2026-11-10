@@ -20,7 +20,6 @@ from unittest import mock
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS)
 import sec_fetch as sf
-import ai_invest_fetch as ai
 from test_render_public import FORBIDDEN_TEXT
 
 D = datetime.date
@@ -147,7 +146,7 @@ def facts_of(a=None, b=None):
 
 
 def got_of(a=None, b=None):
-    """{CIK: {태그: 사실 목록}} — fetch_all이 만드는 꼴."""
+    """{CIK: {태그: 사실 목록}} — fetch_both의 got이 갖는 꼴."""
     out = {}
     for co, cs in ((CO_A, a), (CO_B, b)):
         if cs is not None:
@@ -183,13 +182,32 @@ class QuarterTest(Base):
         self.assertEqual([cq["items"]["capex"][e] / B for e in cq["ends"]], [6, 7, 8, 9, 10])
 
     def test_amendment_latest_filed_wins(self):
-        f = ytd(12, 2026, [10 * B, 10 * B, 10 * B, 10 * B], filed="2026-02-01")
-        amend = dict(f[1], val=25 * B, filed="2026-03-01", form="10-Q/A")        # 6개월을 정정(늦게 냄)
+        f = ytd(12, 2026, [10 * B, 10 * B, 10 * B, 10 * B])
+        for x, day in zip(f, ("2026-04-25", "2026-07-25", "2026-10-25")):   # 실제 차례: 3개월 → 6개월 → 정정 → 9개월
+            x["filed"] = day
+        amend = dict(f[1], val=25 * B, filed="2026-08-15", form="10-Q/A")        # 6개월을 정정(늦게 냄)
         q, _ = sf.quarters(sf.merged([("T", sf.trim(concept(f, [amend]), TODAY))]))
         self.assertEqual(q["2026-06-30"][0] / B, 15)                  # 25 − 10
-        self.assertEqual(q["2026-09-30"][0] / B, 5)                   # 30 − 25
-        early = dict(f[1], val=99 * B, filed="2026-01-15")           # 먼저 낸 것은 지지 않는다
+        self.assertEqual(q["2026-09-30"][0] / B, 5)                   # 30 − 25(9개월을 낸 날의 6개월은 정정본)
+        early = dict(f[1], val=99 * B, filed="2026-07-01")           # 먼저 낸 것은 지지 않는다
         self.assertEqual(sf.quarters(sf.merged([("T", sf.trim(concept(f, [early]), TODAY))]))[0]["2026-06-30"][0] / B, 10)
+        # 다음 해 10-Q가 앞 누적(3·6·9개월) 비교 수치만 고쳐 냈고 연간은 아직 그대로(2026-11-10 점검 sec-01) — 빼는 앞 누적은
+        # 빼일 누적을 낸 날의 판: 4분기 = 연간 40 − 그때의 9개월 30 = 10(고친 9개월 28을 빼면 12). 연간을 고쳐 내면 그때의 9개월 28.
+        s0 = "2025-01-01"
+        old = [[s0, e, v * B, d, "10-Q"] for e, v, d in (("2025-03-31", 10, "2025-04-25"), ("2025-06-30", 20, "2025-07-25"),
+                                                          ("2025-09-30", 30, "2025-10-25"))] + \
+              [[s0, "2025-12-31", 40 * B, "2026-02-05", "10-K"]]
+        new = [[s0, e, v * B, d, "10-Q"] for e, v, d in (("2025-03-31", 9, "2026-04-25"), ("2025-06-30", 19, "2026-07-25"),
+                                                          ("2025-09-30", 28, "2026-10-25"))]
+        q, _ = sf.quarters(sf.merged([("T", old + new)]))
+        self.assertEqual({e: v / B for e, (v, _t) in q.items()},
+                         {"2025-03-31": 9, "2025-06-30": 10, "2025-09-30": 9, "2025-12-31": 10})   # 앞 셋은 고친 판끼리
+        q, _ = sf.quarters(sf.merged([("T", old + new + [[s0, "2025-12-31", 38 * B, "2027-02-05", "10-K"]])]))
+        self.assertEqual(q["2025-12-31"][0] / B, 10)                  # 38 − 28 — 연간을 고쳐 내도 그대로
+        best = sf.merged([("A", [[s0, "2025-03-31", 1 * B, "2025-05-01", "10-Q"]]),
+                          ("B", [[s0, "2025-03-31", 2 * B, "2025-05-01", "10-Q"], [s0, "2025-03-31", 3 * B, "2025-06-01", "10-Q"]])])
+        self.assertEqual([sf.as_of(best, (s0, "2025-03-31"), d) / B for d in ("2025-04-01", "2025-05-01", "2025-05-31", "2025-06-01")],
+                         [1, 1, 1, 3])                                # 그 날 이하의 가장 늦은 판(같은 날은 앞 태그), 없으면 가장 이른 판
 
     def test_trim_keeps_10q_10k_duration_facts_inside_window(self):
         js = concept(ytd(12, 2026, [1, 2, 3, 4]), ytd(12, 2019, [1, 1, 1, 1]),
@@ -266,7 +284,7 @@ class QuarterTest(Base):
         s = sf.company_summary(got_of(concepts_a()), CO_A)
         t = s["ttm"]
         self.assertEqual((t["ocf"], t["capex"], t["fcf"]), (66.0, 51.0, 15.0))   # 15+16+17+18 · 9+10+12+20
-        self.assertEqual(t["ratio"], round(51 / 66 * 100, 1))
+        self.assertEqual(t["ratio"], round(51 / 66 * 100, 4))
         self.assertEqual((t["flease"], t["fcf_l"]), (5.0, 10.0))
         self.assertEqual(s["ttm_prev"]["ratio"], 50.0)                # 영업현금 11+12+13+14 · 설비투자 5+6+6+8
         self.assertEqual((s["last_q"], s["last_fcf"]), ("2026-09-30", -2.0))
@@ -291,19 +309,27 @@ class QuarterTest(Base):
         self.assertEqual((s["ttm"]["eq_iss"], s["ttm"]["debt_iss"], s["ttm"]["flease"]), (0.0, 0.0, 0.0))
         self.assertEqual(s["ttm"]["buyback"], 0.0)                    # 1분기(2025-08)만 1 — TTM 밖
         self.assertEqual(s["filled"]["eq_iss"], 4)
-        self.assertEqual(s["ttm"]["ratio"], round(34 / 21 * 100, 1))
+        self.assertEqual(s["ttm"]["ratio"], round(34 / 21 * 100, 4))
 
     def test_total_over_companies_and_partial(self):
         v = sf.summary(got_of(concepts_a(), concepts_b()))
         t = v["total"]
         self.assertEqual((t["n"], t["of"], t["over"]), (2, 2, 1))
         self.assertEqual(t["ocf"], 87.0)                              # 66 + 21
-        self.assertEqual(t["ratio"], round(85 / 87 * 100, 1))
+        self.assertEqual(t["ratio"], round(85 / 87 * 100, 4))
         self.assertEqual(t["fcf"], 2.0)                               # 15 + (21 − 34)
         self.assertEqual(t["last_q"], "2026-09-30")
         line, _, _ = sf.texts(v)
         self.assertIn("2사 TTM 설비투자/영업현금 98%", line)
         self.assertIn("TSTB 162%(~2026-08)", line)                    # 마지막 분기가 다르면 표시
+        detail = sf.texts(v)[2]                 # 회사별 꼬리는 잰 것만 — 조달을 짐작하는 말이 없다(2026-11-10 점검 sec-04)
+        self.assertEqual([d.rsplit(" · ", 1)[-1] for d in detail if "회계연도" in d], ["영업현금 안", "영업현금 초과"])
+        self.assertNotIn("조달", "\n".join(detail))
+        b = concepts_b()                     # 비율은 넷째 자리로 두고 글에서 한 번만 반올림(2026-11-10 점검 sec-02)
+        b[sf.PPE] = concept(ytd(5, 2026, [6 * B, 7 * B, 8 * B, 9 * B]), ytd(5, 2027, [8.06 * B]))
+        w = sf.summary(got_of(concepts_a(), b))
+        self.assertEqual(w["total"]["ratio"], round(83.06 / 87 * 100, 4))       # 95.4713
+        self.assertIn("2사 TTM 설비투자/영업현금 95%", sf.texts(w)[0])          # 첫째 자리 95.5에서 다시 반올림하면 96%
         self.assertIn("TSTA 77% ·", line)
         v = sf.summary(got_of(concepts_a()))
         line, _, detail = sf.texts(v)
@@ -990,7 +1016,6 @@ class FetchTest(Base):
                         text = f.read()
                     self.assertNotIn("@", text, name)
                     self.assertNotIn("fake.tester", text, name)
-        self.assertEqual(sf.scrub(f"오류 {FAKE_UA} · x.y@z.example", FAKE_UA), "오류 <UA> · <연락처>")
 
     def test_absent_tag_is_zero_and_gzip_reads(self):
         a = {k: (("gzip", v) if v else v) for k, v in concepts_a().items()}
@@ -1110,29 +1135,17 @@ class FetchTest(Base):
         self.assertEqual(waits, [0.15] * (N_TAGS + N_BAL - 1))
         self.assertEqual(sf.fetch_both(None, TODAY, opener=op)["bcode"], "no_ua")
 
-    def test_requests_are_spaced(self):
-        clock, waits = FakeClock(), []
-        op = FakeOpener(world_answer(), clock=clock, cost=0.1)
-
-        def sleep(s):
-            waits.append(round(s, 6))
-            clock.t += s
-        sf.GAP = 0.25
-        got, code, n = sf.fetch_all(FAKE_UA, TODAY, opener=op, clock=clock, sleep=sleep)
-        self.assertEqual((code, n), (None, N_TAGS))
-        self.assertEqual(waits, [0.15] * (N_TAGS - 1))                          # 요청 0.1초 + 기다림 0.15초 = 간격 0.25초
-
     def test_budget_caps_the_run_and_a_dripping_response(self):
         clock = FakeClock()
         op = FakeOpener(world_answer(), clock=clock, cost=10.0)
-        got, code, n = sf.fetch_all(FAKE_UA, TODAY, budget=35, opener=op, clock=clock, sleep=lambda s: None)
-        self.assertEqual((code, n), ("budget", 4))                               # 0·10·20·30초에 시작, 40초엔 남은 시간 없음
-        self.assertTrue(all(t <= sf.TIMEOUT for _, t in op.reqs))
+        f = sf.fetch_both(FAKE_UA, TODAY, budget=35, opener=op, clock=clock, sleep=lambda s: None)
+        self.assertEqual((f["code"], f["n"], f["bcode"], f["nb"]), ("budget", 4, "budget", 0))   # 0·10·20·30초에 시작,
+        self.assertTrue(all(t <= sf.TIMEOUT for _, t in op.reqs))                             # 40초엔 남은 시간 없음
         clock = FakeClock()
         op = FakeOpener(lambda c, t: ("drip", concepts_a()[sf.OCF]), clock=clock)
-        got, code, n = sf.fetch_all(FAKE_UA, TODAY, budget=60, opener=op, clock=clock, sleep=lambda s: None)
-        self.assertEqual((code, n), ("budget", 1))                               # 조금씩 흘려보내도 마감에서 멈춘다
-        self.assertLessEqual(clock.t, 70)
+        f = sf.fetch_both(FAKE_UA, TODAY, budget=60, opener=op, clock=clock, sleep=lambda s: None)
+        self.assertEqual((f["code"], f["n"], f["bcode"], f["nb"]), ("budget", 1, "budget", 0))   # 조금씩 흘려보내도 마감에서
+        self.assertLessEqual(clock.t, 70)                                                     # 멈춘다
 
     def test_first_run_writes_the_item_with_its_source(self):
         code, log = self.run_main(FakeOpener(world_answer()))

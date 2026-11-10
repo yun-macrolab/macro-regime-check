@@ -6,7 +6,6 @@
 (원격도 그 안의 bare 저장소). 발언 · 사람 · 출처는 지어낸 것이고, 명단은 임시 폴더에 쓴 작은 people-data.js다.
 끝의 DataFileTest는 저장소에 data/people_remarks.json이 있으면 그 파일을 게시기와 같은 검사로 본다(CI가 배포 전에).
 """
-import copy
 import datetime
 import hashlib
 import io
