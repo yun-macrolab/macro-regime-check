@@ -488,10 +488,23 @@ class ArithmeticTest(unittest.TestCase):
         for mine, theirs in ((v["res13"], "res"), (v["tga13"], "tga"), (v["bills13"], "bills"), (v["coupons13"], "coupons"),
                              (v["onrrp13"] + v["pool13"], "rrp"), (v["mbs13"] + v["cur13"] + v["other13"], "other")):
             self.assertAlmostEqual(mine, lq["values"][theirs], places=6, msg=theirs)
-        # 같은 것은 반올림 전 값 — 화면의 정수는 카드마다 따로 반올림해(각자의 '그 밖'이 반올림 차를 받는다) 1~2 다를 수 있다고 적는다
+        # 같은 것은 반올림 전 값 — 화면의 정수는 카드마다 따로 반올림해(각자의 '그 밖'이 반올림 차를 받는다) 1 다를 수 있다고 적는다
         # (2026-11-10 점검: 실자료에서 역레포 -16 대 -15, 그 밖 -64 대 -65로 보였다)
         extra = fb.texts("dec", v, v["to"])[1]
-        self.assertTrue(extra[-1].endswith("두 카드의 보이는 정수 합은 1~2 다를 수 있다)."), extra[-1])
+        self.assertTrue(extra[-1].endswith("두 카드의 보이는 정수 합은 1 다를 수 있다)."), extra[-1])
+        # 1보다 더 벌어지지는 않는다 — 지준·TGA·단기채·이표채는 두 카드가 같은 값을 같게 반올림하고, 역레포의 차는
+        # round(a + b) − round(a) − round(b)라 1 안이며, '그 밖' 합의 차는 그 차의 부호만 바뀐 값이다(검토 R1)
+        rnd = random.Random(7)
+        for _ in range(5000):
+            m = {k: rnd.randint(-400000, 400000) for k in ("res", *fb.SIGN)}
+            w = {"from13": "2026-01-07", **{f"{k}13": ai._r(x / 1000) for k, x in m.items()},
+                 "other13": ai._r((m["res"] - sum(m[k] for k in fb.SIGN)) / 1000)}
+            res, sh = fb.shown(w, "13")
+            lres, lsh, loth = liq.shown_parts({"res": w["res13"], "tga": w["tga13"], "bills": w["bills13"],
+                                               "coupons": w["coupons13"], "rrp": ai._r((m["onrrp"] + m["pool"]) / 1000)})
+            self.assertEqual((res, sh["tga"], sh["bills"], sh["coupons"]), (lres, lsh["tga"], lsh["bills"], lsh["coupons"]))
+            self.assertLessEqual(abs(lsh["rrp"] - sh["onrrp"] - sh["pool"]), 1, m)
+            self.assertLessEqual(abs(loth - sh["mbs"] - sh["cur"] - sh["other"]), 1, m)
 
     def test_one_window_can_be_missing(self):
         S = world()
