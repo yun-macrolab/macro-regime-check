@@ -1,5 +1,5 @@
 # 작업 폴더 — 재배포가 제한된 시리즈(S&P·ICE·Moody's) 원값이 들어가므로 커밋·배포하지 않는다
-#   .work/fred/  원자료 캐시 (CI에서는 actions/cache로 러너 간 유지)
+#   .work/fred/  원자료 캐시 (CI에서는 그 실행의 러너에만 있고 러너와 함께 사라진다 — actions/cache를 쓰지 않는다, daily.yml 머리말)
 #   .work/raw/   원본 계산 결과 — 공개본은 render_public.py가 만든 data/public.json
 # 사이트 폴더(data/)와 분리해 두는 이유: Pages 배포 아티팩트는 .gitignore를 따르지 않는다
 .work/

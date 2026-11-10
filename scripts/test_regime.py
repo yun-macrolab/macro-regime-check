@@ -607,6 +607,78 @@ class NewIndicatorComputeTest(unittest.TestCase):
                          (None, None, None))
 
 
+def _weekly_flat(first_monday, week_values, last_day):
+    """first_monday부터 last_day까지 영업일마다 그 주의 값(week_values[k]) — 주 종가를 손으로 정한 일간 시계열."""
+    out, d = [], first_monday
+    while d <= last_day:
+        k = (d - first_monday).days // 7
+        if d.weekday() < 5 and k < len(week_values):
+            out.append((d, week_values[k]))
+        d += datetime.timedelta(days=1)
+    return out
+
+
+class TransitionWeekTest(unittest.TestCase):
+    """전환 경계(t2·t4)는 완성된 주만 — 시리즈의 마지막 관측이 그 주 금요일에 못 미치면 그 주를 세지 않는다
+    (토·월 실행이나 월요일 휴장 뒤 화요일 실행에서 DGS10·IG OAS는 목요일까지만 나와 있다). 숫자는 지어낸 것이다."""
+    SP = [100.0] * 11 + [99.0, 98.0, 97.0]          # 마지막 세 주만 잇달아 내림 — 마지막 주를 세야 t4 ON
+    Y10 = [4.0] * 11 + [3.9, 3.8, 3.7]
+    IG = [1.0] * 13 + [1.2]                         # 마지막 주에만 13주 고점 — 마지막 주를 세야 t2 ON
+
+    def trig(self, today, first_monday, last, extra=None):
+        """last: 시리즈마다 마지막 관측일. extra: 시리즈마다 덧붙일 (날짜, 값)."""
+        series = {sid: _weekly_flat(first_monday, vals, last[sid])
+                  for sid, vals in (("SP500", self.SP), ("DGS10", self.Y10), ("BAMLC0A0CM", self.IG))}
+        for sid, rows in (extra or {}).items():
+            series[sid] = series[sid] + rows
+        _, inputs, _ = MOD.compute(series, today)
+        return inputs["transition"]["t2"], inputs["transition"]["t4"]
+
+    def test_weekend_and_monday_runs_with_data_to_thursday_skip_that_week(self):
+        thu = D(2026, 11, 5)                                           # 11-02 주의 목요일까지만 나온 상태
+        last = {"SP500": thu, "DGS10": thu, "BAMLC0A0CM": thu}
+        for today in (D(2026, 11, 7), D(2026, 11, 8), D(2026, 11, 9)):   # 토·일·월 실행
+            self.assertEqual(self.trig(today, D(2026, 8, 3), last), (False, False), today)
+
+    def test_run_with_the_friday_observation_counts_the_week(self):
+        fri = D(2026, 11, 6)
+        last = {"SP500": fri, "DGS10": fri, "BAMLC0A0CM": fri}
+        for today in (D(2026, 11, 7), D(2026, 11, 10)):                 # 토요일이라도 금요일까지 나와 있으면 센다
+            self.assertEqual(self.trig(today, D(2026, 8, 3), last), (True, True), today)
+        mon = {"SP500": [(D(2026, 11, 9), 90.0)]}                        # 이번 주(미완성) 관측은 여전히 버린다
+        self.assertEqual(self.trig(D(2026, 11, 10), D(2026, 8, 3), last, mon), (True, True))
+
+    def test_tuesday_after_a_monday_holiday_skips_a_week_without_its_friday(self):
+        # 2026-10-12(월) 휴장 뒤 화요일 실행 — S&P는 금요일까지, DGS10·IG OAS는 목요일(10-08)까지
+        last = {"SP500": D(2026, 10, 9), "DGS10": D(2026, 10, 8), "BAMLC0A0CM": D(2026, 10, 8)}
+        self.assertEqual(self.trig(D(2026, 10, 13), D(2026, 7, 6), last), (False, False))
+
+    def test_a_friday_holiday_week_counts_once_the_next_week_is_observed(self):
+        # 2026-04-03(금) 휴장 — 03-30 주의 마지막 관측은 목요일. 다음 주 관측이 생기기 전엔 세지 않고, 생기면 목요일 값으로 센다
+        thu = D(2026, 4, 2)
+        last = {"SP500": thu, "DGS10": thu, "BAMLC0A0CM": thu}
+        self.assertEqual(self.trig(D(2026, 4, 4), D(2025, 12, 29), last), (False, False))
+        nxt = {"SP500": [(D(2026, 4, 6), 97.0)], "DGS10": [(D(2026, 4, 6), 3.7)], "BAMLC0A0CM": [(D(2026, 4, 6), 1.2)]}
+        self.assertEqual(self.trig(D(2026, 4, 8), D(2025, 12, 29), last, nxt), (True, True))
+
+
+class CoreGapTest(unittest.TestCase):
+    """근원 CPI − 근원 PCE 괴리는 두 전년비가 같은 달일 때만(CPI가 PCE보다 2주쯤 먼저 나온다). 숫자는 지어낸 것이다."""
+
+    def test_gap_only_when_both_yoy_are_the_same_month(self):
+        pce = monthly(D(2025, 1, 1), [100 + i for i in range(20)])        # 2025-01 … 2026-08
+        cpi = monthly(D(2025, 1, 1), [200 + 3 * i for i in range(21)])    # 2025-01 … 2026-09 — CPI가 한 달 앞선다
+        ind, _, _ = _compute(PCEPILFE=pce, CPILFESL=cpi)
+        self.assertEqual((ind["core_pce_yoy"]["asof"], ind["core_cpi_yoy"]["asof"]), ("2026-08-01", "2026-09-01"))
+        self.assertEqual((ind["core_gap"]["value"], ind["core_gap"]["asof"]), (None, None))
+        sig = next(s for s in rr.evaluate(MOD.flat(ind)) if s["key"] == "core_inflation")
+        self.assertIn("괴리 —%p", sig["text"])
+        ind, _, _ = _compute(PCEPILFE=pce, CPILFESL=cpi[:-1])           # 같은 달(2026-08)
+        self.assertAlmostEqual(ind["core_gap"]["value"],
+                               ind["core_cpi_yoy"]["value"] - ind["core_pce_yoy"]["value"], places=12)
+        self.assertEqual(ind["core_gap"]["asof"], "2026-08-01")
+
+
 class BuildTest(unittest.TestCase):
     """regime_check.build: 매일 원본 결과를 <work>/raw/에 기록한다. 수신 실패면 아무것도 쓰지 않는다.
     원본과 캐시는 사이트 폴더(data/) 밖의 작업 폴더에 둔다 — 배포 산출물에 섞이지 않게."""

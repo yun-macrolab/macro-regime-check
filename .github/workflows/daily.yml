@@ -43,7 +43,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "17 22 * * 1-5"   # UTC 월~금 22:17 = KST 화~토 07:17 (미국 영업일 다음 날 아침). 수십 분 늦을 수 있다
+    - cron: "17 22 * * 1-5"   # UTC 월~금 22:17 = KST 화~토 07:17 (미국 영업일 다음 날 아침). 실제로는 2~5시간 늦게 돈다
   workflow_dispatch:
 
 permissions:

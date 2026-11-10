@@ -135,6 +135,7 @@
     <div class="section-heading"><h2 id="summary">주제별 점검</h2><p id="rule-count" class="muted" aria-live="polite"></p></div>
     <div class="rule-toolbar"><label for="rule-filter">규칙 상태</label><select id="rule-filter"><option value="all">전체 상태</option><option value="met">충족</option><option value="not_met">미충족</option><option value="unknown">판정 불가</option></select><span>조건과 해석은 각 지표에서 확인하세요.</span></div>
     <section id="regime-ref" class="regime-ref" hidden aria-labelledby="regime-ref-title"></section>
+    <p id="charts-note-rules" class="muted" hidden></p>
     <div id="rules"></div>
     <p id="empty-rules" class="empty-state" hidden>이 카테고리에 선택한 상태의 규칙이 없습니다. ‘전체 상태’를 선택해 보세요.</p>
   </section>
@@ -179,7 +180,7 @@
 <script src="cds.js"></script>
 <script>
 "use strict";
-// 예약 실행: UTC 월~금 22:17(.github/workflows/daily.yml). 실제로는 3~4시간 뒤에 끝난다(2026-09-29~10-07 일곱 번 모두) —
+// 예약 실행: UTC 월~금 22:17(.github/workflows/daily.yml). 실제로는 2~5시간 뒤에 끝난다(2026-09-29~11-07 서른 번, 한 번은 5시간 14분) —
 // 3시간만 봐줬더니 거의 매일 한 시간쯤 거짓 배너가 떴다. 5시간까지 봐준다
 const RUN_UTC = { hour: 22, minute: 17 }, GRACE_MS = 5 * 36e5;
 const STATUS_TEXT = { met: "충족", not_met: "미충족", unknown: "판정 불가" };
@@ -524,6 +525,10 @@ function renderRule(r, chart, health) {
   // 해석 줄(2026-10-30) — 운영자 메모를 옮긴 참고. 이름표 '—'는 중립 규칙. 이름표가 없으면(공개본이 싣지 않은 규칙) 해석도 싣지 않는다
   const tag = r.scenario === "—" ? "중립 규칙" : typeof r.scenario === "string" && r.scenario ? `시나리오 ${r.scenario}` : null;
   const reading = tag && typeof r.reading === "string" && r.reading ? r.reading : null;
+  // 선이 하나인 카드 그래프는 범례가 없어 무엇을 그렸는지 화면에 이름이 없다 — 카드 제목과 다르면(예: 3개월 변화) 그래프 위에 적는다
+  const fig = chartFigure(chart, 170, false, notices.length ? false : undefined);
+  const chartName = fig && chart && Array.isArray(chart.lines) && chart.lines.length === 1 &&
+    typeof chart.title === "string" && chart.title && chart.title !== r.title ? chart.title : null;
   return el("article", { class: "rule", "data-category": group ? group.id : "other", "data-status": status },
     el("h3", {}, r.title, el("span", { class: `pill ${status}` }, STATUS_TEXT[status])),
     LEARN[r.key] ? el("p", { class: "rule-context" }, LEARN[r.key]) : null,
@@ -532,7 +537,8 @@ function renderRule(r, chart, health) {
       el("small", {}, " · 참고(예측 아님)")) : null,
     restricted.length ? el("p", { class: "muted" }, "원자료 값 비공개: ",
       ...restricted.flatMap((parts, i) => (i ? [", ", ...parts] : parts))) : null,
-    chartFigure(chart, 170, false, notices.length ? false : undefined),
+    chartName ? el("p", { class: "reading-note" }, chartName) : null,
+    fig,
     el("details", { class: "rule-detail" }, el("summary", {}, "판정 조건과 출처"),
       el("p", {}, r.rule),
       el("p", { class: "muted" }, "충족 여부는 이 조건에 대한 점검 결과입니다. 임계값의 예측력은 검증되지 않았습니다."),
@@ -753,6 +759,9 @@ function renderRegime(g) {
   const ref = g.reference && typeof g.reference === "object" ? g.reference : {};
   const values = (Array.isArray(g.more_values) ? g.more_values : []).filter(o => o && typeof o.label === "string");
   const manual = (Array.isArray(g.manual_checks) ? g.manual_checks : []).filter(m => m && typeof m.item === "string");
+  // 국면 후보·13주 변화의 자료일(S&P 500·미 10년 마지막 관측 — FRED가 며칠 늦는 날도 기준일 값처럼 보이지 않게). 꼴이 맞는 날짜만
+  const refDates = [["S&P 500", ref.sp_asof], ["미 10년", ref.y10_asof]]
+    .filter(([, d]) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)).map(([n, d]) => `${n} ${d}`);
   const shown = o => {                                   // % · %p는 붙여, 나머지 단위는 띄워 쓴다
     if (!Number.isFinite(o.value)) return "자료 없음";
     const unit = typeof o.unit === "string" ? o.unit : "";
@@ -768,11 +777,12 @@ function renderRegime(g) {
     el("div", { class: "panel" },
       el("p", { class: "supply-num" }, g.headline),
       ...texts(ref.lines).map(t => el("p", {}, t)),
+      refDates.length ? el("p", { class: "muted" }, "자료일 — " + refDates.join(" · ")) : null,
       values.length ? el("details", { class: "rule-detail" }, el("summary", {}, "그 밖의 관측값"),
         el("ul", { class: "health" }, ...values.map(o => el("li", {}, `${o.label} ${shown(o)}`,
           el("small", {}, ` · ${typeof o.asof === "string" ? o.asof : "자료일 없음"}${o.computed ? " · 계산값" : ""}`)))),
         ...cites.map(t => el("p", { class: "muted cite-line" }, "권장 인용: " + t))) : null,
-      manual.length ? el("details", { class: "rule-detail" }, el("summary", {}, "손으로 보는 항목(자동 계산 없음)"),
+      manual.length ? el("details", { class: "rule-detail" }, el("summary", {}, "손으로 보는 항목(이 점검은 계산하지 않음 — 일부 숫자는 참고 카드에)"),
         el("ul", { class: "health" }, ...manual.map(m => el("li", {}, m.item,
           typeof m.cadence === "string" ? ` (${m.cadence})` : "")))) : null,
       el("div", { class: "notices" }, ...texts([g.notice]).concat(texts(g.legend)).map(t => el("p", {}, t)))));
@@ -818,15 +828,19 @@ function renderTape(p, charts) {
 }
 
 function renderOverview(charts, publicDate) {
+  // 그래프 자료만 실패한 날 — 직전 그래프의 날짜를 큰 그래프 곁과 규칙 카드 묶음 위 둘 다에(카드 그래프는 물가·신용·유동성
+  // 보기에도 있는데 큰 그래프 절은 전체·금리 보기에만 보인다). 큰 그래프를 하나도 못 그려도 안내는 싣는다
+  if (publicDate && charts.date !== publicDate) {
+    for (const id of ["charts-note", "charts-note-rules"]) {
+      const note = document.getElementById(id);
+      note.textContent = `그래프는 ${charts.date} 기준이다(최근 그래프 자료 생성 실패).`;
+      note.hidden = false;
+    }
+  }
   const figs = (Array.isArray(charts.overview) ? charts.overview : [])
     .map(spec => chartFigure(spec, 250, true)).filter(Boolean);
   if (!figs.length) return;
   document.getElementById("overview").replaceChildren(...figs.map(f => el("div", { class: "panel" }, f)));
-  if (publicDate && charts.date !== publicDate) {
-    const note = document.getElementById("charts-note");
-    note.textContent = `그래프는 ${charts.date} 기준이다(최근 그래프 자료 생성 실패).`;
-    note.hidden = false;
-  }
   available.overview = true;
 }
 
@@ -865,6 +879,14 @@ function renderKtb(k) {
   available.korea = true;
 }
 
+// 자료 상태 요약 — 오래된 자료와 받지 못한 시리즈를 따로 센다. FRED가 1~2개 시리즈만 실패한 날은 공개본이 그대로 나가고
+// 그 시리즈는 마지막 관측이 없다(오래됨 표시는 마지막 관측이 있어야 붙으므로 여기서 따로 센다)
+function notReceived(h) { return !h.last || h.fetched === "missing"; }
+function healthSummary(health) {
+  const stale = health.filter(h => h.stale).length, missing = health.filter(notReceived).length;
+  return `시리즈 ${health.length}개 · 오래된 자료 ${stale}개` + (missing ? ` · 받지 못함 ${missing}개` : "") + " (펼쳐 보기)";
+}
+
 function renderPublic(p, charts) {
   document.getElementById("notice").textContent = p.notice || "";
   publicData = p;
@@ -891,11 +913,10 @@ function renderPublic(p, charts) {
   try { renderSnapshot(p, charts); } catch (e) { /* 주요 지표가 깨져도 아래 자료 상태·출처는 그린다 */ }
   try { renderMonitor(p, charts); } catch (e) { /* 모니터가 깨져도 아래 점검표는 그대로 */ }
   try { available.regime = renderRegime(p.regime); } catch (e) { available.regime = false; /* 참고 절만 뺀다 */ }
-  const stale = health.filter(h => h.stale).length;
-  document.getElementById("health-summary").textContent =
-    `시리즈 ${health.length}개 · 오래된 자료 ${stale}개 (펼쳐 보기)`;
+  document.getElementById("health-summary").textContent = healthSummary(health);
   document.getElementById("health").replaceChildren(...health.map(h => el("li", {},
     link(h.series, h.url), ` ${h.label} — 마지막 관측 ${h.last || "없음"}`,
+    notReceived(h) ? " · 받지 못함" : "",
     h.stale ? " · 오래됨" : "", h.display === "status_only" ? " · 값 비공개" : "",
     h.citation_required === true ? " · 인용 필요" : "")));
   document.getElementById("warnings").replaceChildren(...(p.warnings || []).map(w => el("li", {}, w)));

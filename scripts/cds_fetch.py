@@ -168,10 +168,6 @@ def _is_int(v, hi=None):
     return type(v) is int and v >= 0 and (hi is None or v <= hi)
 
 
-def _iso(d):
-    return d.isoformat()
-
-
 def _day(s):
     try:
         return D.fromisoformat(str(s)[:10])

@@ -119,7 +119,7 @@ BAND_NAME = {"in10": "10% 안", "10to20": "10~20% 아래", "over20": "20% 넘게
 # 구간 코드 → 정수 낙폭 %가 놓일 수 있는 범위(반올림 때문에 경계 −10·−20은 양쪽에 들 수 있다) — 직전 파일 검사
 BAND_RANGE = {"in10": (-10, 0), "10to20": (-20, -10), "over20": (-100, -20)}
 
-_BOARD, _BEA = "Board of Governors of the Federal Reserve System (US)", "U.S. Bureau of Economic Analysis"
+_BOARD = "Board of Governors of the Federal Reserve System (US)"
 # FRED 권장 인용의 출처·제목(2026-10-30 시리즈 쪽 제목 그대로)
 SOURCES = {
     "DRTSCILM": (_BOARD, "Net Percentage of Domestic Banks Tightening Standards for Commercial and Industrial Loans to "

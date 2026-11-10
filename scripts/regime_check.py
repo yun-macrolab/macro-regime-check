@@ -111,7 +111,6 @@ def compute(series, today, prev_regime=None):
     m2, mb = S("M2SL"), S("BOGMBASE")
     ind["m2"], ind["mb"] = _ind(*reversed(_last(m2))) if m2 else _ind(None), _ind(*reversed(_last(mb))) if mb else _ind(None)
     if m2 and mb:
-        common = ff.on_or_before(mb, m2[-1][0]) if m2[-1][0] <= mb[-1][0] else None
         d = min(m2[-1][0], mb[-1][0])
         a, b = ff.on_or_before(m2, d), ff.on_or_before(mb, d)
         ind["mult"] = _ind(a[1] / b[1] if a and b and b[1] else None, d)
@@ -192,7 +191,10 @@ def compute(series, today, prev_regime=None):
     if cpi and cy is None:
         warns.append("근원 CPI YoY 산출 불가 — 1년 전 같은 달 관측치 없음(결측월). 근원 PCE로 판단")
     a, b = ind["core_pce_yoy"]["value"], ind["core_cpi_yoy"]["value"]
-    ind["core_gap"] = _ind(b - a if a is not None and b is not None else None, ind["core_cpi_yoy"]["asof"])
+    # 괴리(근원 CPI − 근원 PCE 전년비)는 두 전년비가 같은 달일 때만 — CPI가 PCE보다 2주쯤 먼저 나와
+    # 달이 다른 동안은 None(해석 줄 '괴리 —%p', 그 밖의 관측값 '자료 없음')
+    same_m = a is not None and b is not None and ind["core_pce_yoy"]["asof"] == ind["core_cpi_yoy"]["asof"]
+    ind["core_gap"] = _ind(b - a if same_m else None, ind["core_cpi_yoy"]["asof"] if same_m else None)
     # 근원 PCE 모멘텀(2026-10-14): 6개월 연율은 정확히 6개월 전 달이 기준(결측월 대체 없음).
     # 차이(6개월 연율 − 전년비)는 둘이 같은 마지막 달을 가리킬 때만 — 한쪽이 없으면 None(판정 불가)
     a6 = ff.ann_rate_months(pce, 6) if pce else None
@@ -226,10 +228,20 @@ def compute(series, today, prev_regime=None):
     y10_bp = y13["delta"] * 100 if y13 else None
     cand, note = rr.classify_regime(sp_pct, y10_bp, prev_regime)
     rho = ind["rho60"]["value"]
-    # 전환 경계는 완성된 주만으로: 평일이면 이번 주 월요일 이후 관측치를 버린다(미완성 주를 한 주로 세지 않음)
+    # 전환 경계는 완성된 주만으로: 평일이면 이번 주 월요일 이후 관측치를 버린다(미완성 주를 한 주로 세지 않음).
+    # 시리즈마다 마지막 관측이 그 주 금요일에 못 미치면 그 주도 버린다 — 토·월 실행이나 월요일 휴장 뒤 화요일 실행에서는
+    # DGS10·IG OAS가 목요일까지만 나와 있어 목요일 값을 주 종가로 세지 않게(t4는 두 시리즈가 함께 가진 주만 견준다)
     week_start = today - datetime.timedelta(days=today.weekday()) if today.weekday() < 5 \
         else today + datetime.timedelta(days=7 - today.weekday())
-    wk = lambda sid: ff.weekly_last(S(sid), before=week_start) if S(sid) else None
+
+    def wk(sid):
+        s = S(sid)
+        if not s:
+            return None
+        last = s[-1][0]
+        mon = last - datetime.timedelta(days=last.weekday())
+        done = mon + datetime.timedelta(days=7) if last.weekday() >= 4 else mon
+        return ff.weekly_last(s, before=min(week_start, done))
     trig = rr.transition_triggers(wk("SP500"), wk("DGS10"), wk("BAMLC0A0CM"))
     inputs = {
         "sp_13w_pct": sp_pct, "y10_13w_bp": y10_bp,

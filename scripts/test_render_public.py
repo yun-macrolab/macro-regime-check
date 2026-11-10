@@ -1133,14 +1133,15 @@ const ids={'regime-ref':new El('section')};
 const el=(tag,attrs,...kids)=>{const n=new El(tag);for(const [k,v] of Object.entries(attrs||{}))n.setAttribute(k,v);
   for(const c of kids)if(c!==null&&c!==undefined)n.append(c);return n;};
 const ctx={el,document:{getElementById:id=>ids[id]||null},STATUS_TEXT:{met:'충족',not_met:'미충족',unknown:'판정 불가'},
-  GROUPS:[],LEARN:{},GUIDE:{},link:t=>t,chartFigure:()=>null,guideDetails:()=>null,find,Number,Array,Object,String};
-require('vm').runInNewContext(input.code+';out={regime:renderRegime(input.regime),cards:[],cites:[],texts:[]};'
-  +'for(const r of input.rules){const c=renderRule(r,null,input.health||[]),has=k=>n=>(n.attrs.class||"").split(" ").includes(k);'
+  GROUPS:[],LEARN:{},GUIDE:{},link:t=>t,chartFigure:c=>c&&input.figs?el('figure',{class:'ch'},'[그래프]'):null,
+  guideDetails:()=>null,find,Number,Array,Object,String};
+require('vm').runInNewContext(input.code+';out={regime:renderRegime(input.regime),cards:[],cites:[],texts:[],notes:[]};'
+  +'for(const r of input.rules){const c=renderRule(r,(input.charts||{})[r.key]||null,input.health||[]),has=k=>n=>(n.attrs.class||"").split(" ").includes(k);'
   +'out.cards.push(find(c,has("rule-reading")).map(n=>n.textContent));out.cites.push(find(c,has("cite-line")).map(n=>n.textContent));'
-  +'out.texts.push(c.textContent);}',
+  +'out.notes.push(find(c,has("reading-note")).map(n=>n.textContent));out.texts.push(c.textContent);}',
   Object.assign(ctx,{input,out:null}));
 process.stdout.write(JSON.stringify({ret:ctx.out.regime,text:ids['regime-ref'].textContent,cards:ctx.out.cards,
-  cites:ctx.out.cites,texts:ctx.out.texts}));
+  cites:ctx.out.cites,texts:ctx.out.texts,notes:ctx.out.notes}));
 """
 
 
@@ -1158,12 +1159,14 @@ class PageTest(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(cls.tmp)
 
-    def draw(self, regime, rules, health=None):
+    def draw(self, regime, rules, health=None, charts=None, figs=False):
+        """charts: 규칙 key → 그래프 자료, figs: 참이면 가짜 chartFigure가 그래프 자리('[그래프]')를 돌려준다."""
         if shutil.which("node") is None:
             self.skipTest("node 없음")
         code = page_function(self.page, "renderRegime") + "\n" + page_function(self.page, "renderRule")
         p = subprocess.run(["node", "-e", NODE_HARNESS],
-                           input=json.dumps({"code": code, "regime": regime, "rules": rules, "health": health or []}),
+                           input=json.dumps({"code": code, "regime": regime, "rules": rules, "health": health or [],
+                                             "charts": charts or {}, "figs": figs}),
                            capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(p.returncode, 0, p.stderr)
         return json.loads(p.stdout)
@@ -1255,6 +1258,62 @@ class PageTest(unittest.TestCase):
             out = self.draw(pub["regime"], [r], [{**good, **patch}])
             self.assertEqual(len(out["cites"][0]), int(shown), patch)
             self.assertNotIn("<b>", out["texts"][0])
+
+    def test_reference_lines_carry_their_data_dates(self):
+        # 국면 후보·13주 변화 줄의 자료일(S&P 500·미 10년 마지막 관측) — 꼴이 맞는 날짜만 싣는다
+        g = copy.deepcopy(self.pub["regime"])
+        ref = g["reference"]
+        sp, y10 = ref["sp_asof"], ref["y10_asof"]
+        self.assertRegex(sp or "", r"^\d{4}-\d{2}-\d{2}$")
+        text = self.draw(g, [])["text"]
+        self.assertIn(f"자료일 — S&P 500 {sp} · 미 10년 {y10}", text)
+        self.assertLess(text.index(ref["lines"][-1]), text.index("자료일 — "))      # 참고 줄 바로 아래
+        ref.update(sp_asof="2026/09/18", y10_asof=None)
+        self.assertNotIn("자료일", self.draw(g, [])["text"])
+        ref.update(sp_asof={"x": 1}, y10_asof=y10)
+        text = self.draw(g, [])["text"]
+        self.assertIn(f"자료일 — 미 10년 {y10}", text)
+        self.assertNotIn("S&P 500 [object", text)
+
+    def test_health_summary_counts_series_that_were_not_received(self):
+        # FRED가 1~2개 시리즈만 실패한 날은 공개본이 그대로 나가고 그 시리즈는 마지막 관측이 없다(오래됨 아님) —
+        # 자료 상태 요약이 '오래된 자료 0개'로만 보이지 않게 따로 센다
+        if shutil.which("node") is None:
+            self.skipTest("node 없음")
+        code = page_function(self.page, "notReceived") + "\n" + page_function(self.page, "healthSummary")
+        health = copy.deepcopy(self.pub["data_health"])
+        fresh = [h for h in health if not h["stale"]]
+        fresh[0].update(last=None, age_days=None, fetched="missing", stale=False)   # render_public이 받지 못한 시리즈를 싣는 꼴
+        fresh[1].update(last=None)
+        stale = sum(1 for h in health if h["stale"])
+        run = lambda hs: subprocess.run(["node", "-e", code + ";process.stdout.write(healthSummary(" + json.dumps(hs) + "))"],
+                                        capture_output=True, text=True, encoding="utf-8").stdout
+        self.assertEqual(run(health), f"시리즈 {len(health)}개 · 오래된 자료 {stale}개 · 받지 못함 2개 (펼쳐 보기)")
+        self.assertEqual(run(self.pub["data_health"]),
+                         f"시리즈 {len(health)}개 · 오래된 자료 {stale}개 (펼쳐 보기)")          # 다 받았으면 덧말 없음
+        pub_fn = page_function(self.page, "renderPublic")
+        self.assertIn('document.getElementById("health-summary").textContent = healthSummary(health)', pub_fn)
+        self.assertIn('notReceived(h) ? " · 받지 못함" : ""', pub_fn)
+
+    def test_single_line_card_chart_names_what_it_draws(self):
+        # 선이 하나인 카드 그래프는 범례가 없다 — 그래프 제목이 카드 제목과 다르면 그래프 바로 위에 이름을 적는다
+        rules = {r["key"]: r for r in self.pub["rules"]}
+        one = lambda title, n=1: {"title": title, "lines": [{"key": f"l{i}"} for i in range(n)]}
+        charts = {"term_premium": one("기간 프리미엄 3개월 변화"),
+                  "curve_inversion": one(rules["curve_inversion"]["title"]),       # 카드 제목과 같다 → 없음
+                  "real_rate_bei": one("10년 실질금리", 2),                       # 선 둘(범례가 있다) → 없음
+                  "sofr": {"title": 7, "lines": [{"key": "x"}]}}                  # 글이 아닌 제목 → 없음
+        keys = ["term_premium", "curve_inversion", "real_rate_bei", "sofr", "employment"]   # employment: 그래프 없음
+        out = self.draw(self.pub["regime"], [rules[k] for k in keys], charts=charts, figs=True)
+        notes = dict(zip(keys, out["notes"]))
+        self.assertEqual(notes["term_premium"], ["기간 프리미엄 3개월 변화"])
+        for k in keys[1:]:
+            self.assertEqual(notes[k], [], k)
+        text = out["texts"][0]
+        self.assertEqual(text.count("[그래프]"), 1)
+        self.assertLess(text.index("기간 프리미엄 3개월 변화"), text.index("[그래프]"))
+        out = self.draw(self.pub["regime"], [rules["term_premium"]], charts=charts, figs=False)   # 그래프를 못 그리면 이름도 없다
+        self.assertEqual(out["notes"], [[]])
 
     def test_broken_or_missing_parts_draw_nothing_odd(self):
         out = self.draw({"headline": 7}, [{**self.pub["rules"][0], "reading": {"x": 1}}])

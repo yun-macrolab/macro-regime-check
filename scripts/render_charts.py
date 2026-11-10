@@ -5,6 +5,7 @@
 같은 함수(fred_fetch)로 계산하므로, 마지막 점이 공개본 카드의 값과 같다(test_render_charts.py가 강제).
 싣지 않는 것 (test_render_charts.py가 강제):
   - 재배포가 제한된 시리즈(render_public.RESTRICTED)의 원값 — 예외는 원값을 되살릴 수 없는 60영업일 상관(derived)
+  - Moody's Baa−10년(BAA10Y) — 2026-10-30부터 카드에 값을 싣지만(회색 지대) 그래프 자료에는 파생값도 넣지 않는다(ALLOWED)
   - 고정 표(chart_table) 밖의 문자열
 그래프마다 출처 줄(source_note: FRED가 적은 출처 + FRED 경유, 계산한 선이면 누가 계산했는지)을 싣고,
 SOFR 그래프에는 뉴욕 연은 참조금리 고지(render_public.sofr_notices)를 함께 싣는다(이용약관 원문 확인 2026-09-30).
@@ -28,7 +29,9 @@ SCHEMA = 1
 REPO = os.path.dirname(SCRIPTS)
 DEFAULT_WORK = os.path.join(REPO, ".work")
 DEFAULT_OUT = os.path.join(REPO, "data")
-ALLOWED = set(rr.SERIES) - set(rp.RESTRICTED)
+# 그래프 선에 쓸 수 있는 시리즈 — 제한 시리즈와 BAA10Y(회색 지대 — 카드 값만, 그래프 자료에는 넣지 않는다:
+# README '공개 범위와 안전장치')를 뺀 것. test_render_charts가 모든 선의 시리즈를 이것과 견준다
+ALLOWED = set(rr.SERIES) - set(rp.RESTRICTED) - {"BAA10Y"}
 NOTICE_CHARTS = {"sofr"}                      # 참조금리 고지를 함께 싣는 그래프
 # 기간 첫 점의 계산이 보는 과거 — 전년비·3개월 변화·60영업일 상관은 1년+여유면 되지만, 실업률 상승 폭은 직전 12개월
 # 각각의 3개월 평균이라 14개월 전 달(최대 428일)까지 본다(2026-10-14, 400일이면 첫 몇 점이 2개월 평균으로 바뀌었다)
@@ -150,9 +153,10 @@ def chart_table():
             _lvl("dgs10", "명목 10년", "series", "DGS10"),
             _lvl("dfii10", "10년 실질", "series", "DFII10"),
             _lvl("bei", "10년 BEI", "series", "T10YIE")]),
-        _chart("term", "기간 프리미엄과 10년−2년", "%p", 5, zero=True, computed=False, lines=[
-            _lvl("tp", "기간 프리미엄", "series", "THREEFYTP10"),
-            _lvl("t10y2y", "10년−2년", "series", "T10Y2Y")]),
+        # 단위가 다른 두 선(기간 프리미엄 수준은 % — 카드·주요 지표와 같게, 금리차는 %p) — 단위는 선 이름에 싣는다
+        _chart("term", "기간 프리미엄과 10년−2년", "", 5, zero=True, computed=False, lines=[
+            _lvl("tp", "기간 프리미엄(%)", "series", "THREEFYTP10"),
+            _lvl("t10y2y", "10년−2년(%p)", "series", "T10Y2Y")]),
     ]
     rules = {
         "ci_vs_ngdp": _chart("ci_vs_ngdp", "C&I 대출 전년비와 명목GDP 전년비", "%", 3,
