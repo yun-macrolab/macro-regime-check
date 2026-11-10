@@ -508,6 +508,17 @@ class EventsTest(unittest.TestCase):
             self.assertEqual(DC.events_of(None, broken), [])
         self.assertEqual(DC.events_of({"events": []}, None), [])
 
+    def test_notices_of_the_same_date_and_tenor_are_added(self):
+        # 한 만기 두 종목을 같은 날 입찰(2026-11-09 3년 11,000억 둘) — 앞 공고 하나만 실으면 예정액이 반이 된다
+        row = lambda i, d, t, a: {"id": i, "date": d, "tenor": t, "offered_100m": a}
+        korea = {"calendar": {"rows": [{"date": "2026-11-09", "tenor": "3년"}, {"date": "2026-11-10", "tenor": "10년"},
+                                       {"date": "2026-11-11", "tenor": "5년"}]},
+                 "offerings": [row("11066164", "2026-11-09", "3년", 11000), row("11066163", "2026-11-09", "3년", 11000),
+                               row("11066170", "2026-11-10", "10년", 9000), row("11066170", "2026-11-10", "10년", 9000),
+                               row("11066180", "2026-11-11", "5년", 8000), row("11066181", "2026-11-11", "5년", "많이")]}
+        got = DC.events_of(None, korea)
+        self.assertEqual([e["detail"] for e in got], [["3년", "2.2조원"], ["10년", "0.9조원"], ["5년"]])   # 같은 번호는 한 번, 못 읽은 금액이 섞이면 없음
+
 
 class CliTest(unittest.TestCase):
     def write(self, tmp, posts=None, status=None):

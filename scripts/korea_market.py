@@ -114,10 +114,6 @@ class PublicFetcher:
             self.sleep(1)
 
 
-def request(url, data=None):
-    return PublicFetcher()(url, data)
-
-
 def xlsx_rows(raw):
     """Read the public export's first sheet. No formulas/macros are executed."""
     with zipfile.ZipFile(io.BytesIO(raw)) as z:
@@ -333,6 +329,7 @@ def parse_result(raw, ident, tenor, today):
     if not (0 < offer < 1_000_000 and bids > 0 and awarded > 0 and 0 < rate < 20 and 0 < ratio < 5000):
         raise ValueError("auction values outside range")
     if abs(bids/offer*100-ratio) > 0.2: raise ValueError("bid cover mismatch")
+    if awarded.is_integer(): awarded = int(awarded)          # 억원 단위 정수는 입찰금액처럼 정수로(11000.0 → 11000)
     return {"id": ident, "date": date.isoformat(), "tenor": f"{tenor}년", "offered_100m": offer,
             "awarded_100m": awarded, "bid_cover_pct": ratio, "yield_pct": rate, "source_url": result_url(ident)}
 

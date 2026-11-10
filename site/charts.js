@@ -40,7 +40,7 @@
           (p[1] === null || Number.isFinite(p[1])))
         .map(p => [Date.parse(p[0] + "T00:00:00Z"), p[1]])
         .filter(p => Number.isFinite(p[0]));
-      return { key: String(l.key), label: String(l.label), role: l.role, color: colorOf(l, i), pts };
+      return { label: String(l.label), role: l.role, color: colorOf(l, i), pts };
     }).filter(l => l.pts.some(p => p[1] !== null));
     if (!lines.length) throw new Error("그릴 자료 없음");
     return lines;

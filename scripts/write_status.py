@@ -18,7 +18,6 @@ MESSAGES = {
     "fetch": "자료 수신 실패 — 직전 공개본을 유지한다",
     "render": "공개본 생성 실패 — 직전 공개본을 유지한다",
 }
-KEYS = ("schema", "checked_at", "ok", "stage", "message", "data_date", "last_success", "run_url")
 DATE_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 TS_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\+00:00")
 REPO_RE = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")

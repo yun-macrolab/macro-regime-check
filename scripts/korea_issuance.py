@@ -144,7 +144,7 @@ def join_links(first, second, oldest=None):
 
 def op_links(raw, kind):
     """입찰 결과 목록 → [(번호, 입찰일 ISO)]. 제목이 '…년도 제n차 국고채 매입(교환) 입찰 결과('yy.m.d.)'인 것만(외평채 매입은 뺀다)."""
-    word = {"buyback": "매입", "exchange": "교환"}[kind]
+    word = OPS_LABEL[kind]
     out = []
     for href, _, title in anchors(raw):
         m = re.fullmatch(r'javascript:fn_egov_updateView\("(MOSF_[0-9]{1,15})"\);', href)

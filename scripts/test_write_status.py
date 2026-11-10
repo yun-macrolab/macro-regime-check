@@ -84,7 +84,7 @@ class WriteStatusTest(unittest.TestCase):
         for fetch, render in (("success", "success"), ("failure", "skipped"), ("success", "failure")):
             st = ws.update(self.out, fetch, render, now=NOW, env=ENV)
             self.assertIn(st["message"], ws.MESSAGES.values())
-            self.assertEqual(set(st), set(ws.KEYS))
+            self.assertEqual(set(st), {"schema", "checked_at", "ok", "stage", "message", "data_date", "last_success", "run_url"})
 
     def test_run_url_only_from_valid_env(self):
         self.put_public("2026-09-28")

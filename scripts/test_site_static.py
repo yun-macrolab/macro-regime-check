@@ -80,6 +80,8 @@ class PageTest(unittest.TestCase):
             self.assertIn(f'href="{style}"', self.page)
             self.assertTrue(os.path.getsize(os.path.join(REPO, "site", script)) > 2000, script)   # 뼈대가 아니라 구현
         self.assertEqual(self.page.count("/^[1-9]$/"), 2)        # 명령줄과 숫자 키 둘 다 1~9
+        self.assertIn("숫자 키 1~9로도 바꿉니다", self.page)     # 첫 화면 안내도 같은 범위(키 8·9를 더할 때 안내가 1~7로 남았었다)
+        self.assertNotIn("1~7", self.page)
 
     def test_every_loaded_file_is_linked_and_every_script_exists(self):
         # 화면이 읽는 자료 파일은 꼬리말의 '원자료'에서도 열 수 있고, 싣는 스크립트는 site/에 실제로 있다

@@ -164,7 +164,7 @@ class SummarizeTest(unittest.TestCase):
     def test_same_twelve_names_as_the_private_original(self):
         self.assertEqual(cd.KEYS, ["oracle", "meta", "amazon", "alphabet", "microsoft", "coreweave", "broadcom", "nvidia",
                                    "amd", "intel", "micron", "tsmc"])
-        self.assertEqual([cd.LABEL[k] for k in cd.KEYS], ["오라클", "메타", "아마존", "알파벳", "MS", "코어위브", "브로드컴",
+        self.assertEqual([lab for _, lab, _ in cd.NAMES], ["오라클", "메타", "아마존", "알파벳", "MS", "코어위브", "브로드컴",
                                                          "엔비디아", "AMD", "인텔", "마이크론", "TSMC"])
 
     def test_counts_new_single_name_trades_and_median_five_year_quotes(self):

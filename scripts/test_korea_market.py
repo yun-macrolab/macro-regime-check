@@ -256,6 +256,7 @@ class AuctionResultTests(unittest.TestCase):
         r = k.parse_result(notice(AUCTION50), 'MOSF_2', 50, TODAY.replace(day=26))
         self.assertEqual((r['date'], r['tenor'], r['offered_100m'], r['awarded_100m'], r['bid_cover_pct'], r['yield_pct']),
                          ('2026-10-16', '50년', 6000, 6000, 246.0, 4.195))
+        self.assertIs(type(r['awarded_100m']), int)          # 억원 정수는 입찰금액처럼 정수(전엔 6000.0)
 
     def test_weighted_rate_still_wins_and_other_labels_rejected(self):
         both = AUCTION + " 낙찰금리 : 9.999%"

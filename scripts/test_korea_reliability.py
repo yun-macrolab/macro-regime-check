@@ -157,6 +157,10 @@ class RunStatusTests(unittest.TestCase):
     def update(self,state,now=NOW): return status.update(self.out,state,now,env={})
     def test_started_is_not_success(self):
         r=self.update('started');self.assertEqual(r['state'],'running');self.assertFalse(r['ok'])
+    def test_status_checks_exactly_the_feeds_build_writes(self):
+        # 성공 기록의 관문은 FEEDS뿐 — 수집기가 묶음을 더하거나 빼면 여기서 함께(README '열두 자료 묶음')
+        with patch('builtins.print'): r=k.build({},NOW,lambda *a:b'')
+        self.assertEqual(set(r['feeds']),status.FEEDS);self.assertEqual(len(status.FEEDS),12)
     def test_current_completed_snapshot_is_success(self):
         self.update('started');r=self.update('success',NOW+dt.timedelta(seconds=5));self.assertTrue(r['ok'])
     def test_old_snapshot_cannot_pass_success(self):

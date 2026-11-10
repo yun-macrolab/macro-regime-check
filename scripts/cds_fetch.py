@@ -104,7 +104,6 @@ NAMES = [                    # (키, 표시, 정규식) — 차례 = 표시 차�
 ]
 _RX = [(k, re.compile(p)) for k, _, p in NAMES]
 KEYS = [k for k, _, _ in NAMES]
-LABEL = {k: lab for k, lab, _ in NAMES}
 
 # 출처 — DTCC 공개 배포(Reg SBSR). 이용 조건 표시(sources[].licence)
 CITATION = ("Source: DTCC Data Repository (U.S.) LLC, SEC security-based swap public dissemination (Reg SBSR); "

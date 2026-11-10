@@ -72,10 +72,15 @@ window.KoreaMarket = (() => {
   }
   function smallChart(c) {
     if(!window.MacroCharts || !Array.isArray(c.points) || !c.points.length) return null;
-    const spec = {key:c.key, title:c.title, unit:c.unit, zero:c.unit!=="%", threshold:null, years:1,
+    // 그래프·'표로 보기'는 아래 '최근 1년 범위'와 같은 창(분포의 시작일부터) — 수집기는 400일을 둔다. 분포가 없으면 받아 둔 관측 전부
+    const from=c.metrics?.distribution?.from;
+    const points=typeof from==="string" ? c.points.filter(p=>Array.isArray(p) && p[0]>=from) : c.points;
+    const spec = {key:c.key, title:c.title, unit:c.unit, zero:c.unit!=="%", threshold:null,
       source_note:"자료: "+c.source.name+" · 변화·분포는 이 사이트의 계산값", note:null, notices:[],
-      lines:[{key:c.key,label:c.title,role:"series",points:c.points,series:[],derived:["kr_us","kr_curve","cp_cd"].includes(c.key)}]};
-    try { return window.MacroCharts.lineChart(spec,{height:180,caption:false}); } catch { return node("p","muted","차트를 표시하지 못했습니다. 표의 수치를 확인해 주세요."); }
+      lines:[{key:c.key,label:c.title,role:"series",points}]};
+    // 끝 값·읽기 글·'표로 보기'는 카드의 숫자와 같은 꼴(소수 자리·천 단위·계약수의 + 부호)
+    try { return window.MacroCharts.lineChart(spec,{height:180,caption:false,format:v=>number(v,c.unit,c.unit==="계약")}); }
+    catch { return node("p","muted","차트를 표시하지 못했습니다. 표의 수치를 확인해 주세요."); }
   }
   function metricCard(c) {
     const m=c.metrics;
@@ -84,11 +89,12 @@ window.KoreaMarket = (() => {
     const warning=node("p","market-warning"); warning.dataset.marketFeed=c.feed; warning.dataset.marketDate=m?.date || "unknown";
     card.append(warning);
     const stats=node("div","market-deltas");
-    for(const n of c.unit==="계약"?[1,5,20]:[1,5,20]) {
+    for(const n of [1,5,20]) {
       const v=c.unit==="계약"?m?.sums?.[n]:m?.changes?.[n];
       const label=c.unit==="계약"?(n===1?"당일":"최근 "+n+"관측일 누적"):(n+"관측일 전 대비");
       const item=node("div","",node("span","",label),node("strong","",number(v?.value,c.unit==="계약"?"계약":"bp",true)));
-      if(v) item.title="비교 시작일: "+v.from;
+      // 마우스를 올리면 보이는 날짜 — 계약수 칸은 비교가 아니라 더한 첫 날(당일은 그 관측일)
+      if(v) item.title=(c.unit==="계약"?(n===1?"관측일: ":"누적 시작일: "):"비교 시작일: ")+v.from;
       stats.append(item);
     }
     card.append(stats,smallChart(c) || "");
@@ -113,20 +119,39 @@ window.KoreaMarket = (() => {
     const body=node("tbody","");for(const cells of rows)body.append(node("tr","",...cells.map(c=>node("td","",c))));
     t.append(node("thead","",head),body);return node("div","market-scroll",t);
   }
+  // 그날·그 만기의 공고 — 같은 번호는 한 번만(번호가 없는 줄은 가려내지 못해 그대로)
+  function sameAuction(list, r) {
+    const seen=new Set();
+    return (Array.isArray(list)?list:[]).filter(a=>{
+      if(!a || a.date!==r.date || a.tenor!==r.tenor) return false;
+      if(a.id===undefined || a.id===null) return true;
+      if(seen.has(a.id)) return false;
+      seen.add(a.id); return true;
+    });
+  }
+  // 일정 칸의 예정액 — 공고 하나면 그 금액(원문 링크), 둘 이상이면(한 만기 두 종목을 같은 날 입찰) 합과 공고마다의 금액
+  function amountCell(rows) {
+    if(!rows.length) return sourceLink("공고 확인","https://ktb.mofe.go.kr/isuNdReprchsPblanc.do");
+    if(rows.length===1) return sourceLink(number(rows[0].offered_100m,"억원"),rows[0].source_url);
+    const each=rows.flatMap((a,i)=>(i ? [" + "] : []).concat([sourceLink(number(a.offered_100m,"억원"),a.source_url)]));
+    return node("span","",number(rows.reduce((s,a)=>s+a.offered_100m,0),"억원")+" ("+rows.length+"건: ",...each,")");
+  }
   function auctionPanels() {
     const wrap=node("div","auction-grid");
     const cal=data.calendar;
     const schedule=node("article","panel",node("h3","","국고채 입찰 일정"));
     if(cal) {
       schedule.append(node("p","muted",cal.month+" 공식 일정 · "+(feedNote("calendar") || "공고에 따라 변경될 수 있습니다")));
-      if(feedNote("offerings") || feedNote("auctions"))schedule.append(node("p","market-warning","입찰금액: "+[feedNote("offerings"),feedNote("auctions")].filter(Boolean).join(" · ")));
+      // 두 묶음이 같은 안내(갱신 지연 등)면 한 번만 — 서로 다른 실패는 둘 다
+      const amountNotes=[...new Set([feedNote("offerings"),feedNote("auctions")].filter(Boolean))];
+      if(amountNotes.length)schedule.append(node("p","market-warning","입찰금액: "+amountNotes.join(" · ")));
       const kept=new Set((data.offerings||[]).map(o=>o.id)), skipped=data.feeds?.offerings?.skipped;
       const unread=Array.isArray(skipped) ? skipped.filter(s=>!kept.has(s.id)) : [];   // 전에 읽은 값이 남은 공고는 빼고
       if(unread.length)schedule.append(node("p","market-warning","입찰 예정액: 발행공고 "+unread.length+"건을 읽지 못했습니다. 금액이 없는 회차는 공고 목록으로 연결합니다."));
       schedule.append(table(["입찰일","만기","예정액"],cal.rows.map(r=>{
-        const result=(data.auctions||[]).find(a=>a.date===r.date && a.tenor===r.tenor);
-        const offer=result || (data.offerings||[]).find(a=>a.date===r.date && a.tenor===r.tenor);
-        return [r.date,r.tenor,offer?sourceLink(number(offer.offered_100m,"억원"),offer.source_url):sourceLink("공고 확인","https://ktb.mofe.go.kr/isuNdReprchsPblanc.do")];
+        const results=sameAuction(data.auctions,r), offers=sameAuction(data.offerings,r);
+        // 결과 공고가 먼저 — 그날·그 만기의 결과를 발행공고보다 적게 읽었으면(일부 결과만) 발행공고 금액
+        return [r.date,r.tenor,amountCell(results.length && results.length>=offers.length ? results : offers)];
       }),"국고채 월별 입찰 일정"));
       schedule.append(node("p","market-source",sourceLink("공식 월별 일정",cal.source_url)," · 일반 국고채 경쟁입찰 예정액입니다. 확인된 발행·결과 공고만 숫자로 표시하며 금액을 누르면 원문으로 이동합니다."));
     } else schedule.append(node("p","market-warning","일정을 불러오지 못했습니다."));
@@ -139,7 +164,7 @@ window.KoreaMarket = (() => {
       [a.date,a.tenor,number(a.offered_100m,"억원"),number(a.bid_cover_pct,"%"),number(a.yield_pct,"%"),sourceLink("결과",a.source_url)]),"최근 국고채 경쟁입찰 결과"));
     else results.append(node("p","market-warning","확인된 입찰 결과가 없습니다."));
     results.append(node("p","reading-note","응찰률은 응찰금액÷입찰금액입니다. 만기·발행 규모가 다른 입찰을 숫자 하나로 비교하지 마세요. 최근 공고 목록에서 확인한 일반 국고채 경쟁입찰만 표시합니다."),
-      node("p","market-source",sourceLink("자료: 공식 국채시장 입찰 결과","https://ktb.mofe.go.kr/bidResult.do")));
+      node("p","market-source",sourceLink("자료: 재정경제부 국채 입찰 결과 공고",MOFE_RESULTS)));     // 수집기가 읽는 결과 목록(매입·교환과 같은 게시판)
     wrap.append(schedule,results,msbPanel());return wrap;
   }
   // 통화안정증권 경쟁입찰 결과 — 한국은행 공개시장운영 공지의 숫자(scripts/korea_msb.py). 화면 글은 아래 고정 문구뿐이다(방향·평가 낱말 없음)
@@ -159,7 +184,7 @@ window.KoreaMarket = (() => {
   const MSB_KIND={discount:"할인율",yield:"수익률"};
   const MSB_ROWS=12;
   const jo2 = v => Number.isFinite(v) ? (v/10000).toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2})+"조원" : "자료 없음";   // 공고는 0.01조원 단위
-  const pct1 = v => Number.isFinite(v) ? v.toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%" : "자료 없음";
+  const pct = v => Number.isFinite(v) ? v.toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%" : "자료 없음";   // 비중·응찰률 — 소수 한 자리
   function msbDays(t) { const m=/^(\d{1,3})(일|년)$/.exec(t||""); return m ? +m[1]*(m[2]==="년"?365:1) : Infinity; }
   const pct3 = v => v.toLocaleString("ko-KR",{minimumFractionDigits:3,maximumFractionDigits:3})+"%";   // 공고와 같은 소수 셋째 자리
   function msbRate(r) { return Number.isFinite(r.rate_pct) ? pct3(r.rate_pct)+" ("+(MSB_KIND[r.rate_kind]||"금리")+")" : "자료 없음"; }
@@ -168,10 +193,10 @@ window.KoreaMarket = (() => {
     const tenors=[...new Set(rows.map(r=>r.tenor))].sort((a,b)=>msbDays(a)-msbDays(b));
     const lines=tenors.map(t=>{
       const these=rows.filter(r=>r.tenor===t && Number.isFinite(r.rate_pct)).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-      return {key:"msb_"+t,label:t+" "+(MSB_KIND[these[0]?.rate_kind]||"금리"),role:"series",points:these.map(r=>[r.date,r.rate_pct]),series:[],derived:false};
+      return {key:"msb_"+t,label:t+" "+(MSB_KIND[these[0]?.rate_kind]||"금리"),role:"series",points:these.map(r=>[r.date,r.rate_pct])};
     }).filter(l=>l.points.length>=2);
     if(!lines.length) return null;
-    const spec={key:"msb_rates",title:"통화안정증권 낙찰금리(만기별)",unit:"%",zero:false,threshold:null,years:1,
+    const spec={key:"msb_rates",title:"통화안정증권 낙찰금리(만기별)",unit:"%",zero:false,threshold:null,
       source_note:"자료: 한국은행 공개시장운영 공지(통화안정증권 경쟁입찰 실시 결과)",note:"1년 미만(91일물 등)은 낙찰할인율, 1년 이상은 낙찰수익률입니다.",notices:[],lines};
     try { return node("div","",node("p","reading-note",spec.title),window.MacroCharts.lineChart(spec,{height:180,caption:false,format:pct3})); }
     catch { return node("p","muted","차트를 표시하지 못했습니다. 표의 수치를 확인해 주세요."); }
@@ -198,14 +223,14 @@ window.KoreaMarket = (() => {
       const cur=months.find(m=>typeof m.through==="string"), cp=cur && planOf(cur.month);
       if(cp && Number.isFinite(cur.awarded_100m) && cp.competitive_100m>0)
         panel.append(node("p","reading-note",monthLabel(cur.month)+" 낙찰액 합 "+jo2(cur.awarded_100m)+" — 경쟁입찰 계획 "+joP(cp.competitive_100m)+"의 "
-          +pct1(Math.round(cur.awarded_100m/cp.competitive_100m*1000)/10)+" ("+cur.through.slice(5)+"까지, 계산값)"));
+          +pct(Math.round(cur.awarded_100m/cp.competitive_100m*1000)/10)+" ("+cur.through.slice(5)+"까지, 계산값)"));
     } else panel.append(node("p","market-warning","확인된 통화안정증권 발행 계획이 없습니다."));
     const kept=new Set(rows.map(r=>r.id)), missed=data.feeds?.msb?.skipped;
     const unread=Array.isArray(missed) ? missed.filter(s=>s && !kept.has(s.id) && s.reason!=="not_tried") : [];   // 전에 읽은 값이 남은 공고는 빼고
     if(unread.length) panel.append(node("p","market-warning","통화안정증권 결과 공고 "+unread.length+"건을 읽지 못했습니다. 원문은 한국은행 공개시장운영 공지에서 확인해 주세요."));
     if(rows.length) {
       panel.append(table(["입찰일","만기","발행예정액","응찰액","응찰률","낙찰액","낙찰금리","원문"],rows.slice(0,MSB_ROWS).map(r=>
-        [r.date,r.tenor,jo2(r.offered_100m),jo2(r.bids_100m),pct1(r.bid_cover_pct),jo2(r.awarded_100m),msbRate(r),sourceLink("결과",r.source_url)]),
+        [r.date,r.tenor,jo2(r.offered_100m),jo2(r.bids_100m),pct(r.bid_cover_pct),jo2(r.awarded_100m),msbRate(r),sourceLink("결과",r.source_url)]),
         "최근 통화안정증권 경쟁입찰 결과"));
       const chart=msbChart(rows);
       if(chart) panel.append(chart);       // 차트 도구가 없거나 만기마다 두 번 미만이면 그래프만 빠진다
@@ -231,15 +256,14 @@ window.KoreaMarket = (() => {
     return (signed && x>0 ? "+" : "")+x.toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:4});
   }
   const jo = (v, signed=false) => Number.isFinite(v) ? joNum(v,signed)+"조원" : "자료 없음";
-  const pct = v => Number.isFinite(v) ? v.toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%" : "자료 없음";
   const monthLabel = m => typeof m==="string" && /^\d{4}-\d{2}$/.test(m) ? m.slice(0,4)+"년 "+(+m.slice(5))+"월" : "달 미상";
   function shareChart(plans) {
     if(!window.MacroCharts) return null;
     const pts=k=>plans.filter(p=>Number.isFinite(p[k])).map(p=>[p.month+"-01",p[k]]);
-    const spec={key:"ktb_long_share",title:"월별 경쟁입찰 계획 중 장기물 비중",unit:"%",zero:true,threshold:null,years:1,
+    const spec={key:"ktb_long_share",title:"월별 경쟁입찰 계획 중 장기물 비중",unit:"%",zero:true,threshold:null,
       source_note:"자료: 재정경제부 월별 국고채 발행계획 보도자료 · 비중은 이 사이트의 계산값",note:null,notices:[],
-      lines:[{key:"long",label:"20·30·50년 비중",role:"series",points:pts("long_share_pct"),series:[],derived:true},
-             {key:"y30",label:"30년 비중",role:"series",points:pts("y30_share_pct"),series:[],derived:true}]};
+      lines:[{key:"long",label:"20·30·50년 비중",role:"series",points:pts("long_share_pct")},
+             {key:"y30",label:"30년 비중",role:"series",points:pts("y30_share_pct")}]};
     try { return node("div","",node("p","reading-note",spec.title),window.MacroCharts.lineChart(spec,{height:170,caption:false,format:pct})); }   // 칸의 비중과 같은 소수 한 자리
     catch { return node("p","muted","차트를 표시하지 못했습니다. 표의 수치를 확인해 주세요."); }
   }
@@ -319,6 +343,10 @@ window.KoreaMarket = (() => {
       [o.date,o.kind==="exchange"?"교환":o.kind==="buyback"?"매입":"기타",jo(o.offered_100m),pct(o.bid_cover_pct),jo(o.awarded_100m),sourceLink("결과",o.source_url)]),
       "최근 국고채 매입·교환 입찰 결과"));
     else panel.append(node("p","market-warning","확인된 매입·교환 결과가 없습니다."));
+    // 두 결과 목록은 따로 읽어(각 최근 6건) 표의 가장 오래된 날이 종류마다 다르다 — 날짜순으로 섞인 표가 빈 기간을 감추지 않게 적는다
+    const first=k=>ops.filter(o=>o.kind===k).map(o=>o.date).sort()[0];
+    if(first("exchange") && first("buyback") && first("exchange")!==first("buyback"))
+      panel.append(node("p","muted","매입·교환 결과는 종류마다 따로 읽어 시작일이 다릅니다 — 교환 "+first("exchange")+", 매입 "+first("buyback")+"부터. 각 시작일 앞의 입찰은 이 표에 없을 수 있습니다."));
     panel.append(node("p","reading-note","경쟁입찰 계획은 비경쟁인수·교환을 뺀 금액입니다. 발행 규모는 다음 달 보도자료 참고표에 적힌 보도 시점 값입니다(뒤에 확정되는 20년물 비경쟁인수와 모집분은 빠져 있어 재정경제부가 밝힌 누계와 다를 수 있습니다). 매입은 만기 전 국고채를 정부가 사들이는 입찰, 교환은 경과 종목을 지표 종목으로 바꾸는 입찰입니다. 응찰률은 응찰금액÷입찰금액입니다."),
       node("p","reading-note","이 사이트의 규칙 판정에 쓰지 않는 참고 자료입니다. 숫자는 보도자료·결과 공고에서 옮긴 값이며, "
         +(statedPrevShown ? "비중·합계는 이 사이트의 계산값이고, 전월 대비(보도자료 문구)는 보도자료에 적힌 숫자입니다." : "비중·전월 대비·합계는 이 사이트의 계산값입니다.")),
@@ -350,7 +378,7 @@ window.KoreaMarket = (() => {
     const teaser=document.getElementById("korea-teaser-values");teaser.replaceChildren();
     for(const key of ["kr_us","aa_spread","foreign10"]) {
       const c=data.cards.find(c=>c.key===key);if(!c)continue;
-      const a=node("a","metric",node("span","",c.title),node("strong","",number(c.metrics?.value,c.unit)),node("small","",c.metrics?.date||"자료일 없음"));
+      const a=node("a","metric",node("span","",c.title),node("strong","",number(c.metrics?.value,c.unit,c.unit==="계약")),node("small","",c.metrics?.date||"자료일 없음"));   // 카드와 같은 꼴(계약수는 + 부호)
       a.href=c.group==="rates"?"#korea":"#korea-"+c.group;
       const warning=node("small","market-warning"); warning.dataset.marketFeed=c.feed; warning.dataset.marketDate=c.metrics?.date || "unknown"; a.append(warning);
       teaser.append(a);

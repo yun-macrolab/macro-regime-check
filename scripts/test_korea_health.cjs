@@ -47,8 +47,11 @@ function renderWith(data,opts={}){
  const sc={window:win,document:doc,setInterval(){},URL};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../site/korea.js'),'utf8'),sc);
  sc.window.KoreaMarket.render(data,null);
- const panel=walk(ids['korea-market-content'],n=>(opts.panel||'ktbIssuance') in n.dataset)[0];
- return {panel,text:panel.textContent,charts,chartOpts,links:walk(panel,n=>n.tag==='a').map(a=>a.href),
+ const root=ids['korea-market-content'];          // opts.title: 그 제목(h3)의 칸 — 일정·결과 칸과 지표 카드는 표식(dataset)이 없다
+ const panel=opts.title ? walk(root,n=>n.tag==='article' && n.kids[0] instanceof El && n.kids[0].tag==='h3' && n.kids[0].textContent===opts.title)[0]
+  : walk(root,n=>(opts.panel||'ktbIssuance') in n.dataset)[0];
+ assert.ok(panel,opts.title||opts.panel||'ktbIssuance');
+ return {panel,ids,text:panel.textContent,charts,chartOpts,links:walk(panel,n=>n.tag==='a').map(a=>a.href),
   anchors:walk(panel,n=>n.tag==='a').map(a=>[a.textContent,a.href]),
   notes:()=>walk(panel,n=>n.className==='reading-note').map(n=>n.textContent),
   rows:label=>{const t=walk(panel,n=>n.tag==='table'&&n.attrs['aria-label']===label)[0];assert.ok(t,label);return t.kids.find(k=>k.tag==='tbody').kids.map(tr=>tr.kids.map(td=>td.textContent));},
@@ -319,4 +322,111 @@ test('msb panel: plan feed failure, unread plans, no plans, no redemption table'
  assert.ok(r.text.includes('중도환매 예정계획에 없음'));
  d=msbData();d.msb_plans[0].month='2030-06';d.msb_plans[0].competitive_100m=0;r=renderWith(d,{panel:'msb'});   // 이번 달 계획이 없으면 견주지 않는다
  assert.ok(!r.text.includes('경쟁입찰 계획 6.0조원의'));
+});
+
+// 국고채 입찰 일정·결과 칸 — 숫자는 지어낸 것. 같은 날·같은 만기 공고 둘(한 만기 두 종목, 2026-11-09 3년 같은 꼴)
+function schedule(){
+ const d=issuance();
+ const res=(id,date,tenor,amt,cover,y)=>({id,date,tenor,offered_100m:amt,awarded_100m:amt,bid_cover_pct:cover,yield_pct:y,
+   source_url:'https://mofe.go.kr/st/fnancstats/updateTbFnancstatsView.do?searchSn='+id});
+ const off=(id,date,tenor,amt)=>({id,date,tenor,offered_100m:amt,source_url:'https://www.bok.or.kr/portal/bbs/P0001794/view.do?nttId='+id+'&menuNo=200364'});
+ d.calendar={month:'2030-05',source_url:'https://ktb.mofe.go.kr/mnbyIsuCldr.do',
+   rows:[{date:'2030-05-06',tenor:'3년'},{date:'2030-05-07',tenor:'10년'},{date:'2030-05-08',tenor:'5년'},{date:'2030-05-12',tenor:'20년'}]};
+ d.auctions=[res('MOSF_A2','2030-05-07','10년',9000,280,3.9),res('MOSF_A1','2030-05-06','3년',11000,321.3,3.645),res('MOSF_A0','2030-05-06','3년',11000,303,3.65)];
+ d.offerings=[off('103','2030-05-08','5년',12000),off('103','2030-05-08','5년',12000),off('102','2030-05-07','10년',9000),
+   off('101','2030-05-07','10년',8000),off('100','2030-05-06','3년',11000),off('99','2030-05-06','3년',11000)];
+ return d;
+}
+const SCHEDULE='국고채 월별 입찰 일정';
+test('schedule: notices of the same date and tenor are added, each amount linked to its own notice',()=>{
+ const r=renderWith(schedule(),{title:'국고채 입찰 일정'});
+ assert.deepEqual(r.rows(SCHEDULE),[
+  ['2030-05-06','3년','22,000억원 (2건: 11,000억원 + 11,000억원)'],   // 결과 둘 = 발행공고 둘 → 결과
+  ['2030-05-07','10년','17,000억원 (2건: 9,000억원 + 8,000억원)'],     // 결과 하나 < 발행공고 둘 → 발행공고
+  ['2030-05-08','5년','12,000억원'],                                     // 같은 공고 번호는 한 번만
+  ['2030-05-12','20년','공고 확인']]);
+ const t=walk(r.panel,n=>n.tag==='table'&&n.attrs['aria-label']===SCHEDULE)[0];
+ const hrefs=t.kids.find(k=>k.tag==='tbody').kids.map(tr=>walk(tr,n=>n.tag==='a').map(a=>a.href.replace(/^.*(searchSn=|nttId=)/,'').replace(/&menuNo=\d+$/,'')));
+ assert.deepEqual(hrefs,[['MOSF_A1','MOSF_A0'],['102','101'],['103'],['https://ktb.mofe.go.kr/isuNdReprchsPblanc.do']]);
+});
+test('schedule: one shared delay note for both amount feeds, two different failures both shown',()=>{
+ let d=schedule(), r=renderWith(d,{title:'국고채 입찰 일정'});            // 이 고정 자료는 날짜가 지나 갱신 지연 안내가 붙는다
+ assert.deepEqual(r.warnings(),['입찰금액: 예정된 한국 자료 갱신이 반영되지 않았습니다 · 자료일 확인']);
+ d.feeds.offerings={ok:false,reason:'timeout'};d.feeds.auctions={ok:false,reason:'unreadable_notices'};r=renderWith(d,{title:'국고채 입찰 일정'});
+ assert.deepEqual(r.warnings(),['입찰금액: 수신 시간 초과 · 마지막 성공 자료 · 입찰 결과 공고 형식 확인 실패 · 마지막 성공 자료']);
+ d=schedule();d.feeds.offerings={ok:true,skipped:[{id:'104',reason:'parse'},{id:'101',reason:'network'}]};r=renderWith(d,{title:'국고채 입찰 일정'});
+ assert.ok(r.warnings().includes('입찰 예정액: 발행공고 1건을 읽지 못했습니다. 금액이 없는 회차는 공고 목록으로 연결합니다.'),r.warnings().join('|'));   // 전에 읽은 값이 남은 101은 빼고
+});
+test('results: cells in column order, unread count without kept ids, source is the board the collector reads',()=>{
+ const d=schedule();d.feeds.auctions={ok:true,skipped:[{id:'MOSF_A9',reason:'parse'},{id:'MOSF_A1',reason:'network'}]};
+ const r=renderWith(d,{title:'최근 국고채 입찰 결과'});
+ assert.deepEqual(r.rows('최근 국고채 경쟁입찰 결과'),[['2030-05-07','10년','9,000억원','280%','3.9%','결과'],
+  ['2030-05-06','3년','11,000억원','321.3%','3.645%','결과'],['2030-05-06','3년','11,000억원','303%','3.65%','결과']]);
+ assert.ok(r.warnings().includes('입찰 결과 공고 1건을 읽지 못했습니다. 원문은 공식 결과 목록에서 확인해 주세요.'),r.warnings().join('|'));
+ assert.ok(r.anchors.some(([t,h])=>t==='자료: 재정경제부 국채 입찰 결과 공고' && h==='https://mofe.go.kr/st/fnancstats/ktb50201.do?bbsId=MOSFBBS_000000000049&menuNo=6050300'),JSON.stringify(r.anchors));
+ assert.ok(!r.links.some(h=>h.includes('bidResult')));
+});
+test('msb panel: the result table keeps the newest 12 of 13',()=>{
+ const d=msbData(), base=d.msb[0];
+ d.msb=Array.from({length:13},(_,i)=>({...base,id:String(950-i),date:'2030-05-'+String(28-2*i).padStart(2,'0')}));
+ const rows=renderWith(d,{panel:'msb'}).rows('최근 통화안정증권 경쟁입찰 결과');
+ assert.equal(rows.length,12);assert.equal(rows[0][0],'2030-05-28');assert.equal(rows[11][0],'2030-05-06');
+});
+test('lastScheduledRun follows the daily.yml cron: weekdays at RUN_UTC, GRACE_MS after the slot',()=>{
+ const page=fs.readFileSync(path.join(__dirname,'../site/index.html'),'utf8');
+ const head=page.match(/^const RUN_UTC = .*;$/m), start=page.indexOf('function lastScheduledRun(now) {'), end=page.indexOf('\n}\n',start);
+ assert.ok(head && start>0 && end>start);
+ const got=vm.runInNewContext(head[0]+'\n'+page.slice(start,end+2)+'\n({RUN_UTC,GRACE_MS,lastScheduledRun});',{});
+ const cron=fs.readFileSync(path.join(__dirname,'../.github/workflows/daily.yml'),'utf8').match(/cron: "(\d+) (\d+) \* \* 1-5"/);
+ assert.ok(cron,'daily.yml cron');
+ assert.deepEqual([got.RUN_UTC.minute,got.RUN_UTC.hour],[+cron[1],+cron[2]]);assert.equal(got.GRACE_MS,5*36e5);
+ const run=t=>got.lastScheduledRun(new Date(t)).toISOString();
+ for(const [now,want] of [['2026-10-08T05:00:00Z','2026-10-07T22:17:00.000Z'],['2026-10-11T03:00:00Z','2026-10-09T22:17:00.000Z'],   // 일요일 → 금요일 차례
+   ['2026-11-07T12:00:00Z','2026-11-06T22:17:00.000Z'],['2026-11-09T03:00:00Z','2026-11-06T22:17:00.000Z'],
+   ['2026-11-10T03:16:00Z','2026-11-06T22:17:00.000Z'],['2026-11-10T03:18:00Z','2026-11-09T22:17:00.000Z']])   // 차례 뒤 5시간을 넘긴 때부터 그 차례
+  assert.equal(run(now),want,now);
+ const {data,run:st}=fixture();data.checked_at='2026-10-10T01:00:00Z';st.started_at='2026-10-10T00:59:00Z';st.checked_at='2026-10-10T01:01:00Z';
+ const sunday=Date.parse('2026-10-11T03:00:00Z');
+ assert.equal(health(data,st,got.lastScheduledRun(new Date(sunday)).getTime(),sunday).warning,false);
+});
+function cardData(){
+ const d=issuance(), src={name:'한국은행 금융·경제 스냅샷',url:'https://snapshot.bok.or.kr/dashboard/A'};
+ const ch=(v,from)=>({value:v,from});
+ d.cards=[
+  {key:'kr3',title:'국고채 3년 · 최종호가',group:'rates',unit:'%',note:'q',feed:'rates',source:src,
+   points:[['2029-04-10',2.52],['2029-05-21',2.9],['2030-05-17',3.6],['2030-05-20',3.639]],
+   metrics:{date:'2030-05-20',value:3.639,changes:{'1':ch(3.9,'2030-05-17'),'5':ch(-10.1,'2030-05-13'),'20':ch(-28.2,'2030-04-22')},sums:{},
+     distribution:{from:'2029-05-21',to:'2030-05-20',count:245,min:2.831,max:4.119,range_position:62.4,percentile:70.1}}},
+  {key:'kr_us',title:'한국−미국 10년 금리차',group:'rates',unit:'bp',note:'q',feed:'rates',source:src,
+   points:[['2030-05-19',-119.4],['2030-05-20',-100.7]],metrics:{date:'2030-05-20',value:-100.7,changes:{'1':ch(18.7,'2030-05-19')},sums:{},distribution:null}},
+  {key:'foreign10',title:'외국인 10년 국채선물 순매수',group:'flows',unit:'계약',note:'q',feed:'foreign10',source:{name:'한국거래소',url:'https://ktb.mofe.go.kr/invstrDelngTrend.do'},
+   points:[['2030-05-14',-26130],['2030-05-20',4594]],metrics:{date:'2030-05-20',value:4594,changes:{},sums:{'1':ch(4594,'2030-05-20'),'5':ch(29918,'2030-05-14'),'20':ch(-8781,'2030-04-22')},distribution:null}}];
+ return d;
+}
+test('metric cards: chart window is the 1-year range, chart values use the card format, dates on hover, teaser sign',()=>{
+ const d=cardData(), r=renderWith(d,{title:'국고채 3년 · 최종호가'});
+ const spec=k=>r.charts.find(s=>s.key===k), opt=k=>r.chartOpts[r.charts.indexOf(spec(k))];
+ assert.deepEqual(spec('kr3').lines[0].points,[['2029-05-21',2.9],['2030-05-17',3.6],['2030-05-20',3.639]]);   // 분포 시작일 앞 관측은 그리지 않는다
+ assert.equal(spec('kr_us').lines[0].points.length,2);                                                   // 분포가 없으면 받아 둔 관측 전부
+ const cards=walk(r.ids['korea-market-content'],n=>n.className==='market-card');
+ for(const c of d.cards){
+  const card=cards.find(n=>n.kids[0].textContent===c.title);
+  const shown=walk(card,n=>n.className==='market-value')[0].kids[0].textContent;
+  assert.equal(opt(c.key).format(c.metrics.value),shown,c.key);
+ }
+ assert.deepEqual(d.cards.map(c=>opt(c.key).format(c.metrics.value)),['3.639%','-100.7bp','+4,594계약']);
+ const titles=k=>walk(cards.find(n=>n.kids[0].textContent===d.cards.find(c=>c.key===k).title),n=>n.className==='market-deltas')[0].kids.map(x=>x.title);
+ assert.deepEqual(titles('kr3'),['비교 시작일: 2030-05-17','비교 시작일: 2030-05-13','비교 시작일: 2030-04-22']);
+ assert.deepEqual(titles('foreign10'),['관측일: 2030-05-20','누적 시작일: 2030-05-14','누적 시작일: 2030-04-22']);
+ const teaser=walk(r.ids['korea-teaser-values'],n=>n.tag==='strong').map(n=>n.textContent);
+ assert.deepEqual(teaser,['-100.7bp','+4,594계약']);                                                     // 카드와 같은 꼴(계약수는 + 부호)
+});
+test('issuance panel: buyback and exchange results start on different dates — the page says so',()=>{
+ const note='매입·교환 결과는 종류마다 따로 읽어 시작일이 다릅니다 — 교환 2030-05-14, 매입 2030-05-15부터. 각 시작일 앞의 입찰은 이 표에 없을 수 있습니다.';
+ let r=renderWith(issuance());
+ assert.ok(walk(r.panel,n=>n.className==='muted').some(n=>n.textContent===note),r.text);
+ const d=issuance();d.ktb_ops=d.ktb_ops.filter(o=>o.kind==='buyback');r=renderWith(d);
+ assert.ok(!r.text.includes('시작일이 다릅니다'));
+ d.ktb_ops=issuance().ktb_ops;d.ktb_ops[1].date='2030-05-15';r=renderWith(d);
+ assert.ok(!r.text.includes('시작일이 다릅니다'));
 });

@@ -537,10 +537,17 @@ def _auction_rows(korea, field):
 
 def events_of(calendar, korea):
     """일정 → [{"date", "time", "term", "tier", "detail", "src"}] 날짜·시각·낱말순. 달력(calendar.json)의 일정과 korea.json의 국고채
-    입찰 일정(10·30년 A, 그 밖 B. 발행 예정액을 알면 detail에 만기와 함께). 둘 다 없으면 빈 목록."""
+    입찰 일정(10·30년 A, 그 밖 B. 발행 예정액을 알면 detail에 만기와 함께 — 같은 날·만기의 공고가 둘 이상이면 합). 둘 다 없으면 빈 목록."""
     out = [{"date": e["date"], "time": e.get("time"), "term": e["term"], "tier": e["tier"], "detail": list(e.get("detail") or []),
             "src": "calendar"} for e in (calendar or {}).get("events", [])]
-    offered = {(r["date"], r["tenor"]): _amount(r.get("offered_100m")) for r in _auction_rows(korea, "offerings")}
+    # 같은 날·같은 만기의 발행공고(한 만기 두 종목을 같은 날 입찰 — 2026-11-09 3년)는 금액을 더한다. 같은 공고 번호는 한 번만,
+    # 그 가운데 하나라도 금액을 읽을 수 없으면 금액을 싣지 않는다(일부만 더한 값을 내지 않게)
+    notices = {}
+    for i, r in enumerate(_auction_rows(korea, "offerings")):
+        ident = r.get("id")
+        key = ident if type(ident) in (str, int) else ("줄", i)
+        notices.setdefault((r["date"], r["tenor"]), {}).setdefault(key, r.get("offered_100m"))
+    offered = {k: _amount(sum(v.values())) if all(_amount(x) for x in v.values()) else None for k, v in notices.items()}
     for r in _auction_rows(korea, "rows"):
         amount = offered.get((r["date"], r["tenor"]))
         out.append({"date": r["date"], "time": None, "term": AUCTION_TERM, "tier": "A" if r["tenor"] in AUCTION_A else "B",
