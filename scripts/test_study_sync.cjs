@@ -213,7 +213,7 @@ test("맞춤 한 번: 저장소 확인 → 지난달 · 이번 달 받기 → �
   const put = w.net.calls[3];
   assert.deepEqual([Object.keys(bodyOf(put)), bodyOf(put).message, textOf(put), put.headers["Content-Type"]], [["message", "content"], "log: 2026-10 +1", MINE + "\n", "application/json"]);
   assert.deepEqual([F.plain(w.S.queue()), linesOf(w), state(w)], [[], [MINE], { at: F.T0, err: null, repo: { d: TODAY, state: "ok" }, bad: 0 }]);
-  assert.deepEqual(w.seen, [{ ...QUIET, changed: false, big: false }]);
+  assert.deepEqual(w.seen, [{ ...QUIET, big: false }]);
   w.net.push(NONE);
   w.net.push(file([MINE], "s2"));
   await ask(w);                                                                            // 저장소 확인은 그날 한 번이고, 올릴 것이 없으면 받기만 한다
@@ -271,12 +271,12 @@ test("맞춤: 다른 기기의 줄을 받아 사본에 더한다 — 차례 · �
   const w = open([NONE, crlf], { storage: device({ mine: [MINE], sync: CHECKED }) });
   await ask(w, "open");
   assert.deepEqual([sent(w), linesOf(w), F.plain(w.S.queue()), state(w).bad], [[GET9, GET10], [THEIRS, other, MINE].sort(), [], 0]);
-  assert.deepEqual(w.seen, [{ ...QUIET, changed: true, big: false }]);                     // 사본에 줄이 더해졌다 — 내 줄은 이미 올라가 있어 대기 줄에서 빠진다
+  assert.deepEqual(w.seen, [{ ...QUIET, big: false }]);                     // 사본에 줄이 더해졌다 — 내 줄은 이미 올라가 있어 대기 줄에서 빠진다
   const bare = { status: 200, body: F.ghFile(MINE + "\n" + THEIRS + "\n" + other, "s1") };   // 끝 줄바꿈이 없다
   w.net.push(NONE);
   w.net.push(bare);
   await ask(w);
-  assert.deepEqual([sent(w).slice(2), w.seen[1].changed, w.net.unexpected], [[GET9, GET10], false, 0]);
+  assert.deepEqual([sent(w).slice(2), w.seen[1], w.net.unexpected], [[GET9, GET10], { ...QUIET, big: false }, 0]);
 });
 
 test("맞춤: 깨진 줄과 모르는 판의 줄은 기기에 두지 않고 수만 센다 — 올릴 때는 받은 글자 그대로 싣는다", async () => {
@@ -288,7 +288,7 @@ test("맞춤: 깨진 줄과 모르는 판의 줄은 기기에 두지 않고 수�
   const put = w.net.calls[2];
   assert.deepEqual([sent(w), bodyOf(put).sha, bodyOf(put).message], [[GET9, GET10, PUT10], "s7", "log: 2026-10 +1"]);
   assert.equal(textOf(put), [THEIRS, MINE, sept, broken, v2].join("\n") + "\n");            // 꼴이 맞는 줄은 id 순, 나머지는 글자 순으로 뒤에
-  assert.deepEqual([linesOf(w), F.plain(w.S.months()), state(w).bad, w.seen[0].changed, F.plain(w.S.queue())], [[THEIRS, MINE].sort(), ["2026-10"], 3, true, []]);
+  assert.deepEqual([linesOf(w), F.plain(w.S.months()), state(w).bad, w.seen[0], F.plain(w.S.queue())], [[THEIRS, MINE].sort(), ["2026-10"], 3, { ...QUIET, big: false }, []]);
 });
 
 test("맞춤: 저장소 확인은 공부 날짜마다 한 번이다 — 공개이거나 Pages가 켜져 있으면 올리지 않고, 그날은 다시 묻지 않는다", async () => {
@@ -378,7 +378,7 @@ test("맞춤: 사본이 300KB를 넘게 되는 달은 받지도 올리지도 않
   const w = open([NONE, done("s2", 201), file(many, "s1")], { storage: device({ mine: [old, MINE], sync: CHECKED }) });
   await ask(w, "open");
   assert.deepEqual([sent(w), F.plain(w.S.queue()), linesOf(w), state(w)], [[GET9, PUT9, GET10], [MINE], [MINE], { at: F.T0, err: { code: 0, key: "ERR_BIG" }, repo: { d: TODAY, state: "ok" }, bad: 0 }]);
-  assert.deepEqual(w.seen, [{ ...QUIET, changed: false, big: true }]);
+  assert.deepEqual(w.seen, [{ ...QUIET, big: true }]);
 });
 
 // 가짜 기록 저장소 하나(두 기기가 함께 쓴다): 달 파일을 기억하고, sha가 낡았으면 409, 있는 파일에 sha 없이 쓰면 422를 준다
@@ -478,7 +478,7 @@ test("맞춤 겹침: 409 · 422면 1.1초 쉬고 다시 받아 합쳐 올린다 
     await tick(w, 1);
     const put = w.net.calls[4];
     assert.deepEqual([sent(w).slice(3), bodyOf(put).sha, bodyOf(put).message, textOf(put)], [[GET10, PUT10], "s5", "log: 2026-10 +1", [THEIRS, other, MINE].join("\n") + "\n"]);
-    assert.deepEqual([F.plain(w.S.queue()), linesOf(w), state(w).err, w.seen, w.clock.pending()], [[], [THEIRS, other, MINE].sort(), null, [{ ...QUIET, changed: true, big: false }], 0]);
+    assert.deepEqual([F.plain(w.S.queue()), linesOf(w), state(w).err, w.seen, w.clock.pending()], [[], [THEIRS, other, MINE].sort(), null, [{ ...QUIET, big: false }], 0]);
   }
 });
 
@@ -491,7 +491,7 @@ test("맞춤 겹침: 세 번 겹치면 그만두고 대기 줄을 둔다 — 올
   assert.deepEqual(sent(w), [GET9, GET10, PUT10, GET10, PUT10, GET10, PUT10]);
   assert.deepEqual(w.net.calls.filter(call => call.method === "PUT").map(call => bodyOf(call).sha), [undefined, "s1", "s2"]);
   assert.deepEqual([snap(w), state(w).err, state(w).at, F.plain(w.S.queue()), w.net.unexpected, w.clock.pending(), linesOf(w), w.seen],
-    [{ ...QUIET, failedThisOpen: true }, { code: 409, key: "ERR_RACE" }, null, [MINE], 0, 0, [THEIRS, MINE].sort(), [{ ...QUIET, failedThisOpen: true, changed: true, big: false }]]);
+    [{ ...QUIET, failedThisOpen: true }, { code: 409, key: "ERR_RACE" }, null, [MINE], 0, 0, [THEIRS, MINE].sort(), [{ ...QUIET, failedThisOpen: true, big: false }]]);
   for (const route of [NONE, file([THEIRS], "s2"), done("s3")]) w.net.push(route);
   await ask(w);
   assert.deepEqual([sent(w).slice(7), w.S.queue().length, state(w).err], [[GET9, GET10, PUT10], 0, null]);
@@ -609,7 +609,7 @@ test("맞춤의 때: 돌아오면 멈춰 있던 요청을 끊고 새로 시작�
   feed(w, [NONE, file([MINE], "s9")]);                                                     // 끊긴 올리기는 실은 닿아 있었다
   await ask(w, "back");
   assert.deepEqual([sent(w), F.plain(w.S.queue()), snap(w), w.clock.pending()], [[GET9, GET10, PUT10, GET9, GET10], [], QUIET, 0]);
-  assert.deepEqual(w.seen, [{ ...QUIET, changed: false, big: false }]);                    // 끊긴 판은 알리지도 적지도 않는다
+  assert.deepEqual(w.seen, [{ ...QUIET, big: false }]);                    // 끊긴 판은 알리지도 적지도 않는다
   assert.deepEqual([state(w).err, state(w).at], [null, F.T0 + 11000]);
 });
 
@@ -661,7 +661,7 @@ test("사본 비우고 다시 받기: 멈춤일 때만 — 요청은 받기뿐�
   const w = open([NONE, file([THEIRS], "s1")], { storage: device({ mine: [MINE], got: [erased, THEIRS, summer], pause: "1", sync: CHECKED }) });
   assert.deepEqual(F.plain(await w.Y.pullOnly()), { ok: true, key: null, code: null });
   assert.deepEqual([sent(w), w.net.calls.every(call => call.method === "GET" && call.body === null)], [[GET9, GET10], true]);
-  assert.deepEqual([linesOf(w), F.plain(w.S.months()), F.plain(w.S.queue()), w.seen], [[THEIRS, MINE].sort(), ["2026-10"], [MINE], [{ ...PAUSED, changed: true, big: false }]]);
+  assert.deepEqual([linesOf(w), F.plain(w.S.months()), F.plain(w.S.queue()), w.seen], [[THEIRS, MINE].sort(), ["2026-10"], [MINE], [{ ...PAUSED, big: false }]]);
   w.S.setFlag("pause", false);                                                             // 자동 맞춤을 다시 켜면 대기 줄만 올라간다 — 지운 줄은 올라가지 않는다
   feed(w, [NONE, file([THEIRS], "s1"), done("s2")]);
   await ask(w);

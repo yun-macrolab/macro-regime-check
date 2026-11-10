@@ -113,7 +113,7 @@ window.StudySync = (() => {
   // 틀에 알린다(맞춤 하나가 끝났을 때 · 멈춤이 바뀌었을 때). 알림을 받는 쪽이 던져도 맞춤은 계속 돈다.
   function tell(info) {
     try {
-      if (onChange !== null) onChange(snapshot(), { changed: false, big: false, ...info });
+      if (onChange !== null) onChange(snapshot(), { big: false, ...info });
     } catch (err) {
       return;
     }
@@ -227,8 +227,8 @@ window.StudySync = (() => {
   // 흡수: 받은 줄 가운데 꼴이 맞는 것만 기기 사본에 더한다. 맞지 않는 줄은 수만 센다(올릴 때는 받은 글자 그대로 실린다).
   function take(month, added) {
     const good = added.filter(text => StudyCore.checkLine(text, month).ok);
-    const got = good.length > 0 ? StudyStore.absorb(month, good) : { added: 0, code: null };
-    return { bad: added.length - good.length, added: got.added, big: got.code === "big" };
+    const got = good.length > 0 ? StudyStore.absorb(month, good) : { code: null };
+    return { bad: added.length - good.length, big: got.code === "big" };
   }
   // 올리기. 끝나면 파일에 실린 줄을 대기 줄에서 빼고 응답의 sha를 기억한다. 끝나지 못했으면 그 달의 기억을 버린다.
   async function pushMonth(cfg, month, m, sha, mine) {
@@ -238,11 +238,11 @@ window.StudySync = (() => {
     memo = r.act === "done" ? remember(month, r.data, m.lines) : forget(month);
     return r;
   }
-  // 달 하나를 한 번 맞춘다 → { r, bad, added, big }. r이 null이면 그 달은 끝났고, 아니면 맞춤을 끝낼 까닭이다("retry"는 겹침).
+  // 달 하나를 한 번 맞춘다 → { r, bad, big }. r이 null이면 그 달은 끝났고, 아니면 맞춤을 끝낼 까닭이다("retry"는 겹침).
   // 사본이 너무 커서 흡수하지 못한 달(big)은 올리지도 않고 넘어간다. 올릴 것이 없으면 이미 올라가 있는 줄을 대기 줄에서 뺀다.
   async function tryMonth(cfg, month, mine) {
     const got = await pullMonth(cfg, month, mine);
-    if (got.act !== "merge") return { r: got, bad: 0, added: 0, big: false };
+    if (got.act !== "merge") return { r: got, bad: 0, big: false };
     const m = StudyCore.mergeLines(localLines(month), got.lines, month);
     const took = take(month, m.added);
     if (took.big) return { r: null, ...took };
@@ -255,7 +255,7 @@ window.StudySync = (() => {
     let one = await tryMonth(cfg, month, mine);
     for (let n = 1; n < MAX_TRIES && one.r !== null && one.r.act === "retry"; n += 1) {
       await nap(RETRY_MS);
-      one = await tryMonth(cfg, month, mine).then(more => ({ ...more, added: one.added + more.added }));   // 앞 시도에서 흡수한 줄도 센다
+      one = await tryMonth(cfg, month, mine);
     }
     return one;
   }
@@ -273,21 +273,21 @@ window.StudySync = (() => {
     if (r.act === "gone") return null;
     settle(r, day);
     failedThisOpen = true;
-    return { changed: sum.changed, big: sum.big };
+    return { big: sum.big };
   }
   async function runOnce(mine) {
     const day = today();
     const cfg = config();
     const repo = await ensureRepo(cfg, day, mine);
-    if (repo.act !== "pass") return failed(repo, day, { changed: false, big: false });
-    let sum = { bad: 0, changed: false, big: false };
+    if (repo.act !== "pass") return failed(repo, day, { big: false });
+    let sum = { bad: 0, big: false };
     for (const month of StudyCore.monthsToFetch(day, StudyStore.queue())) {
       const one = await syncMonth(cfg, month, mine);
-      sum = { bad: sum.bad + one.bad, changed: sum.changed || one.added > 0, big: sum.big || one.big };
+      sum = { bad: sum.bad + one.bad, big: sum.big || one.big };
       if (one.r !== null) return failed(one.r, day, sum);
     }
     StudyStore.setSyncState({ at: Date.now(), err: sum.big ? { code: 0, key: ERR.big } : null, bad: sum.bad });
-    return { changed: sum.changed, big: sum.big };
+    return { big: sum.big };
   }
 
   // ── 때 ── 한 번에 하나만 돈다. 자동(열기 · 돌아옴 · 저장)은 10초에 한 번이고, 손으로 누른 것과 저장 실패는 기다리지 않는다.
@@ -360,7 +360,7 @@ window.StudySync = (() => {
   function pullStopped(got, day, big) {
     if (got.act === "gone") return { ok: false, key: "CONN_NET", code: null };
     settle(got, day);
-    tell({ changed: true, big });
+    tell({ big });
     return { ok: false, key: connKey(got), code: got.status };
   }
   async function pull() {
@@ -381,7 +381,7 @@ window.StudySync = (() => {
       if (got.act !== "merge") return pullStopped(got, day, big);
       big = take(month, got.lines).big || big;
     }
-    tell({ changed: true, big });
+    tell({ big });
     return big ? { ok: false, key: "NOTE_BIG", code: null } : { ok: true, key: null, code: null };
   }
   function pullOnly() {

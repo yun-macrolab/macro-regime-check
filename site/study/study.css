@@ -1,6 +1,6 @@
 /* 공부 화면의 모양 — 혼자 선다(다른 화면의 모양 파일을 빌리지 않는다). 검정 한 벌이고 움직임이 없다.
    색 값은 바로 아래 :root 블록에만 적는다. 입력 글자는 16px 이상, 누르는 곳은 48px 이상이다.
-   클래스 이름은 st-btn st-btn-big st-input st-secret st-row st-warn st-amber st-red st-dim st-status st-strip st-cell st-fold st-group sr 가 전부다. */
+   클래스 이름은 st-btn st-btn-big st-input st-secret st-row st-warn st-amber st-red st-dim st-status st-strip st-cell st-fold st-group 가 전부다. */
 :root {
   --black: #000; --panel: #0a0a0a; --bar: #171717; --rule: #2c2c2c;
   --amber: #ff9e1b; --ink: #e9e6df; --dim: #8f8f8f;
@@ -27,8 +27,6 @@ h2 { font-size: 16px; }
 p { margin: 8px 0; }
 ul, ol { margin: 8px 0; padding-left: 22px; }
 li { margin: 6px 0; }
-small { color: var(--dim); font-size: 14px; }
-strong { font-weight: 600; }
 
 /* 뼈대: 기본 문구 · 날짜 줄과 상태 줄 · 이동 줄 · 알림 한 줄 · 화면 자리 */
 #st-fallback { margin: 24px 0; }
@@ -80,7 +78,6 @@ pre {
 .st-cell[data-k="full"] { border-color: var(--go); color: var(--go); }
 .st-cell[data-k="min"] { border-color: var(--amber); color: var(--amber); }
 .st-cell[data-k="rest"] { color: var(--blue); }
-.sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* 오늘 · 질문 화면의 큰 글자(시계, 오늘 말할 개념, 찍은 도장) */
 #td-clock, #ask-clock { margin: 12px 0; color: var(--key); font: 600 44px/1.2 var(--f-mono); font-variant-numeric: tabular-nums; text-align: center; }

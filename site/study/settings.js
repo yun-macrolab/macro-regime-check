@@ -194,11 +194,6 @@ window.StudySettings = (() => {
   }
 
   // ── 상태 ── 줄마다 p.st-row[data-k="<줄 이름>"]. 줄의 차례가 화면의 차례다.
-  // 마지막 맞춤의 때: 오늘(KST 달력 날짜)이면 시각만, 다른 날이면 날짜도
-  function when(ms, nowMs) {
-    const at = StudyCore.stampT(ms);
-    return (at.slice(0, 10) === StudyCore.stampT(nowMs).slice(0, 10) ? "" : at.slice(5, 10) + " ") + at.slice(11, 16);
-  }
   // 마지막 오류: 상태 코드와 문구 표의 글뿐이다. 상태 코드가 까닭이 아닌 것(code 0)은 글만, 없으면 "없음"
   function lastErr(err) {
     if (err === null) return t("ROW_LASTERR", { code: t("HASNOT"), text: "" }).trim();
@@ -211,7 +206,7 @@ window.StudySettings = (() => {
       ["persist", t("ROW_PERSIST", { v: yesNo(kept) })],
       ["key", t("ROW_KEY", { v: t(StudyStore.getConn().hasKey ? "HAS" : "HASNOT") })],
       ["queue", t("ROW_QUEUE", { n: StudyStore.queue().length })],
-      ["lastsync", t("ROW_LASTSYNC", { t: s.at === null ? t("NA") : when(s.at, c.nowMs) })],
+      ["lastsync", t("ROW_LASTSYNC", { t: s.at === null ? t("NA") : StudyCore.syncedAt(s.at, c.nowMs) })],
       ["lasterr", lastErr(s.err)],
       ["bad", t("ROW_BAD", { n: s.bad + c.view.bad })],
       ["clash", t("ROW_CLASH", { n: c.view.clash })],

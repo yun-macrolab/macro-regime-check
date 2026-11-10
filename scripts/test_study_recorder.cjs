@@ -25,8 +25,7 @@ const types = w => w.seen.map(ev => ev.type + (ev.code ? ":" + ev.code : ""));  
 const locks = w => w.media.locks.map(lock => lock.released);                       // 화면 켜 두기마다 놓았는가
 
 // ── 시작과 끝 ──
-test("녹음: 녹음기와 마이크가 둘 다 있어야 된다고 답한다 — 상수는 최근 7개 · 64kbps · mp4 먼저", () => {
-  assert.deepEqual([rig().R.supported(), rig({ media: { recorder: "none" } }).R.supported(), rig({ media: { mic: "none" } }).R.supported()], [true, false, false]);
+test("녹음: 상수는 최근 7개 · 64kbps · mp4 먼저(녹음기와 마이크가 둘 다 있어야 되는 것은 아래 시작 테스트가 본다)", () => {
   const K = rig().R._;
   assert.deepEqual([K.KEEP, K.BITS, F.plain(K.TYPES), Object.isFrozen(K.TYPES)], [7, 64000, ["audio/mp4", "audio/webm;codecs=opus"], true]);
 });
@@ -135,7 +134,7 @@ test("끊김: 마이크가 음소거되거나 끝나도, 녹음기가 오류를 
 // ── 녹음기가 돈 초 · 화면 둘 ──
 test("녹음 초: 녹음기가 돈 동안만 센다 — 허용을 기다린 시간은 빼고, 2분에서 멈추고, 녹음을 끄고 다시 말하면 0이다", async () => {
   const w = rig({ media: { mic: "hold" } });
-  assert.deepEqual([w.R.seconds("today"), w.R.seconds()], [0, 0]);
+  assert.deepEqual([w.R.seconds("today"), w.R.seconds("ask")], [0, 0]);
   await talk(w);
   w.clock.advance(20000);
   w.media.answer("ok");
@@ -146,10 +145,10 @@ test("녹음 초: 녹음기가 돈 동안만 센다 — 허용을 기다린 시�
   assert.equal(w.R.seconds("today"), 120);
   w.R.end("today");
   w.clock.advance(60000);
-  assert.deepEqual([w.R.seconds("today"), w.R.seconds("ask"), w.R.seconds()], [120, 0, 120]);
+  assert.deepEqual([w.R.seconds("today"), w.R.seconds("ask"), w.R.seconds()], [120, 0, 0]);   // 화면을 주지 않으면 0
   w.storage.setItem(LS + "rec", "0");
   await talk(w);
-  assert.deepEqual([w.R.seconds("today"), w.R.seconds(), w.media.asks.length], [0, 0, 1]);
+  assert.deepEqual([w.R.seconds("today"), w.media.asks.length], [0, 1]);
 });
 
 test("녹음은 한 번에 하나: 다른 화면이 시작하면 앞의 것은 거기서 끊기고, 같은 화면이 다시 시작하면 앞의 것을 버린다 — 끝은 제 화면의 것만 닫는다", async () => {
@@ -164,7 +163,7 @@ test("녹음은 한 번에 하나: 다른 화면이 시작하면 앞의 것은 �
     [["off", "on", "cut"], ["off", "on"], 1, ["inactive", "recording"], 30]);
   w.clock.advance(90000);
   w.R.end("today");                                                                      // 오늘 화면의 시계가 끝났다 — 질문 화면의 녹음은 그대로 돈다
-  assert.deepEqual([w.media.live(), w.R.seconds("ask"), w.R.seconds()], [1, 90, 90]);
+  assert.deepEqual([w.media.live(), w.R.seconds("ask"), w.R.seconds("today")], [1, 90, 30]);
   w.R.begin("ask", DAY, ev => ask.push("again:" + ev.type));                             // 같은 화면에서 다시 말한다
   await F.settle();
   assert.deepEqual([ask.slice(2), w.media.live(), w.media.recorders.map(rec => rec.state), w.R.seconds("ask")],
@@ -373,8 +372,8 @@ test("재생과 녹음: 새 녹음은 재생 주소를 거둔 뒤에 마이크�
 
 test("녹음 모듈이 내보내는 이름 — 어느 것도 부른 쪽을 기다리게 하지 않는다: 마이크 · 화면 켜 두기 · 보관이 모두 답하지 않아도 곧바로 돌아온다", async () => {
   const w = rig({ media: { mic: "hang", wake: "hang" }, idb: { open: "hang" } });
-  assert.deepEqual(Object.keys(w.R).sort(), ["_", "begin", "clearAll", "end", "list", "seconds", "stats", "stopPlayback", "supported", "url"]);
-  assert.deepEqual([w.R.begin("today", DAY, w.hear), w.R.seconds("today"), w.R.end("today"), w.R.stopPlayback(), w.R.supported()], [undefined, 0, undefined, undefined, true]);
+  assert.deepEqual(Object.keys(w.R).sort(), ["_", "begin", "clearAll", "end", "list", "seconds", "stats", "stopPlayback", "url"]);
+  assert.deepEqual([w.R.begin("today", DAY, w.hear), w.R.seconds("today"), w.R.end("today"), w.R.stopPlayback()], [undefined, 0, undefined, undefined]);
   const pending = [w.R.list(), w.R.url(TODAY_ID), w.R.stats(), w.R.clearAll()];
   const settled = [];
   for (const one of pending) one.then(() => settled.push(1), () => settled.push(-1));

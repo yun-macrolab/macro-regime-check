@@ -152,17 +152,17 @@ const pairs = node => [...node.attrs];
 test("틀 el: 허용한 태그와 속성으로 요소를 만들고, 문자열 자식은 글자로만 들어간다", () => {
   const w = F.world(APP_FILES);
   const A = w.scope.StudyApp;
-  const node = A.el("p", { id: "x", class: "st-dim", "data-k": "full", tabindex: 0, hidden: false, "aria-pressed": true, role: null, name: undefined },
+  const node = A.el("p", { id: "x", class: "st-dim", "data-k": "full", role: 7, open: false, "aria-pressed": true, "aria-label": null, for: undefined },
     "a<b onclick=1>", null, undefined, false, 3, [A.el("span", null, "c"), ["d"]]);
-  assert.deepEqual([node.tag, pairs(node), F.text(node)], ["p", [["id", "x"], ["class", "st-dim"], ["data-k", "full"], ["tabindex", "0"], ["aria-pressed", "true"]], "a<b onclick=1>3cd"]);
+  assert.deepEqual([node.tag, pairs(node), F.text(node)], ["p", [["id", "x"], ["class", "st-dim"], ["data-k", "full"], ["role", "7"], ["aria-pressed", "true"]], "a<b onclick=1>3cd"]);
   assert.deepEqual([F.byTag(node, "b").length, F.all(node).map(n => n.tag), A.el("div").attrs.size, F.text(A.el("ul", {}))], [0, ["p", "span"], 0, ""]);
 });
 
 test("틀 el: 금지 태그 · 처리기 이름 · 목록에 없는 속성은 던진다 — 요소를 만들기 전에", () => {
   const w = F.world(APP_FILES);
   const A = w.scope.StudyApp;
-  for (const tag of ["script", "iframe", "img", "form", "textarea", "select", "style", "object", "svg", "DIV", "", null]) assert.throws(() => A.el(tag), { message: "tag" }, String(tag));
-  for (const name of ["onclick", "onerror", "ONCLICK", "style", "srcdoc", "action", "formaction", "data-x", "is", "contenteditable"]) {
+  for (const tag of ["script", "iframe", "img", "form", "textarea", "select", "style", "object", "svg", "DIV", "", null, "header", "strong"]) assert.throws(() => A.el(tag), { message: "tag" }, String(tag));
+  for (const name of ["onclick", "onerror", "ONCLICK", "style", "srcdoc", "action", "formaction", "data-x", "is", "contenteditable", "hidden", "tabindex"]) {
     assert.throws(() => A.el("div", { [name]: "x" }), { message: "attr" }, name);
   }
   for (const value of [{}, [], () => "x"]) assert.throws(() => A.el("div", { id: value }), { message: "attr" });
@@ -199,24 +199,24 @@ test("틀 el: src는 audio의 blob: 주소만, type은 정해진 것만, 열쇠 
 
 test("틀 el · flag: 켜고 끄는 속성은 참이면 빈 값으로 넣고, 거짓이면 넣지 않는다", () => {
   const A = appOf();
-  const button = A.el("button", { type: "button", disabled: true, hidden: false, open: null });
+  const button = A.el("button", { type: "button", disabled: true, checked: false, open: null });
   assert.deepEqual(pairs(button), [["type", "button"], ["disabled", ""]]);
   for (const value of ["disabled", "true", 1, 0]) assert.throws(() => A.el("button", { disabled: value }), { message: "attr" }, String(value));
   A.flag(button, "disabled", false);
-  A.flag(button, "hidden", true);
-  A.flag(button, "hidden", 1);
-  assert.deepEqual(pairs(button), [["type", "button"], ["hidden", ""]]);
-  for (const name of ["onclick", "class", "value", "aria-pressed", "controls"]) assert.throws(() => A.flag(button, name, true), { message: "attr" }, name);
+  A.flag(button, "open", true);
+  A.flag(button, "open", 1);
+  assert.deepEqual(pairs(button), [["type", "button"], ["open", ""]]);
+  for (const name of ["onclick", "class", "value", "aria-pressed", "controls", "hidden", "readonly"]) assert.throws(() => A.flag(button, name, true), { message: "attr" }, name);
 });
 
 test("틀 el: 허용 목록이 약속과 같다(뒤 단계는 이 목록에 기댄다)", () => {
   const A = appOf();
-  assert.deepEqual(F.plain(A._.TAGS), ["div", "section", "header", "nav", "main", "h1", "h2", "p", "span", "strong", "small", "ul", "ol", "li", "a", "button", "input", "label",
+  assert.deepEqual(F.plain(A._.TAGS), ["div", "section", "h1", "h2", "p", "span", "ul", "ol", "li", "a", "button", "input", "label",
     "details", "summary", "pre", "audio"]);
-  assert.deepEqual(F.plain(A._.ATTRS), ["id", "class", "role", "type", "value", "placeholder", "maxlength", "inputmode", "enterkeyhint", "autocomplete", "autocapitalize", "autocorrect",
-    "spellcheck", "name", "for", "disabled", "hidden", "checked", "readonly", "open", "tabindex", "href", "rel", "target", "src", "controls", "preload", "data-k",
-    "aria-label", "aria-live", "aria-current", "aria-pressed", "aria-describedby", "aria-hidden"]);
-  assert.deepEqual([F.plain(A._.FLAGS), A.VERSION, Object.isFrozen(A._.TAGS)], [["disabled", "hidden", "checked", "open", "readonly"], "3", true]);
+  assert.deepEqual(F.plain(A._.ATTRS), ["id", "class", "role", "type", "value", "placeholder", "enterkeyhint", "autocomplete", "autocapitalize", "autocorrect",
+    "spellcheck", "for", "disabled", "checked", "open", "href", "rel", "target", "src", "controls", "preload", "data-k",
+    "aria-label", "aria-current", "aria-pressed", "aria-describedby"]);
+  assert.deepEqual([F.plain(A._.FLAGS), A.VERSION, Object.isFrozen(A._.TAGS)], [["disabled", "checked", "open"], "4", true]);
 });
 
 // ── app.js: 창 — 환경 · 난수 · 공유 ──
@@ -445,6 +445,7 @@ test("틀 상태 줄: 일곱 가지의 차례 — 저장 실패 > 열쇠 > 저�
     ["올릴 것 1건 | st-status", "올릴 것 1건 | st-status st-amber", "올릴 것 1건 | st-status"]);         // 호박색은 어제 이전의 줄이 밀려 있고 이번에 연 뒤 실패했을 때만
   assert.equal(await line({ auth: "401", pause: "1", q }, { stop: "halt", failedThisOpen: true }), "이 기기에만 저장 | st-status");
   assert.deepEqual([await line({ key: KEY, sync: JSON.stringify({ at: F.T0 + 60000 }) }, {}), await line({ key: KEY }, {})], ["맞춤 08:31 | st-status", "맞춤 전 | st-status"]);
+  assert.equal(await line({ key: KEY, sync: JSON.stringify({ at: F.T0 - 3 * 86400000 - 40 * 60000 }) }, { failedThisOpen: true }), "맞춤 10-10 07:50 | st-status");   // 다른 날의 맞춤은 날짜도(설정의 상태 줄과 같은 꼴)
 });
 
 // ── app.js: 쓰기 한 길 · 맞춤 고리 · 돌아옴 ──
@@ -512,9 +513,9 @@ test("틀 맞춤이 알릴 때: 상태 줄과 화면을 맞춤으로 새로 고�
   const w = await open({ storage: named({ key: KEY }), extra: { StudySync: sync.api } }, log);
   w.scope.StudyStore.absorb("2026-10", [L1]);                                              // 다른 기기의 줄을 받았다
   sync.snap = { ...sync.snap, stop: "missing" };
-  sync.onChange(sync.snap, { changed: true, big: false });
+  sync.onChange(sync.snap, { big: false });
   assert.deepEqual([log.slice(3), F.text(w.at("st-status")), F.text(w.at("st-note"))], [["refresh today sync 1"], C.T.ST_REPO_MISSING, ""]);
-  sync.onChange(sync.snap, { changed: false, big: true });
+  sync.onChange(sync.snap, { big: true });
   sync.onChange(sync.snap);
   assert.deepEqual([log.slice(4), F.text(w.at("st-note"))], [["refresh today sync 1", "refresh today sync 1"], C.T.NOTE_BIG]);
 });

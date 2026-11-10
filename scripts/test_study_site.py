@@ -37,7 +37,7 @@ def study(name):
 COLORS = {"--black": "#000", "--panel": "#0a0a0a", "--bar": "#171717", "--rule": "#2c2c2c", "--amber": "#ff9e1b", "--ink": "#e9e6df",
           "--dim": "#8f8f8f", "--blue": "#5ab1ff", "--key": "#f6d200", "--go": "#36d07f", "--alert": "#ff5449", "--alert-bg": "#2a0907"}
 CLASSES = ("st-btn", "st-btn-big", "st-input", "st-secret", "st-row", "st-warn", "st-amber", "st-red", "st-dim", "st-status",
-           "st-strip", "st-cell", "st-fold", "st-group", "sr")
+           "st-strip", "st-cell", "st-fold", "st-group")
 CSS_BANNED = ("animation", "transition", "@keyframes", "@import", "@media", "url(", "100vh", "fixed", "http")
 TOUCH = ("button, .st-btn", 'input[type="text"], .st-input', "summary", "label", "audio", "#st-nav a", "#st-fallback a")   # 누르는 곳
 TYPED = ('input[type="text"], .st-input',)                              # 적는 곳

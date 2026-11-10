@@ -4,16 +4,16 @@
 window.StudyApp = (() => {
   "use strict";
 
-  const VERSION = "3";
+  const VERSION = "4";
 
   // ── 요소 도우미 ── 허용 목록 밖의 태그 · 속성 · 주소는 던진다(그것은 버그다). 문자열 자식은 글자로만 들어간다.
-  const TAGS = Object.freeze(["div", "section", "header", "nav", "main", "h1", "h2", "p", "span", "strong", "small", "ul", "ol", "li",
+  const TAGS = Object.freeze(["div", "section", "h1", "h2", "p", "span", "ul", "ol", "li",
     "a", "button", "input", "label", "details", "summary", "pre", "audio"]);
-  const ATTRS = Object.freeze(["id", "class", "role", "type", "value", "placeholder", "maxlength", "inputmode", "enterkeyhint",
-    "autocomplete", "autocapitalize", "autocorrect", "spellcheck", "name", "for", "disabled", "hidden", "checked", "readonly", "open",
-    "tabindex", "href", "rel", "target", "src", "controls", "preload", "data-k",
-    "aria-label", "aria-live", "aria-current", "aria-pressed", "aria-describedby", "aria-hidden"]);
-  const FLAGS = Object.freeze(["disabled", "hidden", "checked", "open", "readonly"]);
+  const ATTRS = Object.freeze(["id", "class", "role", "type", "value", "placeholder", "enterkeyhint",
+    "autocomplete", "autocapitalize", "autocorrect", "spellcheck", "for", "disabled", "checked", "open",
+    "href", "rel", "target", "src", "controls", "preload", "data-k",
+    "aria-label", "aria-current", "aria-pressed", "aria-describedby"]);
+  const FLAGS = Object.freeze(["disabled", "checked", "open"]);
   const TYPES = Object.freeze({ input: Object.freeze(["text", "checkbox"]), button: Object.freeze(["button"]) });
   const OUT_REL = "noopener noreferrer";
   const OUT_TARGET = "_blank";
@@ -138,18 +138,18 @@ window.StudyApp = (() => {
   }
 
   // ── 날짜 줄 · 상태 줄 · 이동 줄 ──
-  function status(today) {
+  function status(today, nowMs) {
     const snap = tell(window.StudySync, "snapshot") || NO_SYNC;
     const conn = StudyStore.getConn();
     const queue = StudyStore.queue();
     return StudyCore.pickStatus({
       storeOk: StudyStore.ok(), hasKey: conn.hasKey, auth401: conn.auth === "401", stop: snap.stop, code: snap.code,
-      paused: StudyStore.getFlag("pause"), queueN: queue.length, lastOkMs: StudyStore.syncState().at,
+      paused: StudyStore.getFlag("pause"), queueN: queue.length, lastOkMs: StudyStore.syncState().at, nowMs,
       amber: Boolean(snap.failedThisOpen) && StudyCore.staleQueue(queue, today),
     });
   }
   function drawHead(c) {
-    const s = status(c.today);
+    const s = status(c.today, c.nowMs);
     drawnDay = c.today;
     byId("st-date").textContent = StudyCore.headDate(c.today);
     byId("st-status").textContent = StudyCore.t(s.key, s.vars);

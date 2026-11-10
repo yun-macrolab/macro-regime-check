@@ -354,7 +354,7 @@ test("core 보기: 주간 판정은 먼저 쓴 것, 채점은 그 판정을 가�
 
 // ── core.js: 상태 고르기 · 공유할 글 ──
 test("core 상태: 위에서부터 처음 맞는 하나 — 일곱 가지의 차례", () => {
-  const base = { storeOk: true, hasKey: true, auth401: false, stop: null, code: null, paused: false, queueN: 0, lastOkMs: null, amber: false };
+  const base = { storeOk: true, hasKey: true, auth401: false, stop: null, code: null, paused: false, queueN: 0, lastOkMs: null, nowMs: F.T0, amber: false };
   const pick = over => { const p = C.pickStatus({ ...base, ...over }); return [p.name, p.key, C.t(p.key, p.vars), p.tone]; };
   assert.deepEqual(pick({ storeOk: false, auth401: true, stop: "halt", queueN: 2 }), ["STORE_FAIL", "ST_STORE_FAIL", "이 기기에 저장하지 못함", "red"]);
   assert.deepEqual(pick({ storeOk: false, hasKey: false }), ["STORE_FAIL", "ST_STORE_FAIL", "이 기기에 저장하지 못함", "red"]);
@@ -367,6 +367,11 @@ test("core 상태: 위에서부터 처음 맞는 하나 — 일곱 가지의 차
   assert.deepEqual(pick({ hasKey: false, auth401: true, stop: "halt", paused: true, queueN: 5, amber: true }), ["LOCAL", "ST_LOCAL", "이 기기에만 저장", ""]);
   assert.deepEqual([pick({ lastOkMs: F.T0 + 60000, amber: true }), pick({}), pick({ stop: "off" }), pick({ stop: "constructor" })],
     [["SYNCED", "ST_SYNCED", "맞춤 08:31", ""], ["SYNCED", "ST_SYNC_WAIT", "맞춤 전", ""], ["SYNCED", "ST_SYNC_WAIT", "맞춤 전", ""], ["SYNCED", "ST_SYNC_WAIT", "맞춤 전", ""]]);
+  // 맞춤 시각은 설정의 상태 줄과 같은 꼴 — 오늘(KST 달력 날짜)이면 시각만, 다른 날이면 날짜도. 공부 날(04시 시작)이 아니라 달력 날짜다
+  const H = 3600000;
+  assert.deepEqual([pick({ lastOkMs: F.T0 - 72 * H - 40 * 60000 }), pick({ lastOkMs: F.T0 - 11 * H - 20 * 60000 }), pick({ lastOkMs: F.T0 - 5 * H }), pick({ lastOkMs: F.T0 - 8.5 * H - 60000 })].map(p => p[2]),
+    ["맞춤 10-10 07:50", "맞춤 10-12 21:10", "맞춤 03:30", "맞춤 10-12 23:59"]);
+  assert.deepEqual([C.syncedAt(F.T0 - 5 * H, F.T0), C.syncedAt(F.T0, F.T0 + 15.5 * H), pick({ lastOkMs: F.T0, nowMs: undefined })[2]], ["03:30", "10-13 08:30", "맞춤 10-13 08:30"]);
   assert.deepEqual(F.plain(C.pickStatus({ ...base, queueN: 3 })), { name: "QUEUE", key: "ST_QUEUE", vars: { n: 3 }, tone: "" });
 });
 
@@ -398,12 +403,12 @@ test("core 공유: 그 주의 글 — 판정과, 있으면 채점. 판정이 없
 
 test("core: 약속된 이름이 모두 있고 그 밖의 것은 없다(뒤 단계는 이 이름에 기댄다)", () => {
   const names = ["V", "TALK_SEC", "DAY_START_HOUR", "MAX_LINE_BYTES", "KINDS", "HEAD", "SCHEMA", "REJECT", "ID_RE", "DEV_RE", "KEY_LINK_BASE", "ROUTES", "T",
-    "studyDate", "stampT", "idTime", "idMs", "isDate", "addDays", "weekOf", "monthOf", "prevMonth", "headDate", "hhmm", "mmss",
+    "studyDate", "stampT", "idTime", "idMs", "isDate", "addDays", "weekOf", "monthOf", "prevMonth", "headDate", "hhmm", "syncedAt", "mmss",
     "makeId", "makeLine", "checkLine", "textIssue", "devOk", "ownerOk", "repoOk", "keyShape", "keyLink", "safeLink",
     "splitLines", "joinLines", "orderLines", "mergeLines", "lineMonth", "monthsToFetch", "staleQueue",
     "buildView", "stampOn", "restOn", "strip14", "topicFor", "comeback", "weekCall", "gradeFor", "recentQs",
     "pickStatus", "shareDay", "shareWeek", "t"];
-  assert.deepEqual([names.length, Object.keys(C).sort()], [55, [...names].sort()]);
+  assert.deepEqual([names.length, Object.keys(C).sort()], [56, [...names].sort()]);
 });
 
 // ── store.js: 값 하나짜리 칸 — 기기 이름 · 켜고 끄기 · 연결 · 열쇠 ──

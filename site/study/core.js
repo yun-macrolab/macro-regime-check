@@ -71,6 +71,11 @@ window.StudyCore = (() => {
   function hhmm(ms) {
     return iso(ms + KST_MS).slice(11, 16);
   }
+  // 마지막 맞춤의 때: 오늘(KST 달력 날짜)이면 시각만, 다른 날이면 날짜도(상태 줄과 설정의 상태 줄이 함께 쓴다)
+  function syncedAt(ms, nowMs) {
+    const at = stampT(ms);
+    return (at.slice(0, 10) === stampT(nowMs).slice(0, 10) ? "" : at.slice(5, 10) + " ") + at.slice(11, 16);
+  }
   function mmss(sec) {
     return Math.floor(sec / 60) + ":" + pad(sec % 60, 2);
   }
@@ -337,7 +342,7 @@ window.StudyCore = (() => {
     return view.recs.filter(r => r.k === "q").reverse().slice(0, n);
   }
 
-  // ── 상태 고르기 ── 위에서부터 처음 맞는 하나. s = { storeOk, hasKey, auth401, stop, code, paused, queueN, lastOkMs, amber }
+  // ── 상태 고르기 ── 위에서부터 처음 맞는 하나. s = { storeOk, hasKey, auth401, stop, code, paused, queueN, lastOkMs, nowMs, amber }
   const STOP_KEYS = Object.freeze({ missing: "ST_REPO_MISSING", public: "ST_REPO_PUBLIC", file: "ST_FILE" });
   function pickStatus(s) {
     const pick = (name, key, vars, tone) => ({ name, key, vars: vars || {}, tone: tone || "" });
@@ -348,7 +353,7 @@ window.StudyCore = (() => {
     if (s.hasKey && s.stop === "halt") return pick("HALT", "ST_HALT", { code: s.code });
     if (s.hasKey && s.queueN > 0) return pick("QUEUE", "ST_QUEUE", { n: s.queueN }, s.amber ? "amber" : "");
     if (!s.hasKey) return pick("LOCAL", "ST_LOCAL");
-    return s.lastOkMs ? pick("SYNCED", "ST_SYNCED", { t: hhmm(s.lastOkMs) }) : pick("SYNCED", "ST_SYNC_WAIT");
+    return s.lastOkMs ? pick("SYNCED", "ST_SYNCED", { t: syncedAt(s.lastOkMs, s.nowMs) }) : pick("SYNCED", "ST_SYNC_WAIT");
   }
 
   // ── 공유할 글 ── 줄 사이는 "\n". 가린 줄 · 기기 이름 · 저장소 이름 · 녹음 초는 넣지 않는다.
@@ -573,7 +578,7 @@ window.StudyCore = (() => {
 
   return {
     V, TALK_SEC, DAY_START_HOUR, ROUTES, T, t,
-    studyDate, stampT, idTime, idMs, isDate, addDays, weekOf, monthOf, prevMonth, headDate, hhmm, mmss,
+    studyDate, stampT, idTime, idMs, isDate, addDays, weekOf, monthOf, prevMonth, headDate, hhmm, syncedAt, mmss,
     MAX_LINE_BYTES, KINDS, HEAD, SCHEMA, REJECT, ID_RE, DEV_RE, checkLine,
     makeId, makeLine, textIssue,
     KEY_LINK_BASE, devOk, ownerOk, repoOk, keyShape, keyLink, safeLink,

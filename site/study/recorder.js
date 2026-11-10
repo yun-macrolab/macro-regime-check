@@ -40,9 +40,9 @@ window.StudyRecorder = (() => {
     const take = find(n);
     if (take !== null) report(take.tell, ev);
   }
-  // 그 화면의 마지막(또는 지금) 녹음에서 녹음기가 돈 초(0~TALK_SEC). 허용을 기다린 시간은 세지 않는다. slot을 주지 않으면 가장 늦게 시작한 것
+  // 그 화면의 마지막(또는 지금) 녹음에서 녹음기가 돈 초(0~TALK_SEC). 허용을 기다린 시간은 세지 않는다
   function seconds(slot) {
-    const take = slot === undefined ? find(Math.max(0, ...[...takes.values()].map(one => one.n))) : takes.get(slot);
+    const take = takes.get(slot);
     if (!take || take.at === null) return 0;
     const until = take.end === null ? Date.now() : take.end;
     return Math.max(0, Math.min(StudyCore.TALK_SEC, Math.floor((until - take.at) / 1000)));
@@ -327,7 +327,7 @@ window.StudyRecorder = (() => {
 
   // ── 밖에서 쓰는 이름 ──
   return {
-    supported, begin, end, seconds, list, url, stopPlayback, clearAll, stats,
+    begin, end, seconds, list, url, stopPlayback, clearAll, stats,
     _: { DB, STORE, KEEP, BITS, TYPES },
   };
 })();
