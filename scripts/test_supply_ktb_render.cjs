@@ -154,7 +154,7 @@ test('ktb: table, spreads, head, charts and notices',()=>{
 test('ktb: without notices, rows or a date the section stays hidden and empty',()=>{
  const cases=[ktb({notices:[]}),ktb({notices:['',7]}),ktb({latest:{...ktb().latest,rows:[]}}),
   ktb({latest:{...ktb().latest,rows:[{tenor:'3년',yield:'3.6'}]}}),ktb({latest:{...ktb().latest,date:'2026-11-9'}}),
-  ktb({latest:{...ktb().latest,date:'2026-02-31x'}}),ktb({latest:null})];
+  ktb({latest:{...ktb().latest,date:'2026-02-31x'}}),ktb({latest:{...ktb().latest,date:'2026-13-40'}}),ktb({latest:null})];
  for(const k of cases){
   const t=load();
   t.renderKtb(k);
