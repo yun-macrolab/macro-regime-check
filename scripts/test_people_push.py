@@ -5,6 +5,7 @@
 네트워크 불필요 — git · 공개 전 검사는 가짜 실행기(부른 명령을 적고 정해 둔 답을 준다)이고, 끝의 묶음만 임시 폴더의 진짜 git으로 돈다
 (원격도 그 안의 bare 저장소). 발언 · 사람 · 출처는 지어낸 것이고, 명단은 임시 폴더에 쓴 작은 people-data.js다.
 끝의 DataFileTest는 저장소에 data/people_remarks.json이 있으면 그 파일을 게시기와 같은 검사로 본다(CI가 배포 전에).
+칸 전체를 내려 scripts/people_push.py를 지운 저장소에서는 묶음 전체를 건너뛴다(공개 파일까지 지웠을 때만 — TakedownTest).
 """
 import datetime
 import hashlib
@@ -24,6 +25,14 @@ from unittest import mock
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
+# 칸 전체를 내린 저장소(README '보류 · 내리기' — scripts/people_push.py와 data/people_remarks.json을 함께 지운다)에서는 이 묶음을 건너뛴다.
+# 지우지 않으면 아침 검사가 import에서 떨어져 내리는 push가 배포되지 않고 그 뒤 예약 갱신도 멈춘다(audit 2026-11-10 c-pub-repo-01).
+# 게시기만 지우고 공개 파일이 남았으면 그 파일을 검사할 길이 없으니 건너뛰지 않고 떨어진다(DataFileTest의 배포 앞 검사를 조용히 잃지 않게).
+if not os.path.exists(os.path.join(HERE, "people_push.py")):
+    if os.path.exists(os.path.join(REPO, "data", "people_remarks.json")):
+        raise ImportError("scripts/people_push.py가 없는데 data/people_remarks.json이 남아 있다 — 칸 전체를 내릴 때는 두 파일을 함께 "
+                          "지운다(README '보류 · 내리기')")
+    raise unittest.SkipTest("scripts/people_push.py를 지웠다(발언 칸 전체를 내림 — README '보류 · 내리기')")
 import people_push as P
 
 TODAY = datetime.date(2026, 11, 4)
@@ -995,6 +1004,55 @@ class DeployGateTest(unittest.TestCase):
         code, out, said = self.run_gate(run, a)
         self.assertEqual((code, out), (0, "newer=false\n"))                            # 끝을 받지 못하면 그대로 배포(지금까지처럼)
         self.assertIn("::warning::", said)
+
+
+class TakedownTest(unittest.TestCase):
+    """README '보류 · 내리기'의 칸 전체 내리기(두 파일을 main에서 지움)가 아침 검사를 떨어뜨리지 않는가 — 떨어지면 내리는 push가
+    배포되지 않고(발언 · 인용이 남는다) 그 뒤 예약 갱신도 check에서 멈춘다(audit 2026-11-10 c-pub-repo-01). 임시 폴더의 사본에서
+    게시기를 import하는 두 테스트 파일을 따로 돌린다(사본에는 게시기가 없으니 이 묶음은 거기서 다시 돌지 않는다)."""
+
+    def copy(self, keep_data):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        os.makedirs(os.path.join(tmp, "scripts"))
+        for name in ("test_people_push.py", "test_people_site.py", "test_people_render.cjs"):
+            shutil.copy(os.path.join(HERE, name), os.path.join(tmp, "scripts", name))
+        shutil.copytree(os.path.join(REPO, "site"), os.path.join(tmp, "site"))
+        shutil.copy(os.path.join(REPO, "README.md"), os.path.join(tmp, "README.md"))
+        os.makedirs(os.path.join(tmp, ".github", "workflows"))
+        shutil.copy(os.path.join(REPO, ".github", "workflows", "daily.yml"), os.path.join(tmp, ".github", "workflows", "daily.yml"))
+        os.makedirs(os.path.join(tmp, "data"))
+        if keep_data:
+            with open(os.path.join(tmp, *PATH.split("/")), "wb") as f:
+                f.write(P.dump(P.check_source(enc(source()), set(KEYS), TODAY)))
+        return tmp
+
+    def discover(self, tmp, pattern):
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        r = subprocess.run([sys.executable, "-X", "utf8", "-m", "unittest", "discover", "-s", "scripts", "-p", pattern],
+                           cwd=tmp, capture_output=True, text=True, encoding="utf-8", env=env, timeout=120)
+        return r.returncode, r.stdout + r.stderr
+
+    def test_only_the_two_guarded_files_import_the_publisher(self):
+        users = set()
+        for d in (HERE, os.path.join(HERE, "evening")):
+            for name in os.listdir(d):
+                if name.endswith(".py") and name != "people_push.py":
+                    with open(os.path.join(d, name), encoding="utf-8") as f:
+                        if re.search(r"^\s*(import|from)\s+people_push\b", f.read(), flags=re.M):
+                            users.add(name)
+        self.assertEqual(users, {"test_people_push.py", "test_people_site.py"})   # 새로 import하는 곳은 같은 가드를 단다
+
+    def test_removing_both_files_keeps_the_check_green(self):
+        code, out = self.discover(self.copy(keep_data=False), "test_people_*.py")
+        self.assertEqual(code, 0, out[-2000:])
+        self.assertRegex(out, r"OK \(skipped=\d+\)")
+        self.assertNotIn("ERROR", out)
+
+    def test_removing_only_the_publisher_still_fails(self):
+        code, out = self.discover(self.copy(keep_data=True), "test_people_push.py")   # 올라 있는 파일을 검사할 길이 없다
+        self.assertNotEqual(code, 0)
+        self.assertIn("data/people_remarks.json이 남아 있다", out)
 
 
 class ReadmeTest(unittest.TestCase):

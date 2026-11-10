@@ -164,8 +164,7 @@ REASONS = {                                   # 페이지·파일에 나가는 �
     "leak": "연락처 꼴 글이 섞여 쓰지 않음",
 }
 COMPANY_REASONS = {"no_ocf": "영업현금 자료 없음", "no_capex": "설비투자 자료 없음",
-                   "not_consecutive": "4분기 연속 아님", "calc": "계산 오류",
-                   "no_q": "분기 자료 없음", "no_bal": "잔액 자료 없음"}
+                   "not_consecutive": "4분기 연속 아님", "calc": "계산 오류", "no_bal": "잔액 자료 없음"}
 
 
 class ItemError(Exception):
@@ -701,8 +700,8 @@ def flow_calc(quarterly, filled=None):
       noline      0인 회사 가운데 그 분기 공시에 매입 줄이 없어 0으로 채운 회사 키(공시가 0이라고 낸 것과 다르다 — 2026-11-02)
       bb·bb_prev  5사 TTM 자사주 매입 합 bn(1년 전) — 모든 회사가 알 때만
       companies   회사마다 {key, ok, last_q, rows[{cal, end, fcf}](quarters 안의 분기만), bb_last, capex, ext, bb,
-                  capex_prev, ext_prev, bb_prev} 또는 {key, ok: False, reason: 'no_q'}
-    모든 회사가 함께 가진 달력 분기가 없으면 ItemError('format')."""
+                  capex_prev, ext_prev, bb_prev}
+    분기가 없는 회사가 있거나 모든 회사가 함께 가진 달력 분기가 없으면 ItemError('format')(5사 분기 FCF를 낼 수 없다)."""
     quarterly, filled = quarterly or {}, filled or {}
     of = len(COMPANIES)
     raw, comps = {}, []
@@ -712,8 +711,7 @@ def flow_calc(quarterly, filled=None):
         capex = items.get("capex") if isinstance(items, dict) else None
         ends = sorted(set(ocf) & set(capex)) if isinstance(ocf, dict) and isinstance(capex, dict) else []
         if not ends:
-            comps.append({"key": key, "ok": False, "reason": "no_q"})
-            continue
+            raise ItemError("format")
         cal = {}
         for e in ends:                                        # 같은 달력 분기에 끝이 둘이면 늦은 것
             cal[cal_q(e)] = e
@@ -727,7 +725,7 @@ def flow_calc(quarterly, filled=None):
                     "bb_last": bbs.get(ends[-1]) if isinstance(bbs, dict) else None, "last_q": ends[-1],
                     "bb_filled": bool(fb) and ends[-1] in fb}
         comps.append({"key": key})
-    common = set.intersection(*(set(r["fcf"]) for r in raw.values())) if len(raw) == of and raw else set()
+    common = set.intersection(*(set(r["fcf"]) for r in raw.values())) if raw else set()
     if not common:
         raise ItemError("format")
     last = max(common)
@@ -751,8 +749,8 @@ def flow_calc(quarterly, filled=None):
     bb_before = [r["before"][2] for r in raw.values() if r["before"][2] is not None]
     zero_n, buyers, unknown, noline = 0, [], [], []
     for c in comps:
-        r = raw.get(c["key"])
-        if r is None or r["bb_last"] is None:
+        r = raw[c["key"]]
+        if r["bb_last"] is None:
             unknown.append(c["key"])
         elif r["bb_last"] == 0:
             zero_n += 1
@@ -760,8 +758,6 @@ def flow_calc(quarterly, filled=None):
                 noline.append(c["key"])
         else:
             buyers.append([c["key"], _bn(r["bb_last"])])
-        if r is None:
-            continue
         c.update({"ok": True, "last_q": r["last_q"],
                   "rows": [{"cal": cal_label(k), "end": r["cal"][k], "fcf": _bn(r["fcf"][k])} for k in show if k in r["cal"]],
                   "bb_last": _bn(r["bb_last"]), "capex": _bn(r["now"][0]), "ext": _bn(r["now"][1]), "bb": _bn(r["now"][2]),
@@ -1037,9 +1033,6 @@ def flow_texts(v):
     detail = []
     for c in v["companies"]:
         lab, fy = _label(c["key"])
-        if not c["ok"]:
-            detail.append(f"{c['key']}({lab}): {COMPANY_REASONS[c['reason']]}")
-            continue
         rows = ", ".join(f"{r['cal']} {_f(r['fcf'])}" + ("" if int(r["end"][5:7]) % 3 == 0 else f"({r['end'][:7]} 말)")
                          for r in c["rows"]) or "—"
         detail.append(f"{c['key']}({lab}, 회계연도 {fy}월 말, 마지막 분기 {c['last_q']}): 분기 FCF {rows} · "
@@ -1230,10 +1223,6 @@ def flow_values_ok(v):
     for c, co in zip(comps, COMPANIES):
         if not isinstance(c, dict) or c.get("key") != co[0]:
             return False
-        if c.get("ok") is False:
-            if set(c) != {"key", "ok", "reason"} or c["reason"] not in COMPANY_REASONS:
-                return False
-            continue
         if not _shape(c, _FLOW_CO) or c["ok"] is not True or not isinstance(c["rows"], list) \
                 or len(c["rows"]) > FLOW_SHOW or not all(_shape(r, _FLOW_ROW) for r in c["rows"]):
             return False
@@ -1249,8 +1238,7 @@ def flow_values_ok(v):
         return False
     return (len(set(named)) == len(named) and set(named) <= set(keys) and v["zero_n"] + len(named) == of
             and v["dec"] <= FLOW_HIST - 1 and v["ext_n"] <= of and v["ext_prev_n"] <= of
-            and (v["ext"] is None or v["ext_n"] == of) and (v["ext_prev"] is None or v["ext_prev_n"] == of)
-            and all(c["ok"] for c in comps))                   # 5사 완전 분기가 있으면 모든 회사가 분기를 가졌다
+            and (v["ext"] is None or v["ext_n"] == of) and (v["ext_prev"] is None or v["ext_prev_n"] == of))
 
 
 _BAL_CO = {"key": "key", "ok": "bool", "date": "day", "cash": "num", "debt": "num", "net": "num", "prev_date": "day?",

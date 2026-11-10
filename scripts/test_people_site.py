@@ -181,8 +181,11 @@ def js_array(block, name):
     return json.loads(m.group(1))
 
 
+@unittest.skipUnless(os.path.exists(os.path.join(REPO, "scripts", "people_push.py")),
+                     "scripts/people_push.py를 지웠다(발언 칸 전체를 내림 — README '보류 · 내리기')")
 class RemarksCodeTest(unittest.TestCase):
-    """자동 분류 발언 칸(2026-11-04) — 같은 출처 파일 하나를 읽고, 게시기(scripts/people_push.py)와 같은 약속으로 다시 검사하고, 글자로만 넣는다."""
+    """자동 분류 발언 칸(2026-11-04) — 같은 출처 파일 하나를 읽고, 게시기(scripts/people_push.py)와 같은 약속으로 다시 검사하고, 글자로만 넣는다.
+    칸 전체를 내려 게시기를 지운 저장소에서는 건너뛴다 — 아침 검사가 떨어져 내리는 push가 배포되지 않는 일이 없게(test_people_push.TakedownTest)."""
 
     @classmethod
     def setUpClass(cls):

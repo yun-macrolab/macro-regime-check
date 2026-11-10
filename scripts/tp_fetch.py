@@ -93,7 +93,8 @@ SPLIT_CASES = ("ACM만", "KW만", "반대")
 YIELD_SRC = ("GSW",)                          # 월간 칸의 10년은 ACM 파일의 GSW만(비공개 원본과 같게 — 적합 10년으로 대신하지 않는다)
 
 _BOARD = "Board of Governors of the Federal Reserve System (US)"
-# FRED 권장 인용의 출처·제목(수집은 시리즈 제목을 받지 않는다 — 제목을 고치려면 FRED 시리즈 쪽과 손으로 대조)
+# FRED 권장 인용의 출처·제목(수집은 시리즈 제목을 받지 않는다 — 제목을 고치려면 FRED 시리즈 쪽과 손으로 대조.
+# THREEFYTP10·THREEFY10은 2026-11-10 시리즈 쪽 제목과 대조해 같았다)
 SOURCES = {KW_ID: (_BOARD, "Term Premium on a 10 Year Zero Coupon Bond"),
            FY_ID: (_BOARD, "Fitted Yield on a 10 Year Zero Coupon Bond"),
            ACM: ("Federal Reserve Bank of New York", "Treasury Term Premia (Adrian, Crump, and Moench), 10-year term premium")}

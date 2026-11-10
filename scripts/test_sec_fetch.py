@@ -581,7 +581,8 @@ class FlowTest(Base):
                        lambda x: x["companies"][0]["rows"][0].update(cal="2026Q3"), lambda x: x.update(ext_n=1),
                        lambda x: x["companies"][0].update(capex="51"), lambda x: x["quarters"][0].update(fcf=float("nan")),
                        lambda x: x.pop("noline"), lambda x: x.update(noline=["ZZZZ"]), lambda x: x.update(noline=["TSTA"]),
-                       lambda x: x.update(noline=["TSTB", "TSTB"]), lambda x: x.update(noline="TSTB")):
+                       lambda x: x.update(noline=["TSTB", "TSTB"]), lambda x: x.update(noline="TSTB"),
+                       lambda x: x["companies"].__setitem__(1, {"key": "TSTB", "ok": False, "reason": "no_bal"})):   # 회사 칸은 늘 ok
             w = json.loads(json.dumps(v))
             mutate(w)
             self.assertFalse(sf.flow_values_ok(w), mutate)
