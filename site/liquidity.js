@@ -4,17 +4,27 @@
    카드 이름·안내·정의·측정 기록 문구는 이 파일에 정해 둔 것이고, 칸의 숫자 줄·덧붙이는 줄은 자료 파일에 정해 둔 문구다(그 스크립트가 숫자로 만든다).
    형식이 어긋났거나 고지(notices)가 없는 칸은 숫자를 싣지 않고 '미수신(까닭)' 또는 '자료 없음' 한 줄로 둔다.
    자료 파일이 없으면(첫 자동 실행 전) 아무것도 그리지 않는다. 바깥 요청은 없다. 겉모양은 유가 카드의 클래스를 함께 쓴다.
-   카드 머리 안내는 ABOUT 하나(합니다체)다 — 자료 파일의 notice(한다체, 같은 뜻)는 겹쳐 싣지 않는다. */
+   카드 머리 안내는 ABOUT 하나(합니다체)다 — 자료 파일의 notice(한다체, 같은 뜻)는 겹쳐 싣지 않는다.
+   2026-11-15 더한 두 칸(연준 보유 국채의 잔존만기 구간 · 국채 잔존만기별 민간 보유)은 그 칸이 없던 때의 자료 파일이면 줄을 두지
+   않는다(OPTIONAL). 민간 보유 칸의 미 재무부 MSPD·뉴욕 연은 SOMA는 FRED가 아니라 직접 받은 것이라(DIRECT) 링크 없이 이름을
+   글자로 싣고, 그 권장 인용(자료 파일 sources[].citation)도 글자로 싣는다. */
 "use strict";
 window.LiquidityCard = (() => {
   // 카드의 칸 차례 — 자료 파일의 order와 같다(scripts/test_liquidity_fetch.py가 견준다)
-  const CARD = ["reserves", "rule", "fiscal"];
+  const CARD = ["reserves", "rule", "fiscal", "maturity", "holdings"];
+  // 그 칸이 없던 때의 자료 파일이면 줄을 두지 않는 칸(나머지는 칸이 없으면 '자료 없음')
+  const OPTIONAL = ["maturity", "holdings"];
+  // FRED 밖에서 직접 받는 두 출처 — 자료 파일 sources[].series의 이름(scripts/liquidity_fetch.py의 EXT와 같다 — 테스트가 견준다)
+  const DIRECT = { MSPD: "미 재무부 MSPD 표 3(시장성 국채 종목별 월말 잔액)", SOMA: "뉴욕 연은 SOMA 종목별 보유" };
+  // 권장 인용의 꼴 — '…, retrieved from …, November 15, 2026.'(scripts/liquidity_fetch.py ext_citation). 꼴이 다르면 싣지 않는다
+  const CITE = /^[^<>]{1,300}, retrieved from [^<>]{1,300}, [A-Z][a-z]+ \d{1,2}, \d{4}\.$/;
   // 자료 파일의 실패 사유 — 이 목록의 글만 싣는다(scripts/liquidity_fetch.py의 REASONS와 같다 — 테스트가 견준다)
   const REASONS = ["수신 실패", "수신 실패 · 묵은 캐시는 싣지 않음", "계산할 자료가 모자람", "받은 자료가 직전 자료보다 오래됨"];
   const LABEL = "참고 — 판정 없음";
   // 카드 머리 안내 — liquidity_fetch.NOTICE의 뜻을 모두 담는다(테스트가 견준다). 자료 파일의 notice는 따로 싣지 않는다
-  const ABOUT = "연준 대차대조표와 미 연방 재정수지 · 이자 지출 · 국채 구성의 공개 통계와 그 산술입니다. 위 규칙 카드 '지준과 통화승수'의 지준/GDP가 " +
-    "왜 움직였는지 읽는 재료이고, 규칙 수에 들지 않습니다. 금리나 자금 여건을 예측하지 않습니다.";
+  const ABOUT = "연준 대차대조표와 미 연방 재정수지 · 이자 지출 · 국채 구성, 연준 보유 국채의 만기 구간과 민간이 가진 국채의 공개 통계와 " +
+    "그 산술입니다. 위 규칙 카드 '지준과 통화승수'의 지준/GDP가 왜 움직였는지 읽는 재료이고, 규칙 수에 들지 않습니다. 금리나 자금 " +
+    "여건을 예측하지 않습니다.";
   const GUIDE = [
     ["부호는 지준 쪽", "13주 나눔의 숫자는 지준을 늘린 쪽이 +, 줄인 쪽이 −입니다. 재무부 현금(TGA)이나 역레포가 늘면 그만큼 지준이 줄어 " +
       "−로, 연준이 가진 국채가 늘면 +로 나옵니다. '그 밖'은 나머지(MBS 상환·현금 통화·대출 등)이고, 화면에 보이는 숫자끼리 합이 맞게 " +
@@ -26,6 +36,13 @@ window.LiquidityCard = (() => {
       "값입니다. 다른 항목이 그대로일 때 재무부 현금이 그만큼 늘거나 줄면 하한에 닿는다는 크기만 보입니다."],
     ["재정수지 · 이자 · 단기채", "재정수지는 미 재무부 월간 재무제표(MTS)의 12개월 합(적자 −), 이자 지출은 국민계정(분기, 연율), 단기채 비중은 연준 금융계정" +
       "(Z.1, 분기)의 시장성 국채 중 단기채 몫입니다. GDP 대비는 명목 GDP로 나눈 산술입니다."],
+    ["잔존만기 구간", "연준 H.4.1이 보유 국채를 남은 만기로 나눈 구간(10년 초과 · 5~10년 · 1~5년)입니다. 사지 않아도 시간이 지나면 위 " +
+      "구간에서 아래 구간으로 옮겨 가고, 만기 재투자는 입찰에서 장기물을 더하므로 13주 변화가 +라고 연준이 장기물을 샀다는 뜻은 " +
+      "아닙니다."],
+    ["민간 보유", "미 재무부가 매달 말 내는 시장성 국채 종목별 잔액(MSPD 표 3)에서 뉴욕 연은의 종목별 연준 보유(SOMA, 그 달 말 이하 " +
+      "마지막 기준일)를 빼 같은 잔존만기 구간으로 더했습니다. 10년물 환산은 듀레이션을 10년물 하나로 맞춘 크기이고, 월말 미 10년 " +
+      "금리 하나로 평평하다고 본 근사입니다. 발행 총량보다 가격에 민감한 민간이 떠안는 양을 보는 숫자이고 금리를 예측하지 " +
+      "않습니다."],
     ["측정 기록", "운영자가 2026-10-28에 2025년 이후 자료로 재 본 바로는 지준 변화와 재무부 현금 변화가 거의 반대로 함께 움직였습니다" +
       "(수요일 수준끼리 또는 주 평균끼리 주간 상관 약 −0.8, 4주·13주 약 −0.86~−0.90). 지준의 주간·4주 변화와 10년 금리·기간 프리미엄 " +
       "변화의 상관은 약했습니다(절댓값 0.27 이하). 그래서 이 카드는 규칙 카드를 읽는 재료이고, 금리를 예측하지 않습니다."]
@@ -49,6 +66,7 @@ window.LiquidityCard = (() => {
     return el("p", { class: "oil-late" }, "이번 갱신의 값을 싣지 못해 직전에 받은 값을 싣습니다" + since);
   }
   function row(it, key) {
+    if (it === undefined && OPTIONAL.includes(key)) return null;          // 그 칸이 없던 때의 자료 파일
     const name = isObj(it) && typeof it.name === "string" && it.name ? it.name : key;
     if (!usable(it, key))
       return el("div", { class: "oil-row liq-row" }, el("p", { class: "oil-name" }, el("strong", {}, name), " — ", missing(it)));
@@ -58,18 +76,43 @@ window.LiquidityCard = (() => {
       ...texts(it.extra).map(t => el("p", { class: "muted" }, t)),
       stale(it));
   }
-  // 출처 — 칸마다의 FRED 시리즈 링크(link()는 FRED 주소만 링크로 건다)와 권장 인용은 자료 파일(sources[].citation)에
+  // 출처 — 칸마다의 FRED 시리즈 링크(link()는 FRED 주소만 링크로 건다)와 권장 인용은 자료 파일(sources[].citation)에.
+  // FRED 밖에서 직접 받은 것(DIRECT — 미 재무부 MSPD · 뉴욕 연은 SOMA)은 링크 없이 이름만 글자로
+  const hasOwn = k => Object.prototype.hasOwnProperty.call(DIRECT, k);
   function sourceLine(items) {
-    const seen = new Map();
+    const seen = new Map(), direct = new Set();
     for (const k of CARD) {
       const it = items[k];
       if (!usable(it, k)) continue;
-      for (const s of Array.isArray(it.sources) ? it.sources : [])
-        if (isObj(s) && typeof s.series === "string" && /^[A-Z0-9]+$/.test(s.series) && !seen.has(s.series)) seen.set(s.series, s.url);
+      for (const s of Array.isArray(it.sources) ? it.sources : []) {
+        if (!isObj(s) || typeof s.series !== "string" || !/^[A-Z0-9]+$/.test(s.series)) continue;
+        if (hasOwn(s.series)) direct.add(s.series);
+        else if (!seen.has(s.series)) seen.set(s.series, s.url);
+      }
     }
-    if (!seen.size) return null;
+    if (!seen.size && !direct.size) return null;
     const parts = [...seen].flatMap(([sid, url], i) => (i ? [" · ", link(sid, url)] : [link(sid, url)]));
-    return el("p", { class: "source-link" }, "자료(FRED 경유, 연준 · 미 재무부 · BEA): ", ...parts);
+    const names = Object.keys(DIRECT).filter(x => direct.has(x)).map(x => DIRECT[x]).join(" · ");
+    return el("p", { class: "source-link" }, "자료(FRED 경유, 연준 · 미 재무부 · BEA): ", ...parts,
+      names ? (seen.size ? " · 직접 받은 자료: " : "직접 받은 자료: ") + names : null);
+  }
+  // 권장 인용 — 직접 받은 출처(DIRECT)만, 출처마다 하나(가장 늦게 받은 칸의 것), 줄마다 글자로
+  function citeLines(items) {
+    const best = new Map();
+    for (const k of CARD) {
+      const it = items[k];
+      if (!usable(it, k)) continue;
+      const when = typeof it.retrieved === "string" && DAY.test(it.retrieved) ? it.retrieved : "";
+      for (const s of Array.isArray(it.sources) ? it.sources : []) {
+        if (!isObj(s) || typeof s.series !== "string" || !hasOwn(s.series)) continue;
+        if (typeof s.citation !== "string" || !CITE.test(s.citation)) continue;
+        const was = best.get(s.series);
+        if (!was || when > was.when) best.set(s.series, { when, text: s.citation });
+      }
+    }
+    if (!best.size) return null;
+    return el("div", { class: "cite-lines" }, ...Object.keys(DIRECT).filter(x => best.has(x))
+      .map(x => el("p", { class: "muted" }, "권장 인용: " + best.get(x).text)));
   }
 
   function card(d) {
@@ -82,7 +125,8 @@ window.LiquidityCard = (() => {
       el("details", { class: "rule-detail rule-guide" }, el("summary", {}, "읽는 법 — 정의와 측정 기록"),
         ...GUIDE.map(([head, text]) => el("p", {}, el("strong", {}, head), " · ", text))),
       notices.length ? el("div", { class: "notices" }, ...notices.map(t => el("p", {}, t))) : null,
-      sourceLine(items));
+      sourceLine(items),
+      citeLines(items));
   }
 
   // 자료 파일 전체 → 카드. 그린 칸이 하나도 없으면 카드를 두지 않고 false
@@ -94,5 +138,5 @@ window.LiquidityCard = (() => {
     return true;
   }
 
-  return Object.freeze({ render, CARD, REASONS, LABEL, ABOUT });
+  return Object.freeze({ render, CARD, OPTIONAL, DIRECT, REASONS, LABEL, ABOUT });
 })();

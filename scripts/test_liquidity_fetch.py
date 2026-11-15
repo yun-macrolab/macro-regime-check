@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """지준·재정 참고 자료(liquidity_fetch) 테스트 — 산식(손으로 셀 수 있는 합성 자료), 13주 나눔의 합·91일 근처, 규칙 카드와
 같은 지준/GDP 값, 재정(정확히 12개 달·같은 분기·네 분기 앞), 칸마다 실패·직전 값 이어 싣기, 이용 조건 목록, 문구 원칙
-(판정 낱말 없음), 화면·워크플로 연결.
+(판정 낱말 없음), 화면·워크플로 연결. 2026-11-15 더한 두 칸 — 연준 보유 국채의 잔존만기 구간(13주 변화·91일 근처)과 국채
+잔존만기별 민간 보유(미 재무부 MSPD 종목별 잔액 − 뉴욕 연은 SOMA: 종목별 합·연준 보유는 잔액까지·달력 구간·듀레이션·10년물
+환산·1년 전, 요청 차례·예산·실패·캐시·옛 기록일).
 
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
-네트워크 불필요 — FRED는 가짜 loader 또는 합성 캐시(--offline). 숫자는 모두 지어낸 것이다.
+네트워크 불필요 — FRED는 가짜 loader 또는 합성 캐시(--offline), 미 재무부·뉴욕 연은은 가짜 수신기(FakeHold — 종목은 CUSIP 꼴만
+맞춘 가짜). 숫자는 모두 지어낸 것이다.
 """
 import os, sys, io, re, json, random, datetime, tempfile, unittest, shutil, contextlib, http.client
 from unittest import mock
@@ -67,7 +70,81 @@ def world(end=D(2026, 10, 28)):
     zq = quarters(D(2024, 1, 1), D(2026, 4, 1))
     S["BOGZ1FL313161110Q"] = [(q, 6_000.0 + 100 * i) for i, q in enumerate(zq)]          # 2026-04-01 = 6,900 · 1년 전 6,500
     S["BOGZ1FL313161275Q"] = [(q, 22_000.0) for q in zq]
+    S["TREAS10Y"] = [(d, float(step(1_620_000, 1_626_000)(d))) for d in wk]          # 연준 보유 만기 구간(2026-11-15)
+    S["TREAS5T10"] = [(d, float(step(490_000, 487_000)(d))) for d in wk]
+    S["TREAS1T5"] = [(d, float(step(1_430_000, 1_440_000)(d))) for d in wk]
+    S["DGS10"] = [(D(2025, 9, 30), 4.1), (D(2026, 9, 30), 4.0), (D(2026, 10, 28), 4.3)]   # 월말 이하 마지막 값만 쓴다
     return S
+
+
+# ---------- 민간 보유(미 재무부 MSPD · 뉴욕 연은 SOMA) — 지어낸 종목 ----------
+HREC, HYAGO = D(2026, 9, 30), D(2025, 9, 30)                                          # NOW(2026-10-30) 앞의 월말
+SOMA_DATES = ["2026-10-28", "2026-09-23", "2026-09-16", "2025-09-24"]                  # 뉴욕 연은처럼 새것부터
+
+
+def mspd_rows(record, scale=1.0):
+    """지어낸 MSPD 표 3 행 — 한 종목이 여러 행(재발행)이고 잔액은 한 행에만, 백만 달러 글자(비공개 tsy_holdings 테스트와 같은 꼴).
+    구간 합(십억 달러): 1년 이하 100(연준 100) · 1~5년 280(10) · 5~10년 150(45) · 10년 초과 120(60) — scale은 잔액에만."""
+    y = record.year
+    md = f"{record.month:02d}-{record.day:02d}"
+    rows = [("Bills Maturity Value", "FAKEBIL01", "null", f"{y + 1}-01-29", "null"),
+            ("Bills Maturity Value", "FAKEBIL01", "null", f"{y + 1}-01-29", f"{100000 * scale}"),
+            ("Notes", "FAKENOT03", "4", f"{y + 3}-{md}", f"{200000 * scale}"),
+            ("Notes", "FAKENOT03", "4", f"{y + 3}-{md}", "null"),
+            ("Notes", "FAKENOT07", "4.5", f"{y + 7}-{md}", f"{150000 * scale}"),
+            ("Bonds", "FAKEBND30", "5", f"{y + 30}-11-15", f"{120000 * scale}"),
+            ("Inflation-Protected Securities", "FAKETIP05", "1.25", f"{y + 5}-{md}", f"{50000 * scale}"),   # 정확히 5년 = 1~5년
+            ("Floating Rate Notes", "FAKEFRN02", "null", f"{y + 2}-{md}", f"{30000 * scale}"),
+            ("Notes", "FAKEOLD01", "2", record.isoformat(), "5000"),                    # 기록일에 만기 — 빠진다
+            ("Notes", "Total Unmatured Treasury Notes", "null", "null", "999999"),       # 합계 줄(9자리 아님) — 빠진다
+            ("Federal Financing Bank", "FAKEFFB01", "null", f"{y + 3}-01-01", "3000")]   # 다른 종류 — 빠진다
+    return [{"record_date": record.isoformat(), "security_class1_desc": c, "security_class2_desc": cu,
+             "interest_rate_pct": r, "maturity_date": m, "outstanding_amt": o} for c, cu, r, m, o in rows]
+
+
+def soma_items(scale=1.0):
+    """지어낸 SOMA 행 — 달러 글자. 7년물 30%, 30년물 50%, 물가연동은 액면 + 보상분, 단기채는 잔액보다 많고(잔액까지만),
+    기록일 전에 만기된 종목 하나."""
+    return [{"cusip": "FAKENOT07", "parValue": f"{45_000e6 * scale:.0f}", "inflationCompensation": ""},
+            {"cusip": "FAKEBND30", "parValue": f"{60_000e6 * scale:.0f}", "inflationCompensation": ""},
+            {"cusip": "FAKETIP05", "parValue": f"{8_000e6 * scale:.0f}", "inflationCompensation": f"{2_000e6 * scale:.0f}"},
+            {"cusip": "FAKEBIL01", "parValue": f"{500_000e6:.0f}", "inflationCompensation": ""},
+            {"cusip": "FAKEGONE1", "parValue": "1000000000", "inflationCompensation": ""}]
+
+
+class FakeHold:
+    """미 재무부·뉴욕 연은 수신 대역(url, host, deadline) → bytes. 부른 주소를 적고, fail에 든 조각이 주소에 있으면 실패."""
+    def __init__(self, latest=HREC, fail=(), bodies=None, clock=None, cost=0.0):
+        self.latest, self.fail, self.bodies, self.calls = latest, set(fail), dict(bodies or {}), []
+        self.clock, self.cost = clock, cost
+
+    def __call__(self, url, host, deadline):
+        self.calls.append((url, host))
+        if self.clock:
+            self.clock.t += self.cost
+        if any(f in url for f in self.fail):
+            raise OSError("원문 사유 https://bad.invalid/xyz-77")
+        if url in self.bodies:
+            return self.bodies[url]
+        if url == liq.MSPD_URL + liq.MSPD_LATEST_Q:
+            js = {"data": [{"record_date": self.latest.isoformat()}], "meta": {"total-pages": 400}}
+        elif url.startswith(liq.MSPD_URL + "?filter=record_date:eq:"):
+            d = D.fromisoformat(url.split("eq:")[1][:10])
+            js = {"data": mspd_rows(d, 1.0 if d.year == HREC.year else 0.9), "meta": {"total-pages": 1}}
+        elif url == liq.SOMA_DATES_URL:
+            js = {"soma": {"asOfDates": SOMA_DATES}}
+        elif url == liq.SOMA_URL.format("2026-09-23"):
+            js = {"soma": {"holdings": soma_items()}}
+        elif url == liq.SOMA_URL.format("2025-09-24"):
+            js = {"soma": {"holdings": soma_items(0.8)}}
+        else:
+            raise OSError(f"모르는 주소 {url}")
+        return json.dumps(js).encode("utf-8")
+
+
+HOLD_URLS = [liq.MSPD_URL + liq.MSPD_LATEST_Q, liq.SOMA_DATES_URL, liq.MSPD_URL + liq.MSPD_MONTH_Q.format("2026-09-30"),
+             liq.SOMA_URL.format("2026-09-23"), liq.MSPD_URL + liq.MSPD_MONTH_Q.format("2025-09-30"),
+             liq.SOMA_URL.format("2025-09-24")]
 
 
 class FakeFred:
@@ -273,6 +350,8 @@ class ArithmeticTest(unittest.TestCase):
 
     def test_every_item_computes_and_texts_have_no_verdict_words(self):
         core = liq.compute(self.S, {}, NOW.date())
+        self.assertNotIn("holdings", core)                                         # FRED 밖 칸은 load_holdings가 만든다
+        core["holdings"] = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=FakeHold())
         for spec in liq.ITEMS:
             c = core[spec["key"]]
             self.assertNotIsInstance(c, liq.ItemError, spec["key"])
@@ -287,16 +366,210 @@ class ArithmeticTest(unittest.TestCase):
                     self.assertNotIn(word, body, (spec["key"], word))
 
 
+    def test_maturity_levels_and_13_week_changes(self):
+        c = liq.calc_maturity(self.S)
+        v = c["values"]
+        self.assertEqual((c["date"], v["from"]), ("2026-10-28", "2026-07-29"))
+        self.assertEqual((v["y10p"], v["y10p_chg13"], v["y5_10"], v["y5_10_chg13"], v["y1_5"], v["y1_5_chg13"]),
+                         (1626.0, 6.0, 487.0, -3.0, 1440.0, 10.0))
+        line, extra = liq.texts("maturity", v, c["date"])
+        self.assertEqual(line, "10년 초과 1,626bn(13주 +6) · 5~10년 487bn(13주 -3) · 1~5년 1,440bn(13주 +10) — 잔존만기 구간이라 "
+                               "변화 ≠ 매입")                                             # 비공개 [지준·재정] 줄과 같은 숫자 꼴
+        self.assertIn("13주 변화는 2026-07-29~2026-10-28 수요일 수준의 차다", extra[0])
+        self.assertIn("'샀다'고 읽지 않는다", extra[1])
+        S = dict(self.S, TREAS1T5=self.S["TREAS1T5"][:-1])                           # 한 줄이 한 주 늦으면 공통 마지막 수요일
+        self.assertEqual(liq.calc_maturity(S)["date"], "2026-10-21")
+
+    def test_maturity_without_a_near_base_keeps_levels_and_blanks_changes(self):
+        d1 = D(2026, 10, 28)
+        for gap, ok in ((6, True), (7, False)):
+            old = d1 - datetime.timedelta(days=91 + gap)
+            S = {sid: [(old, 1_000_000.0), (d1, 1_002_400.0)] for sid in liq.MATURITY.values()}
+            v = liq.calc_maturity(S)["values"]
+            self.assertEqual(v["y10p"], 1002.4)
+            self.assertEqual((v["from"], v["y10p_chg13"]), (old.isoformat(), 2.4) if ok else (None, None), gap)
+        line, extra = liq.texts("maturity", v, "2026-10-28")
+        self.assertEqual(line, "10년 초과 1,002bn(13주 —) · 5~10년 1,002bn(13주 —) · 1~5년 1,002bn(13주 —) — 잔존만기 구간이라 변화 ≠ 매입")
+        self.assertIn("13주 변화는 비운다", extra[0])
+        S = {"TREAS10Y": [(d1, 1.0)], "TREAS5T10": [(d1 + datetime.timedelta(days=1), 1.0)], "TREAS1T5": [(d1, 1.0)]}
+        with self.assertRaises(liq.ItemError):                                       # 공통 날짜가 없다
+            liq.calc_maturity(S)
+
+    def test_holdings_outstanding_sums_rows_per_security(self):
+        out = liq.mspd_outstanding(mspd_rows(HREC), HREC)
+        self.assertEqual(sorted(out), ["FAKEBIL01", "FAKEBND30", "FAKEFRN02", "FAKENOT03", "FAKENOT07", "FAKETIP05"])
+        self.assertEqual((out["FAKEBIL01"]["out"], out["FAKENOT03"]["out"]), (100000.0, 200000.0))   # 잔액이 한 행에만
+        self.assertEqual((out["FAKEBND30"]["cpn"], out["FAKEBIL01"]["cpn"]), (5.0, None))
+        self.assertEqual(liq.mspd_outstanding(None, HREC), {})
+        self.assertEqual(liq.mspd_outstanding([{"security_class2_desc": "FAKEX0001", "security_class1_desc": "Notes",
+                                                "maturity_date": "아님", "outstanding_amt": "1"}, "행 아님"], HREC), {})
+        fed = liq.soma_holdings(soma_items() + [{"cusip": "SHORT", "parValue": "1"}, {"cusip": "FAKEX0001", "parValue": "x"}, 7])
+        self.assertEqual((fed["FAKENOT07"], fed["FAKETIP05"]), (45_000.0, 10_000.0))   # 백만 달러, 액면 + 물가 보상분
+        self.assertNotIn("FAKEX0001", fed)
+
+    def test_holdings_durations(self):
+        self.assertAlmostEqual(liq.mod_duration(5, 10, 5), (1 / 0.05) * (1 - 1.025 ** -20), places=9)   # par 채권 닫힌 식
+        self.assertAlmostEqual(liq.mod_duration(0, 3, 4), 3 / 1.02, places=9)                          # 무이표 = T ÷ (1 + y/2)
+        self.assertEqual(liq.mod_duration(4, 0, 4), 0.0)
+        self.assertAlmostEqual(liq.duration_of({"cls": "Floating Rate Notes", "cpn": None}, 2.0, 4),
+                               liq.mod_duration(0, liq.FRN_YEARS, 4), places=12)
+
+    def test_holdings_buckets_shares_and_ten_year_equivalents(self):
+        out, fed = liq.mspd_outstanding(mspd_rows(HREC), HREC), liq.soma_holdings(soma_items())
+        b = liq.holdings_buckets(out, fed, HREC, 4.0)
+        k = b["buckets"]
+        self.assertEqual((k["le1"]["out"], k["le1"]["fed"], k["le1"]["private"]), (100.0, 100.0, 0.0))   # 잔액까지만
+        self.assertEqual((k["y1_5"]["out"], k["y1_5"]["fed"], k["y1_5"]["private"]), (280.0, 10.0, 270.0))
+        self.assertEqual((k["y5_10"]["out"], k["y5_10"]["private"], k["y5_10"]["share"]), (150.0, 105.0, 30.0))
+        self.assertEqual((k["y10p"]["out"], k["y10p"]["private"], k["y10p"]["share"]), (120.0, 60.0, 50.0))
+        self.assertEqual((b["total"]["out"], b["total"]["fed"], b["total"]["private"]), (650.0, 215.0, 435.0))
+        self.assertEqual((b["n"], b["fed_missing"]), (6, 1))                                         # FAKEGONE1
+        d10 = liq.mod_duration(4.0, 10, 4.0)
+        yrs = lambda m: (m - HREC).days / 365.25
+        dd = (200 * liq.mod_duration(4, yrs(D(2029, 9, 30)), 4.0) + 40 * liq.mod_duration(1.25, yrs(D(2031, 9, 30)), 4.0)
+              + 30 * liq.mod_duration(0, liq.FRN_YEARS, 4.0) + 105 * liq.mod_duration(4.5, yrs(D(2033, 9, 30)), 4.0)
+              + 60 * liq.mod_duration(5, yrs(D(2056, 11, 15)), 4.0))
+        self.assertAlmostEqual(b["total"]["eq10"], round(dd / d10, 4), places=3)
+        self.assertIsNone(liq.holdings_buckets(out, fed, HREC, None)["total"]["eq10"])               # 금리가 없으면 환산을 뺀다
+
+    def test_holdings_bucket_edges_are_calendar_years(self):
+        rec = D(2026, 10, 31)
+
+        def one(mat):
+            rows = [{"security_class1_desc": "Notes", "security_class2_desc": "FAKEEDG01", "interest_rate_pct": "4",
+                     "maturity_date": mat.isoformat(), "outstanding_amt": "1000"}]
+            res = liq.holdings_buckets(liq.mspd_outstanding(rows, rec), {}, rec, None)["buckets"]
+            return next(k for k, v in res.items() if v["out"])
+        self.assertEqual(one(rec + datetime.timedelta(days=365)), "le1")
+        self.assertEqual(one(rec + datetime.timedelta(days=366)), "y1_5")
+        self.assertEqual(one(D(2036, 10, 31)), "y5_10")                              # 달력으로 정확히 10년 — 윤일이 끼어도
+        self.assertEqual(one(D(2036, 11, 2)), "y10p")
+        self.assertEqual(liq.year_before(D(2024, 2, 29)), D(2023, 2, 28))
+        self.assertEqual(liq.add_years(D(2024, 2, 29), 1), D(2025, 2, 28))
+
+    def test_holdings_line_and_explanations(self):
+        c = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=FakeHold())
+        self.assertNotIsInstance(c, liq.ItemError)
+        v = c["values"]
+        self.assertEqual((c["date"], v["soma"], v["y"], v["ya_record"], v["ya_soma"], v["ya_y"]),
+                         ("2026-09-30", "2026-09-23", 4.0, "2025-09-30", "2025-09-24", 4.1))
+        line, extra = liq.texts("holdings", v, c["date"])
+        self.assertTrue(line.startswith("국채 민간 보유(재무부 월말 잔액 − 연준, 2026-09-30 · SOMA 2026-09-23, 잔존만기): "
+                                        "10년 초과 60bn(연준 50%) · 5~10년 105bn(연준 30%) · 1~5년 270bn(연준 4%) · "
+                                        "1년 이하 0bn(연준 100%) · 합계 435bn = 10년물 환산 "), line)
+        self.assertTrue(line.endswith(f"(1년 전 대비 {liq._s(v['total_eq10'] - v['ya_total_eq10'])})"), line)
+        self.assertIn("종목 6개 · SOMA 기준일과 월말 사이에 만기돼 빠진 연준 종목 1개", extra[0])
+        self.assertIn("DGS10 4.00% 하나로 평평하다고 본 근사", extra[1])
+        self.assertTrue(extra[2].startswith("1년 전 2025-09-30 월말(SOMA 2025-09-24) 대비 민간 보유 변화(bn): 10년 초과 "), extra[2])
+        ya = {k: v[f"{k}_private"] - v[f"ya_{k}_private"] for k in ("y10p", "y5_10", "y1_5", "le1")}
+        self.assertEqual(extra[2].split(": ", 1)[1], " · ".join(f"{lab} {liq._s(ya[k])}" for k, lab in
+                                                                (("y10p", "10년 초과"), ("y5_10", "5~10년"),
+                                                                 ("y1_5", "1~5년"), ("le1", "1년 이하"))))
+        self.assertIn("금리를 예측하지 않는다", extra[3])
+        bare = {**v, "y": None, "ya_total_eq10": None, **{f"{k}_eq10": None for k in liq.HOLD_KEYS}}   # DGS10 없음
+        line, extra = liq.texts("holdings", bare, c["date"])
+        self.assertTrue(line.endswith(f" · 합계 435bn(1년 전 대비 {liq._s(435 - v['ya_total_private'])})"), line)
+        self.assertEqual(extra[1], "미 10년 금리 DGS10을 받지 못해 10년물 환산은 싣지 않는다.")
+        alone = {**v, "ya_record": None, "ya_soma": None, "ya_y": None, "ya_total_eq10": None,
+                 **{f"ya_{k}_private": None for k in liq.HOLD_KEYS}}                  # 1년 전을 받지 못함
+        line, extra = liq.texts("holdings", alone, c["date"])
+        self.assertRegex(line, r"10년물 환산 [\d,]+bn$")
+        self.assertEqual(extra[2], "1년 전 같은 달 말의 자료를 받지 못해 1년 전 대비는 싣지 않는다.")
+
+    def test_holdings_requests_in_order_and_once_per_month(self):
+        f = FakeHold()
+        c = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=f)
+        self.assertNotIsInstance(c, liq.ItemError)
+        self.assertEqual([u for u, _ in f.calls], HOLD_URLS)                         # 최대 6번 — 날짜 목록은 한 번만
+        self.assertEqual({h for _, h in f.calls}, {liq.MSPD_HOST, liq.SOMA_HOST})
+        f = FakeHold(fail={"2025-09-24"})                                            # 1년 전 SOMA만 못 받음
+        c = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=f)
+        self.assertEqual((c["date"], c["values"]["ya_record"], c["values"]["ya_total_eq10"]), ("2026-09-30", None, None))
+        for fail in ({"sort=-record_date"}, {"asofdates"}, {"eq:2026-09-30"}, {"2026-09-23"}):
+            e = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=FakeHold(fail=fail))
+            self.assertIsInstance(e, liq.ItemError, fail)
+            self.assertEqual(e.code, "fetch", fail)
+
+    def test_holdings_checks_the_shapes(self):
+        latest = liq.MSPD_URL + liq.MSPD_LATEST_Q
+        month = liq.MSPD_URL + liq.MSPD_MONTH_Q.format("2026-09-30")
+        cases = [({latest: b"<html>moved</html>"}, NOW.date()),                                  # JSON이 아님
+                 ({latest: json.dumps({"data": []}).encode()}, NOW.date()),                      # 기록일 없음
+                 ({latest: json.dumps({"data": [{"record_date": "2026-09-29"}]}).encode()}, NOW.date()),   # 말일이 아님
+                 ({}, D(2026, 9, 29)),                                                            # 오늘 뒤의 기록일
+                 ({month: json.dumps({"data": mspd_rows(HREC), "meta": {"total-pages": 2}}).encode()}, NOW.date()),
+                 ({month: json.dumps({"data": [r for r in mspd_rows(HREC) if r["security_class2_desc"] == "FAKEOLD01"]})
+                   .encode()}, NOW.date()),                                                       # 쓸 종목이 없다
+                 ({liq.SOMA_URL.format("2026-09-23"): json.dumps({"soma": {"holdings": []}}).encode()}, NOW.date()),
+                 ({liq.SOMA_DATES_URL: json.dumps({"soma": {"asOfDates": ["2026-10-28"]}}).encode()}, NOW.date())]
+        for bodies, today in cases:
+            e = liq.load_holdings("unused", today, dgs10=self.S["DGS10"], fetch=FakeHold(bodies=bodies))
+            self.assertIsInstance(e, liq.ItemError, (bodies, today))
+            self.assertEqual(e.code, "format", (bodies, today))
+        boom = lambda url, host, deadline: (_ for _ in ()).throw(RuntimeError("뜻밖"))
+        self.assertEqual(liq.load_holdings("unused", NOW.date(), fetch=boom).code, "fetch")
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            e = liq.load_holdings("unused", NOW.date(), dgs10=5, fetch=FakeHold())          # 계산 쪽 뜻밖의 오류도 그 칸만
+        self.assertEqual(e.code, "format")
+        self.assertIn("holdings 계산 오류: TypeError", buf.getvalue())
+
+    def test_holdings_budget(self):
+        class Clock:
+            t = 0.0
+
+            def __call__(self):
+                return self.t
+        clock = Clock()
+        f = FakeHold(clock=clock, cost=12.0)
+        e = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=f, clock=clock, budget=30)
+        self.assertEqual(len(f.calls), 3)                                            # 0·12·24초 — 30초의 남은 1초 이하에서 멈춘다
+        self.assertEqual(e.code, "fetch")
+        f = FakeHold()
+        self.assertEqual(liq.load_holdings("unused", NOW.date(), fetch=f, budget=0).code, "fetch")
+        self.assertEqual(f.calls, [])
+        seen = []
+
+        def opener(req, timeout=None):                                               # 기본 수신기 = credit_fetch.fetch_bytes
+            seen.append((req.full_url, req.get_header("User-agent"), timeout))
+            raise OSError("연결 없음")
+        self.assertEqual(liq.load_holdings("unused", NOW.date(), opener=opener).code, "fetch")
+        self.assertEqual(seen, [(liq.MSPD_URL + liq.MSPD_LATEST_Q, liq.cf.UA, liq.cf.REQ_TIMEOUT)])
+
+
 class LicenceTest(unittest.TestCase):
     def test_series_list_is_fixed_and_public(self):
         self.assertEqual(set(liq.SERIES), {"WRBWFRBL", "WDTGAL", "WLRRAL", "WSHOBL", "WSHONBNL", "WRESBAL", "GDP",
-                                           "MTSDS133FMS", "A091RC1Q027SBEA", "BOGZ1FL313161110Q", "BOGZ1FL313161275Q"})
+                                           "MTSDS133FMS", "A091RC1Q027SBEA", "BOGZ1FL313161110Q", "BOGZ1FL313161275Q",
+                                           "TREAS10Y", "TREAS5T10", "TREAS1T5", "DGS10"})
+        self.assertEqual(liq.SERIES[-4:], ["TREAS10Y", "TREAS5T10", "TREAS1T5", "DGS10"])   # 더한 것은 맨 뒤
+        self.assertEqual(liq.SOURCES["DGS10"], (rp.FRED_SOURCE["DGS10"], rp.FRED_TITLE["DGS10"]))
+        self.assertEqual({k: v[3] for k, v in liq.EXT.items()}, {"MSPD": "public-domain", "SOMA": "nyfed-terms"})
         self.assertEqual(set(liq.LICENCE), set(liq.SERIES))
         self.assertEqual(set(liq.LICENCE.values()), {"public-domain"})
         self.assertFalse(set(liq.SERIES) & (set(rp.RESTRICTED) | set(ai.RESTRICTED)))
         for spec in liq.ITEMS:
             self.assertLessEqual(set(spec["series"]), set(liq.SERIES))
         self.assertEqual(liq.SOURCES["WRESBAL"], (rp.FRED_SOURCE["WRESBAL"], rp.FRED_TITLE["WRESBAL"]))   # 규칙 카드와 같은 인용
+
+    def test_direct_sources_and_notices(self):
+        spec = liq.BY_KEY["holdings"]
+        src = liq.sources_of(spec, "2026-11-15", {"soma": "2026-10-28"})
+        self.assertEqual([s["series"] for s in src], ["DGS10", "MSPD", "SOMA"])
+        self.assertEqual(src[1]["citation"],
+                         "U.S. Department of the Treasury, Bureau of the Fiscal Service, Monthly Statement of the Public Debt, "
+                         "Detail of Marketable Treasury Securities Outstanding, retrieved from "
+                         "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/debt/mspd/mspd_table_3_market, "
+                         "November 15, 2026.")
+        self.assertEqual(src[2]["citation"],
+                         "Federal Reserve Bank of New York, System Open Market Account Holdings of Domestic Securities, "
+                         "retrieved from https://markets.newyorkfed.org/api/soma/tsy/get/all/asof/2026-10-28.json, "
+                         "November 15, 2026.")
+        self.assertEqual((src[1]["url"], src[2]["url"]), (liq.MSPD_PAGE, liq.SOMA_PAGE))
+        self.assertEqual(liq.notices(spec, "2026-11-15"), [liq.HOLD_NOTICE, liq.HOLD_NOTICE_EN, rp.nyfed_attribution("2026"),
+                                                           rp.NOT_AFFILIATED])
+        self.assertEqual(liq.notices(liq.BY_KEY["maturity"], "2026-11-15"), [liq.COMPUTED_NOTICE])
+        self.assertIn("not published by the U.S. Treasury or the New York Fed", liq.HOLD_NOTICE_EN)
 
     def test_citation_form(self):
         c = liq.citation("MTSDS133FMS", "2026-10-30")
@@ -314,12 +587,13 @@ class MainTest(unittest.TestCase):
         self.path = os.path.join(self.out, liq.FILE)
         self.S = world()
 
-    def run_main(self, fred=None, now=NOW, extra=(), clock=None):
+    def run_main(self, fred=None, now=NOW, extra=(), clock=None, hold=None):
         fred = fred or FakeFred(self.S)
         buf = io.StringIO()
         kw = {"clock": clock} if clock else {}
         with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
-            code = liq.main(["--out", self.out, "--work", self.work, *extra], fred_load=fred, now=now, **kw)
+            code = liq.main(["--out", self.out, "--work", self.work, *extra], fred_load=fred, now=now,
+                            hold_fetch=hold or FakeHold(), **kw)
         return code, buf.getvalue()
 
     def saved(self):
@@ -341,13 +615,21 @@ class MainTest(unittest.TestCase):
             self.assertEqual(set(it), {"ok", "stale", "error", "failed_since", "key", "name", "date", "values", "retrieved",
                                        "line", "extra", "notices", "sources"})
             self.assertEqual(it["retrieved"], "2026-10-30")
-            self.assertEqual(it["notices"], [liq.COMPUTED_NOTICE])
-            self.assertEqual([s["series"] for s in it["sources"]], liq.BY_KEY[key]["series"])
+            self.assertEqual(it["notices"], liq.notices(liq.BY_KEY[key], "2026-10-30"))
+            self.assertEqual([s["series"] for s in it["sources"]],
+                             liq.BY_KEY[key]["series"] + liq.BY_KEY[key].get("ext", []))
             for src in it["sources"]:
-                self.assertEqual(src["licence"], "public-domain")
-                self.assertTrue(src["citation"].startswith(liq.SOURCES[src["series"]][0]))
+                name, _, _, licence = liq.EXT.get(src["series"], (liq.SOURCES.get(src["series"], ("",))[0], 0, 0,
+                                                                  "public-domain"))
+                self.assertEqual(src["licence"], licence)
+                self.assertTrue(src["citation"].startswith(name + ", "))
                 self.assertTrue(src["citation"].endswith("October 30, 2026."))
+        self.assertEqual(js["items"]["holdings"]["date"], "2026-09-30")
+        self.assertNotIn("FAKE", json.dumps(js))                                     # 종목 행은 싣지 않는다 — 구간 합만
         self.assertNotIn("-95", log)                                               # 로그에는 날짜와 사유만
+        self.assertEqual(sorted(os.listdir(os.path.join(self.work, liq.CACHE)))[-6:],   # 받은 원문은 작업 폴더에만
+                         ["mspd_2025-09-30.json", "mspd_2026-09-30.json", "mspd_latest.json", "soma_2025-09-24.json",
+                          "soma_2026-09-23.json", "soma_dates.json"])
 
     def test_one_missing_series_only_stales_its_items(self):
         self.run_main()
@@ -363,7 +645,7 @@ class MainTest(unittest.TestCase):
         self.assertNotIn("xyz-77", log)
         self.run_main(fred=FakeFred(self.S, fail={"GDP"}), now=NOW + datetime.timedelta(days=2))
         items = self.saved()["items"]
-        self.assertEqual({k for k, it in items.items() if not it["ok"]}, {"rule", "fiscal"})
+        self.assertEqual({k for k, it in items.items() if not it["ok"]}, {"rule", "fiscal"})   # 민간 보유는 GDP와 무관
         self.assertEqual(items["reserves"]["failed_since"], None)                   # 다시 받으면 실패 날짜가 지워진다
         self.run_main(fred=FakeFred(self.S, fail={"GDP"}), now=NOW + datetime.timedelta(days=3))
         self.assertEqual(self.saved()["items"]["rule"]["failed_since"], "2026-11-01")   # 못 받기 시작한 날을 지킨다
@@ -382,13 +664,24 @@ class MainTest(unittest.TestCase):
         for sid, s in self.S.items():
             with open(os.path.join(cache, f"{sid}.csv"), "w", encoding="utf-8") as f:
                 f.write("observation_date," + sid + "\n" + "".join(f"{d.isoformat()},{v}\n" for d, v in s))
+        hold = FakeHold()                                                          # 민간 보유의 원문 캐시(온라인 실행이 남기는 꼴)
+        for url, name in zip(HOLD_URLS, ("mspd_latest", "soma_dates", "mspd_2026-09-30", "soma_2026-09-23",
+                                         "mspd_2025-09-30", "soma_2025-09-24")):
+            with open(os.path.join(cache, name + ".json"), "wb") as f:
+                f.write(hold(url, None, None))
         buf = io.StringIO()
-        with contextlib.redirect_stdout(buf), mock.patch.object(ai.urllib.request, "urlopen", side_effect=AssertionError("요청")):
+        with contextlib.redirect_stdout(buf), mock.patch.object(ai.urllib.request, "urlopen", side_effect=AssertionError("요청")), \
+                mock.patch.object(liq.cf.urllib.request, "urlopen", side_effect=AssertionError("요청")):
             code = liq.main(["--out", self.out, "--work", self.work, "--offline"], now=NOW)
         self.assertEqual(code, 0, buf.getvalue())
         items = self.saved()["items"]
         self.assertTrue(all(it["ok"] for it in items.values()))
         self.assertAlmostEqual(items["reserves"]["values"]["other"], -58)
+        self.assertEqual(items["holdings"]["values"]["total_private"], 435.0)
+        os.remove(os.path.join(cache, "soma_2025-09-24.json"))                     # 1년 전 원문이 없으면 그 비교만 뺀다
+        with contextlib.redirect_stdout(buf):
+            liq.main(["--out", self.out, "--work", self.work, "--offline"], now=NOW + datetime.timedelta(days=1))
+        self.assertIsNone(self.saved()["items"]["holdings"]["values"]["ya_record"])
 
     def test_online_fetch_goes_through_the_bounded_reader(self):
         bodies = {sid: ("observation_date," + sid + "\n" + "".join(f"{d.isoformat()},{v}\n" for d, v in s)).encode()
@@ -448,6 +741,39 @@ class MainTest(unittest.TestCase):
         self.assertEqual((it["line"], it["values"], it["retrieved"]), (before["line"], before["values"], "2026-10-30"))
         self.assertTrue(self.saved()["items"]["reserves"]["ok"])
 
+    def test_holdings_fail_alone_and_carry_their_numbers(self):
+        self.run_main()
+        before = self.saved()["items"]["holdings"]
+        code, log = self.run_main(hold=FakeHold(fail={"sort=-record_date"}), now=NOW + datetime.timedelta(days=1))
+        self.assertEqual(code, 0, log)
+        items = self.saved()["items"]
+        h = items["holdings"]
+        self.assertEqual((h["ok"], h["stale"], h["error"], h["failed_since"]), (False, True, liq.REASONS["fetch"], "2026-10-31"))
+        self.assertEqual((h["line"], h["values"], h["retrieved"]), (before["line"], before["values"], "2026-10-30"))
+        self.assertTrue(all(items[k]["ok"] for k in ("reserves", "rule", "fiscal", "maturity")))
+        self.assertIn("::warning::지준·재정 참고 holdings 받지 못함: 수신 실패 — 직전 값(2026-09-30 기준) 유지", log)
+        self.assertNotIn("xyz-77", log + json.dumps(self.saved(), ensure_ascii=False))
+        self.run_main(hold=FakeHold(latest=D(2026, 8, 31)), now=NOW + datetime.timedelta(days=2))   # 더 이른 기록일
+        h = self.saved()["items"]["holdings"]
+        self.assertEqual((h["ok"], h["stale"], h["error"], h["date"]), (False, True, liq.REASONS["older"], "2026-09-30"))
+        code, _ = self.run_main(hold=FakeHold(fail={"2025-09-24"}), now=NOW + datetime.timedelta(days=3))
+        h = self.saved()["items"]["holdings"]
+        self.assertEqual((h["ok"], h["values"]["ya_record"], h["retrieved"]), (True, None, "2026-11-02"))   # 1년 전만 빠짐
+        self.run_main(hold=FakeHold(), now=NOW + datetime.timedelta(days=4))
+        self.assertEqual(self.saved()["items"]["holdings"]["values"], before["values"])
+
+    def test_maturity_series_failing_only_stale_that_item(self):
+        self.run_main()
+        self.run_main(fred=FakeFred(self.S, fail={"TREAS5T10"}), now=NOW + datetime.timedelta(days=1))
+        items = self.saved()["items"]
+        self.assertEqual({k for k, it in items.items() if not it["ok"]}, {"maturity"})
+        self.assertTrue(items["maturity"]["stale"])
+        self.run_main(fred=FakeFred(self.S, fail={"DGS10"}), now=NOW + datetime.timedelta(days=2))
+        h = self.saved()["items"]["holdings"]
+        self.assertTrue(h["ok"])                                                   # DGS10이 없으면 10년물 환산만 뺀다
+        self.assertEqual((h["values"]["y"], h["values"]["total_eq10"]), (None, None))
+        self.assertIn("DGS10을 받지 못해", " ".join(h["extra"]))
+
     def test_older_data_is_not_taken(self):
         self.run_main()
         short = dict(self.S, MTSDS133FMS=self.S["MTSDS133FMS"][:-1])
@@ -486,10 +812,13 @@ class MainTest(unittest.TestCase):
         js["items"]["fiscal"]["values"]["bills_q"] = "어제"                         # 날짜 꼴이 아니다
         js["items"]["rule"]["values"]["extra"] = 1.0                               # 모르는 값
         js["items"]["reserves"]["values"]["res"] = "9"                             # 숫자가 아니다
+        js["items"]["maturity"]["values"]["y10p"] = None                           # 있어야 하는 수준이 비었다
+        js["items"]["holdings"]["values"]["n"] = 6.5                               # 종목 수는 정수
         self.save(js)
-        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + datetime.timedelta(days=1))
+        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + datetime.timedelta(days=1),
+                      hold=FakeHold(fail={"https://"}))
         items = self.saved()["items"]
-        for key in ("fiscal", "rule", "reserves"):
+        for key in ("fiscal", "rule", "reserves", "maturity", "holdings"):
             self.assertEqual((items[key]["ok"], items[key]["stale"]), (False, False), key)
             self.assertNotIn("line", items[key])
         self.assertNotIn("어제", json.dumps(self.saved(), ensure_ascii=False))
@@ -503,7 +832,8 @@ class MainTest(unittest.TestCase):
             it["notices"] = ["바깥 글"]
             it["name"] = "바뀐 이름"
         self.save(js)
-        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + datetime.timedelta(days=1))
+        self.run_main(fred=FakeFred(self.S, fail=set(self.S)), now=NOW + datetime.timedelta(days=1),
+                      hold=FakeHold(fail={"https://"}))
         dump = json.dumps(self.saved(), ensure_ascii=False)
         for bad in ("bad.invalid", "매수", "바깥 글", "바뀐 이름"):
             self.assertNotIn(bad, dump)
@@ -537,7 +867,7 @@ class MainTest(unittest.TestCase):
         self.assertIn("::warning::", log)
 
     def test_nothing_fetched_exits_1(self):
-        code, log = self.run_main(fred=FakeFred(self.S, fail=set(self.S)))
+        code, log = self.run_main(fred=FakeFred(self.S, fail=set(self.S)), hold=FakeHold(fail={"https://"}))
         self.assertEqual(code, 1, log)
         self.assertTrue(all(not it["ok"] for it in self.saved()["items"].values()))
 
@@ -554,7 +884,7 @@ class MainTest(unittest.TestCase):
         self.assertEqual(os.listdir(self.out), [liq.FILE])
 
     def test_every_string_is_fixed_text_without_verdict_words(self):
-        runs = [(FakeFred(self.S, fail={"A091RC1Q027SBEA"}), NOW),                   # 직전 값 없는 첫 실패
+        runs = [(FakeFred(self.S, fail={"A091RC1Q027SBEA", "TREAS10Y"}), NOW),       # 직전 값 없는 첫 실패
                 (FakeFred(self.S), NOW + datetime.timedelta(days=1)),
                 (FakeFred(self.S, fail={"WRESBAL", "WSHOBL"}), NOW + datetime.timedelta(days=2)),   # 직전 값을 이어 싣는 실패
                 (FakeFred(self.S, cache={"GDP"}), NOW + datetime.timedelta(days=3))]
@@ -574,7 +904,8 @@ class MainTest(unittest.TestCase):
             nested = re.compile(r"\([^()]*\(")
             for t in re.findall(r'"((?:[^"\\]|\\.)*)"', dump):
                 self.assertIsNone(nested.search(t), t)
-        self.assertEqual(urls, {f"https://fred.stlouisfed.org/series/{sid}" for sid in liq.SERIES})
+        self.assertEqual(urls, {f"https://fred.stlouisfed.org/series/{sid}" for sid in liq.SERIES} |
+                         {liq.MSPD_PAGE, liq.MSPD_URL, liq.SOMA_PAGE, liq.SOMA_URL.format("2026-09-23")})
         self.assertEqual(errors, {liq.REASONS["fetch"], liq.REASONS["cache"]})        # 정해 둔 문구만
 
 
@@ -632,6 +963,10 @@ class StaticTest(unittest.TestCase):
         js = self.read("site", "liquidity.js")
         card = re.findall(r'"(\w+)"', js[js.index("const CARD = ["):].split("]")[0])
         self.assertEqual(card, [s["key"] for s in liq.ITEMS])
+        optional = re.findall(r'"(\w+)"', js[js.index("const OPTIONAL = ["):].split("]")[0])
+        self.assertEqual(optional, ["maturity", "holdings"])                         # 2026-11-15 더한 칸 — 옛 자료 파일엔 없다
+        direct = re.findall(r'(\w+): "', js[js.index("const DIRECT = {"):].split("};")[0])
+        self.assertEqual(direct, list(liq.EXT))                                      # 직접 받은 출처의 이름(sources[].series)
         reasons = re.findall(r'"([^"]+)"', js[js.index("const REASONS = ["):].split("];")[0])
         self.assertEqual(reasons, list(liq.REASONS.values()))
         self.assertIn('const LABEL = "참고 — 판정 없음";', js)

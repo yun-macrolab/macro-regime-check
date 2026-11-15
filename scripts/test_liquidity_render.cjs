@@ -30,10 +30,14 @@ function item(key,extra={}){
  return Object.assign({key,ok:true,stale:false,error:null,failed_since:null,name:key+' 이름',date:'2026-10-28',
   values:{},retrieved:'2026-10-30',line:key+' 숫자 줄 -12bn',extra:[key+' 덧붙임'],notices:['계산값 고지'],sources:[src('GDP')]},extra);
 }
-function data(){
- const keys=['reserves','rule','fiscal'];
+const KEYS=['reserves','rule','fiscal','maturity','holdings'];
+// 민간 보유 칸의 출처 — FRED(DGS10) 하나와 직접 받은 둘(미 재무부 MSPD · 뉴욕 연은 SOMA, 링크 없이 이름과 권장 인용만)
+const direct=(series,name,when='November 15, 2026')=>({series,name,url:'https://example.invalid/'+series,licence:'x',
+ citation:`${name}, ${series} title, retrieved from https://example.invalid/${series}.json, ${when}.`});
+function data(keys=KEYS){
  const items=Object.fromEntries(keys.map(k=>[k,item(k)]));
  items.reserves.sources=['WRBWFRBL','WDTGAL'].map(src);
+ if(items.holdings)items.holdings.sources=[src('DGS10'),direct('MSPD','U.S. Treasury'),direct('SOMA','New York Fed')];
  return {schema:1,notice:'참고 자료다.',order:keys,items};
 }
 
@@ -43,7 +47,8 @@ test('card draws every row in order with the fixed label and no stray words',()=
  const card=ids['liquidity-slot'].kids[0], text=card.textContent;
  const rows=cls(card,'liq-row').map(r=>cls(r,'oil-name')[0].textContent.split(' 이름')[0]);
  assert.deepEqual(rows,[...api.CARD]);
- assert.deepEqual([...api.CARD],['reserves','rule','fiscal']);
+ assert.deepEqual([...api.CARD],['reserves','rule','fiscal','maturity','holdings']);
+ assert.deepEqual([...api.OPTIONAL],['maturity','holdings']);
  assert.equal(api.LABEL,'참고 — 판정 없음');                                                     // 이름표 글을 고정한다
  assert.equal(cls(card,'reference-label')[0].textContent,'참고 — 판정 없음');
  assert.ok(text.startsWith('지준·재정참고 — 판정 없음'),text.slice(0,40));
@@ -52,7 +57,7 @@ test('card draws every row in order with the fixed label and no stray words',()=
  for(const t of api.ABOUT.split(/(?<=\.)\s+/).filter(Boolean))assert.ok(/니다\.$/.test(t),t);    // 합니다체 하나
  assert.ok(!/undefined|NaN|null/.test(text));
  assert.deepEqual(cls(card,'notices')[0].kids.map(k=>k.textContent),['계산값 고지']);           // 겹치는 고지는 한 번
- assert.deepEqual(walk(card,n=>n.tag==='a').map(a=>a.textContent),['WRBWFRBL','WDTGAL','GDP']);  // FRED 링크, 시리즈마다 한 번
+ assert.deepEqual(walk(card,n=>n.tag==='a').map(a=>a.textContent),['WRBWFRBL','WDTGAL','GDP','DGS10']);   // FRED 링크, 시리즈마다 한 번
  assert.ok(cls(card,'oil-card').length===1&&cls(card,'liq-card').length===1);                 // 유가 카드의 겉모양을 함께 쓴다
 });
 
@@ -72,8 +77,9 @@ test('the guide carries the fixed definitions and the measurement record',()=>{
  const g=cls(ids['liquidity-slot'],'rule-guide')[0];
  assert.ok(g.textContent.startsWith('읽는 법 — 정의와 측정 기록'));
  const heads=g.kids.filter(k=>k.tag==='p').map(p=>p.kids[0].textContent);
- assert.deepEqual(heads,['부호는 지준 쪽','수요일 수준과 주 평균','규칙 하한 대비','재정수지 · 이자 · 단기채','측정 기록']);
- const rec=g.kids.filter(k=>k.tag==='p')[4].textContent;
+ assert.deepEqual(heads,['부호는 지준 쪽','수요일 수준과 주 평균','규칙 하한 대비','재정수지 · 이자 · 단기채','잔존만기 구간','민간 보유',
+  '측정 기록']);
+ const rec=g.kids.filter(k=>k.tag==='p')[6].textContent;
  assert.ok(rec.includes('2026-10-28')&&rec.includes('0.27')&&rec.includes('금리를 예측하지 않습니다'),rec);
 });
 
@@ -89,12 +95,16 @@ test('failed rows show a fixed reason only, never remote text',()=>{
  d.items.rule={key:'rule',ok:false,stale:false,error:'수신 실패 · 묵은 캐시는 싣지 않음',name:'규칙 이름'};
  d.items.fiscal={key:'fiscal',ok:false,stale:false,error:'<b>원문 오류 https://bad.invalid</b>',name:'재정 이름'};
  d.items.reserves=item('reserves',{notices:[]});                                       // 고지가 없으면 숫자를 싣지 않는다
+ d.items.maturity=item('maturity',{notices:[]});
+ d.items.holdings={key:'holdings',ok:false,stale:false,error:'계산할 자료가 모자람',name:'민간 보유 이름'};
  assert.equal(api.render(d),false);                                                  // 그린 칸이 없으면 카드도 없다
  d.items.reserves=item('reserves');
  assert.equal(api.render(d),true);
  const text=ids['liquidity-slot'].textContent;
  assert.ok(text.includes('규칙 이름 — 미수신(수신 실패 · 묵은 캐시는 싣지 않음)'));
  assert.ok(text.includes('재정 이름 — 자료 없음'));
+ assert.ok(text.includes('maturity 이름 — 자료 없음'));
+ assert.ok(text.includes('민간 보유 이름 — 미수신(계산할 자료가 모자람)'));
  assert.ok(!text.includes('bad.invalid'));
  assert.ok(!/undefined|NaN|null/.test(text));
 });
@@ -105,6 +115,8 @@ test('rows with a wrong key, bad date or empty line are not drawn as numbers',()
  d.items.reserves=item('rule');                                                      // 자리와 key가 다르다
  d.items.rule=item('rule',{date:'어제'});
  d.items.fiscal=item('fiscal',{line:''});
+ d.items.maturity=item('holdings');
+ d.items.holdings=item('holdings',{date:'2026-10-31T00'});
  assert.equal(api.render(d),false);
  const e=data();e.items.rule=item('rule',{date:'2026-13-45'});e.items.fiscal=item('fiscal',{extra:[1,null,'남는 줄']});
  assert.equal(api.render(e),true);
@@ -132,9 +144,51 @@ test('source links skip odd series names and unusable rows',()=>{
  const d=data();
  d.items.rule.sources=[src('WRESBAL'),{series:'<x>',url:'https://fred.stlouisfed.org/series/x'},'GDP',null];
  d.items.fiscal={key:'fiscal',ok:false,error:'수신 실패',sources:[src('MTSDS133FMS')]};
+ d.items.maturity.sources=[src('TREAS10Y'),{series:'treas5t10',url:'https://fred.stlouisfed.org/series/treas5t10'}];
+ d.items.holdings={key:'holdings',ok:false,error:'수신 실패',sources:[src('DGS10'),direct('MSPD','U.S. Treasury')]};
  api.render(d);
  const links=walk(ids['liquidity-slot'],n=>n.tag==='a').map(a=>a.textContent);
- assert.deepEqual(links,['WRBWFRBL','WDTGAL','WRESBAL']);
+ assert.deepEqual(links,['WRBWFRBL','WDTGAL','WRESBAL','TREAS10Y']);
+ assert.ok(!cls(ids['liquidity-slot'],'source-link')[0].textContent.includes('직접 받은 자료'));   // 그리지 않은 칸의 출처는 없다
+});
+
+test('the two rows added on 2026-11-15 are left out of an older file, but a broken one says so',()=>{
+ const {api,ids}=load();
+ assert.equal(api.render(data(['reserves','rule','fiscal'])),true);                     // 그 칸이 없던 때의 자료 파일
+ const rows=cls(ids['liquidity-slot'],'liq-row').map(r=>cls(r,'oil-name')[0].textContent);
+ assert.deepEqual(rows.map(t=>t.split(' 이름')[0]),['reserves','rule','fiscal']);
+ assert.ok(!/undefined|null/.test(ids['liquidity-slot'].textContent));
+ assert.equal(cls(ids['liquidity-slot'],'cite-lines').length,0);                       // 직접 받은 출처가 없으면 인용 줄도 없다
+ const d=data();d.items.maturity=null;d.items.holdings={key:'holdings',ok:false,stale:false,error:'수신 실패',name:'민간 보유 이름'};
+ api.render(d);
+ const text=ids['liquidity-slot'].textContent;
+ assert.ok(text.includes('maturity — 자료 없음'),text);
+ assert.ok(text.includes('민간 보유 이름 — 미수신(수신 실패)'));
+});
+
+test('directly fetched sources are named without links, and their citations are drawn as text',()=>{
+ const {api,ids}=load();
+ api.render(data());
+ const slot=ids['liquidity-slot'];
+ const line=cls(slot,'source-link')[0].textContent;
+ assert.ok(line.startsWith('자료(FRED 경유, 연준 · 미 재무부 · BEA): WRBWFRBL · WDTGAL · GDP · DGS10 · 직접 받은 자료: '),line);
+ assert.ok(line.endsWith(api.DIRECT.MSPD+' · '+api.DIRECT.SOMA),line);
+ assert.ok(!walk(slot,n=>n.tag==='a').some(a=>/example\.invalid/.test(a.attrs.href||'')));   // 직접 받은 것엔 링크가 없다
+ const cites=cls(slot,'cite-lines')[0].kids.map(k=>k.textContent);
+ assert.deepEqual(cites,['권장 인용: U.S. Treasury, MSPD title, retrieved from https://example.invalid/MSPD.json, November 15, 2026.',
+  '권장 인용: New York Fed, SOMA title, retrieved from https://example.invalid/SOMA.json, November 15, 2026.']);
+ const e=data();
+ e.items.holdings.sources=[direct('MSPD','<b>x</b>'),{...direct('SOMA','Y'),citation:'아무 글'},src('GDP')];   // 꼴이 다른 인용은 싣지 않는다
+ api.render(e);
+ assert.equal(cls(ids['liquidity-slot'],'cite-lines').length,0);
+ const f=data();f.items.holdings.sources=[direct('MSPD','U.S. Treasury')];f.items.reserves.sources=[];f.items.rule.sources=[];
+ f.items.fiscal.sources=[];f.items.maturity.sources=[];
+ api.render(f);
+ assert.equal(cls(ids['liquidity-slot'],'source-link')[0].textContent,'자료(FRED 경유, 연준 · 미 재무부 · BEA): 직접 받은 자료: '+api.DIRECT.MSPD);
+ const g=data();g.items.holdings.notices=[];                                         // 고지가 없는 칸은 숫자도 인용도 싣지 않는다
+ api.render(g);
+ assert.ok(ids['liquidity-slot'].textContent.includes('holdings 이름 — 자료 없음'));
+ assert.equal(cls(ids['liquidity-slot'],'cite-lines').length,0);
 });
 
 test('no card when the page has no slot',()=>{
