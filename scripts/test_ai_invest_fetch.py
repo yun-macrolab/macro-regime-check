@@ -1046,7 +1046,7 @@ class StaticTest(unittest.TestCase):
         self.assertIn("continue-on-error: true", step[:200])
         self.assertIn("timeout-minutes: 2", step[:200])
         job = wf[wf.index("\n  update:"):wf.index("\n  deploy:")]
-        self.assertIn("timeout-minutes: 30", job[:300])                          # 참고 단계 제한의 합이 일을 넘기지 않게
+        self.assertIn("timeout-minutes: 32", job[:300])                          # 참고 단계 제한의 합이 일을 넘기지 않게(2026-11-15 국채–OIS 단계로 30에서)
         self.assertIn("python scripts/ai_invest_fetch.py", step[:300])
         self.assertLess(wf.index("id: ai_invest"), wf.index("공개 전 검사(새 산출물 포함)"))
         self.assertLess(wf.index("id: ai_invest"), wf.index("git add data"))

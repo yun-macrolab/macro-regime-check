@@ -31,6 +31,8 @@
 #             받으면 그 칸의 대조 한 줄만 미수신)
 #             · 기간 프리미엄 모형 대조(tp.json — FRED Kim-Wright + 뉴욕 연은 ACM) · 단일종목 CDS(cds.json·cds_days.json —
 #             DTCC 공개 거래 보고 하루 파일, 빠진 날만 이어 받는다)
+#             · 국채–OIS(ois.json·ois_days.json — DTCC 공개 금리 스와프 거래 보고 하루 파일 + FRED 국채 par 금리 넷,
+#             2026-11-15 더함. 빠진 평일만 새 날부터 이어 받는다 — 파일 하나에 약 1초라 2년 치는 몇 번의 실행에 걸쳐 찬다)
 #           한국 시장 자료(korea.json)는 시작·종료 기록(korea_status.py → korea-status.json) 사이에서 받는다. 일부 묶음이라도
 #           실패하면 알림(alert)에 넣는다.
 #   deploy  data/·site/만 Pages로. 스크립트·원자료(.work/)는 배포하지 않는다.
@@ -100,6 +102,7 @@ jobs:
           node --test scripts/test_fedbs_render.cjs
           node --test scripts/test_credit_render.cjs
           node --test scripts/test_cds_render.cjs
+          node --test scripts/test_ois_render.cjs
           node --test scripts/test_people_render.cjs
           node --test scripts/test_supply_ktb_render.cjs
 
@@ -108,7 +111,7 @@ jobs:
     # main에서만 — 다른 브랜치에서 수동 실행하면 그 브랜치 커밋이 main으로 밀려 올라간다
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30        # 참고 자료 단계 제한의 합(국고채 2 + 수급 2 + AI 2 + SEC 2 + 신용 2 + 지준 2 + 연준 재무상태표 2 + 기간 프리미엄 2 + CDS 2 + 유가 2 + 한국 4 = 24분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다
+    timeout-minutes: 32        # 참고 자료 단계 제한의 합(국고채 2 + 수급 2 + AI 2 + SEC 2 + 신용 2 + 지준 2 + 연준 재무상태표 2 + 기간 프리미엄 2 + CDS 2 + 국채–OIS 2 + 유가 2 + 한국 4 = 26분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다
     permissions:
       contents: write   # 봇이 data/를 커밋한다
     outputs:
@@ -207,6 +210,13 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/cds_fetch.py
+      # 참고 자료 — 국채–OIS 스프레드(DTCC 공개 금리 스와프 거래 보고 하루 파일, 빠진 평일만 새 날부터 · DTCC 전체 70초 굳은 상한 +
+      # FRED 국채 par 금리 4회 · 20초 상한). 규칙 판정에 쓰지 않고, 실패해도 알림 없음
+      - name: 국채–OIS 참고 자료 받기
+        id: ois
+        continue-on-error: true
+        timeout-minutes: 2
+        run: python scripts/ois_fetch.py
       # 참고 자료 — 유가·에너지(FRED 공개 통계, 요청 16회, 전체 60초 상한). 규칙 판정에 쓰지 않고, 실패해도 알림 없음
       - name: 유가·에너지 참고 자료 받기
         id: oil
