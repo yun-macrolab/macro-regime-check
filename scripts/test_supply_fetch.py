@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""수급 참고 자료(supply_fetch) 테스트 — 너그러운 딜러 응답 읽기, 계산, 한쪽 실패·직전 값 이어 싣기, 원자적 쓰기, 종료코드.
+"""수급 참고 자료(supply_fetch) 테스트 — 너그러운 딜러 응답 읽기, 계산, 한쪽 실패·직전 값 이어 싣기, 원자적 쓰기, 종료코드,
+딜러 이표채 7~11년 쪽(2026-11-15 — 숫자만, 맨 뒤 요청, 단계 상한).
 
 실행:  python -m unittest discover -s scripts   (저장소 루트에서)
 네트워크 불필요 — 뉴욕 연은 응답은 지어낸 JSON(2026-11-10 확인한 실제 꼴과, 꼴이 바뀌어도 버티는지 보는 여러 꼴), FRED는 가짜 loader 또는
@@ -38,6 +39,11 @@ def custody_series(end=D(2026, 10, 7)):
     return [(w, 3000000 - 300 * i + 20000 * math.sin(i / 9)) for i, w in enumerate(wednesdays(end=end))]
 
 
+def bucket_series(end=D(2026, 9, 30)):
+    """[(date, 백만 달러)] — 지어낸 주간 딜러 이표채 7~11년 순포지션(약 −25~+35십억 달러, 0을 오간다)."""
+    return [(w, 5000 + 30000 * math.sin(i / 17)) for i, w in enumerate(wednesdays(end=end))]
+
+
 def pd_json(series, key=sf.PD_KEY, **extra):
     """실제 꼴 {"pd": {"timeseries": [{asofdate, keyid, value(백만 달러의 글자)}]}} — 2026-11-10 한 번 받아 확인했다
     (2013-04-03부터 주간 709개, 시리즈 구분 칸 없음). 값은 지어낸 것이다."""
@@ -72,13 +78,29 @@ class FakeOpener:
         return Resp(self.body.encode("utf-8") if isinstance(self.body, str) else self.body, self.final or url)
 
 
+class Route:
+    """urlopen 대역 — 주소마다 다른 FakeOpener(딜러 합계 · 7~11년). 부른 주소를 차례대로 적는다(log를 주면 거기에도)."""
+    def __init__(self, dealer=None, bucket=None, log=None):
+        self.by = {sf.PD_URL: dealer or FakeOpener(pd_json(dealer_series())),
+                   sf.BUCKET_URL: bucket or FakeOpener(pd_json(bucket_series(), key=sf.BUCKET_KEY))}
+        self.calls, self.log = [], log
+
+    def __call__(self, url, timeout=None):
+        self.calls.append((url, timeout))
+        if self.log is not None:
+            self.log.append(url)
+        return self.by[url](url, timeout)
+
+
 class FakeFred:
     """fred_fetch.load 대역 — (시계열, 'net'|'cache') 또는 예외."""
-    def __init__(self, series=None, src="net", error=None):
-        self.series, self.src, self.error, self.calls = series, src, error, []
+    def __init__(self, series=None, src="net", error=None, log=None):
+        self.series, self.src, self.error, self.calls, self.log = series, src, error, [], log
 
     def __call__(self, sid, cache_dir, offline=False, timeout=None):
         self.calls.append((sid, offline))
+        if self.log is not None:
+            self.log.append(sid)
         if self.error:
             raise self.error
         return list(self.series), self.src
@@ -137,6 +159,17 @@ class ParsePdTest(unittest.TestCase):
     def test_future_dates_are_dropped(self):
         s = sf.parse_pd(pd_json([(D(2026, 9, 30), 1000), (D(2026, 10, 21), 2000)]), today=D(2026, 10, 14))
         self.assertEqual(s, [(D(2026, 9, 30), 1.0)])
+
+    def test_the_bucket_key_reads_only_its_own_records(self):
+        rows = [{"asofdate": "2026-11-04", "keyid": sf.BUCKET_KEY, "value": "37315"},
+                {"asofdate": "2026-11-04", "keyid": sf.BUCKET_KEY + "C", "value": "-4100"},         # 전주 대비 변화 — 아니다
+                {"asofdate": "2026-11-04", "keyid": sf.PD_KEY, "value": "432100"},
+                {"asofdate": "2026-10-28", "keyid": "pdposgsc-g7l11", "value": "-1250"}]          # 음수·소문자 키도
+        body = json.dumps({"pd": {"timeseries": rows}})
+        self.assertEqual(sf.parse_pd(body, key=sf.BUCKET_KEY), [(D(2026, 10, 28), -1.25), (D(2026, 11, 4), 37.315)])
+        self.assertEqual(sf.parse_pd(body), [(D(2026, 11, 4), 432.1)])                       # 기본은 합계 그대로
+        bare = json.dumps({"timeseries": [{"date": "2026-11-04", "value": "37315"}]})          # 키 필드가 없으면 요청한 키
+        self.assertEqual(sf.parse_pd(bare, key=sf.BUCKET_KEY), [(D(2026, 11, 4), 37.315)])
 
     def test_anything_but_json_reads_as_nothing(self):
         for text in ("", "<html>잠시 후 다시</html>", "asofdate,keyid,value\n2026-09-30,PDPOSGST-TOT,1", "{깨진",
@@ -312,6 +345,26 @@ class StatsTest(unittest.TestCase):
         with self.assertRaises(sf.SideError):
             sf.stats("custody", [(d, v * 1000) for d, v in bn(custody_series())])
 
+    def test_the_bucket_side_has_numbers_only(self):
+        base = [(w, 10.0 * math.sin(i * 1.7)) for i, w in enumerate(wednesdays(D(2018, 1, 3), D(2026, 9, 2)))]
+        for jump in (80.0, -80.0):                                                  # p95 위·p5 아래여도
+            core = sf.stats("dealer_7_11", base + [(D(2026, 9, 30), base[-1][1] + jump)])
+            self.assertIsNone(core["flag"], jump)
+            self.assertEqual(sf.stats("dealer", base + [(D(2026, 9, 30), base[-1][1] + jump)])["flag"],
+                             "high" if jump > 0 else "low")                         # 전제: 합계 쪽이라면 표시가 붙는 크기
+            side = sf.present("dealer_7_11", core, "2026-11-15")
+            self.assertIsNone(side["flag_text"])
+        s = [(D(2022, 12, 21), -14.0), (D(2022, 12, 28), -15.0), (D(2026, 9, 30), 37.0)]
+        self.assertIsNone(sf.stats("dealer_7_11", s)["since_2022"])                 # 2022년 말 이후·논문 계수는 합계에만
+        with self.assertRaises(sf.SideError) as e:                                   # 백만 달러를 그대로 읽은 경우
+            sf.stats("dealer_7_11", [(d, v * 1000) for d, v in bn(bucket_series())])
+        self.assertEqual(e.exception.code, "unit")
+        with self.assertRaises(sf.SideError):                                        # 십억 달러로 한 번 더 나눈 경우
+            sf.stats("dealer_7_11", [(d, v / 1000) for d, v in bn(bucket_series())])
+        core = sf.stats("dealer_7_11", bn(bucket_series()))                          # 0을 오가는 수준도 범위 안
+        self.assertEqual(core["level_bn"], round(bucket_series()[-1][1] / 1000, 3))
+        self.assertEqual(core["q4w"]["from"], "2019-01-01")
+
     def test_chart_points_are_weekly_for_the_last_five_years(self):
         s = bn(custody_series())
         core = sf.stats("custody", s)
@@ -372,12 +425,53 @@ class PresentTest(unittest.TestCase):
         self.assertIsNone(sf.present("dealer", self.DEALER, "2026-10-14")["flag_text"])
         self.assertIn("예측이 아니다", sf.NOTICE)
 
+    BUCKET = {"date": "2026-11-04", "level_bn": 37.315, "chg_4w_bn": -4.2, "chg_4w_base": "2026-10-07",
+              "chg_52w_bn": 17.4, "chg_52w_base": "2025-11-05",
+              "q4w": {"from": "2019-01-01", "n": 400, "p5": -12.6, "p50": 0.1, "p95": 11.8}, "flag": None,
+              "since_2022": None, "points": [["2026-10-28", 41.0], ["2026-11-04", 37.315]]}
+
+    def test_bucket_line_is_signed_and_numbers_only(self):
+        b = sf.present("dealer_7_11", self.BUCKET, "2026-11-15")
+        self.assertEqual(b["line"], "+37bn · 4주 -4 (2019년 이후 p5 -13 / p95 +12) · 52주 +17")
+        neg = sf.present("dealer_7_11", {**self.BUCKET, "level_bn": -12.4}, "2026-11-15")
+        self.assertTrue(neg["line"].startswith("-12bn · 4주 -4"), neg["line"])
+        zero = sf.present("dealer_7_11", {**self.BUCKET, "level_bn": -0.4}, "2026-11-15")
+        self.assertTrue(zero["line"].startswith("0bn · "), zero["line"])               # 0은 부호 없이
+        self.assertEqual(b["extra"], [sf.BUCKET_NOTE])
+        self.assertIn("만기마다 다를 수 있어 합계(위 딜러 줄)로는 가려진다", b["extra"][0])
+        self.assertIsNone(sf.present("dealer_7_11", {**self.BUCKET, "flag": "high"}, "2026-11-15")["flag_text"])
+        self.assertEqual(sf.present("dealer", self.DEALER, "2026-10-14")["line"][:5], "432bn")   # 합계는 부호 없이 그대로
+        self.assertEqual((b["name"], b["series"]), ("딜러 이표채 7~11년 순포지션(TIPS 제외)", sf.BUCKET_KEY))
+        self.assertTrue(b["chart"]["zero"])
+        self.assertEqual(b["chart"]["lines"][0]["series"], [sf.BUCKET_KEY])
+
+    def test_bucket_sources_and_notices(self):
+        b = sf.present("dealer_7_11", self.BUCKET, "2026-11-15")
+        self.assertEqual(b["notices"], [sf.BUCKET_DERIVED, sf.BUCKET_DERIVED_EN, sf.rp.nyfed_attribution(2026),
+                                        sf.rp.NOT_AFFILIATED])
+        self.assertIn(sf.BUCKET_KEY, sf.BUCKET_DERIVED)
+        self.assertEqual(b["source"]["citation"],
+                         "Federal Reserve Bank of New York, Primary Dealer Statistics, U.S. Treasury coupon securities "
+                         "(excluding TIPS) due in more than 7 years but less than or equal to 11 years, net positions "
+                         "[PDPOSGSC-G7L11], retrieved from https://markets.newyorkfed.org/api/pd/get/PDPOSGSC-G7L11.json, "
+                         "November 15, 2026.")
+        self.assertEqual((b["source"]["url"], b["source"]["api"]), (sf.PD_PAGE, sf.BUCKET_URL))
+        self.assertIn(sf.BUCKET_KEY, b["chart"]["source_note"])
+
+    def test_a_bucket_side_with_a_flag_or_paper_figure_is_not_carried(self):
+        good = {**sf.present("dealer_7_11", self.BUCKET, "2026-11-15"), "ok": True, "stale": False}
+        self.assertIsNotNone(sf.core_of(good, "dealer_7_11"))
+        self.assertIsNone(sf.core_of({**good, "flag": "high"}, "dealer_7_11"))
+        s22 = {"base_date": "2022-12-28", "base_bn": -15.0, "delta_bn": 52.0, "paper_tfp_bp": 2.0}
+        self.assertIsNone(sf.core_of({**good, "since_2022": s22}, "dealer_7_11"))
+        self.assertIsNotNone(sf.core_of({**good, "since_2022": s22}, "dealer"))     # 합계 쪽이라면 받는 꼴
+
     def test_sign_rounding_has_no_negative_zero(self):
         self.assertEqual([sf._signed(v) for v in (-0.4, 0.4, 0, None, 1234.6, -1234.6)],
                          ["0", "0", "0", "—", "+1,235", "-1,235"])
 
     def test_chart_follows_the_page_contract(self):
-        for kind, core in (("dealer", self.DEALER), ("custody", self.CUSTODY)):
+        for kind, core in (("dealer", self.DEALER), ("custody", self.CUSTODY), ("dealer_7_11", self.BUCKET)):
             ch = sf.present(kind, core, "2026-10-14")["chart"]
             self.assertEqual(set(ch), SPEC_KEYS)
             self.assertEqual(set(ch["lines"][0]), LINE_KEYS)
@@ -411,12 +505,13 @@ class MainTest(unittest.TestCase):
         self.work = os.path.join(self.tmp, ".work")
         self.path = os.path.join(self.out, "supply.json")
 
-    def run_main(self, opener=None, fred=None, now=NOW, extra=()):
-        opener = opener or FakeOpener(pd_json(dealer_series()))
+    def run_main(self, opener=None, fred=None, now=NOW, extra=(), clock=None):
+        opener = opener or Route()
         fred = fred or FakeFred(custody_series())
         buf = io.StringIO()
+        kw = {"clock": clock} if clock else {}
         with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
-            code = sf.main(["--out", self.out, "--work", self.work, *extra], opener=opener, fred_load=fred, now=now)
+            code = sf.main(["--out", self.out, "--work", self.work, *extra], opener=opener, fred_load=fred, now=now, **kw)
         return code, buf.getvalue()
 
     def saved(self):
@@ -427,13 +522,16 @@ class MainTest(unittest.TestCase):
         with open(self.path, "rb") as f:
             return f.read()
 
-    def test_first_run_writes_both_sides(self):
+    def test_first_run_writes_every_side(self):
         code, log = self.run_main()
         self.assertEqual(code, 0, log)
         js = self.saved()
-        self.assertEqual(set(js), {"schema", "generated_at", "notice", "dealer", "custody"})
-        self.assertEqual((js["dealer"]["date"], js["custody"]["date"]), ("2026-09-30", "2026-10-07"))
-        for k in ("dealer", "custody"):
+        self.assertEqual(list(js), ["schema", "generated_at", "notice", "dealer", "custody", "dealer_7_11"])
+        self.assertEqual((js["dealer"]["date"], js["custody"]["date"], js["dealer_7_11"]["date"]),
+                         ("2026-09-30", "2026-10-07", "2026-09-30"))
+        self.assertTrue(js["dealer_7_11"]["line"].startswith(f"{sf._signed(bucket_series()[-1][1] / 1000)}bn · 4주 "))
+        self.assertIsNone(js["dealer_7_11"]["flag_text"])
+        for k in ("dealer", "custody", "dealer_7_11"):
             self.assertEqual((js[k]["ok"], js[k]["stale"], js[k]["error"], js[k]["failed_since"]), (True, False, None, None))
             self.assertEqual(js[k]["retrieved"], "2026-10-14")
         self.assertNotIn(b"\n", self.raw())                                              # 압축 JSON
@@ -441,13 +539,18 @@ class MainTest(unittest.TestCase):
         self.assertIn("2026-09-30", log)
 
     def test_one_side_failing_keeps_the_other(self):
-        code, log = self.run_main(opener=FakeOpener(error=OSError("timed out")))
+        code, log = self.run_main(opener=Route(dealer=FakeOpener(error=OSError("timed out"))))
         self.assertEqual(code, 0, log)                                                 # 한쪽이라도 받았으면 0
         js = self.saved()
         self.assertEqual((js["dealer"]["ok"], js["dealer"]["stale"], js["dealer"]["error"]), (False, False, "수신 실패"))
         self.assertNotIn("line", js["dealer"])                                         # 직전 값이 없으면 숫자도 없다
         self.assertEqual(js["dealer"]["failed_since"], "2026-10-14")
-        self.assertTrue(js["custody"]["ok"])
+        self.assertTrue(js["custody"]["ok"] and js["dealer_7_11"]["ok"])               # 같은 호스트의 다른 요청은 그대로
+        code, log = self.run_main(opener=Route(bucket=FakeOpener(error=OSError("timed out"))),
+                                  now=NOW + datetime.timedelta(days=1))
+        js = self.saved()
+        self.assertEqual((js["dealer_7_11"]["ok"], js["dealer_7_11"]["stale"]), (False, True))   # 직전 값을 '받지 못함'으로
+        self.assertTrue(js["dealer"]["ok"] and js["custody"]["ok"])
         self.assertNotIn("timed out", json.dumps(js, ensure_ascii=False) + log)        # 예외 원문은 싣지 않는다
 
     def test_a_failed_side_carries_its_previous_values_as_stale(self):
@@ -482,7 +585,7 @@ class MainTest(unittest.TestCase):
         code, _ = self.run_main(opener=FakeOpener(error=OSError()), fred=FakeFred(error=RuntimeError("x")))
         self.assertEqual(code, 1)
         js = self.saved()                                                              # 실패 표시만 있는 파일 — 페이지는 '자료 없음'
-        for k in ("dealer", "custody"):
+        for k in ("dealer", "custody", "dealer_7_11"):
             self.assertEqual(set(js[k]), {"ok", "stale", "error", "failed_since", "name", "series", "source"})
 
     def test_an_online_fred_cache_fallback_counts_as_a_failure(self):
@@ -495,6 +598,8 @@ class MainTest(unittest.TestCase):
         os.makedirs(os.path.join(self.work, "supply"))
         with open(os.path.join(self.work, "supply", sf.PD_CACHE), "w", encoding="utf-8") as f:
             f.write(pd_json(dealer_series()))
+        with open(os.path.join(self.work, "supply", sf.BUCKET_CACHE), "w", encoding="utf-8") as f:
+            f.write(pd_json(bucket_series(), key=sf.BUCKET_KEY))
         with open(os.path.join(self.work, "supply", "WMTSECL1.csv"), "w", encoding="utf-8") as f:   # 합성 FRED 캐시
             f.write("observation_date,WMTSECL1\n" + "".join(f"{d},{v:.0f}\n" for d, v in custody_series()))
         op = FakeOpener(error=AssertionError("요청하면 안 된다"))
@@ -506,6 +611,7 @@ class MainTest(unittest.TestCase):
         js = self.saved()
         self.assertEqual((js["dealer"]["date"], js["custody"]["date"]), ("2026-09-30", "2026-10-07"))
         self.assertEqual(js["custody"]["level_bn"], round(round(custody_series()[-1][1]) / 1000, 3))
+        self.assertTrue(js["dealer_7_11"]["ok"])                                       # 7~11년도 캐시만으로
 
     def test_offline_without_caches_fails_both(self):
         buf = io.StringIO()
@@ -513,12 +619,34 @@ class MainTest(unittest.TestCase):
             code = sf.main(["--out", self.out, "--work", self.work, "--offline"], now=NOW)    # 진짜 fred_fetch.load, 캐시 없음
         self.assertEqual(code, 1)
         js = self.saved()
-        self.assertEqual({js[k]["error"] for k in ("dealer", "custody")}, {sf.REASONS["fetch"]})
+        self.assertEqual({js[k]["error"] for k in ("dealer", "custody", "dealer_7_11")}, {sf.REASONS["fetch"]})
 
     def test_an_online_success_leaves_the_dealer_cache(self):
         self.run_main()
         with open(os.path.join(self.work, "supply", sf.PD_CACHE), encoding="utf-8") as f:
             self.assertEqual(sf.parse_pd(f.read())[-1][0], D(2026, 9, 30))
+        with open(os.path.join(self.work, "supply", sf.BUCKET_CACHE), encoding="utf-8") as f:
+            self.assertEqual(sf.parse_pd(f.read(), key=sf.BUCKET_KEY)[-1][0], D(2026, 9, 30))
+
+    def test_the_bucket_is_requested_last_within_the_step_budget(self):
+        log = []
+        self.run_main(opener=Route(log=log), fred=FakeFred(custody_series(), log=log))
+        self.assertEqual(log, [sf.PD_URL, sf.FRED_ID, sf.BUCKET_URL])                  # 맨 뒤
+        def after(spent):                                                            # main 시작은 0초, 그 뒤는 늘 spent초
+            ticks = iter([0.0])
+            return lambda: next(ticks, spent)
+        op = Route()
+        code, log2 = self.run_main(opener=op, clock=after(sf.STEP_BUDGET + 5), now=NOW + datetime.timedelta(days=1))
+        js = self.saved()
+        self.assertEqual([u for u, _ in op.calls], [sf.PD_URL])                          # 단계 상한을 넘겨 7~11년은 요청 없이
+        self.assertTrue(js["dealer"]["ok"])
+        self.assertEqual((js["dealer_7_11"]["ok"], js["dealer_7_11"]["stale"], js["dealer_7_11"]["error"]),
+                         (False, True, sf.REASONS["fetch"]))
+        self.assertIn("::warning::수급 참고 딜러 7~11년 받지 못함: 수신 실패", log2)
+        op = Route()
+        self.run_main(opener=op, clock=after(60.0), now=NOW + datetime.timedelta(days=2))   # 앞의 두 쪽이 60초를 썼다
+        self.assertEqual(op.calls, [(sf.PD_URL, sf.TIMEOUT), (sf.BUCKET_URL, sf.STEP_BUDGET - 60.0)])   # 남은 15초만
+        self.assertTrue(self.saved()["dealer_7_11"]["ok"])
 
     def test_older_data_does_not_replace_newer(self):
         self.run_main()
@@ -538,10 +666,11 @@ class MainTest(unittest.TestCase):
     def test_new_values_move_the_retrieved_date(self):
         self.run_main()
         later = NOW + datetime.timedelta(days=8)
-        self.run_main(opener=FakeOpener(pd_json(dealer_series(end=D(2026, 10, 7)))), now=later)
+        self.run_main(opener=Route(dealer=FakeOpener(pd_json(dealer_series(end=D(2026, 10, 7))))), now=later)
         js = self.saved()
         self.assertEqual((js["dealer"]["date"], js["dealer"]["retrieved"]), ("2026-10-07", "2026-10-22"))
         self.assertEqual(js["custody"]["retrieved"], "2026-10-14")
+        self.assertEqual((js["dealer_7_11"]["ok"], js["dealer_7_11"]["retrieved"]), (True, "2026-10-14"))
         self.assertIn("October 22, 2026", js["dealer"]["source"]["citation"])
 
     def test_a_broken_previous_file_has_nothing_to_carry(self):
@@ -591,13 +720,13 @@ class MainTest(unittest.TestCase):
             out, err = io.StringIO(), io.StringIO()
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
                 code = sf.main(["--out", self.out, "--work", self.work],
-                               opener=kw.get("opener") or FakeOpener(pd_json(dealer_series())),
+                               opener=kw.get("opener") or Route(),
                                fred_load=kw.get("fred") or FakeFred(custody_series()), now=kw.get("now", NOW))
             notes = [l for l in out.getvalue().splitlines() if l.startswith("::")]
             self.assertFalse(re.search(r"\d+\.\d+|bn", out.getvalue()))                  # 주석에도 값은 찍지 않는다
             return code, notes
 
-        code, notes = run(opener=FakeOpener(error=OSError("timed out")))
+        code, notes = run(opener=Route(dealer=FakeOpener(error=OSError("timed out"))))
         self.assertEqual(code, 0)                                                      # 한쪽만 — 단계는 성공으로 끝난다
         self.assertEqual(notes, ["::warning::수급 참고 딜러 받지 못함: 수신 실패"])       # 받은 쪽(수탁)은 주석이 없다
         self.assertEqual(run(now=NOW + datetime.timedelta(days=1)), (0, []))           # 둘 다 받으면 주석 없음
@@ -605,7 +734,7 @@ class MainTest(unittest.TestCase):
         self.assertEqual((code, notes), (0, ["::warning::수급 참고 수탁 받지 못함: 수신 실패 — 직전 값(2026-10-07 관측) 유지"]))
         code, notes = run(opener=FakeOpener(error=OSError()), fred=FakeFred(error=RuntimeError("x")),
                           now=NOW + datetime.timedelta(days=3))
-        self.assertEqual((code, len(notes)), (1, 2))
+        self.assertEqual((code, len(notes)), (1, 3))
         self.assertTrue(all(n.startswith("::warning::수급 참고 ") for n in notes))
 
     def test_changed_fixed_text_reaches_a_carried_side(self):
@@ -640,14 +769,15 @@ class MainTest(unittest.TestCase):
             self.assertNotIn(word, dump, word)
         urls = set(re.findall(r"https?://[^\s,;)\"]+", dump))
         self.assertEqual({u.rstrip(".") for u in urls},
-                         {sf.PD_URL, sf.PD_PAGE, "https://fred.stlouisfed.org/series/WMTSECL1"})
+                         {sf.PD_URL, sf.BUCKET_URL, sf.PD_PAGE, "https://fred.stlouisfed.org/series/WMTSECL1"})
         self.assertNotIn("bad.invalid", dump)
         self.assertNotIn("xyz-77", dump)
-        errors = {self.saved()[k]["error"] for k in ("dealer", "custody")} - {None}
+        errors = {self.saved()[k]["error"] for k in sf.SIDES} - {None}
         self.assertLessEqual(errors, set(sf.REASONS.values()))
 
     def test_static_text_avoids_banned_words(self):
-        texts = [sf.NOTICE, sf.PD_DERIVED, sf.PD_DERIVED_EN, sf.CUSTODY_DERIVED, sf.CHART_NOTE, *sf.REASONS.values()]
+        texts = [sf.NOTICE, sf.PD_DERIVED, sf.PD_DERIVED_EN, sf.CUSTODY_DERIVED, sf.BUCKET_DERIVED, sf.BUCKET_DERIVED_EN,
+                 sf.BUCKET_NOTE, sf.CHART_NOTE, *sf.REASONS.values()]
         texts += [v for spec in sf.SIDES.values() for v in spec.values() if isinstance(v, str)]
         texts += sf.present("dealer", PresentTest.DEALER, "2026-10-14")["extra"]
         texts += [*sf.FLAG_NAME.values(), *sf.FLAG_READING.values()]                    # ⚠ 줄 구절(2026-10-30)

@@ -462,14 +462,23 @@ function guideDetails(g) {
   parts.splice(g.figureAfter, 0, ...extra.filter(Boolean));
   return el("details", { class: "rule-detail rule-guide" }, el("summary", {}, g.title), ...parts);
 }
-// 수급 참고 — data/supply.json(scripts/supply_fetch.py). 흐름도에서 TFP로 가는 요인 가운데 둘(딜러 재고, 해외 공적 수요)의
-// 공개 통계이고 판정에 쓰지 않는다. 글자는 그 파일에 정해 둔 문구를 글자로만 싣는다. 형식이 어긋난 쪽은 '자료 없음' 한 줄,
-// 딜러 쪽은 뉴욕 연은 출처 표기(notices)가 없으면 숫자를 싣지 않는다(SOFR과 같은 원칙). 그래프는 charts.js 그대로
+// 수급 참고 — data/supply.json(scripts/supply_fetch.py). 흐름도에서 TFP로 가는 요인 가운데 둘(딜러 재고, 해외 공적 수요)과
+// 딜러 재고의 10년 구간(이표채 7~11년, 2026-11-15)의 공개 통계이고 판정에 쓰지 않는다. 글자는 그 파일에 정해 둔 문구를 글자로만
+// 싣는다. 형식이 어긋난 쪽은 '자료 없음' 한 줄, 딜러 두 쪽은 뉴욕 연은 출처 표기(notices)가 없으면 숫자를 싣지 않는다(SOFR과
+// 같은 원칙). 7~11년 쪽은 숫자만 — 자료 파일에 ⚠ 줄이 있어도 싣지 않고, 그 쪽이 없던 때의 자료 파일이면 줄을 두지 않는다.
+// 그래프는 charts.js 그대로
 let supplyData = null;
-const SUPPLY_SIDES = [["dealer", "딜러 국채 순포지션", true], ["custody", "해외 공적 수탁 국채", false]];
+// [자료 파일의 키, 이름, 뉴욕 연은 출처 표기가 있어야 숫자를 싣는가, ⚠ 줄을 싣는가, 그 쪽이 없는 옛 파일이면 줄을 두지 않는가]
+const SUPPLY_SIDES = [["dealer", "딜러 국채 순포지션", true, true, false], ["custody", "해외 공적 수탁 국채", false, true, false],
+  ["dealer_7_11", "딜러 이표채 7~11년 순포지션", true, false, true]];
+// 7~11년 쪽 그래프의 끝 값·읽기 글자 — 그 줄처럼 부호 붙인 정수 bn(기본 꼴은 100 미만에서 소수 둘째 자리)
+const supplySignedBn = v => {
+  const s = Math.abs(v).toFixed(0), sign = Number(s) === 0 ? "" : v < 0 ? "-" : "+";
+  return sign + s.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "bn";
+};
 const SUPPLY_OLD_DAYS = 21;          // 마지막 관측이 이보다 묵으면 날짜 옆에 경과일을(딜러는 보통 1~2주, 수탁은 약 1주 늦게 나온다)
 const supplyTexts = v => (Array.isArray(v) ? v : []).filter(x => typeof x === "string" && x);
-function supplySide(s, name, attributed) {
+function supplySide(s, name, attributed, flagged = true) {
   const ok = s && typeof s === "object", day = ok && typeof s.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.date)
     ? Date.parse(s.date + "T00:00:00Z") : NaN;
   const notices = supplyTexts(ok ? s.notices : null);
@@ -481,10 +490,10 @@ function supplySide(s, name, attributed) {
     el("p", { class: "supply-name" }, el("strong", {}, typeof s.name === "string" && s.name ? s.name : name), " ",
       el("small", {}, s.date + " 관측" + (age > SUPPLY_OLD_DAYS ? ` · ${age}일 전` : ""))),
     el("p", { class: "supply-num" }, s.line),
-    typeof s.flag_text === "string" && s.flag_text ? el("p", { class: "supply-flag" }, s.flag_text) : null,
+    flagged && typeof s.flag_text === "string" && s.flag_text ? el("p", { class: "supply-flag" }, s.flag_text) : null,
     ...supplyTexts(s.extra).map(t => el("p", { class: "muted" }, t)),
     s.stale === true ? el("p", { class: "supply-late" }, "이번 갱신에서 받지 못해 직전에 받은 값을 싣습니다" + since) : null,
-    chartFigure(s.chart, 150, false),
+    chartFigure(s.chart, 150, false, undefined, flagged ? undefined : supplySignedBn),
     notices.length ? el("div", { class: "notices" }, ...notices.map(t => el("p", {}, t))) : null
   ];
 }
@@ -494,12 +503,15 @@ function supplyPanel(d) {
   if (!d || typeof d !== "object") return el("section", { class: "supply", "aria-label": "수급 참고" }, head,
     el("p", { class: "muted" }, "자료 없음"));
   return el("section", { class: "supply", "aria-label": "수급 참고" }, head,
-    el("p", { class: "muted" }, "흐름도에서 TFP로 가는 요인 가운데 둘의 공개 통계입니다. 딜러 재고는 뉴욕 연은이 집계하는 " +
+    el("p", { class: "muted" }, "흐름도에서 TFP로 가는 요인 가운데 둘(딜러 재고, 해외 공적 수요)과 딜러 재고의 10년 구간 공개 통계입니다. 딜러 재고는 뉴욕 연은이 집계하는 " +
       "프라이머리 딜러의 국채(TIPS 제외) 순포지션, 해외 공적 수요는 뉴욕 연은이 해외 중앙은행 등 공적·국제 기관을 위해 " +
       "보관하는 국채로 봅니다. 보관 국채가 줄었다고 곧 매도라고 볼 수는 없습니다(다른 보관 기관으로 옮겼을 수도 있습니다). " +
       "p5·p95는 표본 시작(각 줄에 적힌 해) 이후 모든 4주 변화 가운데 아래·위 5% 경계입니다. 마지막 4주 변화가 그 밖이면 ⚠ 줄이 " +
-      "붙고, 줄 끝의 구절은 운영자 메모를 옮긴 참고이며 예측이 아닙니다. 이 점검의 판정 조건에는 쓰지 않습니다."),
-    ...SUPPLY_SIDES.flatMap(([key, name, attributed]) => supplySide(d[key], name, attributed)));
+      "붙고, 줄 끝의 구절은 운영자 메모를 옮긴 참고이며 예측이 아닙니다. 맨 아래 딜러 이표채 7~11년은 10년 금리 구간의 " +
+      "딜러 재고로, 만기마다 다를 수 있는 효과가 합계로는 가려진다는 운영자 메모에 따라 숫자만 싣습니다(⚠ 줄 없음). " +
+      "이 점검의 판정 조건에는 쓰지 않습니다."),
+    ...SUPPLY_SIDES.flatMap(([key, name, attributed, flagged, optional]) =>
+      optional && d[key] === undefined ? [] : supplySide(d[key], name, attributed, flagged)));
 }
 let activeView = "all", ruleState = "all", publicData = null;
 const available = { overview: false, korea: false, snapshot: false, loaded: false, monitor: false, ai: false, regime: false,

@@ -53,6 +53,16 @@ function side(key,extra={}){
   notices:dealer?['계산값 고지','© 2026 Federal Reserve Bank of New York.','관계없음 고지']:['계산값 고지']},extra);
 }
 const supply=(d={},c={})=>({schema:1,notice:'참고',dealer:side('dealer',d),custody:side('custody',c)});
+// 딜러 이표채 7~11년(2026-11-15) — 숫자만 싣는 셋째 쪽. 수준에 부호가 붙고, 0을 오가는 그래프
+function bucket(extra={}){
+ return Object.assign({ok:true,stale:false,error:null,failed_since:null,name:'딜러 이표채 7~11년 순포지션(TIPS 제외)',
+  series:'PDPOSGSC-G7L11',date:'2026-11-04',line:'+37bn · 4주 -4 (2019년 이후 p5 -13 / p95 +12) · 52주 +17',flag_text:null,
+  extra:['10년 금리 구간(이표채 만기 7년 초과 ~ 11년 이하)의 딜러 재고다.'],
+  chart:{key:'supply_dealer_7_11',title:'t',unit:'bn',years:5,zero:true,threshold:null,note:'n',source_note:'s',notices:[],
+   lines:[{key:'dealer_7_11',label:'t',role:'series',series:[],derived:false,points:[['2026-10-28',-3.2],['2026-11-04',37.315]]}]},
+  notices:['7~11년 계산값 고지','© 2026 Federal Reserve Bank of New York.','관계없음 고지']},extra);
+}
+const supply3=(b={},d={},c={})=>({...supply(d,c),dealer_7_11:bucket(b)});
 const lines=panel=>walk(panel,n=>n.tag==='p').map(p=>(p.attrs.class||'')+'|'+p.textContent);
 
 function ktb(extra={}){
@@ -118,6 +128,41 @@ test('supply: a side not received this run says so, with the day it started when
   const p=load().supplyPanel(supply({stale:v,failed_since:'2026-11-03'}));
   assert.equal(cls(p,'supply-late').length,0,String(v));
  }
+});
+
+test('supply: the dealer 7–11y side comes last with a signed line and its chart, and never a ⚠ line',()=>{
+ const flag='⚠ 딜러 4주 변화 +80bn이 2019년 이후 p95(+12) 위(상위 5%) — 재고 급증';
+ const t=load(), panel=t.supplyPanel(supply3({flag_text:flag}));
+ const names=cls(panel,'supply-name').map(n=>n.textContent);
+ assert.deepEqual(names,['딜러 국채 순포지션(TIPS 제외) 2026-11-04 관측','해외 공적 수탁 국채(뉴욕 연은 보관) 2026-11-04 관측',
+  '딜러 이표채 7~11년 순포지션(TIPS 제외) 2026-11-04 관측']);
+ const ls=lines(panel);
+ assert.ok(ls.includes('supply-num|+37bn · 4주 -4 (2019년 이후 p5 -13 / p95 +12) · 52주 +17'),ls.join('\n'));
+ assert.ok(ls.includes('muted|10년 금리 구간(이표채 만기 7년 초과 ~ 11년 이하)의 딜러 재고다.'));
+ assert.equal(cls(panel,'supply-flag').length,0);                                         // 자료 파일에 있어도 싣지 않는다
+ assert.equal(t.calls.length,3);
+ assert.equal(t.calls[2].spec.key,'supply_dealer_7_11');
+ assert.deepEqual(t.calls.slice(0,2).map(c=>c.o.format),[undefined,undefined]);           // 합계·수탁은 기본 꼴 그대로
+ assert.deepEqual([37.315,-3.2,-0.4,0.4,1234.6,-1234.6].map(t.calls[2].o.format),
+  ['+37bn','-3bn','0bn','0bn','+1,235bn','-1,235bn']);                                   // 7~11년은 줄처럼 부호 붙인 정수
+ assert.equal(cls(panel,'notices').length,3);
+ assert.ok(cls(panel,'notices')[2].textContent.includes('7~11년 계산값 고지'));
+ assert.ok(texts(panel).every(x=>typeof x==='string'));
+ assert.ok(!/undefined|NaN|null/.test(panel.textContent));
+ const d=load().supplyPanel({...supply3(),dealer:side('dealer',{flag_text:flag})});
+ assert.deepEqual(cls(d,'supply-flag').map(n=>n.textContent),[flag]);                     // 합계 쪽은 그대로 싣는다
+});
+
+test('supply: the 7–11y side is left out of an older file, a broken one is "자료 없음", and it needs the New York Fed notices',()=>{
+ const old=lines(load().supplyPanel(supply())).filter(l=>!l.startsWith('muted|흐름도'));      // 머리 안내 글은 빼고
+ assert.ok(!old.some(l=>l.includes('7~11년')),old.join('\n'));                             // 그 쪽이 없던 때의 파일 — 줄이 없다
+ for(const bad of [null,'x',{...bucket(),date:'2026-11-4'},{...bucket(),line:''},{...bucket(),notices:[]},{...bucket(),notices:['',7]}]){
+  const ls=lines(load().supplyPanel({...supply(),dealer_7_11:bad}));
+  assert.ok(ls.includes('supply-name|딜러 이표채 7~11년 순포지션 — 자료 없음'),JSON.stringify(bad)+'\n'+ls.join('\n'));
+  assert.ok(!ls.some(l=>l.includes('+37bn')));
+ }
+ const late=lines(load().supplyPanel(supply3({stale:true,failed_since:'2026-11-12'})));
+ assert.ok(late.includes('supply-late|이번 갱신에서 받지 못해 직전에 받은 값을 싣습니다 (2026-11-12부터)'),late.join('\n'));
 });
 
 test('supply: the ⚠ line is drawn as its own paragraph, only from a string',()=>{
@@ -219,7 +264,7 @@ test('real charts.js: KTB end labels and read-out match the table; a supply poin
  assert.ok(svgs[0].attrs['aria-label'].includes('국고 10년 3.855%(2026-11-09)'),svgs[0].attrs['aria-label']);
  assert.deepEqual(walk(svgs[0],n=>n.attrs.class==='ch-end').map(n=>n.textContent).sort(),['3.615%','3.855%']);
  assert.ok(svgs[1].attrs['aria-label'].includes('10년−3년 24.0bp(2026-11-09)'),svgs[1].attrs['aria-label']);
- const p=load({charts:sc.MacroCharts}).supplyPanel(supply());
+ const p=load({charts:sc.MacroCharts}).supplyPanel(supply3());
  const ends=walk(p,n=>n.attrs.class==='ch-end').map(n=>n.textContent);
- assert.deepEqual(ends,['433bn','2565bn']);                                               // 줄의 433bn·2,565bn과 같은 정수
+ assert.deepEqual(ends,['433bn','2565bn','+37bn']);                                       // 줄의 433bn·2,565bn·+37bn과 같은 글자
 });

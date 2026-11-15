@@ -148,7 +148,8 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/ktb_fetch.py
-      # 참고 자료 — 미 국채 수급 두 지표(뉴욕 연은 요청 1회 + FRED 요청 1회). 규칙 판정에 쓰지 않고, 실패해도 알림 없음(머리말)
+      # 참고 자료 — 미 국채 수급 두 지표와 딜러 이표채 7~11년(뉴욕 연은 요청 2회 + FRED 요청 1회, 7~11년은 맨 뒤·단계 75초 안).
+      # 규칙 판정에 쓰지 않고, 실패해도 알림 없음(머리말)
       - name: 수급 참고 자료 받기
         id: supply
         continue-on-error: true

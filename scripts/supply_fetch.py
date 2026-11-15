@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""참고 자료 — 미 국채 수급 두 지표 (2026-10-14 추가, 사용자 결정).
+"""참고 자료 — 미 국채 수급 두 지표와 딜러 이표채 7~11년 (2026-10-14 추가, 사용자 결정 · 7~11년은 2026-11-15).
 
 '10년 기간 프리미엄' 카드의 흐름도에서 TFP(기간 자금 보상)로 가는 요인 가운데 둘의 실제 숫자다. 규칙이 아니다 —
 충족·판정이 없고, 판정·공개본·그래프 스크립트는 이 파일(<out>/supply.json)을 읽지 않는다.
   딜러  뉴욕 연은 프라이머리 딜러 통계의 국채(TIPS 제외) 순포지션 합계 PDPOSGST-TOT — 주간(수요일 관측), 백만 달러
   수탁  뉴욕 연은이 해외 공적·국제 기관을 위해 보관하는 시장성 국채 — FRED WMTSECL1(연준 H.4.1), 주간(수요일), 백만 달러
+  딜러 7~11년  같은 딜러 통계의 이표채(TIPS 제외) 만기 7년 초과 ~ 11년 이하 순포지션 PDPOSGSC-G7L11(끝에 C가 붙은
+        PDPOSGSC-G7L11C는 전주 대비 변화라 쓰지 않는다) — 10년 금리 구간의 딜러 재고. 딜러 재고의 효과는 만기마다 다를 수 있어
+        합계로는 가려진다는 비공개 월간 점검 [수급 구조]의 2026-11-15 줄과 같은 계산이다 — 숫자만 싣는다(⚠ 줄·2022년 말 이후·
+        논문 계수 대입 참고값이 없다 — 계수는 합계에 대한 것). 수준은 부호를 붙인다(순포지션이 음수일 수 있다). 요청은 맨 뒤
+        (단계 전체 STEP_BUDGET초에서 앞의 두 쪽이 쓴 시간을 뺀 만큼만 — 단계 제한 2분 안에서 끝나게)
 계산(쪽마다, 십억 달러): 수준 · 4주·52주 변화(28·364일 전 이하 최근 관측 대비, fred_fetch.change_days — 4주는 그 관측이
 28일 전에서 6일 넘게 멀면 비운다, 분위수 표본과 같은 기준) · 표본 시작(2019년, 자료가 늦게 시작하면 첫 관측 28일 뒤 —
 q4w.from, 문구에 그 해를 적는다) 이후 4주 변화 분포의 p5·p50·p95(28일 전 관측이 6일 넘게 멀면 그 변화는 세지 않는다,
@@ -14,15 +19,16 @@ q4w.from, 문구에 그 해를 적는다) 이후 4주 변화 분포의 p5·p50·
 문구로 가는 숫자와 그래프 점은 소수 셋째 자리로 두고 글자에서 한 번만 반올림한다(그래프 점을 소수 첫째 자리로 두면 그래프의
 끝 값이 정수로 한 번 더 반올림되어 문구와 1bn 어긋날 수 있었다 — 2026-10-14·10-23). ⚠ 줄의 두 숫자(4주 변화와 p5·p95)가
 같은 정수로 보이면 달라지는 자리까지(셋째 자리까지) 소수로 적는다('-45bn이 p5(-45) 아래'가 되지 않게).
-딜러는 2022년 말(그 이하 마지막 관측) 이후 변화와, 거기에 Dallas Fed WP 2613 표 2의 TFP 계수(0.038bp/십억 달러)를 곱한
+딜러(합계)는 2022년 말(그 이하 마지막 관측) 이후 변화와, 거기에 Dallas Fed WP 2613 표 2의 TFP 계수(0.038bp/십억 달러)를 곱한
 산술 참고값도 — 원본 파이프라인 월간 점검의 [수급 구조]와 같은 계산이다(코드는 가져오지 않고 여기서 따로 쓴다).
 
 뉴욕 연은 단일 시계열 주소(/api/pd/get/PDPOSGST-TOT.json)의 응답 형식은 2026-11-10 한 번 받아 확인했다 —
 {"pd": {"timeseries": [{"asofdate": "YYYY-MM-DD", "keyid": "PDPOSGST-TOT", "value": 백만 달러의 글자}]}}(2013-04-03부터
 주간 709개, 시리즈 구분 칸 없음)이고 아래 읽기로 모두 읽혔다(2026-10-14 첫 Actions 실행부터 이 방식으로 값이 실렸다).
+7~11년 주소(/api/pd/get/PDPOSGSC-G7L11.json)도 2026-11-15 받아 같은 꼴임을 확인했다(2013-04-03 ~ 2026-11-04 주간 710개).
 꼴이 바뀌어도 버티게 계속 너그럽게 읽는다:
 아무 깊이의 dict 가운데 날짜 필드(asofdate·asOfDate·date …)와 value 필드가 함께 있는 것만 관측으로 보고, 키 필드(keyid …)가
-있으면 PDPOSGST-TOT만(바깥 dict의 키·시리즈 구분을 물려받는다), '*'(기밀)·숫자가 아닌 값은 버리며, 같은 날이 여러 시리즈
+있으면 요청한 키(PDPOSGST-TOT 또는 PDPOSGSC-G7L11)만(바깥 dict의 키·시리즈 구분을 물려받는다), '*'(기밀)·숫자가 아닌 값은 버리며, 같은 날이 여러 시리즈
 구분(series break)에 있으면 가장 새 구분(이름 끝 숫자가 큰 것)의 값. 수준의 중앙값이 그럴듯한 범위(PLAUSIBLE) 밖이면 단위를
 잘못 읽은 것으로 보고 닫힌 쪽으로 실패한다.
 
@@ -32,19 +38,19 @@ q4w.from, 문구에 그 해를 적는다) 이후 4주 변화 분포의 p5·p50·
 'YYYY-MM-DD'가 아닌 날짜, 정해 둔 것 밖의 표시 등) 이어 실을 값이 없는 것으로 본다 — 값은 매번
 원자료 전체로 다시 계산하므로 잃는 것이 없다. 같은 내용이면(생성 시각만 다르면) 파일을 다시 쓰지 않는다.
 문구는 이 파일에 정해 둔 것뿐이다(오류 원문·주소·예외 문자열은 공개 파일에 싣지 않는다 — Actions 로그에는 예외 이름만).
-출처 표기: 딜러 쪽은 뉴욕 연은 이용약관의 기본 출처 형식과 관계없음 고지(render_public — SOFR과 같은 원칙, Conditions 2·4),
+출처 표기: 딜러 두 쪽은 뉴욕 연은 이용약관의 기본 출처 형식과 관계없음 고지(render_public — SOFR과 같은 원칙, Conditions 2·4),
 수탁 쪽은 FRED 권장 인용 형식. FRED 시리즈 제목(FRED_TITLE)과 뉴욕 연은 통계 쪽 주소(PD_PAGE)는 처음 쓴 2026-10-14엔 이 환경에서
 접속하지 못했고, 2026-11-10 FRED 시리즈 쪽 권장 인용·뉴욕 연은 페이지(제목 'Primary Dealer Statistics')와 대조해 같았다.
 
-종료코드: 0 한쪽이라도 이번에 받음 / 1 둘 다 못 받음(또는 파일을 쓰지 못함). 워크플로 단계는 continue-on-error이고 알림도
+종료코드: 0 한쪽이라도 이번에 받음 / 1 하나도 못 받음(또는 파일을 쓰지 못함). 워크플로 단계는 continue-on-error이고 알림도
 띄우지 않는다(.github/workflows/daily.yml 머리말). 그래서 한쪽만 못 받은 날은 단계가 성공으로 끝난다 — 실패는 못 받은 쪽마다
 표준 출력에 찍는 GitHub Actions 경고 주석(::warning::, 정해 둔 사유와 관측일만)이 실행 요약에 남는 것과, 페이지의 그 쪽
 표시('받지 못함'(그날부터)과 직전 관측일, 직전 값이 없으면 '자료 없음')로 본다. 단계가 빨갛게 표시되는 것은 둘 다 못 받았거나
-파일을 쓰지 못한 날뿐이다.
+파일을 쓰지 못한 날뿐이다(세 쪽 모두 같은 원칙).
 
 산출: <out>/supply.json (압축 JSON)
 사용법: python supply_fetch.py [--out data] [--work .work] [--offline]
-  캐시: <work>/supply/ — 받은 원문(딜러 JSON · WMTSECL1.csv). --offline이면 요청 없이 이 캐시만 읽는다(로컬 확인용).
+  캐시: <work>/supply/ — 받은 원문(딜러 JSON 둘 · WMTSECL1.csv). --offline이면 요청 없이 이 캐시만 읽는다(로컬 확인용).
 """
 import os, sys, re, json, time, bisect, argparse, datetime, statistics, urllib.request, urllib.parse
 
@@ -64,6 +70,9 @@ PD_HOST = "markets.newyorkfed.org"
 PD_URL = f"https://{PD_HOST}/api/pd/get/{PD_KEY}.json"
 PD_PAGE = "https://www.newyorkfed.org/markets/counterparties/primary-dealers-statistics"   # 2026-11-10 확인(Primary Dealer Statistics)
 PD_CACHE = f"pd_{PD_KEY}.json"
+BUCKET_KEY = "PDPOSGSC-G7L11"     # 이표채 7년 초과 ~ 11년 이하 순포지션(2026-11-15 뉴욕 연은 목록에서 확인 — 끝에 C가 붙은 것은 전주 대비 변화)
+BUCKET_URL = f"https://{PD_HOST}/api/pd/get/{BUCKET_KEY}.json"
+BUCKET_CACHE = f"pd_{BUCKET_KEY}.json"
 FRED_ID = "WMTSECL1"
 # FRED 권장 인용의 출처·제목 — 2026-11-10 FRED 시리즈 쪽 권장 인용과 대조해 같았다(처음 쓴 2026-10-14엔 접속하지 못했다)
 FRED_SOURCE = "Board of Governors of the Federal Reserve System (US)"
@@ -71,6 +80,7 @@ FRED_TITLE = "Memorandum Items: Custody Holdings: Marketable U.S. Treasury Secur
 
 TIMEOUT = 20                      # 요청 하나(연결·수신 한 번)
 BUDGET = 30                       # 딜러 응답 하나를 받는 데 쓰는 전체 시간 상한(초) — 조금씩 흘려보내는 응답에 묶이지 않게
+STEP_BUDGET = 75                  # 단계 전체(초) — 맨 뒤의 7~11년 요청은 이것에서 앞의 두 쪽이 쓴 시간을 뺀 만큼만(단계 제한 2분)
 MAX_BYTES = 5_000_000
 SINCE = datetime.date(2019, 1, 1)           # 4주 변화 분위수 표본 시작(논문 표본 시작 — 원본 파이프라인과 같다)
 END_2022 = datetime.date(2022, 12, 31)
@@ -91,16 +101,32 @@ PD_DERIVED_EN = ("Changes, quantiles and the paper-coefficient figure are comput
                  "New York Fed Primary Dealer Statistics (series PDPOSGST-TOT); they are not published by the New York Fed.")
 CUSTODY_DERIVED = ("수준은 FRED의 WMTSECL1(연준 H.4.1, 백만 달러)을 십억 달러로 바꾼 값이고, 4주·52주 변화와 분위수는 "
                    "macro-regime-check가 계산한 값이다.")
+BUCKET_DERIVED = (f"수준은 뉴욕 연은 프라이머리 딜러 통계({BUCKET_KEY}, 백만 달러)를 십억 달러로 바꾼 값이고, 4주·52주 변화와 "
+                  "분위수는 macro-regime-check가 계산한 값이다. 뉴욕 연은이 발표한 값이 아니다.")
+BUCKET_DERIVED_EN = ("Changes and quantiles are computed by macro-regime-check from the New York Fed Primary Dealer Statistics "
+                     f"(series {BUCKET_KEY}); they are not published by the New York Fed.")
+# 7~11년 쪽의 덧붙이는 줄 — 비공개 월간 점검 [수급 구조]의 2026-11-15 줄 끝 구절('10년 구간 재고 — 만기마다 효과가 달라 합계로는
+# 가려진다')을 옮긴 정해 둔 글
+BUCKET_NOTE = ("10년 금리 구간(이표채 만기 7년 초과 ~ 11년 이하)의 딜러 재고다. 딜러 재고가 금리에 닿는 크기는 만기마다 다를 수 있어 "
+               "합계(위 딜러 줄)로는 가려진다는 운영자 메모를 옮긴 참고이고, 숫자만 싣는다 — 4주 변화가 p5·p95 밖이어도 따로 표시하지 "
+               "않고, 논문 계수 대입 참고값도 없다(계수는 합계에 대한 것). 판정에 쓰지 않음")
 
-# 쪽마다 정해 둔 것 — 이름·그래프 문구·단위 검사 범위(십억 달러, 수준의 |중앙값|)
+# 쪽마다 정해 둔 것 — 이름·그래프 문구·단위 검사 범위(십억 달러, 수준의 |중앙값|). 차례 = 요청 차례 = 파일 차례(7~11년은 맨 뒤).
+# flag: 4주 변화가 p5/p95 밖이면 ⚠ 줄을 붙이는가 · signed: 수준에 부호를 붙이는가(순포지션이 음수일 수 있는 쪽)
 SIDES = {
     "dealer": {"name": "딜러 국채 순포지션(TIPS 제외)", "series": PD_KEY, "zero": True, "plausible": (5.0, 3000.0),
-               "title": "딜러 국채 순포지션(TIPS 제외)",
+               "title": "딜러 국채 순포지션(TIPS 제외)", "flag": True, "signed": False,
                "source_note": f"자료: Federal Reserve Bank of New York, Primary Dealer Statistics ({PD_KEY}) · "
                               "백만 달러를 십억 달러로 바꾼 값"},
     "custody": {"name": "해외 공적 수탁 국채(뉴욕 연은 보관)", "series": FRED_ID, "zero": False,
-                "plausible": (100.0, 10000.0), "title": "해외 공적 수탁 국채",
+                "plausible": (100.0, 10000.0), "title": "해외 공적 수탁 국채", "flag": True, "signed": False,
                 "source_note": f"자료: {FRED_SOURCE}, H.4.1 (via FRED, {FRED_ID}) · 백만 달러를 십억 달러로 바꾼 값"},
+    # 2026-11-15 실자료: 2013-04-03 ~ 2026-11-04 주간 710개, 수준 −29~+52bn, |수준|의 중앙값 약 6bn — 백만 달러를 그대로 읽으면
+    # 수천, 십억 달러로 한 번 더 나누면 0.01 안팎이라 범위 밖
+    "dealer_7_11": {"name": "딜러 이표채 7~11년 순포지션(TIPS 제외)", "series": BUCKET_KEY, "zero": True,
+                    "plausible": (0.3, 600.0), "title": "딜러 이표채 7~11년 순포지션", "flag": False, "signed": True,
+                    "source_note": f"자료: Federal Reserve Bank of New York, Primary Dealer Statistics ({BUCKET_KEY}) · "
+                                   "백만 달러를 십억 달러로 바꾼 값"},
 }
 CHART_NOTE = "최근 5년 · 주간(수요일 관측) · 십억 달러"
 # 4주 변화가 p5/p95 밖일 때의 ⚠ 줄(2026-10-30 사용자 결정 — 비공개 월간 점검 [수급 구조]의 문구 그대로, tp_drivers._flag_line)
@@ -108,7 +134,7 @@ FLAG_NAME = {"dealer": "딜러", "custody": "해외 공적 수탁"}
 FLAG_READING = {("dealer", "high"): "재고 급증(조달 압박·TFP 상승 쪽)", ("dealer", "low"): "재고 급감",
                 ("custody", "high"): "수탁 급증",
                 ("custody", "low"): "수탁 급감(매도 또는 민간 수탁 이전 — 단정하지 않음)"}
-LABEL = {"dealer": "딜러", "custody": "수탁"}           # Actions 로그용(값은 찍지 않는다)
+LABEL = {"dealer": "딜러", "custody": "수탁", "dealer_7_11": "딜러 7~11년"}   # Actions 로그용(값은 찍지 않는다)
 REASONS = {                                            # 페이지·파일에 나가는 실패 문구는 이것뿐
     "fetch": "수신 실패",
     "format": "형식이 다름(읽은 관측 없음)",
@@ -127,15 +153,16 @@ class SideError(Exception):
 
 # ---------- 딜러: 수신 · 해석 ----------
 
-def fetch_text(url, opener=None, clock=time.monotonic):
-    """한 번 받는다. 다른 곳으로 넘겨지면(리디렉션) 실패, 전체 BUDGET초·MAX_BYTES를 넘기면 그만둔다."""
+def fetch_text(url, opener=None, clock=time.monotonic, budget=BUDGET):
+    """한 번 받는다. 다른 곳으로 넘겨지면(리디렉션) 실패, 전체 budget초(기본 BUDGET)·MAX_BYTES를 넘기면 그만둔다.
+    요청 하나(연결·한 번 읽기)엔 min(TIMEOUT, budget)."""
     start, chunks, size = clock(), [], 0
-    with (opener or urllib.request.urlopen)(url, timeout=TIMEOUT) as r:
+    with (opener or urllib.request.urlopen)(url, timeout=min(TIMEOUT, budget)) as r:
         final = urllib.parse.urlsplit(r.geturl())
         if (final.scheme, final.netloc) != ("https", PD_HOST):
             raise SideError("fetch")
         while True:
-            if clock() - start > BUDGET:
+            if clock() - start > budget:
                 raise SideError("fetch")
             chunk = r.read1(65536)
             if not chunk:
@@ -200,11 +227,12 @@ def _num(v):
     return x if x == x and abs(x) != float("inf") else None
 
 
-def _walk(node, ctx, out):
-    """JSON → [(date, 키, 시리즈 구분, 백만 달러)]. 키·구분은 바깥 dict에서 물려받는다({keyid, data: [{date, value}]} 꼴)."""
+def _walk(node, ctx, out, default=PD_KEY):
+    """JSON → [(date, 키, 시리즈 구분, 백만 달러)]. 키·구분은 바깥 dict에서 물려받는다({keyid, data: [{date, value}]} 꼴).
+    키 필드가 어디에도 없는 기록은 default(요청한 키)로 본다."""
     if isinstance(node, list):
         for v in node:
-            _walk(v, ctx, out)
+            _walk(v, ctx, out, default)
         return
     if not isinstance(node, dict):
         return
@@ -219,10 +247,10 @@ def _walk(node, ctx, out):
     if d is not None and v is not None:
         dd, vv = _date(d), _num(v)
         if dd is not None and vv is not None:
-            out.append((dd, ctx.get("key", PD_KEY), ctx.get("sb"), vv))
+            out.append((dd, ctx.get("key", default), ctx.get("sb"), vv))
     for v in node.values():
         if isinstance(v, (dict, list)):
-            _walk(v, ctx, out)
+            _walk(v, ctx, out, default)
 
 
 def _sb_rank(sb):
@@ -233,8 +261,8 @@ def _sb_rank(sb):
     return (int(nums[-1]) if nums else 0, sb)
 
 
-def parse_pd(text, today=None):
-    """딜러 단일 시계열 응답 → [(date, 십억 달러)] 날짜순. 키 필드가 있는 기록은 PD_KEY만(없으면 주소가 정한 키로 본다).
+def parse_pd(text, today=None, key=PD_KEY):
+    """딜러 단일 시계열 응답 → [(date, 십억 달러)] 날짜순. 키 필드가 있는 기록은 key(기본 PD_KEY)만(없으면 주소가 정한 키로 본다).
     같은 날은 가장 새 시리즈 구분의 값(같은 구분이면 뒤의 것). today 뒤 날짜는 버린다. JSON이 아니면 빈 목록."""
     s = (text or "").lstrip("﻿").lstrip()
     if s[:1] not in ("{", "["):
@@ -244,10 +272,10 @@ def parse_pd(text, today=None):
     except ValueError:
         return []
     recs = []
-    _walk(obj, {}, recs)
+    _walk(obj, {}, recs, key)
     best = {}
-    for d, key, sb, v in recs:
-        if key.upper() != PD_KEY or (today is not None and d > today):
+    for d, k, sb, v in recs:
+        if k.upper() != key or (today is not None and d > today):
             continue
         if d not in best or _sb_rank(sb) >= _sb_rank(best[d][0]):
             best[d] = (sb, v)
@@ -279,9 +307,11 @@ def _write_cache(path, text):
         pass
 
 
-def load_dealer(work, today, offline=False, opener=None):
-    """[(date, 십억 달러)]. 온라인이면 받아서(읽히면 캐시에 쓴다), --offline이면 캐시만. 실패는 SideError."""
-    path = os.path.join(work, "supply", PD_CACHE)
+def load_dealer(work, today, offline=False, opener=None, key=PD_KEY, budget=BUDGET, clock=time.monotonic):
+    """[(date, 십억 달러)] — key = PD_KEY(합계) 또는 BUCKET_KEY(이표채 7~11년). 온라인이면 받아서(읽히면 캐시에 쓴다),
+    --offline이면 캐시만. budget이 1초 이하면 요청하지 않고 실패(단계 상한). 실패는 SideError."""
+    url, name = (PD_URL, PD_CACHE) if key == PD_KEY else (BUCKET_URL, BUCKET_CACHE)
+    path = os.path.join(work, "supply", name)
     if offline:
         try:
             with open(path, encoding="utf-8") as f:
@@ -289,13 +319,15 @@ def load_dealer(work, today, offline=False, opener=None):
         except OSError:
             raise SideError("fetch")
     else:
+        if budget <= 1:
+            raise SideError("fetch")
         try:
-            text = fetch_text(PD_URL, opener)
+            text = fetch_text(url, opener, clock, budget)
         except SideError:
             raise
         except Exception:                       # 연결·HTTP·시간 초과 — 원문은 싣지 않는다
             raise SideError("fetch")
-    series = parse_pd(text, today)
+    series = parse_pd(text, today, key)
     if not series:
         raise SideError("format")
     if not offline:
@@ -359,7 +391,7 @@ def stats(kind, series, since=SINCE):
     q = {"from": max(since, series[0][0] + datetime.timedelta(days=CHANGE_DAYS)).isoformat(), "n": len(ch),
          **{k: _r(quantile(ch, p), NUM_ND) if ch else None for k, p in (("p5", 0.05), ("p50", 0.5), ("p95", 0.95))}}
     flag = None
-    if c4 and len(ch) >= MIN_Q:
+    if SIDES[kind]["flag"] and c4 and len(ch) >= MIN_Q:
         flag = "high" if c4["delta"] > quantile(ch, 0.95) else "low" if c4["delta"] < quantile(ch, 0.05) else None
     core = {"date": d1.isoformat(), "level_bn": _r(v1, NUM_ND),
             "chg_4w_bn": _r(c4 and c4["delta"], NUM_ND), "chg_4w_base": c4 and c4["base_date"].isoformat(),
@@ -409,6 +441,10 @@ def citation(kind, retrieved):
     if kind == "custody":
         return (f"{FRED_SOURCE}, {FRED_TITLE} [{FRED_ID}], retrieved from FRED, Federal Reserve Bank of St. Louis; "
                 f"{rp.FRED_URL.format(FRED_ID)}, {when}.")
+    if kind == "dealer_7_11":                   # 뉴욕 연은 목록의 시리즈 설명(2026-11-15) 그대로의 뜻
+        return (f"Federal Reserve Bank of New York, Primary Dealer Statistics, U.S. Treasury coupon securities (excluding "
+                f"TIPS) due in more than 7 years but less than or equal to 11 years, net positions [{BUCKET_KEY}], "
+                f"retrieved from {BUCKET_URL}, {when}.")
     return (f"Federal Reserve Bank of New York, Primary Dealer Statistics, U.S. Treasury securities (excluding TIPS) "
             f"net positions [{PD_KEY}], retrieved from {PD_URL}, {when}.")
 
@@ -417,8 +453,9 @@ def source_of(kind, retrieved=None):
     if kind == "custody":
         src = {"name": f"{FRED_SOURCE} (H.4.1, via FRED)", "series": FRED_ID, "url": rp.FRED_URL.format(FRED_ID)}
     else:
-        src = {"name": "Federal Reserve Bank of New York, Primary Dealer Statistics", "series": PD_KEY,
-               "url": PD_PAGE, "api": PD_URL}
+        key, api = (PD_KEY, PD_URL) if kind == "dealer" else (BUCKET_KEY, BUCKET_URL)
+        src = {"name": "Federal Reserve Bank of New York, Primary Dealer Statistics", "series": key,
+               "url": PD_PAGE, "api": api}
     if retrieved:
         src["citation"] = citation(kind, retrieved)
     return src
@@ -427,6 +464,8 @@ def source_of(kind, retrieved=None):
 def notices(kind, year):
     if kind == "custody":
         return [CUSTODY_DERIVED]
+    if kind == "dealer_7_11":
+        return [BUCKET_DERIVED, BUCKET_DERIVED_EN, rp.nyfed_attribution(year), rp.NOT_AFFILIATED]
     return [PD_DERIVED, PD_DERIVED_EN, rp.nyfed_attribution(year), rp.NOT_AFFILIATED]
 
 
@@ -435,12 +474,13 @@ def present(kind, core, retrieved):
     문구를 고치면 이어 실은 쪽에도 바로 반영된다."""
     spec, q = SIDES[kind], core["q4w"]
     year = q["from"][:4]
-    line = f"{core['level_bn']:,.0f}bn · 4주 {_signed(core['chg_4w_bn'])}"
+    level = _signed(core["level_bn"]) if spec["signed"] else f"{core['level_bn']:,.0f}"
+    line = f"{level}bn · 4주 {_signed(core['chg_4w_bn'])}"
     if q["n"] >= MIN_Q:
         line += f" ({year}년 이후 p5 {_signed(q['p5'])} / p95 {_signed(q['p95'])})"
     line += f" · 52주 {_signed(core['chg_52w_bn'])}"
     flag_text = None
-    if core["flag"] in ("high", "low"):
+    if spec["flag"] and core["flag"] in ("high", "low"):
         hi = core["flag"] == "high"
         c4, bound = _signed_pair(core["chg_4w_bn"], q["p95" if hi else "p5"])
         flag_text = (f"⚠ {FLAG_NAME[kind]} 4주 변화 {c4}bn이 {year}년 이후 "
@@ -453,6 +493,8 @@ def present(kind, core, retrieved):
                  f"논문 계수 대입 참고값: {_signed(s22['delta_bn'])}bn × {PAPER_TFP:g}bp = 약 {s22['paper_tfp_bp']:+.1f}bp "
                  "(Dallas Fed WP 2613 표 2 — 딜러 보유 십억 달러당 TFP 계수, 2019~2025 월간 회귀). 계수를 곱한 산술일 뿐 "
                  "이 사이트의 추정이 아니고, 논문의 딜러 보유 자료와 정의가 다를 수 있으며, 판정에 쓰지 않음"]
+    if kind == "dealer_7_11":
+        extra = [BUCKET_NOTE]
     chart = {"key": f"supply_{kind}", "title": spec["title"], "unit": "bn", "years": YEARS, "zero": spec["zero"],
              "threshold": None, "note": CHART_NOTE, "source_note": spec["source_note"], "notices": [],
              "lines": [{"key": kind, "label": spec["title"], "role": "series", "series": [spec["series"]],
@@ -475,8 +517,9 @@ def _is_num(v, optional=False):
     return (optional and v is None) or (type(v) in (int, float) and v == v and abs(v) != float("inf"))
 
 
-def core_of(side):
-    """직전 파일의 쪽 → (숫자, 받은 날) 또는 None(없거나 형식이 어긋남 — 이어 실을 값이 없는 것으로 본다)."""
+def core_of(side, kind="dealer"):
+    """직전 파일의 쪽 → (숫자, 받은 날) 또는 None(없거나 형식이 어긋남 — 이어 실을 값이 없는 것으로 본다). 표시를 붙이지 않는
+    쪽(7~11년)은 flag가 있으면, 2022년 말 이후는 딜러 합계가 아닌 쪽에 있으면 어긋난 것으로 본다."""
     try:
         q, s22 = side["q4w"], side.get("since_2022")
         pts = side["chart"]["lines"][0]["points"]
@@ -484,9 +527,9 @@ def core_of(side):
               and all(_is_num(side[k], True) for k in ("chg_4w_bn", "chg_52w_bn"))
               and all(side[k] is None or _is_day(side[k]) for k in ("chg_4w_base", "chg_52w_base"))
               and _is_day(q["from"]) and type(q["n"]) is int and all(_is_num(q[k], True) for k in ("p5", "p50", "p95"))
-              and side["flag"] in (None, "high", "low")
-              and (s22 is None or (_is_day(s22["base_date"]) and all(_is_num(s22[k]) for k in
-                                                                     ("base_bn", "delta_bn", "paper_tfp_bp"))))
+              and side["flag"] in ((None, "high", "low") if SIDES[kind]["flag"] else (None,))
+              and (s22 is None or (kind == "dealer" and _is_day(s22["base_date"])
+                                   and all(_is_num(s22[k]) for k in ("base_bn", "delta_bn", "paper_tfp_bp"))))
               and isinstance(pts, list) and all(isinstance(p, list) and len(p) == 2 and _is_day(p[0])
                                                 and _is_num(p[1], True) for p in pts))
     except (KeyError, TypeError, IndexError, AttributeError):
@@ -515,7 +558,7 @@ def previous(out):
 
 def side_ok(kind, core, prev, today):
     """이번에 받은 쪽. 숫자가 직전과 같으면 받은 날(retrieved)을 그대로 둔다 — 같은 자료로 매일 파일을 바꾸지 않게."""
-    old = core_of(prev) if prev else None
+    old = core_of(prev, kind) if prev else None
     if old and core["date"] < old[0]["date"]:
         raise SideError("older")
     retrieved = old[1] if old and old[0] == core else today.isoformat()
@@ -525,7 +568,7 @@ def side_ok(kind, core, prev, today):
 def side_failed(kind, code, prev, today):
     """이번에 못 받은 쪽 — 직전 값이 있으면 '받지 못함'으로 이어 싣고, 못 받기 시작한 날을 지킨다."""
     since = prev.get("failed_since") if prev and _is_day(prev.get("failed_since")) else today.isoformat()
-    old = core_of(prev) if prev else None
+    old = core_of(prev, kind) if prev else None
     if old:
         return {"ok": False, "stale": True, "error": REASONS[code], "failed_since": since, **present(kind, *old)}
     return {"ok": False, "stale": False, "error": REASONS[code], "failed_since": since, "name": SIDES[kind]["name"],
@@ -569,8 +612,9 @@ def annotate(text):
     print("::warning::" + text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"), flush=True)
 
 
-def main(argv=None, opener=None, fred_load=None, now=None):
-    ap = argparse.ArgumentParser(description="뉴욕 연은 딜러 순포지션 · FRED WMTSECL1 → 수급 참고 자료(<out>/supply.json)")
+def main(argv=None, opener=None, fred_load=None, now=None, clock=time.monotonic):
+    ap = argparse.ArgumentParser(description="뉴욕 연은 딜러 순포지션(합계 · 이표채 7~11년) · FRED WMTSECL1 → 수급 참고 자료"
+                                             "(<out>/supply.json)")
     ap.add_argument("--out", default=DEFAULT_OUT, help="사이트 데이터 폴더 (기본: 저장소의 data/)")
     ap.add_argument("--work", default=DEFAULT_WORK, help="작업 폴더 — 원문 캐시는 <work>/supply/ (기본: 저장소의 .work/)")
     ap.add_argument("--offline", action="store_true", help="요청하지 않고 <work>/supply/의 캐시만 읽는다(로컬 확인용)")
@@ -578,8 +622,12 @@ def main(argv=None, opener=None, fred_load=None, now=None):
     out, work = os.path.abspath(a.out), os.path.abspath(a.work)
     now = now or datetime.datetime.now(datetime.timezone.utc)
     today = now.date()
-    loaders = {"dealer": lambda: load_dealer(work, today, a.offline, opener),
-               "custody": lambda: load_custody(work, today, a.offline, fred_load)}
+    start = clock()
+    loaders = {"dealer": lambda: load_dealer(work, today, a.offline, opener, clock=clock),
+               "custody": lambda: load_custody(work, today, a.offline, fred_load),
+               # 맨 뒤 — 단계 전체에서 앞의 두 쪽이 쓴 시간을 뺀 만큼만(BUDGET보다 길게는 주지 않는다)
+               "dealer_7_11": lambda: load_dealer(work, today, a.offline, opener, BUCKET_KEY,
+                                                  min(BUDGET, STEP_BUDGET - (clock() - start)), clock)}
     results = {}
     for kind, load in loaders.items():
         try:
