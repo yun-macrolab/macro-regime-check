@@ -172,6 +172,10 @@ class ArithmeticTest(unittest.TestCase):
     def setUpClass(cls):
         cls.S = world()
 
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()                                               # 민간 보유의 원문 캐시는 여기에만
+        self.addCleanup(shutil.rmtree, self.tmp)
+
     def test_reserves_decomposition_adds_up(self):
         c = liq.calc_reserves(self.S)
         v = c["values"]
@@ -351,7 +355,7 @@ class ArithmeticTest(unittest.TestCase):
     def test_every_item_computes_and_texts_have_no_verdict_words(self):
         core = liq.compute(self.S, {}, NOW.date())
         self.assertNotIn("holdings", core)                                         # FRED 밖 칸은 load_holdings가 만든다
-        core["holdings"] = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=FakeHold())
+        core["holdings"] = liq.load_holdings(self.tmp, NOW.date(), dgs10=self.S["DGS10"], fetch=FakeHold())
         for spec in liq.ITEMS:
             c = core[spec["key"]]
             self.assertNotIsInstance(c, liq.ItemError, spec["key"])
@@ -448,7 +452,7 @@ class ArithmeticTest(unittest.TestCase):
         self.assertEqual(liq.add_years(D(2024, 2, 29), 1), D(2025, 2, 28))
 
     def test_holdings_line_and_explanations(self):
-        c = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=FakeHold())
+        c = liq.load_holdings(self.tmp, NOW.date(), dgs10=self.S["DGS10"], fetch=FakeHold())
         self.assertNotIsInstance(c, liq.ItemError)
         v = c["values"]
         self.assertEqual((c["date"], v["soma"], v["y"], v["ya_record"], v["ya_soma"], v["ya_y"]),
@@ -478,15 +482,18 @@ class ArithmeticTest(unittest.TestCase):
 
     def test_holdings_requests_in_order_and_once_per_month(self):
         f = FakeHold()
-        c = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=f)
+        c = liq.load_holdings(self.tmp, NOW.date(), dgs10=self.S["DGS10"], fetch=f)
         self.assertNotIsInstance(c, liq.ItemError)
         self.assertEqual([u for u, _ in f.calls], HOLD_URLS)                         # 최대 6번 — 날짜 목록은 한 번만
+        self.assertEqual(sorted(os.listdir(os.path.join(self.tmp, liq.CACHE))),      # 받은 원문은 작업 폴더 아래에만
+                         ["mspd_2025-09-30.json", "mspd_2026-09-30.json", "mspd_latest.json", "soma_2025-09-24.json",
+                          "soma_2026-09-23.json", "soma_dates.json"])
         self.assertEqual({h for _, h in f.calls}, {liq.MSPD_HOST, liq.SOMA_HOST})
         f = FakeHold(fail={"2025-09-24"})                                            # 1년 전 SOMA만 못 받음
-        c = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=f)
+        c = liq.load_holdings(self.tmp, NOW.date(), dgs10=self.S["DGS10"], fetch=f)
         self.assertEqual((c["date"], c["values"]["ya_record"], c["values"]["ya_total_eq10"]), ("2026-09-30", None, None))
         for fail in ({"sort=-record_date"}, {"asofdates"}, {"eq:2026-09-30"}, {"2026-09-23"}):
-            e = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=FakeHold(fail=fail))
+            e = liq.load_holdings(self.tmp, NOW.date(), dgs10=self.S["DGS10"], fetch=FakeHold(fail=fail))
             self.assertIsInstance(e, liq.ItemError, fail)
             self.assertEqual(e.code, "fetch", fail)
 
@@ -503,14 +510,14 @@ class ArithmeticTest(unittest.TestCase):
                  ({liq.SOMA_URL.format("2026-09-23"): json.dumps({"soma": {"holdings": []}}).encode()}, NOW.date()),
                  ({liq.SOMA_DATES_URL: json.dumps({"soma": {"asOfDates": ["2026-10-28"]}}).encode()}, NOW.date())]
         for bodies, today in cases:
-            e = liq.load_holdings("unused", today, dgs10=self.S["DGS10"], fetch=FakeHold(bodies=bodies))
+            e = liq.load_holdings(self.tmp, today, dgs10=self.S["DGS10"], fetch=FakeHold(bodies=bodies))
             self.assertIsInstance(e, liq.ItemError, (bodies, today))
             self.assertEqual(e.code, "format", (bodies, today))
         boom = lambda url, host, deadline: (_ for _ in ()).throw(RuntimeError("뜻밖"))
-        self.assertEqual(liq.load_holdings("unused", NOW.date(), fetch=boom).code, "fetch")
+        self.assertEqual(liq.load_holdings(self.tmp, NOW.date(), fetch=boom).code, "fetch")
         buf = io.StringIO()
         with contextlib.redirect_stderr(buf):
-            e = liq.load_holdings("unused", NOW.date(), dgs10=5, fetch=FakeHold())          # 계산 쪽 뜻밖의 오류도 그 칸만
+            e = liq.load_holdings(self.tmp, NOW.date(), dgs10=5, fetch=FakeHold())          # 계산 쪽 뜻밖의 오류도 그 칸만
         self.assertEqual(e.code, "format")
         self.assertIn("holdings 계산 오류: TypeError", buf.getvalue())
 
@@ -522,18 +529,18 @@ class ArithmeticTest(unittest.TestCase):
                 return self.t
         clock = Clock()
         f = FakeHold(clock=clock, cost=12.0)
-        e = liq.load_holdings("unused", NOW.date(), dgs10=self.S["DGS10"], fetch=f, clock=clock, budget=30)
+        e = liq.load_holdings(self.tmp, NOW.date(), dgs10=self.S["DGS10"], fetch=f, clock=clock, budget=30)
         self.assertEqual(len(f.calls), 3)                                            # 0·12·24초 — 30초의 남은 1초 이하에서 멈춘다
         self.assertEqual(e.code, "fetch")
         f = FakeHold()
-        self.assertEqual(liq.load_holdings("unused", NOW.date(), fetch=f, budget=0).code, "fetch")
+        self.assertEqual(liq.load_holdings(self.tmp, NOW.date(), fetch=f, budget=0).code, "fetch")
         self.assertEqual(f.calls, [])
         seen = []
 
         def opener(req, timeout=None):                                               # 기본 수신기 = credit_fetch.fetch_bytes
             seen.append((req.full_url, req.get_header("User-agent"), timeout))
             raise OSError("연결 없음")
-        self.assertEqual(liq.load_holdings("unused", NOW.date(), opener=opener).code, "fetch")
+        self.assertEqual(liq.load_holdings(self.tmp, NOW.date(), opener=opener).code, "fetch")
         self.assertEqual(seen, [(liq.MSPD_URL + liq.MSPD_LATEST_Q, liq.cf.UA, liq.cf.REQ_TIMEOUT)])
 
 
