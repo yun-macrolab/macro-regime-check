@@ -608,11 +608,12 @@ function fileTab(p) {
   tab.append(`파일 ${String(p._i + 1).padStart(2, "0")}/${people.length}`,
     el("span", { text: p.seat === "board" ? "워싱턴 이사회" : `표지 ${SEAL(p.district)} · 제${p.district}지구` }));
 }
-/* 사진(2026-11-16 운영자 결정) — 연준 이사회(공공 영역)와 공개 사용을 허락한 연은의 공식 사진만, 이 폴더의 사본(photos/<키> JPEG)으로 싣는다.
-   자료의 photo는 {file, credit, src}: file이 그 꼴이고 credit이 있을 때만 그림, 아니면 성의 첫 글자 칸('사진 없음 — 허락을 확인하지 못함').
+/* 사진(2026-11-16 운영자 결정) — 각 기관의 공식 사진을 이 폴더의 사본(photos/<키> JPEG)으로 싣는다(이사회 공공 영역 · 뉴욕 연은 약관 ·
+   그 밖은 비상업적 이용과 출처 표기 — 허락의 이름은 자료의 photo.licence, 근거는 README).
+   자료의 photo는 {file, credit, src}: file이 그 꼴이고 credit이 있을 때만 그림, 아니면 성의 첫 글자 칸('사진 없음').
    바깥 주소의 그림은 싣지 않는다(CSP img-src 'self'). 사진마다 출처 줄(credit · 원래 쪽 주소)을 이름 아래에 단다 */
 const PHOTO_FILE = /^photos\/[a-z0-9-]+\.jpg$/;
-const NO_PHOTO = "사진 없음 — 이 사람 공식 사진의 공개 사용 허락을 확인하지 못했다";
+const NO_PHOTO = "사진 없음 — 이 사람의 공식 사진을 아직 싣지 않았다";
 function photoOf(p) {
   const ph = p && p.photo;
   return ph && typeof ph.file === "string" && PHOTO_FILE.test(ph.file) && typeof ph.credit === "string" && ph.credit.trim() ? ph : null;
@@ -1513,7 +1514,7 @@ function buildNotes() {
   const nulls = people.filter(p => typeof p.stance_now !== "number").map(sur).join("·");
   ol.append(el("li", { text: "이 페이지가 덧붙인 것(사실 자료 아님): 도시 약호(공항 약호를 닮게 붙인 이름표) · 지구 바탕색 · 표결 장부의 ‘다수’ 칸(반대 기록이 없는 투표권자를 다수 쪽으로 보고 발표된 표 수와 맞춰 본 것)과 ‘취임 전’ 칸(지금 자리 기록의 시작일 — 워시 2026-05-22) · 마이런의 마지막 회의(2026 사건 기록의 05-22 워시 취임 무렵 퇴임으로 보고 그 뒤를 ‘위원 아님’으로) · 장부의 상단 금리 줄(결정 문구 범위의 윗값) · " +
     `스펙트럼의 셈 칸과 중간값(운영자 해석 숫자를 센 것이라 이것도 운영자 해석 — ${NOW_LBL} 매파 쪽 ${now.hawk}·0 ${now.zero}·비둘기 쪽 ${now.dove}·중간값 ${fmtS(now.med)}, 1월 ${jan.hawk}·${jan.zero}·${jan.dove}·${fmtS(jan.med)}, 판단 불가 ${nulls} 제외) · ` +
-    "위원 모니터의 기울기 눈금(같은 위치 숫자를 그린 것) · ‘19명 겹침’의 도시별 사람 수(걸어온 길의 장소 글자로 센 것 — 확인 수준이 섞여 있다) · 환승역 집계 · 다음 회의까지 D-n(보는 기기의 한국 날짜 기준). 사진은 연준 이사회(공공 영역)와 공개 사용을 허락한 연은의 공식 사진만 — 사람마다 이름 아래 출처 줄, 기관 로고는 쓰지 않았다." }));
+    "위원 모니터의 기울기 눈금(같은 위치 숫자를 그린 것) · ‘19명 겹침’의 도시별 사람 수(걸어온 길의 장소 글자로 센 것 — 확인 수준이 섞여 있다) · 환승역 집계 · 다음 회의까지 D-n(보는 기기의 한국 날짜 기준). 사진은 각 기관의 공식 사진 사본(이사회 공공 영역 · 뉴욕 연은 약관 · 그 밖은 비상업적 이용과 출처 표기 — 운영자 결정) — 사람마다 이름 아래 출처 줄, 기관 로고는 쓰지 않았다." }));
 }
 
 /* ───────── 시작 ───────── */

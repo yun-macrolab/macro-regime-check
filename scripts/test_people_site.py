@@ -41,10 +41,14 @@ IMAGE_EXT = re.compile(r"\.(?:png|jpe?g|gif|webp|avif)\b", re.I)
 # 사진의 허락 → (출처 줄에 들어 있어야 하는 글, 원래 쪽의 호스트). README '연준 인물'의 사진 절에 같은 이름과 근거가 있다.
 # 허락을 확인하지 못한 사람은 photo 칸이 없다(화면은 성의 첫 글자 칸) — 새 허락은 여기 · README에 함께 더한다
 PHOTO_LICENCES = {
-    "frb-public-domain": (("연준 이사회 공식 사진(공공 영역)",), "www.federalreserve.gov", "board"),
+    "frb-public-domain": (("연준 이사회 공식 사진(공공 영역)",), "www.federalreserve.gov", ("board",)),
     # 뉴욕 연은 이용 약관(2023-06-09 판) — 사진도 Content, 복사 · 배포 · 고침 허락, 정해진 출처 줄 · 고친 것은 고쳤다고 적는다
     "nyfed-terms-of-use": (("Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org.",
-                            "이 사이트가 잘라 크기를 줄인 사본"), "www.newyorkfed.org", "ny"),
+                            "이 사이트가 잘라 크기를 줄인 사본"), "www.newyorkfed.org", ("ny",)),
+    # 운영자 결정(2026-11-16 '상업적 목적이 아니니 출처만 밝히면 된다') — 허락이 확인되지 않은 사진(보먼 · 지구 총재 11명)을
+    # 이사회 누리집 게재본으로, 기관(파일 안에 사진가가 있으면 사진가)을 밝혀 싣는다. 위험을 알고 받아들인 것 — 요청이 오면 내린다
+    "operator-noncommercial-credit": (("비상업적 이용, 출처 표기(운영자 결정 2026-11-16)", "사본"), "www.federalreserve.gov",
+                                      ("board", "bank")),
 }
 PHOTO_KEYS = {"file", "credit", "src", "licence"}
 
@@ -173,7 +177,7 @@ class ShellTest(unittest.TestCase):
             for text in needs:
                 self.assertIn(text, ph["credit"], key)
             self.assertRegex(ph["src"], r"^https://" + re.escape(host) + "/", key)
-            self.assertEqual(p["seat"], seat, key)                                   # 그 허락을 준 기관의 사람에게만
+            self.assertIn(p["seat"], seat, key)                                      # 그 허락이 닿는 자리의 사람에게만
             used.add(ph["file"])
         folder = os.path.join(SITE, "photos")
         have = {"photos/" + n for n in os.listdir(folder)} if os.path.isdir(folder) else set()

@@ -16,7 +16,7 @@ window.PEOPLE_DATA = {
   "걸어온 길의 좌표는 캠퍼스·본사 도시의 대략값이다. ‘위치 추정’은 조사에 장소가 없어 추정한 점(나라 중심 포함)이고, 연도가 빈 칸은 조사에 연도가 없는 것이다. ‘사전 지식’ 표시는 확인하지 않은 것이다.",
   "인용 문구는 조사에 옮겨진 그대로다 — 2차 보도가 옮긴 것이면 원문과 다를 수 있다. 2026 투표권자 12명의 인용은 2026-11-04 원문(또는 검색 조각)과 다시 맞췄다.",
   "애틀랜타는 임시 총재(베너블)이고 정식 후임은 발표 전이다(10-31 기준). 마이런(전 이사)은 반대표 기록에만 나온다.",
-  "글은 이 저장소가 공개 자료(연준·연은 자료 — 사본·검색 조각 포함, 보도)를 읽고 쓴 요약이다. 인용은 짧게, 같은 날짜의 출처와 함께 싣는다. 기관 로고는 싣지 않는다. 사람 사진(2026-11-16~)은 연준 이사회 공식 사진(공공 영역)과 공개 사용을 허락한 연은의 공식 사진만 이 사이트에 작은 사본으로 두고 이름 아래에 출처 줄을 단다 — 허락을 확인하지 못한 사람은 성의 첫 글자 칸이다. 사진은 그 기관의 것이고, 이 페이지의 글·판정은 기관과 관계없다.",
+  "글은 이 저장소가 공개 자료(연준·연은 자료 — 사본·검색 조각 포함, 보도)를 읽고 쓴 요약이다. 인용은 짧게, 같은 날짜의 출처와 함께 싣는다. 기관 로고는 싣지 않는다. 사람 사진(2026-11-16~)은 각 기관의 공식 사진을 이 사이트에 작은 사본으로 두고 이름 아래에 출처 줄(기관 · 파일에 적힌 사진가 · 원래 쪽)을 단다 — 이사회 사진은 공공 영역, 뉴욕 연은 사진은 그 이용 약관에 따르고, 나머지(보먼 · 지구 총재 11명)는 이용 허락을 확인하지 못했지만 비상업적 이용에 출처를 밝혀 싣는다(운영자 결정). 사진은 그 기관·사진가의 것이고, 이 페이지의 글·판정은 기관과 관계없다. 기관·사진가가 원하지 않으면 내린다.",
   "지도의 주 경계는 folium 예제 자료(us-states.json, MIT 라이선스 — 저작권 표시는 저장소의 THIRD_PARTY_NOTICES.md)를 앨버스 투영으로 미리 계산한 그림이다.",
   "‘새 발언 — 기준선 대비(자동 분류)’ 칸과 머리의 최근 발언 띠만 매일 자동으로 붙는다 — 언어 모델(AI)이 기사를 읽고 새 발언을 그 사람의 기준선(기준일·확인함/초안 표시)에 견준 결과이고, 사람 확인 없이 매일 올라간다. 틀릴 수 있고, 예측이 아니다. 인용은 언어 모델이 기사에서 발언자 본인의 말로 보고 15단어 이내로 옮긴 것이다. 위의 프로필 칸은 사람이 고친다.",
   "참고 — 예측 아님. 이 사이트의 규칙 판정·점검표에 쓰지 않는다. 프로필 칸은 매일 갱신하지 않는다(머리의 기준일을 본다) — 매일 붙는 것은 자동 분류 칸뿐이다."
@@ -945,6 +945,12 @@ window.PEOPLE_DATA = {
    "name_ko": "미셸 보먼",
    "name_en": "Michelle W. Bowman",
    "role_short": "감독 부의장·이사",
+   "photo": {
+    "file": "photos/bowman.jpg",
+    "credit": "Britt Leckman(파일 안 표시 'ALL RIGHTS RESERVED') · 연준 이사회 공식 사진 — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트의 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/bios/board/bowman.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "board",
    "district": null,
    "voter_2026": true,
@@ -2439,6 +2445,12 @@ window.PEOPLE_DATA = {
    "name_ko": "수전 콜린스",
    "name_en": "Susan M. Collins",
    "role_short": "보스턴 연은 총재",
+   "photo": {
+    "file": "photos/collins.jpg",
+    "credit": "© Federal Reserve Bank of Boston · 보스턴 연은 공식 사진(연준 이사회 누리집의 지구 쪽 게재본) — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트가 크기를 줄인 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-boston.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "bank",
    "district": 1,
    "voter_2026": false,
@@ -2684,6 +2696,12 @@ window.PEOPLE_DATA = {
    "name_ko": "애나 폴슨",
    "name_en": "Anna L. Paulson",
    "role_short": "필라델피아 연은 총재",
+   "photo": {
+    "file": "photos/paulson.jpg",
+    "credit": "Federal Reserve Bank of Philadelphia · 필라델피아 연은 공식 사진(연준 이사회 누리집의 지구 쪽 게재본) — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트가 크기를 줄인 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-philadelphia.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "bank",
    "district": 3,
    "voter_2026": true,
@@ -2860,6 +2878,12 @@ window.PEOPLE_DATA = {
    "name_ko": "베스 해맥",
    "name_en": "Beth M. Hammack",
    "role_short": "클리블랜드 연은 총재",
+   "photo": {
+    "file": "photos/hammack.jpg",
+    "credit": "Photo by Daniel Lozada(© Daniel Lozada) · 클리블랜드 연은 공식 사진(연준 이사회 누리집의 지구 쪽 게재본) — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트가 잘라 크기를 줄인 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-cleveland.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "bank",
    "district": 4,
    "voter_2026": true,
@@ -3047,6 +3071,12 @@ window.PEOPLE_DATA = {
    "name_ko": "토머스 바킨",
    "name_en": "Thomas I. Barkin",
    "role_short": "리치먼드 연은 총재",
+   "photo": {
+    "file": "photos/barkin.jpg",
+    "credit": "Federal Reserve Bank of Richmond · 리치먼드 연은 공식 사진(연준 이사회 누리집의 지구 쪽 게재본) — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트가 잘라 크기를 줄인 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-richmond.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "bank",
    "district": 5,
    "voter_2026": false,
@@ -3205,6 +3235,12 @@ window.PEOPLE_DATA = {
    "name_ko": "셰릴 베너블",
    "name_en": "Cheryl L. Venable",
    "role_short": "애틀랜타 연은 임시 총재",
+   "photo": {
+    "file": "photos/venable.jpg",
+    "credit": "Federal Reserve Bank of Atlanta · 애틀랜타 연은 공식 사진(연준 이사회 누리집의 지구 쪽 게재본) — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트가 크기를 줄인 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-atlanta.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "bank",
    "district": 6,
    "voter_2026": false,
@@ -3306,6 +3342,12 @@ window.PEOPLE_DATA = {
    "name_ko": "오스탄 굴스비",
    "name_en": "Austan D. Goolsbee",
    "role_short": "시카고 연은 총재",
+   "photo": {
+    "file": "photos/goolsbee.jpg",
+    "credit": "Federal Reserve Bank of Chicago · 시카고 연은 공식 사진(연준 이사회 누리집의 지구 쪽 게재본) — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트가 크기를 줄인 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-chicago.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "bank",
    "district": 7,
    "voter_2026": false,
@@ -3495,6 +3537,12 @@ window.PEOPLE_DATA = {
    "name_ko": "알베르토 무살렘",
    "name_en": "Alberto G. Musalem",
    "role_short": "세인트루이스 연은 총재",
+   "photo": {
+    "file": "photos/musalem.jpg",
+    "credit": "Federal Reserve Bank of St. Louis · 세인트루이스 연은 공식 사진(연준 이사회 누리집의 지구 쪽 게재본) — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트가 잘라 크기를 줄인 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-st-louis.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "bank",
    "district": 8,
    "voter_2026": false,
@@ -3690,6 +3738,12 @@ window.PEOPLE_DATA = {
    "name_ko": "닐 카시카리",
    "name_en": "Neel Kashkari",
    "role_short": "미니애폴리스 연은 총재",
+   "photo": {
+    "file": "photos/kashkari.jpg",
+    "credit": "© Steve Niedorf(Rights Reserved) · 미니애폴리스 연은 공식 사진(연준 이사회 누리집의 지구 쪽 게재본) — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트가 크기를 줄인 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-minneapolis.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "bank",
    "district": 9,
    "voter_2026": true,
@@ -3923,6 +3977,12 @@ window.PEOPLE_DATA = {
    "name_ko": "제프리 슈미드",
    "name_en": "Jeffrey R. Schmid",
    "role_short": "캔자스시티 연은 총재",
+   "photo": {
+    "file": "photos/schmid.jpg",
+    "credit": "Photo by Gary Barber · 캔자스시티 연은 공식 사진(연준 이사회 누리집의 지구 쪽 게재본) — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트가 잘라 크기를 줄인 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-kansas-city.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "bank",
    "district": 10,
    "voter_2026": false,
@@ -4138,6 +4198,12 @@ window.PEOPLE_DATA = {
    "name_ko": "로리 로건",
    "name_en": "Lorie K. Logan",
    "role_short": "댈러스 연은 총재",
+   "photo": {
+    "file": "photos/logan.jpg",
+    "credit": "Federal Reserve Bank of Dallas · 댈러스 연은 공식 사진(연준 이사회 누리집의 지구 쪽 게재본) — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트가 크기를 줄인 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-dallas.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "bank",
    "district": 11,
    "voter_2026": true,
@@ -4340,6 +4406,12 @@ window.PEOPLE_DATA = {
    "name_ko": "메리 데일리",
    "name_en": "Mary C. Daly",
    "role_short": "샌프란시스코 연은 총재",
+   "photo": {
+    "file": "photos/daly.jpg",
+    "credit": "Federal Reserve Bank of San Francisco · 샌프란시스코 연은 공식 사진(연준 이사회 누리집의 지구 쪽 게재본) — 비상업적 이용, 출처 표기(운영자 결정 2026-11-16) · 이 사이트가 크기를 줄인 사본",
+    "src": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-san-francisco.htm",
+    "licence": "operator-noncommercial-credit"
+   },
    "seat": "bank",
    "district": 12,
    "voter_2026": false,
