@@ -76,6 +76,55 @@ window.PEOPLE_NOTES = {
    "org": "영란은행",
    "role": "총재 · 금융안정위원회(FSB) 의장",
    "region": "영국"
+  },
+  "lombardelli": {
+   "name_ko": "클레어 롬바르델리",
+   "name_en": "Clare Lombardelli",
+   "org": "영란은행",
+   "role": "통화정책 담당 부총재 · 통화정책위원회(MPC) 위원",
+   "region": "영국"
+  },
+  "greene": {
+   "name_ko": "메건 그린",
+   "name_en": "Megan Greene",
+   "org": "영란은행",
+   "role": "통화정책위원회(MPC) 외부 위원",
+   "region": "영국"
+  },
+  "nagel": {
+   "name_ko": "요아힘 나겔",
+   "name_en": "Joachim Nagel",
+   "org": "독일 분데스방크",
+   "role": "총재 · ECB 정책위원",
+   "region": "유로존"
+  },
+  "lane": {
+   "name_ko": "필립 레인",
+   "name_en": "Philip R. Lane",
+   "org": "유럽중앙은행(ECB)",
+   "role": "집행이사 · 수석 이코노미스트",
+   "region": "유로존"
+  },
+  "kazaks": {
+   "name_ko": "마르틴시 카작스",
+   "name_en": "Mārtiņš Kazāks",
+   "org": "라트비아 중앙은행",
+   "role": "총재 · ECB 정책위원",
+   "region": "유로존"
+  },
+  "makhlouf": {
+   "name_ko": "가브리엘 마클루프",
+   "name_en": "Gabriel Makhlouf",
+   "org": "아일랜드 중앙은행",
+   "role": "총재 · ECB 정책위원",
+   "region": "유로존"
+  },
+  "vujcic": {
+   "name_ko": "보리스 부이치치",
+   "name_en": "Boris Vujčić",
+   "org": "유럽중앙은행(ECB)",
+   "role": "부총재(2026-06~) · 전 크로아티아 중앙은행 총재",
+   "region": "유로존"
   }
  },
  "notes": [
@@ -1158,6 +1207,254 @@ window.PEOPLE_NOTES = {
      "t": "inflation",
      "s": "물가를 공급 충격 탓으로 보는 설명과 금리에 반응하지 않는 수요 탓으로 보는 설명은 뿌리가 같다 — 물가가 연준이 다룰 수 없는 영역에 있다는 생각이다. 그는 물가가 늘 수요와 공급의 불균형에서 온다고 반박한다.",
      "q": "inflation is always the result of an imbalance between supply and demand"
+    }
+   ]
+  },
+  {
+   "id": "nagel-20261110",
+   "who": "nagel",
+   "date": "2026-11-10",
+   "venue": "인터뷰",
+   "event": "블룸버그TV 인터뷰(리가 — 라트비아 중앙은행 연례 콘퍼런스 전날)",
+   "src": "https://www.bloomberg.com/news/videos/2026-11-10/nagel-ecb-rate-hike-in-december-looks-rather-obvious-video",
+   "cert": "보도 확인",
+   "head": "12월에 올려야 한다는 건 꽤 분명해 보인다 — 유로존 물가가 너무 높다",
+   "chips": {
+    "next": [
+     "12월 인상",
+     "up"
+    ],
+    "inflation": [
+     "너무 높음",
+     "up"
+    ]
+   },
+   "points": [
+    {
+     "t": "inflation",
+     "s": "유로존 물가가 너무 높다."
+    },
+    {
+     "t": "policy",
+     "s": "이미 두 번 올렸지만 그 위에 더 해야 한다는 결론은 꽤 분명하고, 새 숫자가 나오면 더 분명해질 것이다.",
+     "q": "it is rather obvious that we have to increase in December"
+    }
+   ]
+  },
+  {
+   "id": "kazaks-20261110",
+   "who": "kazaks",
+   "date": "2026-11-10",
+   "venue": "인터뷰",
+   "event": "블룸버그TV 인터뷰(리가)",
+   "src": "https://www.bloomberg.com/news/videos/2026-11-10/kazaks-sees-rate-hike-judgments-getting-more-nuanced-video",
+   "cert": "보도 확인",
+   "head": "추가 긴축이 어느 정도 필요해 보인다 — 다만 따질 득실은 더 미묘해졌다",
+   "chips": {
+    "next": [
+     "추가 긴축 일부",
+     "up"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "높은 에너지 가격이 이어지면 추가 긴축이 필요할 수 있다. 다만 따져야 할 득실이 더 미묘해졌다 — 보도마다 어조가 달라, 받은 요약보다 조건이 붙은 말에 가깝다."
+    }
+   ]
+  },
+  {
+   "id": "lane-20261110",
+   "who": "lane",
+   "date": "2026-11-10",
+   "venue": "인터뷰",
+   "event": "블룸버그TV 인터뷰(같은 날 런던 영란은행 워처스 콘퍼런스 기조연설)",
+   "src": "https://www.bloomberg.com/news/articles/2026-11-10/ecb-s-lane-sees-december-hike-as-prudent-if-data-don-t-shift",
+   "cert": "보도 확인",
+   "head": "12월 정보가 지금과 똑같다면 인상이 신중한 선택 — 물가 정점은 아직",
+   "chips": {
+    "next": [
+     "정보 그대로면 12월 인상",
+     "up"
+    ],
+    "inflation": [
+     "연말 4% 조금 위",
+     "up"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "12월에 손에 쥔 정보가 지금과 똑같다면 금리를 올리는 게 신중한 판단이다.",
+     "q": "it would be prudent indeed to hike"
+    },
+    {
+     "t": "inflation",
+     "s": "물가 정점은 아직 오지 않았다. 올해 말 4%를 조금 넘고, 식품·근원 물가는 특히 2027년 1분기에 빨라질 것으로 본다.",
+     "q": "There will be more to come in terms of peak inflation."
+    }
+   ]
+  },
+  {
+   "id": "vujcic-20261110",
+   "who": "vujcic",
+   "date": "2026-11-10",
+   "date_note": "받은 표의 날짜 — 보도로 확인하지 못함",
+   "venue": "발언",
+   "event": "자리 확인 못 함(브뤼셀 발언이라는 2차 소식지만 찾음)",
+   "src": "",
+   "cert": "출처 미확인",
+   "head": "이란 전쟁이 이어지는 한 물가 압력도 이어진다 — 소비자 물가의 2차 효과는 내년에",
+   "chips": {
+    "inflation": [
+     "운송비·원자재 간접 효과",
+     "up"
+    ]
+   },
+   "points": [
+    {
+     "t": "inflation",
+     "s": "이란 전쟁이 이어지는 동안 물가 압력도 이어진다. 운송비 급등과 원자재 값 재상승이 시간이 지나며 간접적으로 물가를 올릴 수 있다."
+    },
+    {
+     "t": "inflation",
+     "s": "이미 두 번 올렸지만 소비자 물가에 대한 2차 효과는 내년에야 나타날 것이다."
+    },
+    {
+     "t": "labor",
+     "s": "2027년에도 임금 압력이 더 있겠지만 지난 물가 주기만큼 세지는 않을 것이다."
+    }
+   ]
+  },
+  {
+   "id": "lombardelli-20261110",
+   "who": "lombardelli",
+   "date": "2026-11-10",
+   "venue": "인터뷰",
+   "event": "가디언 인터뷰(로이터 보도)",
+   "src": "https://live.euronext.com/en/financial-news/boes-lombardelli-does-not-rule-out-december-rate-hike-she-tells-guardian",
+   "cert": "보도 확인",
+   "head": "12월 인상을 배제하지 않는다 — 다만 아직 판단할 정보가 충분하지 않다",
+   "chips": {
+    "next": [
+     "12월 인상 배제 안 함",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "12월이든 2월이든 인상을 넣지도 빼지도 않는다 — 분쟁과 에너지 가격, 더 넓은 지표에 달렸다. 아직 정보가 충분하지 않다.",
+     "q": "I wouldn't rule December in or out, February in or out"
+    },
+    {
+     "t": "policy",
+     "s": "그 전주 기준금리를 4%로 올린 결정(8대 1)에 다수 쪽으로 찬성했다."
+    }
+   ]
+  },
+  {
+   "id": "makhlouf-20261111",
+   "who": "makhlouf",
+   "date": "2026-11-11",
+   "venue": "발언",
+   "event": "자리 확인 못 함(11-11~12 보도)",
+   "src": "https://www.newsquawk.com/headlines/ecbs-makhlouf-says-price-pressures-are-largely-confined-to-energy-but-upside-risks-remain",
+   "cert": "보도 확인",
+   "head": "지표와 12월 새 전망을 기다릴 때 — 가격 압력은 주로 에너지에",
+   "chips": {
+    "next": [
+     "지표·12월 전망 대기",
+     "mid"
+    ],
+    "inflation": [
+     "주로 에너지·상방 위험",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "신호가 엇갈려 지금은 지표와 12월 직원 전망을 기다려야 한다."
+    },
+    {
+     "t": "inflation",
+     "s": "가격 압력은 대체로 에너지에 머물지만 위쪽 위험은 남아 있다. 2027년 초 물가가 오를 것으로 본다."
+    },
+    {
+     "t": "policy",
+     "s": "앞선 두 번의 인상 효과가 아직 다 나타나지 않았고, 국채금리 상승으로 자금 조달 여건도 이미 조였다. 임금 상승은 제한적이고 기대인플레이션은 안정적이다."
+    }
+   ]
+  },
+  {
+   "id": "greene-20261111",
+   "who": "greene",
+   "date": "2026-11-11",
+   "venue": "기고",
+   "event": "파이낸셜타임스 기고(로이터 보도)",
+   "src": "https://uk.finance.yahoo.com/news/boes-greene-says-proactively-tighten-183937290.html",
+   "cert": "보도 확인",
+   "head": "임금이 높게 굳고 비용이 가격으로 넘어갈 위험이 커졌다 — 선제적으로 조여야",
+   "chips": {
+    "next": [
+     "선제 긴축",
+     "up"
+    ],
+    "labor": [
+     "유휴 여력 생각보다 적음",
+     "up"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "임금 상승이 높은 수준에 굳고 기업이 그 비용을 가격에 넘기는 걸 막으려면 통화정책 기조를 선제적으로 조여야 한다.",
+     "q": "proactively tighten our monetary policy stance"
+    },
+    {
+     "t": "labor",
+     "s": "경제의 유휴 여력이 생각만큼 크지 않고 이미 정점을 지났을 수도 있다. 임금 상승률은 3.5% 이상에서 안정될 것으로 본다.",
+     "q": "we don't have as much slack as we thought and it may already have peaked"
+    }
+   ]
+  },
+  {
+   "id": "nagel-20261113",
+   "who": "nagel",
+   "date": "2026-11-13",
+   "venue": "연설",
+   "event": "프랑크푸르트 은행인 콘퍼런스 기조연설",
+   "src": "https://www.bloomberg.com/news/articles/2026-11-13/nagel-says-highly-probable-that-ecb-will-have-to-act-again",
+   "cert": "보도 확인",
+   "head": "상황이 그대로면 다시 움직여야 할 가능성이 매우 크다 — 9월의 비관 시나리오에 근접",
+   "chips": {
+    "next": [
+     "다시 행동 가능성 매우 큼",
+     "up"
+    ],
+    "inflation": [
+     "비관 시나리오 근접",
+     "up"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "지금 상황이 이어지면 다시 행동해야 할 가능성이 매우 크다. 높은 물가가 한 달 이어질 때마다 2차 효과 위험이 커진다.",
+     "q": "If the situation stays as it is, it seems highly probable that we'll have to act again"
+    },
+    {
+     "t": "inflation",
+     "s": "9월 전망 때 그린 비관 시나리오에 가까워지고 있다. 기조 물가는 여전히 높고 단기 기대인플레이션은 헤드라인 급등을 따라 올랐다 — 중기 기대는 아직 꽤 잘 고정돼 있다."
+    },
+    {
+     "t": "inflation",
+     "s": "가스·전력 가격의 상승세가 최근 몇 주 힘을 얻었고, 가격 사슬의 앞단에서도 압력이 보인다."
+    },
+    {
+     "t": "growth",
+     "s": "보도로는 유로존 경제가 회복력을 보여 왔다고 했다. 책무를 다하면 2022년 같은 급등은 되풀이되지 않는다는 대목은 원래 문장을 찾지 못했다."
     }
    ]
   }
