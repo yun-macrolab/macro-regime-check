@@ -3,7 +3,10 @@
 
   껍데기   문서 머리(문자 집합 · 화면 폭 · 제목) · 바깥에서는 글꼴만 · 스크립트는 자료 → 그리기 순 · 점검 페이지와 서로 잇는다
   표시     '참고 — 예측 아님'이 머리에 보이고 '초안'은 자료의 review가 draft일 때만 · 비공개 쪽 낱말(비공개 · 분석실 · 발언 판정의 꼴)이
-           없다 · 사람 사진 · 기관 로고(이미지)가 없다 · 바깥에서 싣는 것은 글꼴뿐(CSP meta · url( · href · src)
+           없다 · 기관 로고(이미지)가 없다 · 바깥에서 싣는 것은 글꼴뿐(CSP meta · url( · href · src)
+  사진     (2026-11-16 운영자 결정) 사람 사진은 site/photos/<키>.jpg 사본만 — 자료의 photo가 그 파일 · 허락(PHOTO_LICENCES)의
+           출처 줄 · 그 기관 주소의 원래 쪽을 갖고, 폴더의 사진은 모두 누군가의 것이다. 그림을 만드는 곳은 people.js의 한 곳뿐
+           (파일 꼴 · 메타데이터 없음 · 크기는 test_site_origin.py)
   자료     people-data.js가 window.PEOPLE_DATA = {JSON}; 꼴이고, 사람 · 회의 · 지구 · 지도의 칸과 범위가 맞는다(지구마다 근사 설명) ·
            위치 눈금의 때 이름(stance_label)은 자료에서만 · '다음 확인'이 기준일 앞의 날짜로 시작하지 않는다 ·
            출처 주소는 https · 이메일 주소가 없다 · 회의 반대표 ↔ 사람 반대표(양쪽) · 지구 총재 ↔ 그 사람의 지구 ·
@@ -34,6 +37,16 @@ SIDES = {"인상", "인하", "동결", "문구"}              # 문구 = 성명 
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}$")
 VS_BASE = ("평소와 같음", "평소보다 매파", "평소보다 비둘기", "새 주제")   # 자동 분류 칸의 판정(scripts/people_push.py의 VS_BASE와 같다)
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+IMAGE_EXT = re.compile(r"\.(?:png|jpe?g|gif|webp|avif)\b", re.I)
+# 사진의 허락 → (출처 줄에 들어 있어야 하는 글, 원래 쪽의 호스트). README '연준 인물'의 사진 절에 같은 이름과 근거가 있다.
+# 허락을 확인하지 못한 사람은 photo 칸이 없다(화면은 성의 첫 글자 칸) — 새 허락은 여기 · README에 함께 더한다
+PHOTO_LICENCES = {
+    "frb-public-domain": (("연준 이사회 공식 사진(공공 영역)",), "www.federalreserve.gov", "board"),
+    # 뉴욕 연은 이용 약관(2023-06-09 판) — 사진도 Content, 복사 · 배포 · 고침 허락, 정해진 출처 줄 · 고친 것은 고쳤다고 적는다
+    "nyfed-terms-of-use": (("Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org.",
+                            "이 사이트가 잘라 크기를 줄인 사본"), "www.newyorkfed.org", "ny"),
+}
+PHOTO_KEYS = {"file", "credit", "src", "licence"}
 
 
 def read(name):
@@ -131,12 +144,44 @@ class ShellTest(unittest.TestCase):
                 self.assertNotIn(word, read(name), f"{name}: {word}")
             self.assertEqual(js.count(f'"{word}"'), 2, word)       # 열거값(RM.vs) · 칩 모양(VS_LOOK) 두 곳
 
-    def test_no_pictures_of_people_or_logos(self):
+    def test_no_logos_and_pictures_only_from_the_photo_folder(self):
         for name in FILES:
             text = read(name)
-            for pat in (r"<img\b", r"<picture\b", r"<video\b", r'createElement\("img"\)', r"new Image",
-                        r"\.(?:png|jpe?g|gif|webp|avif)\b", r"data:image/"):
+            for pat in (r"<img\b", r"<picture\b", r"<video\b", r'createElement\("img"\)', r"new Image", r"data:image/"):
                 self.assertIsNone(re.search(pat, text, re.I), f"{name}: {pat}")
+        for name in ("people.html", "people.css"):
+            self.assertIsNone(IMAGE_EXT.search(read(name)), name)
+        js = read("people.js")
+        self.assertEqual(js.count('el("img"'), 1)                                  # 그림을 만드는 곳은 한 곳(faceNode)
+        hits = [ln for ln in js.splitlines() if IMAGE_EXT.search(ln)]
+        self.assertEqual(len(hits), 1)
+        self.assertIn("PHOTO_FILE = /^photos", hits[0])                             # 파일 꼴은 이 폴더의 .jpg뿐
+        files = [p["photo"]["file"] for p in load_data(read("people-data.js"))["people"] if "photo" in p]
+        self.assertEqual(len(IMAGE_EXT.findall(read("people-data.js"))), len(files))   # 자료의 그림 이름은 photo.file뿐
+
+    def test_photos_have_a_licence_and_a_file(self):
+        used = set()
+        for p in load_data(read("people-data.js"))["people"]:
+            if "photo" not in p:
+                continue
+            ph, key = p["photo"], p["key"]
+            self.assertEqual(set(ph), PHOTO_KEYS, key)
+            self.assertEqual(ph["file"], f"photos/{key}.jpg", key)
+            self.assertTrue(os.path.isfile(os.path.join(SITE, "photos", key + ".jpg")), key)
+            self.assertIn(ph["licence"], PHOTO_LICENCES, key)
+            needs, host, seat = PHOTO_LICENCES[ph["licence"]]
+            for text in needs:
+                self.assertIn(text, ph["credit"], key)
+            self.assertRegex(ph["src"], r"^https://" + re.escape(host) + "/", key)
+            self.assertEqual(p["seat"], seat, key)                                   # 그 허락을 준 기관의 사람에게만
+            used.add(ph["file"])
+        folder = os.path.join(SITE, "photos")
+        have = {"photos/" + n for n in os.listdir(folder)} if os.path.isdir(folder) else set()
+        self.assertEqual(have, used, "사진 폴더의 파일은 모두 자료의 photo.file이어야 한다(쓰지 않는 사진은 지운다)")
+        with open(os.path.join(REPO, "README.md"), encoding="utf-8") as f:
+            readme = f.read()
+        for lic in {p["photo"]["licence"] for p in load_data(read("people-data.js"))["people"] if "photo" in p}:
+            self.assertIn(f"`{lic}`", readme, lic)
 
     def test_no_email_addresses(self):
         for name in FILES:

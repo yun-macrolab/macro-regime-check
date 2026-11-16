@@ -2,8 +2,10 @@
 표준 라이브러리만 쓴다(node · 네트워크 불필요, Python 3.9에서도 돈다).
 
 같은 주소 아래에 놓이는 파일은 브라우저 저장 공간을 함께 쓴다. 그래서 화면 하나가 아니라 폴더를 통째로 훑는다.
-  나무       site/에는 EXT_OK의 확장자만 둔다
+  나무       site/에는 EXT_OK의 확장자만 둔다 — 사진 폴더(PHOTOS, 2026-11-16)에만 .jpg
              그 파일은 모두 엄격한 UTF-8로 풀리고 NUL 바이트가 없다(아니면 아래 낱말 검사들이 읽지 못하고 지나친다)
+  사진       PHOTOS의 .jpg는 글자 검사 밖이다. 대신 이름 꼴 · 진짜 JPEG · 메타데이터 칸(EXIF · XMP · ICC · IPTC · 설명 글) 없음 ·
+             크기(픽셀 · 바이트) 상한을 본다. 누가 쓰고 어떤 허락으로 싣는지는 scripts/test_people_site.py가 본다
   금지 낱말   site/의 모든 파일에서 BANNED가 0번(주석은 떼고 센다). 스크립트는 그 문서와 같은 폴더의 것만 싣는다
   허용 표     study/ 밖 파일의 WATCHED 낱말 횟수가 ALLOW와 같다(표에 없는 파일 · 낱말은 0번)
   덫         study/ 밖 파일은 study 쪽 저장 이름을 모른다 · data/는 전부 .json · .jsonl 파일이 없다 ·
@@ -25,6 +27,10 @@ DATA = os.path.join(REPO, "data")
 
 # ── 허용 표 ──────────────────────────────────────────────────────────────────────────
 EXT_OK = (".html", ".js", ".css", ".webmanifest")         # site/에 둘 수 있는 확장자
+PHOTOS = "photos/"                                         # 연준 인물 사진 사본(2026-11-16) — 이 폴더에만 사진, 글자 검사 밖
+PHOTO_NAME = re.compile(r"photos/[a-z0-9-]+\.jpg$")
+PHOTO_MAX_PX = (160, 200)                                  # 너비 · 높이 상한 — 화면에서는 88px 칸에 그린다
+PHOTO_MAX_BYTES = 32 * 1024
 
 BANNED = (                                                 # 어느 파일에서도 0번 — 아래 ALLOW로는 풀지 않는다
     "innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "DOMParser", "createContextualFragment",
@@ -91,9 +97,61 @@ def planted(files):
     return box
 
 
+def text_files(site):
+    """글자 검사가 읽는 파일 — 사진 폴더 밖 전부."""
+    return [n for n in files_under(site) if not n.startswith(PHOTOS)]
+
+
 def odd_extensions(site):
-    """site/ 아래에서 EXT_OK 밖의 확장자를 가진 파일."""
-    return [n for n in files_under(site) if os.path.splitext(n)[1] not in EXT_OK]
+    """site/ 아래에서 EXT_OK 밖의 확장자를 가진 파일 — 사진 폴더에서는 PHOTO_NAME 꼴이 아닌 파일."""
+    return [n for n in files_under(site)
+            if (not PHOTO_NAME.match(n) if n.startswith(PHOTOS) else os.path.splitext(n)[1] not in EXT_OK)]
+
+
+def jpeg_problems(raw):
+    """사진 한 장의 문제 → 문구 목록. JPEG(SOI … EOI)이고, 메타데이터 칸(APP1~APP15 — EXIF · XMP · ICC · IPTC · Adobe, COM 설명 글)이
+    없고, 픽셀 · 바이트가 상한 안. 첫 SOS까지의 칸을 읽는다(그 뒤는 그림 자료)."""
+    if raw[:2] != b"\xff\xd8" or raw[-2:] != b"\xff\xd9":
+        return ["JPEG이 아님"]
+    out, size, i = [], None, 2
+    while i + 4 <= len(raw):
+        if raw[i] != 0xFF:
+            out.append("칸 머리가 어긋남")
+            break
+        m = raw[i + 1]
+        if m == 0xFF:                                       # 채움 바이트
+            i += 1
+            continue
+        if 0xD0 <= m <= 0xD7 or m == 0x01:                  # 길이 없는 표지
+            i += 2
+            continue
+        n = int.from_bytes(raw[i + 2:i + 4], "big")
+        if 0xE1 <= m <= 0xEF:
+            out.append("APP%d 칸(메타데이터)" % (m - 0xE0))
+        elif m == 0xFE:
+            out.append("COM 칸(설명 글)")
+        elif m in (0xC0, 0xC1, 0xC2) and i + 9 <= len(raw):
+            size = (int.from_bytes(raw[i + 7:i + 9], "big"), int.from_bytes(raw[i + 5:i + 7], "big"))
+        if m == 0xDA:
+            break
+        i += 2 + n
+    if size is None:
+        out.append("크기 칸(SOF0~2) 없음")
+    elif size[0] > PHOTO_MAX_PX[0] or size[1] > PHOTO_MAX_PX[1]:
+        out.append("%d×%d — 상한 %d×%d" % (size + PHOTO_MAX_PX))
+    if len(raw) > PHOTO_MAX_BYTES:
+        out.append("%d바이트 — 상한 %d" % (len(raw), PHOTO_MAX_BYTES))
+    return out
+
+
+def photo_problems(site):
+    """사진 폴더의 PHOTO_NAME 꼴 파일마다 jpeg_problems → 'site/이름: 문제' 목록(꼴이 아닌 파일은 odd_extensions가 잡는다)."""
+    out = []
+    for n in files_under(site):
+        if PHOTO_NAME.match(n):
+            with open(os.path.join(site, *n.split("/")), "rb") as f:
+                out += ["site/%s: %s" % (n, why) for why in jpeg_problems(f.read())]
+    return out
 
 
 def not_utf8(site):
@@ -101,7 +159,7 @@ def not_utf8(site):
     read()는 풀리지 않는 바이트를 바꿔서 읽는다 — 그런 파일은 낱말 검사들이 조용히 지나치는데 브라우저는 BOM을 보고 실행한다.
     UTF-8 BOM은 막지 않는다(낱말 검사가 내용을 읽는 데 지장이 없다)."""
     out = []
-    for n in files_under(site):
+    for n in text_files(site):
         with open(os.path.join(site, *n.split("/")), "rb") as f:
             raw = f.read()
         try:
@@ -125,6 +183,35 @@ class SiteTreeTest(unittest.TestCase):
         files = {"a.html": "", "b.JS": "", "study/m.webmanifest": "{}", "img/a.png": "x", "notes.txt": "x", ".nojekyll": ""}
         with planted(files) as site:
             self.assertEqual(odd_extensions(site), [".nojekyll", "b.JS", "img/a.png", "notes.txt"])
+
+    def test_photos_are_small_clean_jpegs(self):
+        self.assertEqual(photo_problems(SITE), [], "사진은 메타데이터 없는 작은 JPEG로 다시 저장한다(README '연준 인물'의 사진 절)")
+
+    def test_planted_photos_are_checked(self):
+        def jpeg(w=130, h=162, extra=b""):
+            app0 = b"\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
+            sof = b"\xff\xc0\x00\x11\x08" + h.to_bytes(2, "big") + w.to_bytes(2, "big") + b"\x03" + b"\x01\x22\x00\x02\x11\x01\x03\x11\x01"
+            sos = b"\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00\x3f\x00"
+            return b"\xff\xd8" + app0 + extra + sof + sos + b"\x12\x34\xff\x00\x56" + b"\xff\xd9"
+        exif = b"\xff\xe1\x00\x08Exif\x00\x00"
+        com = b"\xff\xfe\x00\x07hello"
+        raw = {"photos/ok.jpg": jpeg(), "photos/exif.jpg": jpeg(extra=exif), "photos/note.jpg": jpeg(extra=com),
+               "photos/big.jpg": jpeg(400, 500), "photos/heavy.jpg": jpeg(extra=b"\xff\xe0\x80\x02" + b"\x00" * 0x8000),
+               "photos/png.jpg": b"\x89PNG\r\n\x1a\n" + b"\x00" * 20, "photos/Bad Name.jpg": jpeg(), "photos/a.png": jpeg(),
+               "img/b.jpg": jpeg(), "photos/sub/c.jpg": jpeg()}
+        with planted({"index.html": "<p>x</p>\n"}) as site:
+            for name, data in raw.items():
+                path = os.path.join(site, *name.split("/"))
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "wb") as f:
+                    f.write(data)
+            self.assertEqual(odd_extensions(site), ["img/b.jpg", "photos/Bad Name.jpg", "photos/a.png", "photos/sub/c.jpg"])
+            self.assertEqual(photo_problems(site), [
+                "site/photos/big.jpg: 400×500 — 상한 160×200", "site/photos/exif.jpg: APP1 칸(메타데이터)",
+                "site/photos/heavy.jpg: %d바이트 — 상한 %d" % (len(raw["photos/heavy.jpg"]), PHOTO_MAX_BYTES),
+                "site/photos/note.jpg: COM 칸(설명 글)", "site/photos/png.jpg: JPEG이 아님"])
+            self.assertEqual(not_utf8(site), ["site/img/b.jpg: UTF-8로 풀리지 않음"])      # 사진 폴더 밖의 그림은 글자 검사에도 걸린다
+            self.assertEqual(banned_hits(site), [])
 
     def test_every_site_file_is_strict_utf8(self):
         self.assertEqual(not_utf8(SITE), [], "UTF-8로 다시 저장한다 — 이 파일은 아래 낱말 검사들이 읽지 못한다")
@@ -168,7 +255,7 @@ def code_only(name, text):
 def banned_hits(site):
     """[(파일, 낱말)] — site/의 모든 파일(study/ 포함)에서 주석을 떼고 찾은 금지 낱말. 대소문자는 가리지 않는다(JavaScript: · <IFRAME)."""
     out = []
-    for n in files_under(site):
+    for n in text_files(site):
         code = code_only(n, read(site, n)).lower()
         out += [(n, w) for w in BANNED if w.lower() in code]
     return out
@@ -177,7 +264,7 @@ def banned_hits(site):
 def foreign_scripts(site):
     """[(파일, 주소)] — .html이 싣는 스크립트 가운데 그 문서의 폴더 밖의 것(주소에 ':'이 있거나 '/'로 시작하거나 '..'을 지난다)."""
     out = []
-    for n in files_under(site):
+    for n in text_files(site):
         if n.endswith(".html"):
             for src in SRC.findall(code_only(n, read(site, n))):
                 if ":" in src or src.startswith("/") or ".." in src.split("/"):
@@ -223,7 +310,7 @@ class SiteWordsTest(unittest.TestCase):
 def watched_counts(site):
     """{파일: {낱말: 횟수}} — study/ 밖 파일에서 주석을 떼고 센 WATCHED 낱말(0번은 싣지 않는다)."""
     out = {}
-    for n in files_under(site):
+    for n in text_files(site):
         if not n.startswith(STUDY):
             code = code_only(n, read(site, n))
             row = {w: code.count(w) for w in WATCHED if w in code}
@@ -267,7 +354,7 @@ class SiteAllowTest(unittest.TestCase):
 
 def name_leaks(site):
     """study/ 밖 파일 가운데 study 쪽 저장 이름의 머리를 아는 것(주석까지 본다)."""
-    return [n for n in files_under(site) if not n.startswith(STUDY) and STUDY_NAME in read(site, n)]
+    return [n for n in text_files(site) if not n.startswith(STUDY) and STUDY_NAME in read(site, n)]
 
 
 def not_json(data):

@@ -27,3 +27,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## 연준 인물 사진 `site/photos/` — 연준 인물 페이지(2026-11-16)
+
+이 폴더의 사진은 이 저장소의 MIT 라이선스(`LICENSE`)에 들지 않는다. 사진마다 원래 기관의 조건을 따르고, 페이지의 이름 아래 출처 줄에 그 조건을 적는다. 사진은 그 기관의 것이고, 이 사이트의 글·판정은 기관과 관계없으며 기관이 보증하지 않는다.
+
+- **연준 이사회 이사**(`warsh`·`jefferson`·`waller`·`barr`·`cook`·`powell`): 연준 이사회 누리집의 이사 소개 쪽 사진. 이사회 고지(https://www.federalreserve.gov/disclaimer.htm, 'Copyright/trademark'): "Unless otherwise indicated, information on Board's website is in the public domain and may be copied and distributed without permission. Please cite to the Board as the source of the information." — 출처 줄 '연준 이사회 공식 사진(공공 영역)'. 보먼 이사의 사진은 파일 안에 사진가 이름과 "ALL RIGHTS RESERVED" 표시가 있어('Unless otherwise indicated'에 걸린다) 싣지 않았다.
+- **뉴욕 연은 총재**(`williams`): 뉴욕 연은 누리집 총재 쪽의 'Download Photo'(서버 Last-Modified 2018-07-09). 뉴욕 연은 이용 약관(https://www.newyorkfed.org/privacy/termsofuse, 2023-06-09 판)은 사진을 Content에 넣고 "a non-exclusive license … to use, copy, and distribute Content for your personal or business purposes"와 "Modify and create derivative works"를 허락한다. 조건대로 정해진 출처 줄 "© 2018 Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org."을 싣고, 이 사이트가 4:5로 잘라 크기를 줄인 사본이라고 적으며(뉴욕 연은이 고친 것으로 돌리지 않는다), 같은 조건보다 좁은 조건을 붙이지 않는다 — 이 사진은 위의 MIT가 아니라 뉴욕 연은 이용 약관을 따른다.
+- 모든 사본은 크기를 줄이고(130×170 안) 파일 안의 메타데이터(EXIF·XMP·ICC·IPTC)를 뺀 JPEG이다.

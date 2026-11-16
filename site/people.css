@@ -181,7 +181,7 @@ html[data-motion="off"] .tape-run + .tape-run { display: none; }
 html[data-motion="on"] .file.flash .file-head { animation: flash .7s ease-out; }
 @keyframes flash { from { background: #2a1f0e; } to { background: transparent; } }
 
-.file-head { display: grid; grid-template-columns: 72px minmax(0, 1fr) minmax(0, 300px); grid-template-areas: "seal id card" "flow flow flow"; gap: 0 20px; align-items: start; }
+.file-head { display: grid; grid-template-columns: 88px minmax(0, 1fr) minmax(0, 300px); grid-template-areas: "seal id card" "flow flow flow"; gap: 0 20px; align-items: start; }
 .seal-big { grid-area: seal; width: 68px; height: 68px; border-radius: 50%; border: 2px solid var(--ink-2); display: grid; place-items: center; position: relative; color: var(--ink); margin-top: 4px; }
 .seal-big::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 1px dashed var(--line-dim); }
 .seal-big b { font: 600 29px/1 var(--f-mono); }
@@ -190,6 +190,18 @@ html[data-motion="on"] .file.flash .file-head { animation: flash .7s ease-out; }
 .seal-big.board::after { border-radius: 2px; }
 .seal-big.board b { font: 700 18px/1 var(--f-text); }
 .idblock { grid-area: id; min-width: 0; }
+/* 사진(2026-11-16) — 표지 칸에 공식 사진(없으면 성의 첫 글자), 지구 표지는 사진 귀퉁이의 작은 도장으로. 출처 줄은 이름 아래 */
+.face { grid-area: seal; position: relative; margin: 4px 6px 0 0; }
+.face-img, .face-none { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; border: 1px solid var(--rule-2); border-radius: 4px; background: var(--panel-2); }
+.face-img { object-fit: cover; object-position: 50% 20%; }
+.face-none { display: grid; place-items: center; font: 600 26px/1 var(--f-text); color: var(--dim); }
+.face .seal-big { position: absolute; right: -6px; bottom: -6px; width: 30px; height: 30px; margin: 0; background: var(--black); border-width: 1px; }
+.face .seal-big::after { inset: 3px; }
+.face .seal-big b { font-size: 13px; }
+.face .seal-big small { display: none; }
+.face .seal-big.board b { font-size: 10px; }
+.photo-credit { margin-top: 4px; font: 400 11.5px/1.5 var(--f-text); color: var(--dim); overflow-wrap: anywhere; }
+.photo-credit a { color: var(--dim); }
 .kicker { font: 500 12.5px/1.5 var(--f-text); color: var(--gold); }
 .name-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; }
 .file-name { font-size: 34px; line-height: 1.22; letter-spacing: -0.015em; }
@@ -645,7 +657,7 @@ table.ledger { width: 100%; min-width: 330px; border-collapse: collapse; table-l
 }
 @media (max-width: 900px) {
   .route-grid, .dmap-grid, .ledger-grid, .two { grid-template-columns: minmax(0, 1fr); }
-  .file-head { grid-template-columns: 60px minmax(0, 1fr); grid-template-areas: "seal id" "card card" "flow flow"; }
+  .file-head { grid-template-columns: 76px minmax(0, 1fr); grid-template-areas: "seal id" "card card" "flow flow"; }
   .idcard { margin-top: 12px; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--rule); grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 18px; }
   .idcard .badge-row, .idcard .vrow, .idcard .diss, .idcard .vnote { grid-column: 1 / -1; }
   .idcard .lean { margin-top: 0; }
@@ -711,7 +723,7 @@ table.ledger { width: 100%; min-width: 330px; border-collapse: collapse; table-l
   .file { padding: 14px 14px 20px; gap: 24px; }
   .file-tab { font-size: 11.5px; padding: 4px 10px 3px; }
   .file-nav button { padding: 2px 7px; }
-  .file-head { grid-template-columns: 52px minmax(0, 1fr); gap: 0 12px; }
+  .file-head { grid-template-columns: 64px minmax(0, 1fr); gap: 0 12px; }
   .seal-big { width: 50px; height: 50px; }
   .seal-big b { font-size: 21px; }
   .seal-big small { bottom: 5px; font-size: 8px; }

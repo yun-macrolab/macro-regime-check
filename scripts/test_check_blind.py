@@ -255,6 +255,43 @@ class CheckBlindTest(unittest.TestCase):
         self.assertEqual(rc, 2, out)
         self.assertNoLeak(out)
 
+    # 사진 사본(2026-11-16) — site/photos/<이름>.jpg의 깨끗한 JPEG만 바이트로 본다
+    JPEG = (b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
+            b"\xff\xc0\x00\x0b\x08\x00\x02\x00\x02\x01\x01\x11\x00"
+            b"\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00\x12\x34\x56\xff\xd9")
+
+    def test_clean_photo_passes(self):
+        os.makedirs(os.path.join(self.repo, "site", "photos"))
+        self.commit_file("site/photos/someone.jpg", self.JPEG, "photo")
+        rc, out = self.run_check()
+        self.assertEqual(rc, 0, out)
+
+    def test_photo_bytes_are_still_searched(self):
+        os.makedirs(os.path.join(self.repo, "site", "photos"))
+        data = self.JPEG[:-2] + "비밀단어".encode("utf-8") + b"SecretWord" + b"\xff\xd9"
+        self.commit_file("site/photos/someone.jpg", data, "photo")
+        rc, out = self.run_check()
+        self.assertEqual(rc, 1, out)
+        self.assertNoLeak(out)
+
+    def photo_rc(self, name, data):
+        os.makedirs(os.path.dirname(os.path.join(self.repo, name)), exist_ok=True)
+        self.commit_file(name, data, "photo")
+        return self.run_check()
+
+    def test_photo_with_metadata_cannot_check(self):
+        exif = self.JPEG[:20] + b"\xff\xe1\x00\x08Exif\x00\x00" + self.JPEG[20:]
+        rc, out = self.photo_rc("site/photos/meta.jpg", exif)
+        self.assertEqual(rc, 2, out)
+
+    def test_jpeg_outside_the_photo_folder_cannot_check(self):
+        rc, out = self.photo_rc("site/img/someone.jpg", self.JPEG)
+        self.assertEqual(rc, 2, out)
+
+    def test_photo_with_an_odd_name_cannot_check(self):
+        rc, out = self.photo_rc("site/photos/A B.jpg", self.JPEG)
+        self.assertEqual(rc, 2, out)
+
     def test_utf16_file_cannot_check(self):
         self.commit_file("notes.txt", "작성자: 비밀단어\r\n".encode("utf-16"), "u16")
         rc, out = self.run_check()

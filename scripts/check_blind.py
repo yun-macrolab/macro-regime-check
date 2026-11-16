@@ -16,7 +16,9 @@
   줄바꿈을 포함한 공백 묶음을 공백 하나로. CP949·UTF-16으로 바꾼 검사어 바이트도 원래 바이트에서 찾는다.
 출력은 공개 Actions 로그에 남는다 — 경로·줄 번호·객체 ID만. 경로에 검사어가 있으면 경로도 가리고, git 오류 원문은 찍지 않는다.
 UTF-8 텍스트로 읽을 수 없는 것(바이너리·UTF-16·CP949·압축 문서·Git LFS 포인터, UTF-8이 아닌 파일 이름)은
-  검사할 수 없으므로 통과시키지 않는다.
+  검사할 수 없으므로 통과시키지 않는다. 예외 하나(2026-11-16): 연준 인물 사진 사본 site/photos/<이름>.jpg 가운데 메타데이터 칸
+  (APP1~APP15 — EXIF·XMP·ICC·IPTC, COM 설명 글)이 없는 JPEG — 글이 들어갈 칸이 없는 압축 그림이라 글자 검사 대신 원래 바이트에서
+  검사어(UTF-8·CP949·UTF-16 바이트, 영문은 소문자로도)를 찾는다. 메타데이터 칸이 있거나 다른 경로면 여느 바이너리처럼 검사 불가.
 종료코드: 0 통과 / 1 발견 / 2 검사 불가(검사어 없음·읽을 수 없는 것·얕은 클론·grafts·git 오류·예기치 못한 오류) — 2는 통과가 아니다.
 CI: actions/checkout에 fetch-depth: 0(브랜치·태그 전부) + notes를 따로 받는다.
   PR 참조(refs/pull)는 받지 않는다 — 이 저장소는 PR을 쓰지 않고, 남이 연 PR이 검사를 영구히 막거나 공개 로그로
@@ -37,6 +39,7 @@ STAMP = re.compile(r"(<[^>\n]*>) -?\d+ [+-]\d{4}$")
 U_ESCAPE = re.compile(re.escape(BS) + r"u([0-9a-fA-F]{4})")
 INVISIBLE = {"Cf", "Cc", "Zl", "Zp", "Cs"}   # 서식(폭 없는 공백·BOM)·제어·줄/문단 구분·서로게이트
 RAW_ENCODINGS = ("cp949", "utf-16-le", "utf-16-be")
+PHOTO_PATH = re.compile(r"site/photos/[a-z0-9-]+\.jpg$")    # 사진 사본(2026-11-16) — 글자 검사 대신 바이트 검사
 
 
 class CheckError(Exception):
@@ -132,8 +135,36 @@ class Report:
         return [i for i, line in enumerate(text.splitlines(), 1) if self.has(line)]
 
 
-def check_content(rep, data, where):
-    """파일 내용 하나 — 발견은 rep.found, 읽을 수 없으면 rep.errors."""
+def clean_jpeg(data):
+    """SOI … EOI이고 첫 SOS까지 메타데이터 칸(APP1~APP15 · COM)이 없는 JPEG인가 — 글이 들어갈 칸이 없는 그림."""
+    if data[:2] != b"\xff\xd8" or data[-2:] != b"\xff\xd9":
+        return False
+    i = 2
+    while i + 4 <= len(data):
+        if data[i] != 0xFF:
+            return False
+        m = data[i + 1]
+        if m == 0xFF:
+            i += 1
+            continue
+        if 0xD0 <= m <= 0xD7 or m == 0x01:
+            i += 2
+            continue
+        if 0xE1 <= m <= 0xEF or m == 0xFE:
+            return False
+        if m == 0xDA:
+            return True
+        i += 2 + int.from_bytes(data[i + 2:i + 4], "big")
+    return False
+
+
+def check_content(rep, data, where, path=None):
+    """파일 내용 하나 — 발견은 rep.found, 읽을 수 없으면 rep.errors. path가 사진 사본 꼴이고 깨끗한 JPEG면 바이트로만 본다."""
+    if path is not None and PHOTO_PATH.match(path) and clean_jpeg(data):
+        low = data.lower()
+        if rep.has_bytes(data) or any(p.encode("utf-8") in data or p.encode("utf-8") in low for p in rep.pats):
+            rep.found.append(f"{where}: 사진 바이트에 검사어가 있다")
+        return
     text = as_text(data)
     if rep.has_bytes(data) and (text is None or not rep.has(text)):
         rep.found.append(f"{where}: 다른 인코딩(CP949·UTF-16) 바이트로 검사어가 있다")
@@ -169,7 +200,7 @@ def check_worktree(rep, root):
             rep.errors.append(f"읽을 수 없는 파일: {rep.name(path)}")
             continue
         if data is not None:
-            check_content(rep, data, rep.name(path))
+            check_content(rep, data, rep.name(path), path)
     if any(bad_name(p) for p in paths):
         rep.errors.append("UTF-8이 아닌 파일 이름이 있다")
     if any(rep.has(p) for p in paths):
@@ -239,7 +270,7 @@ def check_meta(rep, sha, kind, data, emails):
 
 
 def check_blob(rep, sha, path, data):
-    check_content(rep, data, f"과거 커밋의 파일 {rep.name(path)} (blob {sha[:7]} — git log --all --find-object={sha[:7]})")
+    check_content(rep, data, f"과거 커밋의 파일 {rep.name(path)} (blob {sha[:7]} — git log --all --find-object={sha[:7]})", path)
 
 
 def check_history(rep):

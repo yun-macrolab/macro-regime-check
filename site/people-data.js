@@ -16,7 +16,7 @@ window.PEOPLE_DATA = {
   "걸어온 길의 좌표는 캠퍼스·본사 도시의 대략값이다. ‘위치 추정’은 조사에 장소가 없어 추정한 점(나라 중심 포함)이고, 연도가 빈 칸은 조사에 연도가 없는 것이다. ‘사전 지식’ 표시는 확인하지 않은 것이다.",
   "인용 문구는 조사에 옮겨진 그대로다 — 2차 보도가 옮긴 것이면 원문과 다를 수 있다. 2026 투표권자 12명의 인용은 2026-11-04 원문(또는 검색 조각)과 다시 맞췄다.",
   "애틀랜타는 임시 총재(베너블)이고 정식 후임은 발표 전이다(10-31 기준). 마이런(전 이사)은 반대표 기록에만 나온다.",
-  "글은 이 저장소가 공개 자료(연준·연은 자료 — 사본·검색 조각 포함, 보도)를 읽고 쓴 요약이다. 인용은 짧게, 같은 날짜의 출처와 함께 싣는다. 사람 사진·기관 로고는 싣지 않는다.",
+  "글은 이 저장소가 공개 자료(연준·연은 자료 — 사본·검색 조각 포함, 보도)를 읽고 쓴 요약이다. 인용은 짧게, 같은 날짜의 출처와 함께 싣는다. 기관 로고는 싣지 않는다. 사람 사진(2026-11-16~)은 연준 이사회 공식 사진(공공 영역)과 공개 사용을 허락한 연은의 공식 사진만 이 사이트에 작은 사본으로 두고 이름 아래에 출처 줄을 단다 — 허락을 확인하지 못한 사람은 성의 첫 글자 칸이다. 사진은 그 기관의 것이고, 이 페이지의 글·판정은 기관과 관계없다.",
   "지도의 주 경계는 folium 예제 자료(us-states.json, MIT 라이선스 — 저작권 표시는 저장소의 THIRD_PARTY_NOTICES.md)를 앨버스 투영으로 미리 계산한 그림이다.",
   "‘새 발언 — 기준선 대비(자동 분류)’ 칸과 머리의 최근 발언 띠만 매일 자동으로 붙는다 — 언어 모델(AI)이 기사를 읽고 새 발언을 그 사람의 기준선(기준일·확인함/초안 표시)에 견준 결과이고, 사람 확인 없이 매일 올라간다. 틀릴 수 있고, 예측이 아니다. 인용은 언어 모델이 기사에서 발언자 본인의 말로 보고 15단어 이내로 옮긴 것이다. 위의 프로필 칸은 사람이 고친다.",
   "참고 — 예측 아님. 이 사이트의 규칙 판정·점검표에 쓰지 않는다. 프로필 칸은 매일 갱신하지 않는다(머리의 기준일을 본다) — 매일 붙는 것은 자동 분류 칸뿐이다."
@@ -493,6 +493,12 @@ window.PEOPLE_DATA = {
    "name_ko": "케빈 워시",
    "name_en": "Kevin M. Warsh",
    "role_short": "의장·이사",
+   "photo": {
+    "file": "photos/warsh.jpg",
+    "credit": "연준 이사회 공식 사진(공공 영역)",
+    "src": "https://www.federalreserve.gov/aboutthefed/bios/board/warsh.htm",
+    "licence": "frb-public-domain"
+   },
    "seat": "board",
    "district": null,
    "voter_2026": true,
@@ -718,6 +724,12 @@ window.PEOPLE_DATA = {
    "name_ko": "필립 제퍼슨",
    "name_en": "Philip N. Jefferson",
    "role_short": "부의장·이사",
+   "photo": {
+    "file": "photos/jefferson.jpg",
+    "credit": "연준 이사회 공식 사진(공공 영역)",
+    "src": "https://www.federalreserve.gov/aboutthefed/bios/board/jefferson.htm",
+    "licence": "frb-public-domain"
+   },
    "seat": "board",
    "district": null,
    "voter_2026": true,
@@ -1181,6 +1193,12 @@ window.PEOPLE_DATA = {
    "name_ko": "크리스토퍼 월러",
    "name_en": "Christopher J. Waller",
    "role_short": "이사",
+   "photo": {
+    "file": "photos/waller.jpg",
+    "credit": "연준 이사회 공식 사진(공공 영역)",
+    "src": "https://www.federalreserve.gov/aboutthefed/bios/board/waller.htm",
+    "licence": "frb-public-domain"
+   },
    "seat": "board",
    "district": null,
    "voter_2026": true,
@@ -1386,6 +1404,12 @@ window.PEOPLE_DATA = {
    "name_ko": "마이클 바",
    "name_en": "Michael S. Barr",
    "role_short": "이사(전 감독 부의장)",
+   "photo": {
+    "file": "photos/barr.jpg",
+    "credit": "연준 이사회 공식 사진(공공 영역)",
+    "src": "https://www.federalreserve.gov/aboutthefed/bios/board/barr.htm",
+    "licence": "frb-public-domain"
+   },
    "seat": "board",
    "district": null,
    "voter_2026": true,
@@ -1607,6 +1631,12 @@ window.PEOPLE_DATA = {
    "name_ko": "리사 쿡",
    "name_en": "Lisa D. Cook",
    "role_short": "이사",
+   "photo": {
+    "file": "photos/cook.jpg",
+    "credit": "연준 이사회 공식 사진(공공 영역)",
+    "src": "https://www.federalreserve.gov/aboutthefed/bios/board/cook.htm",
+    "licence": "frb-public-domain"
+   },
    "seat": "board",
    "district": null,
    "voter_2026": true,
@@ -1912,6 +1942,12 @@ window.PEOPLE_DATA = {
    "name_ko": "제롬 파월",
    "name_en": "Jerome H. Powell",
    "role_short": "이사(전 의장)",
+   "photo": {
+    "file": "photos/powell.jpg",
+    "credit": "연준 이사회 공식 사진(공공 영역)",
+    "src": "https://www.federalreserve.gov/aboutthefed/bios/board/powell.htm",
+    "licence": "frb-public-domain"
+   },
    "seat": "board",
    "district": null,
    "voter_2026": true,
@@ -2166,6 +2202,12 @@ window.PEOPLE_DATA = {
    "name_ko": "존 윌리엄스",
    "name_en": "John C. Williams",
    "role_short": "뉴욕 연은·FOMC 부의장",
+   "photo": {
+    "file": "photos/williams.jpg",
+    "credit": "© 2018 Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org. — 이 사이트가 잘라 크기를 줄인 사본(뉴욕 연은이 고친 것이 아님)",
+    "src": "https://www.newyorkfed.org/aboutthefed/orgchart/williams",
+    "licence": "nyfed-terms-of-use"
+   },
    "seat": "ny",
    "district": 2,
    "voter_2026": true,
