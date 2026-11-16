@@ -9,7 +9,7 @@ window.PEOPLE_DATA = {
  "notes": [
   "초안이 섞여 있다 — 2026년 투표권자 12명(워시·제퍼슨·보먼·월러·바·쿡·파월·윌리엄스·폴슨·해맥·카시카리·로건)의 기준선과 사실은 2026-11-04 1차 출처(연준·뉴욕 연은 원문은 직접, 지역 연은 원문은 검색 조각)로 다시 확인해 운영자가 승인했다(사람마다 ‘확인함’). 나머지 7명은 아직 초안이다(‘초안’) — 그쪽 1차 자료는 제3자 사본·검색 조각이고, 나머지는 2차 보도다.",
   "사실은 인물별 조사와 2026 회의 기록에서만 옮겼다. 장소의 도시·좌표와 연준 지구 경계만 일반 지식(대략값)이다.",
-  "진영 꼬리표(매파·중도·비둘기·스윙·미상)는 언론·관찰자가 붙인 평판을 줄인 것이고 계산값이 아니다. 그런 라벨이 없으면 미상.",
+  "성향 라벨(매우 강경 · 강경 · 중립·강경 편향 · 중립 · 중립·온건 편향 · 온건 · 매우 온건, 정하지 않았으면 미정)은 운영자가 발언 정리를 읽고 붙인 분류다(2026-11-16~ — 그 전엔 언론·관찰자 평판을 줄인 진영 꼬리표였다). 계산값이 아니고 금리 예측도 아니다. 투표 표시: 당연직(이사 7명 · 뉴욕 연은 총재) · 투표권 있음(2026 지구 총재 넷) · 투표권 없음.",
   "기준선(평소·놀랄 일)과 ‘다음 확인’은 운영자가 조사에서 정리한 것이다(2026 투표권자 12명은 확인함, 나머지는 초안) — 예측이 아니라 새 발언을 견줄 틀이다. 목록 항목은 지우거나 순서를 바꾸지 않고, 고칠 때는 그 자리에서 고치거나 끝에 더한다.",
   "위치 눈금(−2 비둘기 … +2 매파)과 올해의 흐름·위치 근거는 운영자 해석이다. 빈 칸은 판단할 수 없다는 뜻이다(베너블·데일리 — 2026 금리 발언 없음).",
   "지구는 주 단위 근사다 — 실제로는 나뉜 주(CT·NJ·PA·KY·WV·TN·MS·LA·IL·IN·MI·WI·MO·NM)를 한 지구에 통째로 넣었다. 지구마다 근사 설명이 붙어 있다(지도의 표지와 지구 표의 줄에 마우스를 올리면 보인다).",
@@ -34,7 +34,7 @@ window.PEOPLE_DATA = {
   },
   "basis": "운영자 해석 — 인물별 기준선과 관찰자 평판을 읽은 것, 계산값 아님"
  },
- "camp_note": "진영 꼬리표는 2026-10 기준 언론·관찰자 라벨의 요약이다. 라벨을 붙인 보도는 꼬리표에 마우스를 올리면 보이고 출처 목록에도 있다. 그런 보도를 못 찾은 라벨은 ‘사전 지식’, 라벨이 없으면 미상.",
+ "camp_note": "성향 라벨은 2026-11-16 운영자 분류다 — 그 무렵의 발언(아래 ‘발언 정리’)을 읽고 붙였고, 사람마다의 위치 눈금(±2)과 따로 정했다. 정리한 발언이 없는 사람도 운영자가 붙였고, 정하지 않은 사람은 미정.",
  "board": {
   "name": "Board of Governors of the Federal Reserve System",
   "name_ko": "연준 이사회",
@@ -505,7 +505,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "혼합",
    "bg_line": "모건스탠리 M&A·백악관 NEC·연준 이사(06~11)·후버연구소",
-   "camp": "중도",
+   "camp": "중립",
    "stance_now": 0.5,
    "stance_start_2026": -0.5,
    "stance_basis": "9월 인상 뒤 동결·12월 미정, 매파 쪽 중도(추론). 연초는 2025 인하론 시기",
@@ -710,13 +710,6 @@ window.PEOPLE_DATA = {
      "date": "2026-05-15",
      "url": "https://infobytes.orrick.com/2026-05-15/u-s-senate-confirms-kevin-warsh-to-serve-as-fed-chair/"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "24/7 Wall St",
-     "date": "2026-08-06",
-     "url": "https://247wallst.com/investing/2026/08/06/bank-of-america-says-federal-reserve-chair-kevin-warsh-facing-credibility-shock/"
-    }
    ]
   },
   {
@@ -736,7 +729,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "학계",
    "bg_line": "스워스모어 교수·데이비슨 학장, 빈곤·통화정책 연구",
-   "camp": "중도",
+   "camp": "중립·강경 편향",
    "stance_now": 0.5,
    "stance_start_2026": 0,
    "stance_basis": "인상 배제 않되 서두르지 않음, 의장과 함께 매파 쪽으로 움직인 중도",
@@ -931,13 +924,6 @@ window.PEOPLE_DATA = {
      "date": "2025-09-17",
      "url": "https://investinglive.com/news/fomc-hawks-and-doves-a-comprehensive-overview-20250917/amp"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "investinglive",
-     "date": "2025-09-17",
-     "url": "https://investinglive.com/news/fomc-hawks-and-doves-a-comprehensive-overview-20250917/amp"
-    }
    ]
   },
   {
@@ -957,7 +943,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "혼합",
    "bg_line": "법학 JD·의회·국토안보부 → 가족 은행 → 캔자스 은행감독청장",
-   "camp": "스윙",
+   "camp": "중립·강경 편향",
    "stance_now": 0,
    "stance_start_2026": -1.5,
    "stance_basis": "다수안에 표, 인상 속도 조절 쪽 '급하지 않다'. 1월엔 본인 점 3회 인하",
@@ -1180,18 +1166,6 @@ window.PEOPLE_DATA = {
      "date": "2026-10-01",
      "url": "https://www.federalreserve.gov/newsevents/speech/bowman20261001a.htm"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "Reuters via Kitco",
-     "date": "2024-09-20",
-     "url": "https://www.kitco.com/news/off-the-wire/2024-09-20/us-inflation-data-cemented-big-cut-one-fed-official-dissent-another"
-    },
-    {
-     "outlet": "상원 은행위 소수당",
-     "date": "2025-11-07",
-     "url": "https://www.banking.senate.gov/newsroom/minority/warren-presses-fed-for-details-on-reported-30-cuts-to-supervision-and-regulation-team"
-    }
    ]
   },
   {
@@ -1211,7 +1185,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "학계",
    "bg_line": "인디애나·켄터키·노터데임 교수 → 세인트루이스 연은 연구국장",
-   "camp": "스윙",
+   "camp": "강경",
    "stance_now": 1,
    "stance_start_2026": -1.5,
    "stance_basis": "'예상대로면 추가 인상, 연속일 필요 없음'. 1월엔 인하 쪽 반대표",
@@ -1396,13 +1370,6 @@ window.PEOPLE_DATA = {
      "date": "2026-09-03",
      "url": "https://www.federalreserve.gov/newsevents/speech/waller20260903a.htm"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "Reuters ROI 칼럼 via Zawya",
-     "date": "2026-07-16",
-     "url": "https://www.zawya.com/en/web-section/insights/fed-flip-flops-make-case-for-less-talk-mike-dolan-394207"
-    }
    ]
   },
   {
@@ -1422,7 +1389,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "혼합",
    "bg_line": "법학자·재무부 차관보 → 미시간대 학장 → 감독 부의장",
-   "camp": "미상",
+   "camp": "중립",
    "stance_now": 1,
    "stance_start_2026": 0,
    "stance_basis": "9월부터 '추가 조정이 기본 시나리오', 반대표 없음. 봄엔 '당분간 동결'",
@@ -1649,7 +1616,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "학계",
    "bg_line": "MSU 교수, 혁신·특허·경제사 연구, 재무부·CEA 참모",
-   "camp": "매파",
+   "camp": "중립·강경 편향",
    "stance_now": 1.5,
    "stance_start_2026": 0.5,
    "stance_basis": "인플레 우선 매파, 10월 첫 인상 쪽 반대. 2월 '위험이 인플레 쪽'",
@@ -1929,19 +1896,7 @@ window.PEOPLE_DATA = {
      "url": "https://www.federalreserve.gov/aboutthefed/bios/board/cook.htm"
     }
    ],
-   "voter_note": "2027 재직은 해임 다툼에 달림(불확실)",
-   "camp_src": [
-    {
-     "outlet": "CNN 라이브",
-     "date": "2026-10-28",
-     "url": "https://www.cnn.com/2026/10/28/business/live-news/federal-reserve-interest-rate-october"
-    },
-    {
-     "outlet": "CNBC",
-     "date": "2026-10-28",
-     "url": "https://www.cnbc.com/2026/10/28/fed-interest-rate-decision-october-2026.html"
-    }
-   ]
+   "voter_note": "2027 재직은 해임 다툼에 달림(불확실)"
   },
   {
    "key": "powell",
@@ -1960,7 +1915,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "혼합",
    "bg_line": "변호사·딜런 리드·재무부 차관·칼라일 → 연준 이사·의장",
-   "camp": "미상",
+   "camp": "온건",
    "stance_now": 0.5,
    "stance_start_2026": -0.5,
    "stance_basis": "공개 발언 없이 다수 쪽 투표(9월 인상 찬성). 4월엔 완화 편향 유지 쪽",
@@ -2220,7 +2175,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "혼합",
    "bg_line": "테일러 제자, 연준 연구직·r* 모형 → SF·뉴욕 연은 총재",
-   "camp": "중도",
+   "camp": "중립·강경 편향",
    "stance_now": 0.5,
    "stance_start_2026": -0.5,
    "stance_basis": "'서두를 필요 없다', 전망대로면 연말 한 번 더(조건부), 2027엔 불필요. 연초는 완화 쪽",
@@ -2431,13 +2386,6 @@ window.PEOPLE_DATA = {
      "date": "2026-10-13",
      "url": "https://www.bloomberg.com/news/articles/2026-10-13/fed-s-williams-currently-sees-no-need-for-rate-hike-in-2027"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "investinglive",
-     "date": "2025-09-17",
-     "url": "https://investinglive.com/news/fomc-hawks-and-doves-a-comprehensive-overview-20250917/amp"
-    }
    ]
   },
   {
@@ -2457,7 +2405,7 @@ window.PEOPLE_DATA = {
    "voter_2027": false,
    "bg_type": "학계",
    "bg_line": "MIT 박사, 하버드·조지타운 교수 → 미시간대 학장·교무처장",
-   "camp": "미상",
+   "camp": "중립·강경 편향",
    "stance_now": 1,
    "stance_start_2026": -0.5,
    "stance_basis": "'연말 전 조금 더 인상' 예상(횟수 미언급). 3월엔 '조정 긴급성 없음'",
@@ -2708,7 +2656,7 @@ window.PEOPLE_DATA = {
    "voter_2027": false,
    "bg_type": "학계",
    "bg_line": "시카고 연은 연구국장 출신 연구 경제학자, 가계 금융 연구",
-   "camp": "스윙",
+   "camp": "강경",
    "stance_now": 1,
    "stance_start_2026": -1,
    "stance_basis": "'예상대로면 소폭 추가 긴축 정당화', 표는 늘 다수. 1월엔 '연내 소폭 인하' 전망",
@@ -2864,13 +2812,6 @@ window.PEOPLE_DATA = {
      "date": "2026-11-04",
      "url": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-philadelphia.htm"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "Reuters via Kitco",
-     "date": "2026-01-06",
-     "url": "https://www.kitco.com/news/off-the-wire/2026-01-06/fed-hawks-and-doves-what-us-central-bankers-are-saying"
-    }
    ]
   },
   {
@@ -2890,7 +2831,7 @@ window.PEOPLE_DATA = {
    "voter_2027": false,
    "bg_type": "실무(시장)",
    "bg_line": "골드만 30년: 트레저러·레포·파이낸싱 공동대표, TBAC 의장(전)",
-   "camp": "매파",
+   "camp": "강경",
    "stance_now": 2,
    "stance_start_2026": 0,
    "stance_basis": "+25bp씩 '작게, 비교적 빨리', 올해 반대 3회(4월 문구·7·10월 인상). 2월엔 '인내'",
@@ -3057,13 +2998,6 @@ window.PEOPLE_DATA = {
      "date": "2026-11-04",
      "url": "https://www.federalreserve.gov/aboutthefed/federal-reserve-system-cleveland.htm"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "CNN 라이브",
-     "date": "2026-10-28",
-     "url": "https://www.cnn.com/2026/10/28/business/live-news/federal-reserve-interest-rate-october"
-    }
    ]
   },
   {
@@ -3083,7 +3017,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "실무(경영)",
    "bg_line": "맥킨지 30년(CFO·위험책임자) → 애틀랜타 연은 이사 → 총재",
-   "camp": "중도",
+   "camp": "중립·강경 편향",
    "stance_now": 0.5,
    "stance_start_2026": 0,
    "stance_basis": "물가 우선 서술, 추가 인상은 'We'll see'. 3월엔 '동결이 신중'",
@@ -3221,13 +3155,6 @@ window.PEOPLE_DATA = {
      "date": "2018-08-08",
      "url": "https://www.richmondfed.org/press_room/speeches/thomas_i_barkin/2018/barkin_speech_20180808"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "리치먼드 연은 연설",
-     "date": "2026-09-22",
-     "url": "https://www.richmondfed.org/press_room/speeches/thomas_i_barkin/2026/barkin_speech_20260922"
-    }
    ]
   },
   {
@@ -3247,7 +3174,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "정책 관료",
    "bg_line": "애틀랜타 연은 수석부총재(운영 책임), 이전 경력 미확인",
-   "camp": "미상",
+   "camp": "미정",
    "stance_now": null,
    "stance_start_2026": null,
    "stance_basis": "통화정책 공개 발언 없음 — 판단 불가(침묵이 기준선)",
@@ -3354,7 +3281,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "혼합",
    "bg_line": "MIT 박사·시카고대 부스 교수, 오바마 정부 CEA 의장",
-   "camp": "스윙",
+   "camp": "강경",
    "stance_now": 1,
    "stance_start_2026": 0,
    "stance_basis": "'지속 공급 충격은 못 넘겨본다', 조건부 추가 긴축 쪽. 3월엔 양방향",
@@ -3528,9 +3455,7 @@ window.PEOPLE_DATA = {
      "date": "2025-12-10",
      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20251210a.htm"
     }
-   ],
-   "camp_src": [],
-   "camp_cert": "사전 지식"
+   ]
   },
   {
    "key": "musalem",
@@ -3549,7 +3474,7 @@ window.PEOPLE_DATA = {
    "voter_2027": false,
    "bg_type": "혼합",
    "bg_line": "IMF → 월가 투자회사 14년 → 뉴욕 연은 → 퀀트 회사 운영",
-   "camp": "매파",
+   "camp": "강경",
    "stance_now": 1.5,
    "stance_start_2026": 0,
    "stance_basis": "'추가 긴축 필요, 이르고 점진적으로'(10-30). 1월엔 '실질 중립, 더 내리면 안 됨'",
@@ -3724,13 +3649,6 @@ window.PEOPLE_DATA = {
      "date": "2026-05-06",
      "url": "https://www.stlouisfed.org/from-the-president/remarks/2026/ms-bankers-association-qa"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "CNBC",
-     "date": "2026-10-30",
-     "url": "https://www.cnbc.com/2026/10/30/musalem-fed-monetary-policy-tightening.html"
-    }
    ]
   },
   {
@@ -3750,7 +3668,7 @@ window.PEOPLE_DATA = {
    "voter_2027": false,
    "bg_type": "혼합",
    "bg_line": "엔지니어 → 골드만 → 재무부 TARP → 핌코 → 주지사 후보",
-   "camp": "매파",
+   "camp": "강경",
    "stance_now": 1,
    "stance_start_2026": -0.5,
    "stance_basis": "점진 매파, '연내 1회+27년 1회'(27년은 중앙값 위). 전쟁 전엔 완화 편향·1회 인하 지지",
@@ -3963,13 +3881,6 @@ window.PEOPLE_DATA = {
      "date": "2026-10-01",
      "url": "https://www.kitco.com/news/off-the-wire/2026-10-01/feds-kashkari-expects-more-rate-hikes-unsure-need-act-month"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "Continuum",
-     "date": "2026-07",
-     "url": "https://continuumeconomics.com/a/df2af25a/us-feds-kashkari-hammack-and-logan-explain-their-hawkish-dissents"
-    }
    ]
   },
   {
@@ -3989,7 +3900,7 @@ window.PEOPLE_DATA = {
    "voter_2027": false,
    "bg_type": "실무(은행·감독)",
    "bg_line": "OCC 검사역 → 오마하 은행 CEO → 은행 대학원장",
-   "camp": "매파",
+   "camp": "강경",
    "stance_now": 1.5,
    "stance_start_2026": 0.5,
    "stance_basis": "'정책은 긴축적이지 않아 더 조여야'(8월), 9월 인상 지지. 3월부터 물가 쪽",
@@ -4184,13 +4095,6 @@ window.PEOPLE_DATA = {
      "date": "2026-07-16",
      "url": "https://www.kansascityfed.org/speeches/the-federal-reserve-economic-outlook-and-monetary-policy-july-2026/"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "Scotsman Guide",
-     "date": "2025-12-10",
-     "url": "https://www.scotsmanguide.com/news/fed-cuts-rates-though-three-officials-dissent/"
-    }
    ]
   },
   {
@@ -4210,7 +4114,7 @@ window.PEOPLE_DATA = {
    "voter_2027": false,
    "bg_type": "실무(시장)",
    "bg_line": "뉴욕 연은 23년(시장그룹 22년)·SOMA 운용책임자 → 댈러스 총재",
-   "camp": "매파",
+   "camp": "강경",
    "stance_now": 1.5,
    "stance_start_2026": 0,
    "stance_basis": "'최소 두 번 더 25bp 뒤 멈춤', 목적지는 강경·시점은 유연. 2월엔 중립 근처",
@@ -4392,13 +4296,6 @@ window.PEOPLE_DATA = {
      "date": "2022",
      "url": "https://www.newyorkfed.org/aboutthefed/orgchart/logan"
     }
-   ],
-   "camp_src": [
-    {
-     "outlet": "Continuum",
-     "date": "2026-07",
-     "url": "https://continuumeconomics.com/a/df2af25a/us-feds-kashkari-hammack-and-logan-explain-their-hawkish-dissents"
-    }
    ]
   },
   {
@@ -4418,7 +4315,7 @@ window.PEOPLE_DATA = {
    "voter_2027": true,
    "bg_type": "학계",
    "bg_line": "고교 중퇴·GED → 경제학 박사 → SF 연은 30년(연구→총재)",
-   "camp": "미상",
+   "camp": "강경",
    "stance_now": null,
    "stance_start_2026": null,
    "stance_basis": "2026년 금리 발언 미확인 — 판단 보류(2025엔 인하 지지)",

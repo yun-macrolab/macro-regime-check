@@ -12,7 +12,8 @@
   --ink: #e9e6df; --ink-2: #c9c4b8; --dim: #8f8f8f; --line-dim: #5a5a5a;
   --amber: #ff9e1b; --key: #f6d200; --go: #36d07f; --blue: #5ab1ff;
   --gold: #d3a45f; --gold-cell: #1f1810; --gold-line: #6b5130;
-  --hawk: #ff6a55; --dove: #5ab1ff; --mid: #d8d1c0; --swing: #b99cff; --unk: #8f8f8f;
+  --hawk: #ff6a55; --dove: #5ab1ff; --mid: #d8d1c0; --unk: #8f8f8f;
+  --vhawk: #ff3b24; --lhawk: #ffb3a3; --ldove: #a9d4ff; --vdove: #3b8fea;   /* 성향 7단계(2026-11-16) — 강경 ↔ 온건 */
   --hawk-bg: #2a0f0b; --dove-bg: #0b1a2a; --usual-bg: #141413;
   --f-text: "IBM Plex Sans KR", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
   --f-mono: "IBM Plex Mono", "D2Coding", "SFMono-Regular", "Cascadia Mono", Consolas, Menlo, monospace;
@@ -165,8 +166,9 @@ html[data-motion="off"] .tape-run + .tape-run { display: none; }
 .rail-foot .pips { font-size: 11px; }
 .rail-foot .lamp { font-size: 9.5px; }
 .camp-sq { width: 9px; height: 9px; display: inline-block; flex: none; }
-.camp-sq.hawk { background: var(--hawk); } .camp-sq.mid { background: var(--mid); } .camp-sq.dove { background: var(--dove); }
-.camp-sq.swing { background: var(--swing); } .camp-sq.unk { background: transparent; box-shadow: inset 0 0 0 1px var(--unk); }
+.camp-sq.vhawk { background: var(--vhawk); } .camp-sq.hawk { background: var(--hawk); } .camp-sq.lhawk { background: var(--lhawk); }
+.camp-sq.mid { background: var(--mid); } .camp-sq.ldove { background: var(--ldove); } .camp-sq.dove { background: var(--dove); }
+.camp-sq.vdove { background: var(--vdove); } .camp-sq.unk { background: transparent; box-shadow: inset 0 0 0 1px var(--unk); }
 
 /* ── 파일 ── */
 .file-wrap { min-width: 0; }
@@ -215,7 +217,8 @@ html[data-motion="on"] .file.flash .file-head { animation: flash .7s ease-out; }
 .badge-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .badge-k { font: 500 11.5px var(--f-text); color: var(--dim); }
 .badge { display: inline-block; min-width: 76px; padding: 1px 12px; text-align: center; font: 700 15px/1.6 var(--f-text); letter-spacing: 0.06em; color: #000; }
-.badge.hawk { background: var(--hawk); } .badge.mid { background: var(--mid); } .badge.dove { background: var(--dove); } .badge.swing { background: var(--swing); }
+.badge.vhawk { background: var(--vhawk); } .badge.hawk { background: var(--hawk); } .badge.lhawk { background: var(--lhawk); } .badge.mid { background: var(--mid); }
+.badge.ldove { background: var(--ldove); } .badge.dove { background: var(--dove); } .badge.vdove { background: var(--vdove); }
 .badge.unk { background: transparent; color: var(--ink-2); box-shadow: none; border: 1px dashed #777; }
 .badge-note { font-size: 11px; color: var(--dim); }
 .lean { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; margin-top: 3px; }
@@ -313,7 +316,8 @@ html[data-motion="on"] .file.flash .file-head { animation: flash .7s ease-out; }
 .st { stroke: #000; stroke-width: .8; }
 .st.t-a { fill: #222221; } .st.t-b { fill: #2d2d2b; } .st.t-c { fill: #1d2228; } .st.t-d { fill: #2b251b; } .st.t-e { fill: #272727; }
 .st.home { fill: #3a2a12; }
-.st.tint-hawk { fill: #45190f; } .st.tint-mid { fill: #33312a; } .st.tint-swing { fill: #2b2245; } .st.tint-dove { fill: #11294a; } .st.tint-unk { fill: url(#hatch-unk); }
+.st.tint-vhawk { fill: #5a160b; } .st.tint-hawk { fill: #45190f; } .st.tint-lhawk { fill: #38231f; } .st.tint-mid { fill: #33312a; }
+.st.tint-ldove { fill: #1c2a3a; } .st.tint-dove { fill: #11294a; } .st.tint-vdove { fill: #0a2350; } .st.tint-unk { fill: url(#hatch-unk); }
 #route-svg[data-mode="all"] .st { fill: #1a1a19; }
 .seal-ring { fill: #000; stroke: var(--line-dim); }
 .seal-txt { fill: var(--ink-2); font-family: var(--f-mono); font-weight: 600; text-anchor: middle; dominant-baseline: central; }
@@ -778,4 +782,49 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
 }
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion="on"]) .tape-track { animation: none; }
+}
+
+/* 발언 정리(2026-11-16) — 한 줄 결론 · 쟁점 칩 · 주제별로 접은 본문(A), 위원 비교표(B), 쟁점별 보기(C), 기타 */
+.nt-lede { font-size: 13px; color: var(--dim); line-height: 1.6; margin: 2px 0 10px; }
+.nt-tabs { margin-bottom: 12px; flex-wrap: wrap; }
+.nt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.nt { padding: 10px 12px 10px; border: 1px solid var(--rule); border-left: 3px solid var(--gold-line); background: var(--panel-2); min-width: 0; }
+.nt-who { margin: 0 0 2px; font-size: 13px; color: var(--dim); }
+.nt-who .camp-sq { margin-right: 6px; }
+.nt-name { font: 600 14.5px/1.5 var(--f-text); color: var(--ink); padding: 0; }
+button.nt-name:hover { color: var(--gold); text-decoration: underline; }
+.nt-meta { font: 500 11.5px/1.7 var(--f-mono); color: var(--dim); }
+.nt-meta .cert { margin: 0 1px; }
+.cert.nt-ok { border-color: #3f6e52; color: var(--go); }
+.cert.nt-news { border-color: #77736a; color: var(--ink-2); }
+.cert.nt-guess { border: 1px dashed var(--key); color: var(--key); }
+.nt-head { margin: 4px 0 2px; font: 600 16px/1.5 var(--f-text); color: var(--ink); }
+.num { color: var(--amber); font-weight: 600; font-variant-numeric: tabular-nums; }
+.nt-head .num { font-weight: 700; }
+.nt-chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 6px 0 4px; }
+.nt-chip { display: inline-flex; align-items: baseline; gap: 5px; padding: 0 7px; border: 1px solid var(--rule-2); font: 500 12px/1.75 var(--f-text); color: var(--ink-2); background: #0d0d0c; }
+.nt-chip small { font: 500 10.5px var(--f-text); color: var(--dim); }
+.nt-chip.up { border-color: #4a1d16; color: var(--hawk); background: var(--hawk-bg); }
+.nt-chip.down { border-color: #173250; color: var(--dove); background: var(--dove-bg); }
+.nt-grp { margin-top: 4px; border-top: 1px solid #1d1d1d; }
+.nt-grp summary { cursor: pointer; padding: 4px 0; font: 600 13px/1.6 var(--f-text); color: var(--ink-2); }
+.nt-grp summary small { margin-left: 6px; font: 500 11px var(--f-mono); color: var(--dim); }
+.nt-grp[open] summary { color: var(--gold); }
+.nt-grp ul, .nt-pts { margin: 0 0 6px; padding-left: 18px; display: grid; gap: 4px; }
+.nt-grp li, .nt-pts li { font-size: 14.5px; line-height: 1.6; color: var(--ink); }
+.nt-grp q, .nt-pts q { display: block; margin-top: 1px; font: 400 12.5px/1.5 var(--f-text); color: var(--dim); font-style: italic; word-break: normal; overflow-wrap: anywhere; }
+.nt-sum { font-size: 13.5px; color: var(--ink-2); margin: 0 0 8px; }
+.nt-table td { padding: 4px 6px; vertical-align: top; }
+.nt-table td.pres { padding: 0; }
+.nt-table td.pres small { display: block; padding: 0 6px 4px; font: 500 10.5px var(--f-mono); color: var(--dim); }
+.nt-table tr.voter td.pres button { font-weight: 700; }
+.nt-table .dt { font: 500 12px var(--f-mono); color: var(--dim); white-space: nowrap; }
+.nt-table .nt-chip { font-size: 11.5px; line-height: 1.6; }
+.nt-nil { color: var(--line-dim); }
+.nt-topics { margin-bottom: 10px; flex-wrap: wrap; }
+.nt-topics small { color: var(--dim); }
+.nt-flat .nt { border-left-color: var(--rule-2); }
+@media (max-width: 560px) {
+  .nt-head { font-size: 15px; }
+  .nt-grp li, .nt-pts li { font-size: 14px; }
 }

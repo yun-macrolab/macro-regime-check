@@ -27,10 +27,12 @@ from datetime import date
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE = os.path.join(REPO, "site")
-FILES = ("people.html", "people.css", "people.js", "people-data.js")
+FILES = ("people.html", "people.css", "people.js", "people-data.js", "people-notes.js")
 
 SEATS = {"board", "ny", "bank"}
-CAMPS = {"매파", "중도", "비둘기", "스윙", "미상"}
+# 성향(2026-11-16~ 운영자 분류 — 강경 → 온건, 정하지 않았으면 미정). people.js의 CAMP_ORDER와 같은 차례(아래 검사)
+CAMP_ORDER = ("매우 강경", "강경", "중립·강경 편향", "중립", "중립·온건 편향", "온건", "매우 온건", "미정")
+CAMPS = set(CAMP_ORDER)
 KINDS = {"school", "fed", "academia", "company", "government", "other"}
 CERTS = {"1차", "2차", "사전 지식"}
 SIDES = {"인상", "인하", "동결", "문구"}              # 문구 = 성명 문구에 반대(비공개 프로필의 반대표 종류와 같다)
@@ -84,7 +86,7 @@ class ShellTest(unittest.TestCase):
 
     def test_data_loads_before_the_drawing_and_both_exist(self):
         srcs = re.findall(r'<script src="([\w.-]+\.js)"></script>', self.page)
-        self.assertEqual(srcs, ["people-data.js", "people.js"])
+        self.assertEqual(srcs, ["people-data.js", "people-notes.js", "people.js"])        # 자료 둘(프로필 · 발언 정리) → 그리기
         for s in srcs:
             self.assertTrue(os.path.isfile(os.path.join(SITE, s)), s)
         self.assertLess(self.page.index('<script src="people.js">'), self.page.index("</body>"))
@@ -144,7 +146,7 @@ class ShellTest(unittest.TestCase):
         # 사람이 고치는 프로필 자료 · 껍데기 · 모양에는 없다
         js = read("people.js")
         for word in VS_BASE:
-            for name in ("people.html", "people.css", "people-data.js"):
+            for name in ("people.html", "people.css", "people-data.js", "people-notes.js"):
                 self.assertNotIn(word, read(name), f"{name}: {word}")
             self.assertEqual(js.count(f'"{word}"'), 2, word)       # 열거값(RM.vs) · 칩 모양(VS_LOOK) 두 곳
 
@@ -441,16 +443,15 @@ class DataTest(unittest.TestCase):
                 self.assertTrue(e["src"], f"{e['date']}: 사람이 나오는 사건은 출처가 있어야 한다")
         self.assertIn('확인 수준 ${e.cert', read("people.js"))           # 띠의 title에 확인 수준 · 출처
 
-    def test_camp_labels_cite_who_said_so(self):
+    def test_camp_is_the_operator_scale(self):
+        # 2026-11-16 사용자 결정 — 성향은 운영자 분류(강경 ↔ 온건 일곱 단계 + 미정). 옛 진영 꼬리표의 라벨 출처 칸은 없다
         for p in self.people:
-            if p["camp"] == "미상":
-                continue
-            src = p.get("camp_src") or []
-            self.assertTrue(src or p.get("camp_cert") == "사전 지식", p["key"])
-            urls = {s["url"] for s in p["sources"]}
-            for s in src:
-                self.assertRegex(s["url"], r"^https://", p["key"])
-                self.assertIn(s["url"], urls, p["key"])                  # 출처 목록에도 보인다
+            self.assertIn(p["camp"], CAMPS, p["key"])
+            self.assertNotIn("camp_src", p, p["key"])
+            self.assertNotIn("camp_cert", p, p["key"])
+        m = re.search(r"const CAMP_ORDER = (\[[^\]]*\]);", read("people.js"))
+        self.assertEqual(tuple(json.loads(m.group(1))), CAMP_ORDER)
+        self.assertIn("운영자", self.data["camp_note"])
 
     def test_people_have_unique_plain_keys(self):
         self.assertGreaterEqual(len(self.people), 12)
@@ -567,6 +568,87 @@ class DataTest(unittest.TestCase):
         for st, d in mp["paths"].items():
             self.assertRegex(st, r"^[A-Z]{2}$")
             self.assertRegex(d if isinstance(d, str) else d.get("d", ""), r"^M[-0-9.,\sMLZz]+$", st)
+
+
+def load_notes(text):
+    """people-notes.js → dict. 꼴이 다르면 ValueError(머리 주석 + window.PEOPLE_NOTES = {JSON}; 한 문장만)."""
+    m = re.fullmatch(r"\s*(?:/\*(?:(?!\*/).)*\*/\s*)?window\.PEOPLE_NOTES = (\{.*\});\s*", text, re.S)
+    if not m:
+        raise ValueError("people-notes.js는 머리 주석과 window.PEOPLE_NOTES = {...}; 한 문장이어야 한다")
+    return json.loads(m.group(1))
+
+
+NOTE_VENUES = {"연설", "인터뷰", "대담", "연설·대담", "연설·인터뷰", "기자회견", "의회 증언", "기고", "발언"}
+NOTE_CERTS = {"원문 확인", "보도 확인", "출처 미확인"}
+NOTE_TONES = {"up", "mid", "down"}
+HANGUL = re.compile(r"[가-힣]")
+
+
+class NotesTest(unittest.TestCase):
+    """발언 정리(2026-11-16, people-notes.js) — 운영자가 받은 요약을 이 저장소가 다시 쓴 것. 꼴 · 범위 · 출처 · 인용의 길이."""
+    @classmethod
+    def setUpClass(cls):
+        cls.notes = load_notes(read("people-notes.js"))
+        cls.people = {p["key"]: p for p in load_data(read("people-data.js"))["people"]}
+
+    def test_shape(self):
+        n = self.notes
+        self.assertRegex(n["asof"], DATE)
+        self.assertIn("다시 쓴", n["about"])
+        for name in ("topics", "issues"):
+            keys = [k for k, _ in n[name]]
+            self.assertEqual(len(keys), len(set(keys)), name)
+            for k, label in n[name]:
+                self.assertRegex(k, r"^[a-z]+$", name)
+                self.assertTrue(label.strip(), name)
+        for k, o in n["others"].items():
+            self.assertNotIn(k, self.people, k)                          # 연준 밖 사람만
+            for f in ("name_ko", "name_en", "org", "role"):
+                self.assertTrue(isinstance(o[f], str) and o[f].strip(), f"{k}.{f}")
+
+    def test_each_note(self):
+        n = self.notes
+        topics, issues = {k for k, _ in n["topics"]}, {k for k, _ in n["issues"]}
+        ids = [x["id"] for x in n["notes"]]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertTrue(n["notes"])
+        for x in n["notes"]:
+            i = x["id"]
+            self.assertIn(x["who"], set(self.people) | set(n["others"]), i)
+            self.assertRegex(x["date"], DATE, i)
+            self.assertLessEqual(x["date"], n["asof"], i)
+            self.assertEqual(i, f"{x['who']}-{x['date'].replace('-', '')}" + i[len(x['who']) + 9:], i)
+            self.assertRegex(i[len(x["who"]) + 9:], r"^[a-z]?$", i)        # 같은 날 둘이면 끝에 b · c
+            self.assertIn(x["venue"], NOTE_VENUES, i)
+            self.assertIn(x["cert"], NOTE_CERTS, i)
+            if x["cert"] == "출처 미확인":
+                self.assertTrue(x.get("date_note"), f"{i}: 확인하지 못한 날짜는 date_note로 그렇다고 적는다")
+            else:
+                self.assertRegex(x["src"], r"^https://[^\s]+$", i)
+            self.assertTrue(8 <= len(x["head"]) <= 70, i)
+            for k, v in x["chips"].items():
+                self.assertIn(k, issues, i)
+                self.assertEqual(len(v), 2, i)
+                self.assertTrue(v[0].strip() and len(v[0]) <= 22, f"{i}.{k}: 칩 글은 22자까지")
+                self.assertIn(v[1], NOTE_TONES, i)
+            if x["who"] in self.people:
+                self.assertIn("next", x["chips"]) if x["who"] != "barr" else None
+            self.assertTrue(x["points"], i)
+            for pt in x["points"]:
+                self.assertIn(pt["t"], topics, i)
+                self.assertTrue(pt["s"].strip() and len(pt["s"]) <= 260, f"{i}: 문장은 260자까지")
+                self.assertLessEqual(set(pt) - {"t", "s", "q"}, set(), i)
+                if "q" in pt:
+                    self.assertLessEqual(len(pt["q"].split()), 25, f"{i}: 인용은 짧게(25단어까지)")
+                    self.assertIsNone(HANGUL.search(pt["q"]), f"{i}: 인용은 발언자 본인의 영어 원문")
+
+    def test_page_wires_the_notes(self):
+        page, js = read("people.html"), read("people.js")
+        for id_ in ("sec-talks", "nt-tabs", "nt-board", "nt-topic", "nt-other", "nt-lede"):
+            self.assertIn(f'id="{id_}"', page, id_)
+        self.assertIn('["sec-talks", "발언 정리"]', js)
+        self.assertIn("window.PEOPLE_NOTES", js)
+        self.assertIn('"기타 — 세계 주요 인사"', js)
 
 
 if __name__ == "__main__":
