@@ -824,6 +824,8 @@ button.nt-name:hover { color: var(--gold); text-decoration: underline; }
 .nt-topics { margin-bottom: 10px; flex-wrap: wrap; }
 .nt-topics small { color: var(--dim); }
 .nt-flat .nt { border-left-color: var(--rule-2); }
+.nt-region { margin: 14px 0 6px; }
+.nt-region:first-child { margin-top: 0; }
 @media (max-width: 560px) {
   .nt-head { font-size: 15px; }
   .nt-grp li, .nt-pts li { font-size: 14px; }

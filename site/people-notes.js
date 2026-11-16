@@ -74,7 +74,8 @@ window.PEOPLE_NOTES = {
    "name_ko": "앤드루 베일리",
    "name_en": "Andrew Bailey",
    "org": "영란은행",
-   "role": "총재 · 금융안정위원회(FSB) 의장"
+   "role": "총재 · 금융안정위원회(FSB) 의장",
+   "region": "영국"
   }
  },
  "notes": [
@@ -483,6 +484,15 @@ window.PEOPLE_NOTES = {
      "s": "AI 데이터센터 구축이 물가에 수요 측 압력을 더했고, 과열이 서비스 등 다른 품목으로 번질까 걱정이다. 물가가 기대에 반영되면 큰 문제다."
     },
     {
+     "t": "inflation",
+     "s": "관세 같은 요인이 바라던 대로 시간이 지나며 사그라드는 모습을 보지 못했다. 소비자·기업이 높은 물가를 예상하기 시작하면 큰 걱정 — 그때는 물가를 식히는 일이 훨씬 고통스러워진다.",
+     "q": "much more painful"
+    },
+    {
+     "t": "policy",
+     "s": "다만 다음 회의의 손을 묶을 만큼 구체적인 입장을 미리 밝히는 건 좋아하지 않는다."
+    },
+    {
      "t": "labor",
      "s": "노동시장은 꾸준하고 안정적이다."
     }
@@ -826,7 +836,16 @@ window.PEOPLE_NOTES = {
     },
     {
      "t": "inflation",
-     "s": "정제설비 부족은 여전히 문제다."
+     "s": "몇 달째 불안 신호가 이어졌고 물가가 다시 오른다. 처음 공급 충격에서 예상한 것보다 훨씬 끈질기고, 이제는 고전적인 수요 과열의 모습 — 수요 과열은 무슨 수를 써서라도 막는 게 상식이다.",
+     "q": "We have had signs of trouble now for several months in a row"
+    },
+    {
+     "t": "inflation",
+     "s": "유가가 빨리 떨어져도 정제설비 부족은 여전히 문제로 남는다."
+    },
+    {
+     "t": "rates",
+     "s": "보도 요약으로는 기준금리가 언젠가는 지금보다 훨씬 낮아질 것이라고도 했다 — 원래 문장은 찾지 못했다."
     },
     {
      "t": "labor",
@@ -921,12 +940,25 @@ window.PEOPLE_NOTES = {
      "q": "I don't want to get ahead in terms of how high we should go or how fast"
     },
     {
+     "t": "policy",
+     "s": "가장 그럴듯한 그림은 소비·기업 투자 수요가 탄탄한 가운데 조금 더 긴축적인 경로로 노동시장을 크게 흔들지 않고 적당한 기간 안에 물가를 낮추는 것. 물가가 더 끈질긴 시나리오도 염두에 둔다."
+    },
+    {
+     "t": "inflation",
+     "s": "가격 압력이 넓게 번지고 있고, 높은 상태가 오래 이어졌다.",
+     "q": "I see the price pressures broadening, and it's been elevated for a long time"
+    },
+    {
      "t": "inflation",
      "s": "팬데믹 공급망 제약, 해외 분쟁의 에너지 충격, 관세가 모두 물가를 올렸다. 최근엔 빠른 생산성 향상이 압력 일부를 눌렀다."
     },
     {
      "t": "housing",
-     "s": "물가 안정을 위해 때로는 긴축이 필요하다. 단기적으로 높은 금리는 주택 구입·건설 비용을 올리고 공급 확대를 막지만, 장기적으로는 안정된 물가가 주택과 경제 전반에 이롭다.",
+     "s": "단기적으로 긴축은 주택 시장 압력을 덜어 줄 재고 확대를 막고, 모기지를 쓰려는 의향과 능력에도 영향을 줘 수요를 누를 수 있다."
+    },
+    {
+     "t": "housing",
+     "s": "그래도 물가 안정을 위해 때로는 긴축이 필요하다. 높은 금리는 단기적으로 주택 구입·건설 비용을 올리지만, 장기적으로는 안정된 물가가 예측 가능한 여건을 만들어 주택과 경제 전반에 이롭다.",
      "q": "stable prices create predictable economic conditions that are good for housing"
     },
     {
@@ -983,7 +1015,7 @@ window.PEOPLE_NOTES = {
     },
     {
      "t": "inflation",
-     "s": "생산자들이 비용을 마진으로 흡수할 여력이 줄고 있다고 전한다 — 피하고 싶은 물가 상승 압력이다."
+     "s": "생산자들이 비용을 마진으로 흡수할 여력이 바닥나 이제 소비자에게 넘기는 방안을 진지하게 검토한다고 전한다 — 피하고 싶은 물가 상승 압력이다. 주거 뺀 서비스 물가는 한번 오르면 잘 안 내려가 더 걱정이다."
     },
     {
      "t": "growth",
@@ -1063,6 +1095,69 @@ window.PEOPLE_NOTES = {
      "t": "rates",
      "s": "AI로 생산성 증가율이 영구히 높아지면 투자 수요 증가와 저축 감소로 중립금리가 오를 수 있다 — 그러면 같은 기준금리라도 정책이 사실상 더 완화적이다. 예측이 어려워 실시간으로 봐야 한다.",
      "q": "policy effectively becomes more accommodative"
+    }
+   ]
+  },
+  {
+   "id": "collins-20261114",
+   "who": "collins",
+   "date": "2026-11-14",
+   "date_note": "블룸버그·로이터 보도 제목으로 찾은 날짜 — 기사 주소는 못 찾음",
+   "venue": "발언",
+   "event": "보스턴 연은 경제 콘퍼런스 둘째 날 — 기자들과 대화",
+   "src": "",
+   "cert": "출처 미확인",
+   "head": "지금은 꾸준하고 점진적인 인상이 맞아 보인다 — 다만 생각은 열어 둔다",
+   "chips": {
+    "next": [
+     "꾸준·점진 인상",
+     "up"
+    ],
+    "pace": [
+     "점진(정해진 주기 아님)",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "지금은 꾸준하고 점진적인 경로가 적절해 보이지만 열린 마음으로 본다. 위험은 양쪽에 있고, '점진적'이 회의마다 같은 주기를 뜻하지는 않는다."
+    }
+   ]
+  },
+  {
+   "id": "schmid-20261115",
+   "who": "schmid",
+   "date": "2026-11-15",
+   "venue": "연설",
+   "event": "전국신용협동조합경영협회(NCUMA) 연례 콘퍼런스(하와이) — 경제 전망·통화정책·지급결제",
+   "src": "https://www.cnbc.com/2026/11/15/fed-has-some-work-to-do-on-inflation-kansas-city-fed-chief-says.html",
+   "cert": "보도 확인",
+   "head": "물가는 목표를 불편할 만큼 웃돌고 방향도 틀렸다 — '연준이 어쩔 수 없다'는 설명은 받아들이지 않는다",
+   "chips": {
+    "next": [
+     "할 일 남음",
+     "up"
+    ],
+    "inflation": [
+     "불편할 만큼 높고 악화",
+     "up"
+    ]
+   },
+   "points": [
+    {
+     "t": "inflation",
+     "s": "물가가 2% 목표를 불편할 만큼 웃돌고, 움직이는 방향도 틀렸다.",
+     "q": "uncomfortably above the 2% price stability target, and moving in the wrong direction"
+    },
+    {
+     "t": "policy",
+     "s": "워시 의장이 8월에 '연준이 물가에 할 일이 있다'고 했는데, 그 뒤 일은 더 어려워졌다고 본다."
+    },
+    {
+     "t": "inflation",
+     "s": "물가를 공급 충격 탓으로 보는 설명과 금리에 반응하지 않는 수요 탓으로 보는 설명은 뿌리가 같다 — 물가가 연준이 다룰 수 없는 영역에 있다는 생각이다. 그는 물가가 늘 수요와 공급의 불균형에서 온다고 반박한다.",
+     "q": "inflation is always the result of an imbalance between supply and demand"
     }
    ]
   }

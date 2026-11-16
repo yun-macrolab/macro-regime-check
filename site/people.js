@@ -932,10 +932,20 @@ function buildTalkTopics(box) {
       typeof n.src === "string" && n.src ? [" · ", safeLink(n.src)] : null), el("ul", { class: "nt-pts" }, ...pts.map(ntPoint)))))
     : el("p", { class: "rm-none", text: "정리한 발언 없음" }));
 }
-/* 기타 — 연준 밖 세계 주요 인사(중앙은행 · 재무 당국). 성향 단계는 붙이지 않는다 */
+/* 기타 — 연준 밖 세계 주요 인사(중앙은행 · 재무 당국). 지역(others의 region — 유로존 · 영국 …)마다 묶고, 묶음 차례는 가장 새 발언 순.
+   성향 단계는 붙이지 않는다(칩은 그 정리에 있으면 그대로) */
 function buildTalkOthers(box) {
   const mine = NT.list.filter(n => NT.others[n.who]);
-  box.replaceChildren(mine.length ? el("ol", { class: "nt-list" }, ...mine.map(n => noteCard(n, true))) : el("p", { class: "rm-none", text: "정리한 발언 없음" }));
+  if (!mine.length) { box.replaceChildren(el("p", { class: "rm-none", text: "정리한 발언 없음" })); return; }
+  const groups = new Map();
+  mine.forEach(n => {
+    const r = String(NT.others[n.who].region || "기타").trim() || "기타";
+    if (!groups.has(r)) groups.set(r, []);
+    groups.get(r).push(n);
+  });
+  box.replaceChildren(...[...groups].flatMap(([r, ns]) => [
+    el("h4", { class: "sub nt-region" }, r, el("span", { text: `${ns.length}건 · ${[...new Set(ns.map(n => NT.others[n.who].name_ko))].join(" · ")}` })),
+    el("ol", { class: "nt-list" }, ...ns.map(n => noteCard(n, true)))]));
 }
 function buildTalks() {
   const tabs = $("nt-tabs"), lede = $("nt-lede");

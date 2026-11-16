@@ -603,7 +603,7 @@ class NotesTest(unittest.TestCase):
                 self.assertTrue(label.strip(), name)
         for k, o in n["others"].items():
             self.assertNotIn(k, self.people, k)                          # 연준 밖 사람만
-            for f in ("name_ko", "name_en", "org", "role"):
+            for f in ("name_ko", "name_en", "org", "role", "region"):
                 self.assertTrue(isinstance(o[f], str) and o[f].strip(), f"{k}.{f}")
 
     def test_each_note(self):
