@@ -118,6 +118,26 @@ class PageTest(unittest.TestCase):
             self.assertIn(f'id="{slot}"', section[:section.index("</section>")], slot)
         self.assertIn(".credit-slot:empty", self.css)                               # 빈 자리는 보이지 않는다
 
+    def test_ledger_view_is_wired(self):
+        # 기록 장부(2026-11-18) — 첫 화면의 '이번 주 달라진 것'과 '기록 장부' 화면. 두 파일을 읽고, 그리기는 try 안에서 한 번,
+        # 상자는 처음에 숨어 있고 그 화면에서만 열린다. 화면 키(숫자)는 없고 명령 낱말은 똑같을 때만(AI 투자와 같다)
+        for snippet in ('getJson("data/changes.json")', 'getJson("data/ledger.json")', '<script src="ledger.js"></script>',
+                        '<a href="#ledger" data-view="ledger">기록 장부<span>평가 약속</span></a>',
+                        '<section id="changes-wrap" hidden', '<section id="ledger-wrap" hidden', '<option value="기록 장부">',
+                        '"korea-flows", "ledger", "sources", "ai"]',
+                        '["기록", "장부", "기록 장부", "평가 약속", "ledger"].includes(q) ? ["ledger"]',
+                        'getElementById("changes-wrap").hidden = !(available.changes && activeView === "all")',
+                        'getElementById("ledger-wrap").hidden = !(available.ledger && activeView === "ledger")',
+                        'getElementById("ledger-empty").hidden = activeView !== "ledger" || available.ledger || !available.loaded'):
+            self.assertIn(snippet, self.page, snippet)
+        line = next(l for l in self.page.splitlines() if "window.LedgerView.render(" in l)
+        self.assertRegex(line, r"^\s*try \{ if \(window\.LedgerView\)")
+        self.assertNotIn('data-view="ledger" aria-keyshortcuts', self.page)
+        # 이번 주 달라진 것은 안내 줄 바로 뒤, 첫 화면 상자 앞
+        self.assertLess(self.page.index('<p id="notice"'), self.page.index('<section id="changes-wrap"'))
+        self.assertLess(self.page.index('<section id="changes-wrap"'), self.page.index('<div id="bridge"'))
+        self.assertLess(self.page.index('<script src="ledger.js">'), self.page.index("applyView();"))
+
     def test_ktb_table_panel_rule_reaches_the_table_panel(self):
         # 국고채 절의 표 상자는 머리글 다음 둘째 자식이라 :first-of-type에 걸리지 않았다(그래프 첫 상자에 걸렸다) — 자식 선택자로
         self.assertIn("#ktb-wrap > .panel {", self.css)

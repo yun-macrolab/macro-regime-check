@@ -1,0 +1,1694 @@
+{
+  "schema": 1,
+  "generated_at": "2026-11-18T03:16:16+00:00",
+  "notice": "규칙이 바뀐 날 뒤의 금리 변화를 정해 둔 방법(평가 약속)으로 적은 측정 기록이다. 예측이 아니고 투자 판단이나 권유가 아니다.",
+  "protocol": {
+    "version": 1,
+    "fixed": "2026-11-18",
+    "horizons_weeks": [
+      4,
+      13
+    ],
+    "outcomes": [
+      {
+        "key": "dgs10",
+        "label": "미 10년",
+        "series": "DGS10"
+      },
+      {
+        "key": "t10y2y",
+        "label": "10년−2년",
+        "series": "T10Y2Y"
+      },
+      {
+        "key": "tp",
+        "label": "기간 프리미엄(Kim-Wright)",
+        "series": "THREEFYTP10"
+      }
+    ],
+    "n_min": 10,
+    "tolerance_days": 3,
+    "start_days": 7,
+    "text": [
+      "평가 약속 1판 — 2026-11-18에 정했다.",
+      "전환: 규칙의 상태(충족·미충족)가 그 규칙의 직전에 판정된 상태와 달라진 날짜별 기록을 전환으로 적는다. 판정 불가인 날은 건너뛰어 전환을 만들지도 끊지도 않고, 처음 판정된 상태는 출발 상태이지 전환이 아니다. 나중에 더한 규칙은 처음 실린 날부터 센다.",
+      "기간: 출발 점에서 4주·13주 뒤까지의 변화를 bp로 적는다. 끝 점은 출발 점 날짜에 7×주 수 일을 더한 날에 가장 가까운 주간 점(±3일 안, 같은 거리면 이른 점)이다. 그 범위 끝이 그래프의 마지막 점보다 뒤면 '기다리는 중', 범위 안에 점이 없으면 '자료 없음'으로 둔다.",
+      "출발 점: 전환 날 이후(그날 포함) 7일 안의 첫 주간 점이다. 그날 기록은 그 앞날까지의 자료로 정해졌으므로 전환을 만든 움직임은 결과에 넣지 않는다 — 대신 전환 날부터 출발 점까지의 며칠(최대 일주일)은 결과에 들지 않는다. 그 점이 아직 없으면 '기다리는 중', 7일 안에 점이 없으면 '자료 없음'이다.",
+      "시리즈: 미 10년(DGS10) · 10년−2년(T10Y2Y) · 기간 프리미엄(Kim-Wright)(THREEFYTP10) — 사이트 '금리의 구조' 그래프(data/charts.json)와 같은 주간 점(주마다 마지막 관측)이다.",
+      "평균 빼기: 같은 그래프의 모든 주간 점에서 같은 규칙으로 잰 4주·13주 변화의 평균을 빼서 '평균을 뺀 값'으로도 적는다. 평균은 그날 그래프가 싣는 최근 기간(창)으로 갱신마다 다시 잰다 — 창이 한 주씩 옮겨 가면 FRED가 값을 고치지 않아도 평균과 평균을 뺀 값이 조금씩 달라진다.",
+      "요약: 방향(충족으로 · 미충족으로) · 기간 · 시리즈마다 약속 뒤 전환 가운데 결과가 나온 것('기다리는 중'·'자료 없음' 제외)이 10개 이상일 때만 평균을 뺀 값의 평균과 오른 비율(변화가 0보다 큰 몫)을 낸다 — 그 전에는 판단 보류다.",
+      "약속 전 전환: 2026-11-18 앞의 전환은 목록에 적되 요약에서 뺀다 — 약속을 정할 때 그 뒤의 금리 변화 일부가 이미 보였다.",
+      "측정 기록이다(예측 아님) — 어느 규칙도 금리가 오르거나 내리는 쪽을 가리킨다고 미리 정하지 않았다.",
+      "날짜별 기록(data/history)은 그날 사이트가 공개한 것(그때의 FRED 현재 개정치)이고 다시 계산하지 않는다.",
+      "charts.json의 주간 점은 FRED가 값을 고치면 바뀐다 — 결과와 평균은 이 장부를 만든 날의 charts.json으로 잰다. 출발 점이 그래프 창 밖으로 나간 전환은 '자료 없음'이 되어 요약에서 빠진다.",
+      "약속을 바꾸면 새 판 번호와 날짜를 붙이고, 판을 바꾸지 않고는 정의를 고치지 않는다 — 지난 판으로 낸 파일은 저장소 기록(git)에 남는다. 이 파일의 판 번호가 쓴 약속이다."
+    ]
+  },
+  "history": {
+    "from": "2026-09-27",
+    "to": "2026-11-17",
+    "snapshots": 40,
+    "skipped": 0
+  },
+  "charts": {
+    "date": "2026-11-17",
+    "window": {
+      "from": "2021-11-19",
+      "to": "2026-11-16"
+    },
+    "last": {
+      "dgs10": "2026-11-13",
+      "t10y2y": "2026-11-16",
+      "tp": "2026-11-06"
+    },
+    "baseline": {
+      "4": {
+        "dgs10": 5.5,
+        "t10y2y": -0.9,
+        "tp": 1.6
+      },
+      "13": {
+        "dgs10": 17.5,
+        "t10y2y": -2.1,
+        "tp": 4.9
+      }
+    },
+    "baseline_detail": {
+      "4": {
+        "dgs10": {
+          "n": 256,
+          "from": "2021-11-19",
+          "to": "2026-11-06"
+        },
+        "t10y2y": {
+          "n": 257,
+          "from": "2021-11-19",
+          "to": "2026-11-13"
+        },
+        "tp": {
+          "n": 255,
+          "from": "2021-11-19",
+          "to": "2026-10-30"
+        }
+      },
+      "13": {
+        "dgs10": {
+          "n": 247,
+          "from": "2021-11-19",
+          "to": "2026-11-06"
+        },
+        "t10y2y": {
+          "n": 248,
+          "from": "2021-11-19",
+          "to": "2026-11-13"
+        },
+        "tp": {
+          "n": 246,
+          "from": "2021-11-19",
+          "to": "2026-10-30"
+        }
+      }
+    }
+  },
+  "sources": [
+    {
+      "series": "DGS10",
+      "url": "https://fred.stlouisfed.org/series/DGS10",
+      "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis [DGS10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DGS10, November 17, 2026.",
+      "citation_required": false
+    },
+    {
+      "series": "T10Y2Y",
+      "url": "https://fred.stlouisfed.org/series/T10Y2Y",
+      "citation": "Federal Reserve Bank of St. Louis, 10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity [T10Y2Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10Y2Y, November 17, 2026.",
+      "citation_required": true
+    },
+    {
+      "series": "THREEFYTP10",
+      "url": "https://fred.stlouisfed.org/series/THREEFYTP10",
+      "citation": "Board of Governors of the Federal Reserve System (US), Term Premium on a 10 Year Zero Coupon Bond [THREEFYTP10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/THREEFYTP10, November 17, 2026.",
+      "citation_required": false
+    }
+  ],
+  "notices": [
+    "4주·13주 변화 · 평균을 뺀 값 · 평균(기준) · 요약은 macro-regime-check가 그래프 자료(data/charts.json)의 주간 점으로 계산한 값이다. 연준 이사회 · 세인트루이스 연은 · FRED가 발표한 값이 아니다.",
+    "The 4- and 13-week changes, demeaned values, baselines and summaries are computed by macro-regime-check from the weekly points in data/charts.json; they are not published by the Federal Reserve Board, the Federal Reserve Bank of St. Louis or FRED."
+  ],
+  "rules": [
+    {
+      "key": "ci_vs_ngdp",
+      "title": "기업대출 증가율 대 명목 성장률",
+      "first": "2026-09-27",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "not_met",
+      "since": "2026-09-27",
+      "unknown_days": 0,
+      "events": [],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "ndfi_credit",
+      "title": "은행의 비은행 금융기관 대출",
+      "first": "2026-09-27",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "not_met",
+      "since": "2026-09-27",
+      "unknown_days": 0,
+      "events": [],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "credit_spread",
+      "title": "신용 스프레드",
+      "first": "2026-09-27",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "not_met",
+      "since": "2026-09-27",
+      "unknown_days": 0,
+      "events": [],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "stock_bond_corr",
+      "title": "주가-금리 60영업일 상관",
+      "first": "2026-09-27",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "not_met",
+      "since": "2026-09-27",
+      "unknown_days": 0,
+      "events": [],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "curve_inversion",
+      "title": "10년−2년 금리차",
+      "first": "2026-09-27",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "not_met",
+      "since": "2026-09-27",
+      "unknown_days": 0,
+      "events": [],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "real_rate_bei",
+      "title": "실질금리와 기대인플레이션",
+      "first": "2026-09-27",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "not_met",
+      "since": "2026-09-27",
+      "unknown_days": 0,
+      "events": [],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "core_inflation",
+      "title": "근원 물가",
+      "first": "2026-09-27",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "not_met",
+      "since": "2026-09-27",
+      "unknown_days": 0,
+      "events": [],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "term_premium",
+      "title": "10년 기간 프리미엄",
+      "first": "2026-09-27",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "not_met",
+      "since": "2026-09-27",
+      "unknown_days": 0,
+      "events": [],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "sofr",
+      "title": "단기 조달금리 SOFR",
+      "first": "2026-09-27",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "met",
+      "since": "2026-10-17",
+      "unknown_days": 0,
+      "events": [
+        {
+          "date": "2026-09-29",
+          "from": "not_met",
+          "to": "met",
+          "before_protocol": true,
+          "core": null,
+          "candidate": null,
+          "outcomes": {
+            "4": {
+              "dgs10": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -34.0,
+                "demeaned_bp": -39.5
+              },
+              "t10y2y": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -7.0,
+                "demeaned_bp": -6.1
+              },
+              "tp": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -17.6,
+                "demeaned_bp": -19.2
+              }
+            },
+            "13": {
+              "dgs10": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "t10y2y": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            }
+          }
+        },
+        {
+          "date": "2026-10-01",
+          "from": "met",
+          "to": "not_met",
+          "before_protocol": true,
+          "core": null,
+          "candidate": null,
+          "outcomes": {
+            "4": {
+              "dgs10": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -34.0,
+                "demeaned_bp": -39.5
+              },
+              "t10y2y": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -7.0,
+                "demeaned_bp": -6.1
+              },
+              "tp": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -17.6,
+                "demeaned_bp": -19.2
+              }
+            },
+            "13": {
+              "dgs10": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "t10y2y": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            }
+          }
+        },
+        {
+          "date": "2026-10-07",
+          "from": "not_met",
+          "to": "met",
+          "before_protocol": true,
+          "core": null,
+          "candidate": null,
+          "outcomes": {
+            "4": {
+              "dgs10": {
+                "state": "done",
+                "start": "2026-10-09",
+                "end": "2026-11-06",
+                "change_bp": -38.0,
+                "demeaned_bp": -43.5
+              },
+              "t10y2y": {
+                "state": "done",
+                "start": "2026-10-09",
+                "end": "2026-11-06",
+                "change_bp": -9.0,
+                "demeaned_bp": -8.1
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-09",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            },
+            "13": {
+              "dgs10": {
+                "state": "pending",
+                "start": "2026-10-09",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "t10y2y": {
+                "state": "pending",
+                "start": "2026-10-09",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-09",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            }
+          }
+        },
+        {
+          "date": "2026-10-16",
+          "from": "met",
+          "to": "not_met",
+          "before_protocol": true,
+          "core": null,
+          "candidate": null,
+          "outcomes": {
+            "4": {
+              "dgs10": {
+                "state": "pending",
+                "start": "2026-10-16",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "t10y2y": {
+                "state": "done",
+                "start": "2026-10-16",
+                "end": "2026-11-13",
+                "change_bp": -8.0,
+                "demeaned_bp": -7.1
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-16",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            },
+            "13": {
+              "dgs10": {
+                "state": "pending",
+                "start": "2026-10-16",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "t10y2y": {
+                "state": "pending",
+                "start": "2026-10-16",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-16",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            }
+          }
+        },
+        {
+          "date": "2026-10-17",
+          "from": "not_met",
+          "to": "met",
+          "before_protocol": true,
+          "core": null,
+          "candidate": null,
+          "outcomes": {
+            "4": {
+              "dgs10": {
+                "state": "pending",
+                "start": "2026-10-23",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "t10y2y": {
+                "state": "pending",
+                "start": "2026-10-23",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-23",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            },
+            "13": {
+              "dgs10": {
+                "state": "pending",
+                "start": "2026-10-23",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "t10y2y": {
+                "state": "pending",
+                "start": "2026-10-23",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-23",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            }
+          }
+        }
+      ],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "reserves_multiplier",
+      "title": "지준과 통화승수",
+      "first": "2026-09-27",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "met",
+      "since": "2026-10-30",
+      "unknown_days": 0,
+      "events": [
+        {
+          "date": "2026-10-01",
+          "from": "not_met",
+          "to": "met",
+          "before_protocol": true,
+          "core": null,
+          "candidate": null,
+          "outcomes": {
+            "4": {
+              "dgs10": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -34.0,
+                "demeaned_bp": -39.5
+              },
+              "t10y2y": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -7.0,
+                "demeaned_bp": -6.1
+              },
+              "tp": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -17.6,
+                "demeaned_bp": -19.2
+              }
+            },
+            "13": {
+              "dgs10": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "t10y2y": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            }
+          }
+        },
+        {
+          "date": "2026-10-02",
+          "from": "met",
+          "to": "not_met",
+          "before_protocol": true,
+          "core": null,
+          "candidate": null,
+          "outcomes": {
+            "4": {
+              "dgs10": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -34.0,
+                "demeaned_bp": -39.5
+              },
+              "t10y2y": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -7.0,
+                "demeaned_bp": -6.1
+              },
+              "tp": {
+                "state": "done",
+                "start": "2026-10-02",
+                "end": "2026-10-30",
+                "change_bp": -17.6,
+                "demeaned_bp": -19.2
+              }
+            },
+            "13": {
+              "dgs10": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "t10y2y": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-02",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            }
+          }
+        },
+        {
+          "date": "2026-10-30",
+          "from": "not_met",
+          "to": "met",
+          "before_protocol": true,
+          "core": null,
+          "candidate": null,
+          "outcomes": {
+            "4": {
+              "dgs10": {
+                "state": "pending",
+                "start": "2026-10-30",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "t10y2y": {
+                "state": "pending",
+                "start": "2026-10-30",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-30",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            },
+            "13": {
+              "dgs10": {
+                "state": "pending",
+                "start": "2026-10-30",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "t10y2y": {
+                "state": "pending",
+                "start": "2026-10-30",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              },
+              "tp": {
+                "state": "pending",
+                "start": "2026-10-30",
+                "end": null,
+                "change_bp": null,
+                "demeaned_bp": null
+              }
+            }
+          }
+        }
+      ],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "employment",
+      "title": "미 증권·투자업 고용",
+      "first": "2026-09-27",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "not_met",
+      "since": "2026-09-27",
+      "unknown_days": 0,
+      "events": [],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "core_momentum",
+      "title": "근원 물가의 최근 속도",
+      "first": "2026-10-14",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "not_met",
+      "since": "2026-10-14",
+      "unknown_days": 0,
+      "events": [],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "unemployment_rise",
+      "title": "실업률 상승 폭",
+      "first": "2026-10-14",
+      "last": "2026-11-17",
+      "start": "not_met",
+      "now": "not_met",
+      "since": "2026-10-14",
+      "unknown_days": 0,
+      "events": [],
+      "summary": {
+        "to_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        },
+        "to_not_met": {
+          "4": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          },
+          "13": {
+            "dgs10": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "t10y2y": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            },
+            "tp": {
+              "n": 0,
+              "mean_demeaned_bp": null,
+              "up_share": null
+            }
+          }
+        }
+      }
+    }
+  ]
+}

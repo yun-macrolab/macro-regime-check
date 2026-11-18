@@ -339,6 +339,47 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .credit-num { color: var(--amber); font-variant-numeric: tabular-nums; }
 .credit-def { color: var(--key); }
 .credit-late { color: var(--alert); }
+/* 기록 장부(site/ledger.js, 2026-11-18) — 첫 화면의 '이번 주 달라진 것'(#changes-wrap)과 '기록 장부' 화면(#ledger-wrap).
+   글 줄은 좁은 화면에서 아무 데서나 접고, 표는 가로 스크롤 상자(.ledger-scroll) 안에서만 넘친다(390px에서 화면이 가로로 넘치지 않게) */
+.chg { background: var(--panel); }
+.chg p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.6; overflow-wrap: anywhere; }
+.chg .chg-asof { margin: 0 0 6px; font: 400 11.5px var(--f-mono); }
+.chg-head { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.chg-head li { padding: 5px 10px; background: var(--black); border-left: 2px solid var(--amber); font-size: 13px; line-height: 1.5;
+  overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.chg-more { margin-top: 8px; }
+.chg-window h3, .ledger-protocol h3, .ledger-panel > h3 { margin: 10px 0 0; font-size: 13px; color: var(--key); }
+.chg-window h3 small, .ledger-protocol h3 small { font: 400 11.5px var(--f-mono); }
+.ledger-panel > h3 { margin: 0 0 2px; }
+.ledger-text > .notices { margin-top: 4px; }
+.ledger-cite p { overflow-wrap: anywhere; }
+.chg-list { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; }
+.chg-list li { overflow-wrap: anywhere; }
+.chg-list strong { font-weight: 500; color: var(--ink); }
+.chg-list .chg-same { color: var(--dim); }
+.chg-note a { white-space: nowrap; }
+#ledger-wrap > .muted { margin: 0 0 10px; font-size: 12.5px; overflow-wrap: anywhere; }
+.ledger-protocol h3 { margin-top: 0; }
+.ledger-basis { margin: 4px 0 0; font-size: 12px; overflow-wrap: anywhere; }
+.ledger-block { margin-top: 8px; }
+.ledger-block > .ledger-cap { margin: 0 0 2px; font-size: 12px; overflow-wrap: anywhere; }
+.ledger-scroll { max-width: 100%; overflow-x: auto; }
+.ledger-table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ledger-table th, .ledger-table td { padding: 4px 10px 4px 0; text-align: left; vertical-align: top; white-space: nowrap;
+  border-bottom: 1px solid var(--rule); }
+.ledger-table thead th { min-width: 5em; font-size: 11.5px; font-weight: 500; color: var(--dim); white-space: normal; }
+.ledger-table tbody th { min-width: 9em; font-weight: 500; white-space: normal; }
+.ledger-table td small { display: block; font: 400 11px var(--f-mono); color: var(--dim); }
+.ledger-num { font-family: var(--f-mono); color: var(--amber); }
+.ledger-wait { color: var(--dim); }
+.ledger-pre { display: inline-block; margin-left: 6px; padding: 0 6px; font-size: 11px; line-height: 1.6; color: var(--dim);
+  box-shadow: inset 0 0 0 1px #3a3a3a; white-space: nowrap; }
+.ledger-rule { padding: 6px 0; border-top: 1px solid var(--rule); }
+.ledger-panel > h3 + .ledger-rule { border-top: 0; }
+.ledger-rule > summary { font-size: 13px; color: var(--ink); }
+.ledger-rule > p { margin: 6px 0 0; font-size: 12.5px; overflow-wrap: anywhere; }
+.ledger-event { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--rule); }
+.ledger-event > p { margin: 0; font-size: 12.5px; overflow-wrap: anywhere; }
 
 /* ── 출처 ── */
 .source-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 10px 0; }

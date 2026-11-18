@@ -9,6 +9,11 @@
 #           → 페이지는 직전 공개본 + 실패 배너를 보여 준다. 새 산출물까지 다시 검사한 뒤에만 커밋한다.
 #           그래프 자료(charts.json)는 공개본 뒤에 만든다. 실패하면 직전 그래프가 남고 페이지가 그 기준일을 알린다
 #           (상태 파일의 정상 여부는 바꾸지 않는다 — 규칙 판정은 멀쩡하므로).
+#           기록 장부·변화(changes.json · ledger.json, 2026-11-18 더함)는 그래프 자료 바로 뒤에 만든다. 요청이 없다 — 저장소에
+#           이미 있는 날짜별 기록(data/history)과 charts.json만 읽어 평가 약속 1판으로 전환 뒤의 금리 변화를 적는다. 공개본·그래프가
+#           실패한 날에도 돌고(직전 기록·직전 그래프로), 실패하면 직전 두 파일이 남는다. 그래프 자료가 없거나 세 선 가운데 하나가
+#           빠진 날은 ledger.json을 쓰지 않고 직전 장부를 둔다(경고 한 줄). 알림에 넣지 않고, 내용이 그대로면 다시 쓰지
+#           않아 시각만 바뀐 파일이 봇 커밋에 끼지 않는다.
 #           국고채 참고 자료(ktb.json)는 FRED 쪽 성공 여부와 상관없이 받는다. 실패하면 직전 자료가 남는다
 #           (규칙 판정과 무관한 참고 절이라 상태 파일도 바꾸지 않는다).
 #           수급 참고 자료(supply.json — 뉴욕 연은 딜러 순포지션 · FRED WMTSECL1)도 따로 받는다. 한쪽이 실패하면 그쪽만
@@ -105,13 +110,14 @@ jobs:
           node --test scripts/test_ois_render.cjs
           node --test scripts/test_people_render.cjs
           node --test scripts/test_supply_ktb_render.cjs
+          node --test scripts/test_ledger_render.cjs
 
   update:
     needs: check
     # main에서만 — 다른 브랜치에서 수동 실행하면 그 브랜치 커밋이 main으로 밀려 올라간다
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 32        # 참고 자료 단계 제한의 합(국고채 2 + 수급 2 + AI 2 + SEC 2 + 신용 2 + 지준 2 + 연준 재무상태표 2 + 기간 프리미엄 2 + CDS 2 + 국채–OIS 2 + 유가 2 + 한국 4 = 26분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다
+    timeout-minutes: 32        # 참고 자료 단계 제한의 합(기록 장부 1 + 국고채 2 + 수급 2 + AI 2 + SEC 2 + 신용 2 + 지준 2 + 연준 재무상태표 2 + 기간 프리미엄 2 + CDS 2 + 국채–OIS 2 + 유가 2 + 한국 4 = 27분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다(2026-11-18 기록 장부 1분을 더해도 수집·생성 몫 5분이 남는다)
     permissions:
       contents: write   # 봇이 data/를 커밋한다
     outputs:
@@ -145,6 +151,13 @@ jobs:
         if: steps.render.outcome == 'success'
         continue-on-error: true
         run: python scripts/render_charts.py
+      # 기록 장부·변화 — data/history(그날 공개한 판정)와 charts.json(주간 점)만 읽는다(요청 없음, 표준 라이브러리만). 앞 단계가
+      # 실패한 날에도 직전 기록으로 돈다. 규칙 판정에 쓰지 않고, 실패해도 알림 없음(머리말)
+      - name: 기록 장부·변화 만들기
+        id: ledger
+        continue-on-error: true
+        timeout-minutes: 1
+        run: python scripts/ledger_build.py
       # 공개 통계가 아닌 참고 자료 — 증권사 리서치팀 텔레그램 공개 채널의 일일동향 글에서 국고채 금리 숫자만(하루 1회 요청)
       - name: 국고채 참고 자료 받기
         id: ktb

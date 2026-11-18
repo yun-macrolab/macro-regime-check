@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "generated_at": "2026-11-18T01:53:10+00:00",
+  "notice": "날짜별 공개 기록(data/history)끼리 견준 것이다. 예측이 아니고 투자 판단이나 권유가 아니다.",
+  "asof": "2026-11-17",
+  "headline": [
+    "핵심 신호 2/11 · 1주 전 2/11",
+    "1주 사이 바뀐 규칙 없음",
+    "국면 후보 A′ · 1주 전 A′"
+  ],
+  "windows": [
+    {
+      "key": "prev",
+      "label": "직전 기록",
+      "from": "2026-11-15",
+      "rules": [],
+      "met": {
+        "from": 2,
+        "to": 2,
+        "total_from": 13,
+        "total_to": 13
+      },
+      "core": {
+        "from": "2/11",
+        "to": "2/11"
+      },
+      "neutral": {
+        "from": "0/2",
+        "to": "0/2"
+      },
+      "candidate": {
+        "from": "A′",
+        "to": "A′"
+      },
+      "transition": {
+        "from": 1,
+        "to": 0
+      },
+      "health": {
+        "lost": [],
+        "recovered": [],
+        "stale": [],
+        "fresh": []
+      }
+    },
+    {
+      "key": "w1",
+      "label": "1주 전",
+      "from": "2026-11-10",
+      "rules": [],
+      "met": {
+        "from": 2,
+        "to": 2,
+        "total_from": 13,
+        "total_to": 13
+      },
+      "core": {
+        "from": "2/11",
+        "to": "2/11"
+      },
+      "neutral": {
+        "from": "0/2",
+        "to": "0/2"
+      },
+      "candidate": {
+        "from": "A′",
+        "to": "A′"
+      },
+      "transition": {
+        "from": 1,
+        "to": 0
+      },
+      "health": {
+        "lost": [],
+        "recovered": [],
+        "stale": [],
+        "fresh": []
+      }
+    },
+    {
+      "key": "w4",
+      "label": "4주 전",
+      "from": "2026-10-20",
+      "rules": [
+        {
+          "key": "reserves_multiplier",
+          "title": "지준과 통화승수",
+          "from": "not_met",
+          "to": "met"
+        }
+      ],
+      "met": {
+        "from": 1,
+        "to": 2,
+        "total_from": 13,
+        "total_to": 13
+      },
+      "core": {
+        "from": null,
+        "to": "2/11"
+      },
+      "neutral": {
+        "from": null,
+        "to": "0/2"
+      },
+      "candidate": {
+        "from": null,
+        "to": "A′"
+      },
+      "transition": {
+        "from": null,
+        "to": 0
+      },
+      "health": {
+        "lost": [],
+        "recovered": [],
+        "stale": [],
+        "fresh": []
+      }
+    }
+  ],
+  "recent_from": "2026-10-19",
+  "recent": [
+    {
+      "date": "2026-10-30",
+      "key": "reserves_multiplier",
+      "title": "지준과 통화승수",
+      "from": "not_met",
+      "to": "met"
+    }
+  ]
+}
