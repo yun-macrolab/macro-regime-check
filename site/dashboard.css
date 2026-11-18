@@ -380,6 +380,62 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .ledger-rule > p { margin: 6px 0 0; font-size: 12.5px; overflow-wrap: anywhere; }
 .ledger-event { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--rule); }
 .ledger-event > p { margin: 0; font-size: 12.5px; overflow-wrap: anywhere; }
+/* 판단 격자 L × P(site/lp.js, 2026-11-18) — 첫 화면 '주제별 점검' 절 끝, 규칙 목록 뒤(#lp-ref). 글 줄은 좁은 화면에서 아무 데서나 접고,
+   표는 가로 스크롤 상자(.lp-scroll) 안에서만 넘친다(390px에서 화면이 가로로 넘치지 않게). 칸의 뜻은 칸 이름으로 읽고, 격자 칸의
+   왼쪽 띠 색은 운영자가 적은 칸 종류를 덧붙여 보이는 표시다(엇갈리는 두 칸은 점선 테두리와 격자 아래 줄의 글로도). 지금 칸은
+   테두리와 '지금' 글자로 */
+.lp p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.6; overflow-wrap: anywhere; }
+.lp > .lp-label, .lp-more > .lp-label { margin: 0; color: var(--key); font-size: 12px; }
+.lp .lp-now { margin-top: 8px; font-size: 13.5px; }
+.lp-now strong { color: var(--amber); font-weight: 500; font-family: var(--f-mono); }
+.lp-now strong.lp-name { font-family: var(--f-text); font-weight: 600; }
+.lp-latest small { color: var(--dim); }
+.lp-block { margin-top: 10px; }
+.lp-block > .lp-cap { margin: 0 0 2px; font-size: 12px; }
+.lp-block > .lp-note { margin: 0 0 4px; font-size: 11.5px; }
+.lp .lp-why { margin-top: 6px; font-size: 12.5px; }
+.lp .lp-sub { margin-top: 8px; color: var(--ink); }
+.lp-legs tr.lp-group th { padding-top: 8px; font-size: 11.5px; font-weight: 500; color: var(--dim); border-bottom-color: var(--rule); }
+.lp-hist tr.lp-gap th, .lp-hist tr.lp-gap td { color: var(--dim); font-style: italic; }
+.lp-scroll { max-width: 100%; overflow-x: auto; }
+.lp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.lp-table th, .lp-table td { padding: 4px 8px 4px 0; text-align: left; vertical-align: top; border-bottom: 1px solid #1c1c1c; }
+.lp-table thead th { font-size: 11.5px; font-weight: 500; color: var(--dim); }
+.lp-table tbody th { font-weight: 500; }
+.lp-table small { display: block; font-size: 11px; font-weight: 400; color: var(--dim); white-space: normal; }
+.lp-table th strong { font-family: var(--f-mono); font-weight: 600; color: var(--ink); }
+.lp-num { font-family: var(--f-mono); color: var(--amber); white-space: nowrap; }
+.lp-legs td { white-space: nowrap; }
+.lp-legs tbody th { min-width: 12em; }
+.lp-hist th, .lp-exp th, .lp-hist td:nth-child(2), .lp-hist td:nth-child(3), .lp-hist td:nth-child(4), .lp-exp td { white-space: nowrap; }
+.lp-hist tr.lp-gap td { white-space: normal; }
+.lp-hist .lp-cellname, .lp-exp .lp-cellname { min-width: 10em; }
+.lp-hist .lp-tagcell { min-width: 12em; color: var(--dim); }
+.lp-hist tr.lp-k-hold td { color: var(--dim); }
+/* 격자 — 칸마다 가는 테두리, 왼쪽 띠: 상방 호박 · 하방·되돌림 하늘 · 박스 회색 · 상충 점선 노랑 */
+/* 다섯 열이 390px 화면에도 가로 넘침 없이 들어간다(글자 단위로 접는다) — 넘치면 스크롤 상자가 받는다 */
+.lp-grid { table-layout: fixed; }
+.lp-grid th, .lp-grid td { padding: 6px 8px; border: 1px solid var(--rule); overflow-wrap: anywhere; }
+.lp-grid thead th:first-child { width: 17%; }
+.lp-grid td { font-size: 12px; line-height: 1.45; }
+.lp-grid td.lp-k-up { box-shadow: inset 3px 0 0 #8a5a12; }
+.lp-grid td.lp-k-down { box-shadow: inset 3px 0 0 #2f6b9a; }
+.lp-grid td.lp-k-box { box-shadow: inset 3px 0 0 #4a4a4a; }
+.lp-grid td.lp-k-mixed { box-shadow: inset 3px 0 0 #8c7a10; border-left-style: dashed; }
+.lp-grid td[aria-current="true"] { background: #151004; outline: 2px solid var(--amber); outline-offset: -2px; color: var(--ink); }
+.lp-here { display: inline-block; margin: 0 2px 2px 0; padding: 0 6px; background: var(--amber); color: #000; font: 600 11px/1.6 var(--f-text); }
+.lp-pgrid { width: auto; }
+.lp-pgrid td { font-family: var(--f-mono); padding-right: 18px; }
+.lp-case { margin-top: 10px; padding-top: 6px; border-top: 1px dashed var(--rule); }
+.lp-out-tag { display: inline-block; margin-left: 2px; padding: 0 6px; font-size: 11px; line-height: 1.6; color: var(--dim);
+  box-shadow: inset 0 0 0 1px #3a3a3a; }
+.lp-list { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; }
+.lp-list li { overflow-wrap: anywhere; }
+.lp-list strong { font-family: var(--f-mono); font-weight: 600; color: var(--ink); }
+.lp-notes { color: var(--dim); }
+.lp-more { margin-top: 10px; }
+.lp-cite p, .lp-cites p { overflow-wrap: anywhere; }
+.lp-sources .lp-cites { margin-top: 8px; }
 
 /* ── 출처 ── */
 .source-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 10px 0; }
@@ -427,6 +483,12 @@ main.switching > section:not([hidden]), main.switching > .bridge:not([hidden]) {
   .cmd input, .rule-toolbar select { font-size: 16px; }             /* 아이폰이 누를 때 화면을 확대하지 않게 */
   #category-nav a span { display: none; }
   .ch-tip { max-width: calc(100vw - 64px); white-space: normal; }
+  /* 판단 격자 L × P — 다섯 열이 390px에 들어가게 칸 여백을 줄이고, 재생 기록 표의 칸 이름 열을 좁힌다 */
+  .lp-grid th, .lp-grid td { padding: 4px 4px; font-size: 11.5px; }
+  .lp-grid thead th:first-child { width: 19%; }
+  .lp-here { display: table; margin: 0 0 3px; }
+  .lp-hist .lp-cellname, .lp-exp .lp-cellname { min-width: 6.5em; }
+  .lp-hist .lp-tagcell { min-width: 7em; }
 }
 /* 휴대폰 폭에서만 흐름도를 카드 안쪽 여백(12px)까지 — 390px에서 글자 10px 남짓. 더 넓은 화면(태블릿·가로 휴대폰)은 440px 상한 그대로 */
 @media (max-width: 480px) {

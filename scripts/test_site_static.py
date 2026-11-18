@@ -138,6 +138,32 @@ class PageTest(unittest.TestCase):
         self.assertLess(self.page.index('<section id="changes-wrap"'), self.page.index('<div id="bridge"'))
         self.assertLess(self.page.index('<script src="ledger.js">'), self.page.index("applyView();"))
 
+    def test_lp_card_is_wired(self):
+        # 판단 격자 L × P(2026-11-18) — 첫 화면에서만, '주제별 점검' 절 끝(규칙 목록 뒤)의 절. 자료 파일 하나를 읽고, 그리기는 try 안에서 한 번,
+        # 절은 처음에 숨어 있고 첫 화면에서만 열린다. 자료 파일은 꼬리말의 '원자료'에도 있다
+        for snippet in ('getJson("data/lp.json")', '<script src="lp.js"></script>',
+                        '<section id="lp-ref" class="lp-ref" hidden aria-labelledby="lp-ref-title"></section>',
+                        'ledger: false, lp: false };',
+                        'getElementById("lp-ref").hidden = !(available.lp && activeView === "all")',
+                        '<a href="data/lp.json">lp.json</a>(판단 격자 L × P)'):
+            self.assertIn(snippet, self.page, snippet)
+        line = next(l for l in self.page.splitlines() if "window.LpCard.render(" in l)
+        self.assertRegex(line, r"^\s*try \{ if \(isObj\(lp\) && window\.LpCard\) available\.lp = window\.LpCard\.render\(lp\.value\) === true; \}$")
+        # 규칙 목록(#rules · #empty-rules) 뒤, 같은 절(#rules-wrap) 안 — 규칙 상태 고르기와 그 목록 사이에 끼지 않는다
+        wrap = self.page[self.page.index('<section id="rules-wrap"'):]
+        wrap = wrap[:wrap.index('</section>\n\n')]
+        self.assertLess(wrap.index('<p id="empty-rules"'), wrap.index('<section id="lp-ref"'))
+        self.assertLess(wrap.index('<div class="rule-toolbar">'), wrap.index('<div id="rules">'))
+        between = wrap[wrap.index('<div class="rule-toolbar">'):wrap.index('<div id="rules">')]
+        self.assertNotIn('id="lp-ref"', between)
+        self.assertEqual(self.page.count('id="lp-ref"'), 1)
+        # 스크립트는 다른 카드 스크립트와 함께, 인라인 스크립트 앞
+        self.assertLess(self.page.index('<script src="ledger.js">'), self.page.index('<script src="lp.js">'))
+        self.assertLess(self.page.index('<script src="lp.js">'), self.page.index('<script>\n"use strict";'))
+        self.assertTrue(os.path.getsize(os.path.join(REPO, "site", "lp.js")) > 2000)
+        for sel in (".lp-scroll { max-width: 100%; overflow-x: auto; }", '.lp-grid td[aria-current="true"]'):
+            self.assertIn(sel, self.css, sel)
+
     def test_ktb_table_panel_rule_reaches_the_table_panel(self):
         # 국고채 절의 표 상자는 머리글 다음 둘째 자식이라 :first-of-type에 걸리지 않았다(그래프 첫 상자에 걸렸다) — 자식 선택자로
         self.assertIn("#ktb-wrap > .panel {", self.css)
