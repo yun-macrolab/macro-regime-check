@@ -5,8 +5,8 @@
    기대는 상태 이름으로만 오고, 꼬리표 '고점 통과'는 비공개 도구의 꼬리표('고점 통과 — 되돌림 소진 가능')에서 해석 부분을 뺀 앞부분이다
    (자료에 긴 꼴이 와도 앞부분만 싣는다). 칸 종류(운영자 메모)는 칸 왼쪽 색 띠로만 가르고 방향 낱말로 풀지 않는다 — 노동과 물가가
    엇갈리는 두 칸(종류 mixed)만 격자 아래 줄에 칸 자리로 적는다.
-   자리: 첫 화면(전체)의 '주제별 점검' 절 끝(규칙 목록 #rules · #empty-rules 뒤)의 #lp-ref — 규칙 상태 고르기와 그 목록 사이에 두지
-   않는다. index.html의 el() · link()를 쓴다(부를 때 이미 정의돼 있다).
+   자리: 첫 화면(전체)의 '주제별 점검' 절(#rules-wrap) 바로 앞의 #lp-ref — 그 절 안의 규칙 상태 고르기와 규칙 목록 사이에 두지 않고,
+   13개 규칙 뒤로 묻지도 않는다. 다리 13개의 값 표는 접어 두고 그 달 조건만의 노동 상태를 만든 절 한 줄만 늘 보인다. index.html의 el() · link()를 쓴다(부를 때 이미 정의돼 있다).
    글자는 전부 el()의 텍스트로만 넣는다. 바깥 요청은 없다.
    자료는 꼴을 하나하나 본다(schema 1 · 정해 둔 값 · 달 YYYY-MM · 날 YYYY-MM-DD · 유한한 숫자). 칸 이름은 운영자 표(CELLS)와 글자까지
    같아야 하고(그 칸의 L · P와 짝이 맞게), 물가 P는 띠 × 모멘텀(P_GRID)과 맞아야 한다. 꼴이 어긋난 항목은 건너뛰고, 파일 꼴이 어긋나면
@@ -14,6 +14,8 @@
    꼬리표는 자료에 있어도 EXCLUDED(이 사이트가 싣지 않는 재료가 필요한 셋)와 밸류 크기 꼬리표를 빼고 싣는다. 자료 파일의 글에 예측·권유
    낱말(BANNED_WORDS)이 있으면 그 글은 싣지 않는다.
    숫자는 문턱 바로 옆에서 반대쪽처럼 보이지 않게 자리를 늘린다(near — 반올림한 숫자가 문턱과 견준 쪽이 실제 값과 같아질 때까지).
+   음수 부호는 이 사이트의 숫자처럼 '-'로 쓴다 — 자료 파일의 글(다리 이름 · 정의 · 재생 규칙 · 꼬리표 풀이)에 숫자 앞 빼기(U+2212)가
+   있으면 화면에서만 '-'로 바꾼다(dash). 상태 이름(L−− · L− · P−)의 빼기는 숫자가 뒤따르지 않아 그대로다.
    화면의 내 글은 합니다체, 자료 파일의 글(defs · want · notices)은 자료 그대로 싣는다. 자료 파일의 notice(한다체, 같은 뜻)는 ABOUT과
    겹쳐 싣지 않는다. */
 "use strict";
@@ -63,6 +65,8 @@ window.LpCard = (() => {
   // 비공개 도구의 '고점 통과 — 되돌림 소진 가능'은 앞부분만 싣는다(해석 부분은 방향을 말한다)
   const PEAK = "고점 통과";
   const shortTag = t => (t.startsWith(PEAK) ? PEAK : t);
+  // 자료 글의 숫자 앞 빼기(U+2212) → '-'(이 사이트가 쓰는 숫자와 같은 부호). 상태 이름의 빼기는 그대로
+  const dash = t => t.replace(/\u2212(?=\d)/g, "-");
   // 자료 파일의 글에 있으면 그 글을 싣지 않는 낱말(예측 · 권유)
   const BANNED_WORDS = ["매수", "매도", "유망", "적중", "전망", "예상", "추천"];
   const HOLDOUT_MARK = "표본 밖(운영자 지정)";
@@ -400,12 +404,15 @@ window.LpCard = (() => {
     if (!cur.legs.length) return el("p", { class: "muted" }, "다리 자료가 없습니다.");
     const bodies = GROUPS.map((g, i) => [g, cur.legs.filter(l => l.spec.group === i)]).filter(([, ls]) => ls.length)
       .map(([g, ls]) => el("tbody", {}, el("tr", { class: "lp-group" }, el("th", { scope: "rowgroup", colspan: "4" }, g)),
-        ...ls.map(l => el("tr", {}, th(l.name, "row"),
+        ...ls.map(l => el("tr", {}, th(dash(l.name), "row"),
           el("td", { class: "lp-num" }, legValue(l, cur, v.c)), el("td", {}, l.month), el("td", {}, legCell(l, v.c))))));
-    return [block(`${cur.month} 다리 13개`, "lp-legs", { note: "● 충족 · ○ 미충족 · ? 자료 없음. 해고 몫은 판단에 쓰지 않는 표시 줄이라 " +
+    const table = block(`${cur.month} 다리 13개`, "lp-legs", { note: "● 충족 · ○ 미충족 · ? 자료 없음. 해고 몫은 판단에 쓰지 않는 표시 줄이라 " +
       "해고형 · 진입형 · 모호를, 띠 · 모멘텀 줄은 그 달의 구분을 적습니다. 자료 달은 그 다리가 쓴 자료의 달입니다(청구는 주간, " +
       "V/U는 그때까지 나온 JOLTS). 고점 대비 하락(hi_gap)은 u3 − 직전 12개 창의 u3 최고이고, u3의 6개월 변화도 함께 맞아야 켜집니다." },
-      el("thead", {}, el("tr", {}, ...["다리", "값", "자료 달", "충족"].map(t => th(t)))), ...bodies), rawLine(cur, v.c)];
+      el("thead", {}, el("tr", {}, ...["다리", "값", "자료 달", "충족"].map(t => th(t)))), ...bodies);
+    // 그 달 조건만의 노동 상태를 만든 절은 늘 보이고, 다리 13개의 값 표는 접어 둔다(카드가 길어 첫 화면에서 규칙 절을 밀어내지 않게)
+    return [rawLine(cur, v.c), el("details", { class: "rule-detail lp-more lp-legs-more" },
+      el("summary", {}, `다리 13개 — 값과 충족(${cur.month})`), table)];
   }
   function inflationLine(v) {
     const x = v.current && v.current.inflation, c = v.c;
@@ -477,7 +484,7 @@ window.LpCard = (() => {
       ...v.expected.map(caseBlock));
   }
   function defsBlock(v) {
-    const d = v.defs, c = v.c, list = (states, map) => states.filter(s => map[s]).map(s => el("li", {}, el("strong", {}, s), " · " + map[s]));
+    const d = v.defs, c = v.c, list = (states, map) => states.filter(s => map[s]).map(s => el("li", {}, el("strong", {}, s), " · " + dash(map[s])));
     const lItems = list(L_ORDER, d.L);                       // 노동 L은 위에서부터 보는 차례(정의 글이 앞 상태를 가리킨다)
     const items = [...list(P_STATES, d.P), ...list(BANDS, d.band), ...list(MOMS, d.mom)];
     const n = x => near(x, 2, [], false), sn = x => near(x, 2, [], true);
@@ -490,10 +497,10 @@ window.LpCard = (() => {
         ...MOMS.map(m => th(`${m} ${MOM_WORD[m]}`)))),
       el("tbody", {}, ...BANDS.map(b => el("tr", {}, th(`${b} ${BAND_WORD[b]}`, "row"), ...MOMS.map(m => el("td", {}, d.pgrid[b + "|" + m])))))) : null;
     // 재생 규칙 · 꼬리표 풀이(자료 파일의 글 그대로) — 재생 규칙이 없으면 이 사이트의 짧은 설명(rulesText)으로
-    const replay = d.replay.length ? [el("p", { class: "lp-sub" }, "재생 규칙(운영자 정의):"), el("ul", { class: "lp-list" }, ...d.replay.map(t => el("li", {}, t)))]
+    const replay = d.replay.length ? [el("p", { class: "lp-sub" }, "재생 규칙(운영자 정의):"), el("ul", { class: "lp-list" }, ...d.replay.map(t => el("li", {}, dash(t))))]
       : [el("p", {}, rulesText(c))];
     const tags = d.tags.length ? [el("p", { class: "lp-sub" }, "꼬리표 풀이:"),
-      el("ul", { class: "lp-list" }, ...d.tags.map(t => el("li", {}, el("strong", {}, t.tag), " · " + t.text)))] : [];
+      el("ul", { class: "lp-list" }, ...d.tags.map(t => el("li", {}, el("strong", {}, t.tag), " · " + dash(t.text))))] : [];
     return el("details", { class: "rule-detail lp-more" }, el("summary", {}, "읽는 법 — 상태 · 문턱 · 재생 규칙 · 꼬리표"),
       lItems.length ? el("p", { class: "lp-sub" }, "노동 L — 위에서부터 차례로 보고 처음 맞는 상태입니다(지금 상태는 아래 재생 규칙을 거칩니다):") : null,
       lItems.length ? el("ul", { class: "lp-list" }, ...lItems) : null,
@@ -569,5 +576,5 @@ window.LpCard = (() => {
   }
 
   return Object.freeze({ render, LABEL, CHIP, TITLE, ABOUT, CELLS, P_GRID, MIXED, BAND_WORD, MOM_WORD, L_STATES, L_ORDER, P_STATES,
-    CONSTANTS, EXCLUDED, HOLDOUT_MARK, STALE_DAYS, SERIES, BANNED_WORDS, NOT_FORECAST, PEAK, near });
+    CONSTANTS, EXCLUDED, HOLDOUT_MARK, STALE_DAYS, SERIES, BANNED_WORDS, NOT_FORECAST, PEAK, GROUPS, near, dash });
 })();

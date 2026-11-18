@@ -380,7 +380,7 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .ledger-rule > p { margin: 6px 0 0; font-size: 12.5px; overflow-wrap: anywhere; }
 .ledger-event { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--rule); }
 .ledger-event > p { margin: 0; font-size: 12.5px; overflow-wrap: anywhere; }
-/* 판단 격자 L × P(site/lp.js, 2026-11-18) — 첫 화면 '주제별 점검' 절 끝, 규칙 목록 뒤(#lp-ref). 글 줄은 좁은 화면에서 아무 데서나 접고,
+/* 판단 격자 L × P(site/lp.js, 2026-11-18) — 첫 화면 '주제별 점검' 절 바로 앞(#lp-ref). 글 줄은 좁은 화면에서 아무 데서나 접고,
    표는 가로 스크롤 상자(.lp-scroll) 안에서만 넘친다(390px에서 화면이 가로로 넘치지 않게). 칸의 뜻은 칸 이름으로 읽고, 격자 칸의
    왼쪽 띠 색은 운영자가 적은 칸 종류를 덧붙여 보이는 표시다(엇갈리는 두 칸은 점선 테두리와 격자 아래 줄의 글로도). 지금 칸은
    테두리와 '지금' 글자로 */

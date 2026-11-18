@@ -39,6 +39,10 @@ const draw=(d,now=NOW)=>{const t=load();const ok=t.api.render(d,now);return Obje
 const capOf=(root,table)=>cls(root,'lp-cap').find(p=>p.attrs.id===table.attrs['aria-labelledby']);   // 표의 이름이 된 설명 줄
 const tableOf=(root,c)=>cls(root,c).find(n=>n.tag==='table');
 const rowsOf=t=>tags(tags(t,'tbody')[0],'tr').map(r=>r.kids.map(k=>k.textContent));
+const isGroup=r=>(r.attrs.class||'').split(' ').includes('lp-group');
+const rowsAll=t=>tags(t,'tbody').flatMap(b=>tags(b,'tr')).filter(r=>!isGroup(r)).map(r=>r.kids.map(k=>k.textContent));   // 묶음 머리 줄을 뺀 모든 줄
+const noteOf=(root,table)=>{const b=cls(root,'lp-block').find(x=>tags(x,'table')[0]===table);const n=b&&cls(b,'lp-note')[0];return n?n.textContent:null;};
+const dashed=t=>t.replace(/\u2212(?=\d)/g,'-');                                   // 화면이 숫자 앞 빼기를 '-'로 바꾼 글
 
 // ── 지은 자료 ─────────────────────────────────────────────────────────────────────────
 const LS=['L+','L0','L−','L−−'],PS=['P+','P0','Pd','P−'];
@@ -110,23 +114,23 @@ function lp(){
   label:'운영자 판단 격자의 칸 이름(운영자 메모) — 예측 아님 · 예측력 검증 안 됨',fixed:'2026-10-14',holdout_from:'2024-01',
   constants:Object.assign({},CONST),
   grid:{L:LS.slice(),P:PS.slice(),cells:LS.map(L=>PS.map(P=>({L,P,name:NAMES[L+'|'+P][0],kind:NAMES[L+'|'+P][1]})))},
-  defs:{L:[{state:'L−−',text:'비선형 악화 — Sahm형 0.50 이상 · 실업률 상승 · 청구 다리'},{state:'L−',text:'냉각 — Sahm형 0.40 이상이고 상승 중 등'},
-    {state:'L0',text:'그 밖'},{state:'L+',text:'회복 전환 — 고점 대비 하락과 확인'}],
+  defs:{L:[{state:'L−−',text:'비선형 악화 — Sahm형 0.50 이상 · 실업률 상승 · 청구 다리'},{state:'L−',text:'냉각 — L−−가 아니면서 고용률 Δ6 ≤ −0.3 등'},
+    {state:'L0',text:'L−−·L−·L+가 아닌 달'},{state:'L+',text:'회복 전환 — L−−·L−가 아니면서 고점 대비 하락과 확인'}],
    P:[{state:'P+',text:'높거나 가속'},{state:'P0',text:'중간 · 평탄'},{state:'Pd',text:'높지만 둔화'},{state:'P−',text:'중간 · 둔화 또는 낮음'}],
    band:[{band:'H',text:'Y3 3.1 초과로 들어가 2.9 미만에서 나온다'},{band:'M',text:'그 사이'},{band:'Lo',text:'2.6 미만으로 들어가 2.7 초과에서 나온다'}],
    mom:[{mom:'A',text:'a6 − y12 ≥ +0.5가 한 발표'},{mom:'F',text:'그 밖'},{mom:'D',text:'a6 − y12 ≤ −0.3이 두 발표 연속'}],
    pgrid:Object.entries(PG).map(([k,P])=>({band:k.split('|')[0],mom:k.split('|')[1],P}))},
-  current:Object.assign({},cur,{legs:legs(),inflation:{y12:2.84,a3:3.02,a6:3.3396,mom:0.4996,Y3:3.0996,Y3_n:3}}),
+  current:Object.assign({},cur,{legs:legs(),inflation:{y12:2.84,a3:3.02,a6:3.3396,mom:0.4996,Y3:3.0996,Y3_n:3},raw_rules:['a'],d6u3:-0.1996}),
   latest:{month:last.month,L:last.L,P:last.P,cell:last.cell,kind:last.kind,tags:[]},
   history:h,expected:expected(h),excluded_tags:['상당 부분 반영','TP 주도','폭 좁음(트림 ≤ 3)'],
   series:SERIES.map(s=>({series:s,title:'지어낸 제목 '+s,last:'2026-10-01',fetched:s==='JTSQUR'?'cache':s==='CCSA'?'missing':'net'})),
   sources:SERIES.map(s=>({series:s,url:'https://fred.stlouisfed.org/series/'+s,citation:CITE(s),citation_required:false})),
   notices:['L · P 상태와 칸은 macro-regime-check가 계산한 값이다.','States and cells are computed by macro-regime-check.']};
 }
-const HEAD='기준월 2026-09 (발표일 근사 2026-10-28) · 노동 L− · 물가 P0 (띠 M 중간 · 모멘텀 F 평탄) → 금리 하방 경계 · 금리 하방·되돌림 쪽 칸';
+const HEAD='기준월 2026-09 · 알려진 날 2026-10-28(근사) · 노동 L− · 물가 P0 (띠 M 중간 · 모멘텀 F 평탄) → 금리 하방 경계';
 
 // ── 그리기 ────────────────────────────────────────────────────────────────────────────
-test('full render: heading, label, summary, latest line, tags',()=>{
+test('full render: heading, label, summary, latest line, tags — no kind words of our own',()=>{
  const {api,ok,wrap}=draw(lp());
  assert.equal(ok,true);
  const h3=tags(wrap,'h3')[0];
@@ -135,32 +139,49 @@ test('full render: heading, label, summary, latest line, tags',()=>{
  assert.equal(cls(wrap,'reference-label')[0].textContent,'참고 — 예측 아님');
  const panel=cls(wrap,'lp')[0];
  assert.equal(panel.kids[0].textContent,api.LABEL);                                 // 칸 이름보다 먼저 이름표
+ assert.ok(panel.kids.indexOf(cls(wrap,'lp-now')[0])>0);                           // 지금 칸의 이름은 이름표 아래
  assert.equal(api.LABEL,'운영자 판단 격자의 칸 이름(운영자 메모) — 예측 아님 · 예측력 검증 안 됨');
  assert.equal(cls(wrap,'lp-asof')[0].textContent,'2026-11-18 계산 · 문턱 2026-10-14 고정');
- assert.equal(cls(wrap,'lp-now')[0].textContent,HEAD);
- assert.equal(cls(wrap,'lp-kind')[0].textContent,' · 금리 하방·되돌림 쪽 칸');             // 색만이 아니라 말로
- assert.equal(cls(wrap,'lp-latest')[0].textContent,'2026-10: 노동 L− — 물가 아직 발표 전이라 판정 보류');
+ assert.equal(cls(wrap,'lp-now')[0].textContent,HEAD);                             // 칸 이름 뒤에 이 사이트의 '…쪽 칸' 말을 붙이지 않는다
+ assert.equal(cls(wrap,'lp-kind').length,0);
+ assert.ok(!('KIND_WORD' in api));
+ assert.equal(cls(wrap,'lp-latest')[0].textContent,'2026-10: 노동 L− — 물가 아직 발표 전이라 판정 보류 · 알려진 날 2026-11-28(근사)');   // 재생 기록의 같은 달
  assert.equal(cls(wrap,'lp-tags')[0].textContent,'꼬리표: 에너지 하락');
  const text=wrap.textContent;
  assert.ok(!STRAY.test(text),text);
  assert.ok(!text.includes(lp().notice));                                             // 자료 파일의 notice(한다체)는 되풀이하지 않는다
  for(const t of api.ABOUT.split(/(?<=\.)\s+/).filter(Boolean))assert.ok(/니다\.$/.test(t),t);   // 내 글은 합니다체
+ assert.equal(text.split('규칙 수에 들지 않').length-1,1);                          // 같은 고지를 되풀이하지 않는다
+ assert.ok(!api.NOT_FORECAST.includes('규칙 수'));
+ // 가장 새 달의 알려진 날 — 자료에 있으면 그것, 없고 재생 기록에도 없으면 적지 않는다
+ const d=lp();d.latest.known='2026-11-30';
+ assert.ok(cls(draw(d).wrap,'lp-latest')[0].textContent.endsWith(' · 알려진 날 2026-11-30(근사)'));
+ const e=lp();e.history.pop();
+ assert.equal(cls(draw(e).wrap,'lp-latest')[0].textContent,'2026-10: 노동 L− — 물가 아직 발표 전이라 판정 보류');
+ const f=lp();f.latest.known='2026-11-31';
+ assert.ok(cls(draw(f).wrap,'lp-latest')[0].textContent.endsWith(' · 알려진 날 2026-11-28(근사)'));   // 꼴이 어긋나면 재생 기록에서
 });
 
 test('grid: 16 named cells in operator order, the current cell marked by aria-current and a visible word',()=>{
  const {api,wrap}=draw(lp());
  const t=tableOf(wrap,'lp-grid');
  const cap=capOf(wrap,t);
- assert.ok(cap&&cap.textContent.includes(api.LABEL),'격자의 이름(설명 줄)에 이름표');
- const head=tags(tags(t,'thead')[0],'th').map(x=>x.textContent);
- assert.deepEqual(head,['L \\ P','P+높음 또는 가속','P0중간 · 평탄','Pd높지만 둔화','P−둔화 또는 낮음']);   // 짧은 정의는 이 파일의 것
+ assert.equal(cap.textContent,'판단 격자 16칸 · '+api.LABEL);                         // 격자의 이름(설명 줄)에 이름표
+ const note=noteOf(wrap,t);
+ assert.ok(note.startsWith('행은 노동 L, 열은 물가 P입니다.'),note);
+ assert.ok(note.includes('칸 왼쪽의 색 띠는 운영자가 칸마다 적어 둔 종류 넷을 가릅니다'),note);   // 색 띠를 풀어 둔다(방향 낱말 없이)
+ assert.ok(note.includes('왼쪽 테두리가 점선인 두 칸(L− × P+ · L−− × P+)은 노동과 물가가 엇갈리는 칸입니다'),note);
+ assert.deepEqual(plain(api.MIXED),['L− × P+','L−− × P+']);
+ const ths=tags(tags(t,'thead')[0],'th');
+ assert.deepEqual(ths.map(x=>x.textContent),['L \\ P','P+ 높음 또는 가속','P0 중간 · 평탄','Pd 높지만 둔화','P− 둔화 또는 낮음']);   // 짧은 정의는 이 파일의 것
+ assert.equal(ths[0].attrs['aria-label'],'노동 L(행) × 물가 P(열)');                // 'L \ P'를 그대로 읽지 않게
  const rows=tags(tags(t,'tbody')[0],'tr');
- assert.deepEqual(rows.map(r=>r.kids[0].textContent),['L+회복 전환','L0그 밖','L−냉각','L−−비선형 악화']);   // 긴 정의(자료 파일)는 '읽는 법'에
+ assert.deepEqual(rows.map(r=>r.kids[0].textContent),['L+ 회복 전환','L0 그 밖','L− 냉각','L−− 비선형 악화']);   // 긴 정의(자료 파일)는 '읽는 법'에
  assert.deepEqual(rows.map(r=>r.kids[0].attrs.scope),['row','row','row','row']);
  const here=walk(t,n=>n.attrs['aria-current']==='true');
  assert.equal(here.length,1);
  assert.equal(here[0].tag,'td');
- assert.equal(here[0].textContent,'지금금리 하방 경계');
+ assert.equal(here[0].textContent,'지금 금리 하방 경계');                              // 표시와 이름 사이에 띄어쓰기(글로 읽어도 붙지 않게)
  assert.equal(cls(here[0],'lp-here')[0].textContent,'지금');
  rows.forEach((r,i)=>r.kids.slice(1).forEach((td,j)=>{
   const [name,kind]=NAMES[LS[i]+'|'+PS[j]];
@@ -174,15 +195,25 @@ test('grid: 16 named cells in operator order, the current cell marked by aria-cu
  assert.equal(b.ok,true);
  assert.equal(walk(tableOf(b.wrap,'lp-grid'),n=>n.attrs['aria-current']).length,0);
  assert.equal(cls(b.wrap,'lp-now')[0].textContent,'판정할 수 있는 달이 아직 없습니다.');
- assert.equal(cls(b.wrap,'lp-latest')[0].textContent,'2026-10: 노동 L− — 물가 아직 발표 전이라 판정 보류');   // 지금 칸이 없어도 가장 새 달은 보인다
+ assert.ok(cls(b.wrap,'lp-latest')[0].textContent.startsWith('2026-10: 노동 L− — 물가 아직 발표 전이라 판정 보류'));   // 지금 칸이 없어도 가장 새 달은 보인다
  assert.equal(cls(b.wrap,'lp-legs').length,0);
 });
 
-test('legs: values next to a threshold get enough digits to stay on their side',()=>{
- const {wrap}=draw(lp());
+test('legs: three groups, short caption, values next to a threshold get enough digits to stay on their side',()=>{
+ const {api,wrap}=draw(lp());
  const t=tableOf(wrap,'lp-legs');
- assert.ok(capOf(wrap,t).textContent.startsWith('2026-09 다리 — ● 충족 · ○ 미충족 · ? 자료 없음.'));
- assert.deepEqual(rowsOf(t).map(r=>r.slice(1)),[
+ assert.equal(capOf(wrap,t).textContent,'2026-09 다리 13개');                          // 표의 이름은 짧게, 읽는 법은 덧줄에
+ const note=noteOf(wrap,t);
+ assert.ok(note.startsWith('● 충족 · ○ 미충족 · ? 자료 없음.'),note);
+ assert.ok(note.includes('고점 대비 하락(hi_gap)은 u3 − 직전 12개 창의 u3 최고이고, u3의 6개월 변화도 함께 맞아야 켜집니다.'),note);
+ assert.deepEqual(tags(tags(t,'thead')[0],'th').map(x=>x.textContent),['다리','값','자료 달','충족']);
+ const bodies=tags(t,'tbody');
+ assert.deepEqual(bodies.map(b=>tags(b,'tr')[0].textContent),plain(api.GROUPS));        // 다리를 판단하는 상태마다 묶는다
+ assert.deepEqual(plain(api.GROUPS),['노동 — 악화 쪽 다리(L−− · L− 판단)','노동 — 회복 쪽 다리(L+ 판단)','물가 — 근원 PCE(P 판단)']);
+ for(const b of bodies){const g=tags(b,'tr')[0].kids[0];assert.equal(g.attrs.scope,'rowgroup');assert.equal(g.attrs.colspan,'4');}
+ assert.deepEqual(bodies.map(b=>tags(b,'tr').length-1),[8,3,2]);
+ const rows=rowsAll(t);
+ assert.deepEqual(rows.map(r=>r.slice(1)),[
   ['0.4996%p','2026-09','○'],                    // 0.50으로 보이면 Sahm형 ≥ 0.50을 채운 것처럼 읽힌다
   ['0.4996%p','2026-09','●'],                    // 같은 값은 0.40 줄에서도 같게
   ['예','2026-09','●'],
@@ -191,13 +222,55 @@ test('legs: values next to a threshold get enough digits to stay on their side',
   ['-0.2996%p','2026-09','○'],
   ['-0.15','2026-08','●'],                       // 문턱과 똑같은 값은 그대로
   ['+0.4','2026-09','○'],                        // 0으로 보이면 '≤ 0'을 채운 것처럼 읽힌다
-  ['-0.31%p','2026-09','○'],
+  ['-0.31%p · 6개월 변화 -0.1996%p','2026-09','○'],   // 둘째 조건(u3의 6개월 변화)도 함께 — -0.20으로 보이면 문턱 위로 읽힌다
   ['-0.2996%p','2026-09','○'],
   ['-0.15','2026-08','○'],
   ['3.0996%','2026-09','M 중간'],                 // H 진입 3.1 옆
   ['+0.4996%p','2026-09','F 평탄']]);             // 가속 +0.5 옆
- assert.deepEqual(rowsOf(t).map(r=>r[0]),LEG_NAMES);
- assert.deepEqual(tags(rowsOf(t).length?tags(t,'tbody')[0]:t,'th').map(x=>x.attrs.scope),Array(13).fill('row'));
+ assert.deepEqual(rows.map(r=>r[0]),LEG_NAMES.map(dashed));                         // 다리 이름의 숫자 앞 빼기는 화면의 숫자처럼 '-'
+ assert.equal(rows[5][0],'핵심연령 고용률 3개월 Δ6 ≤ -0.3');
+ assert.deepEqual(bodies.flatMap(b=>tags(b,'tr').filter(r=>!isGroup(r)).map(r=>r.kids[0].attrs.scope)),Array(13).fill('row'));
+ assert.equal(cls(wrap,'lp-why')[0].textContent,'그 달 조건만의 노동 상태: L− — (a) Sahm형 ≥ 0.40이고 u3 상승.');
+ // Sahm형은 L+ (B)의 '≤ 0'도 본다 — 0 바로 옆 값이 0.00으로 보이지 않게
+ const z=lp();z.current.legs[0].value=0.004;z.current.legs[1].value=0.004;
+ assert.deepEqual(rowsAll(tableOf(draw(z).wrap,'lp-legs')).slice(0,2).map(r=>r[1]),['0.004%p','0.004%p']);
+ const y=lp();y.current.legs[0].value=-0.004;y.current.legs[1].value=-0.004;
+ assert.deepEqual(rowsAll(tableOf(draw(y).wrap,'lp-legs')).slice(0,2).map(r=>r[1]),['-0.004%p','-0.004%p']);
+});
+
+test('legs: the rule that made the month\'s raw L, the band kept by hysteresis, the second U2 value',()=>{
+ const why=d=>{const w=cls(draw(d).wrap,'lp-why');return w.length?w[0].textContent:null;};
+ const with_=(cur,f)=>{const d=lp();Object.assign(d.current,cur);if(f)f(d.current);return d;};
+ assert.equal(why(with_({raw_rules:['a','c','d']})),'그 달 조건만의 노동 상태: L− — (a) Sahm형 ≥ 0.40이고 u3 상승 · (c) 청구가 아닌 악화 다리 2개 이상 · ' +
+  '(d) 청구 다리 켜짐과 악화 다리 1개 이상.');
+ assert.equal(why(with_({raw_rules:['b']})),'그 달 조건만의 노동 상태: L− — (b) Sahm형 ≥ 0.50이지만 해고 미확인(청구 다리가 켜져 있지 않음).');
+ assert.equal(why(with_({L_raw:'L0',raw_rules:[]})),'그 달 조건만의 노동 상태: L0 — L−− · L− · L+의 조건이 하나도 맞지 않음. ' +
+  '상태는 두 발표가 이어져야 바뀌어 지금 상태는 L−입니다.');
+ assert.equal(why(with_({L:'L+',L_raw:'L+',cell:'금리 상방 관찰 (노동 선행)',kind:'up',raw_rules:['A','B']})),
+  '그 달 조건만의 노동 상태: L+ — (A) 고점 대비 하락과 확인 다리 1개 이상 · (B) Sahm형 ≤ 0 · V/U와 이직률의 6개월 변화가 회복 문턱 이상.');
+ assert.equal(why(with_({L:'L−−',L_raw:'L−−',cell:'큰 되돌림 위험',kind:'down',raw_rules:['L−−']})),
+  '그 달 조건만의 노동 상태: L−− — Sahm형 ≥ 0.50 · u3 상승 · 청구 다리 켜짐.');
+ // 그 상태에 맞지 않는 절 · 겹침 · 모르는 절 · 빈 목록 · 배열이 아님 · 없음 · 그 달 조건 '?' → 줄이 없다
+ for(const rr of [['A'],['a','a'],['z'],[],'a',null,undefined])assert.equal(why(with_({raw_rules:rr})),null,JSON.stringify(rr));
+ assert.equal(why(with_({L_raw:'L0',raw_rules:['a']})),null);
+ const q=with_({L_raw:'?',raw_rules:[]});
+ assert.equal(why(q),null);
+ assert.ok(draw(q).wrap.textContent.includes('그 달 조건만으로는 노동 상태를 정하지 못했습니다(자료가 모자람).'));
+ // 띠 — 진입 문턱 안쪽이어도 직전 띠가 남은 달은 그 까닭을 함께
+ const band=(value,on)=>rowsAll(tableOf(draw(with_({},c=>Object.assign(c.legs[11],{value,on}))).wrap,'lp-legs'))[11].slice(1,4);
+ assert.deepEqual(band(3.05,'H'),['3.05%','2026-09','H 높음 (3.1 초과로 들어간 뒤 2.9 미만이 아니라 유지)']);
+ assert.deepEqual(band(3.1,'H'),['3.10%','2026-09','H 높음 (3.1 초과로 들어간 뒤 2.9 미만이 아니라 유지)']);   // 정확히 3.1은 진입이 아니다
+ assert.deepEqual(band(3.2,'H'),['3.20%','2026-09','H 높음']);
+ assert.deepEqual(band(2.65,'Lo'),['2.65%','2026-09','Lo 낮음 (2.6 미만으로 들어간 뒤 2.7 초과가 아니라 유지)']);
+ assert.deepEqual(band(2.5,'Lo'),['2.50%','2026-09','Lo 낮음']);
+ assert.deepEqual(band(null,'H'),['—','2026-09','H 높음']);
+ // 고점 대비 하락의 둘째 값 — 없거나 숫자가 아니면 hi_gap만
+ const u2=d6=>rowsAll(tableOf(draw(with_({d6u3:d6})).wrap,'lp-legs'))[8][1];
+ assert.equal(u2(-0.25),'-0.31%p · 6개월 변화 -0.25%p');
+ assert.equal(u2(-0.2),'-0.31%p · 6개월 변화 -0.20%p');
+ assert.equal(u2(null),'-0.31%p');
+ assert.equal(u2('-0.2'),'-0.31%p');
+ assert.equal(u2(Infinity),'-0.31%p');
 });
 
 test('legs: near() picks the fewest digits that keep every threshold on the same side',()=>{
@@ -227,31 +300,46 @@ test('inflation line and its digits near the band and momentum edges',()=>{
  assert.equal(cls(draw(f).wrap,'lp-infl').length,0);
 });
 
-test('history: closed details from 2022-01, raw L when different, hold row, one hold-out marker, excluded tags dropped',()=>{
+test('history: closed details from 2022-01, known date, raw L when different, hold row, one hold-out marker, short peak tag, excluded tags dropped',()=>{
  const {api,wrap}=draw(lp());
  const det=cls(wrap,'lp-more').find(d=>tags(d,'summary')[0].textContent.startsWith('2022년부터 달마다'));
  assert.ok(det&&!('open' in det.attrs));
  assert.equal(tags(det,'summary')[0].textContent,'2022년부터 달마다 — 58달(2022-01 ~ 2026-10)');
  const t=tableOf(det,'lp-hist');
  assert.ok(capOf(det,t).textContent.includes(api.LABEL));
+ assert.deepEqual(tags(tags(t,'thead')[0],'th').map(x=>x.textContent),['기준월','알려진 날(근사)','노동 L','물가 P(띠 · 모멘텀)','칸','꼬리표']);
  const rows=rowsOf(t);
  assert.equal(rows.length,58);
- assert.deepEqual(rows[0],['2022-01','L0','P+H · A','금리 상방 관찰 (물가 선행)','—']);
- assert.deepEqual(rows.find(r=>r[0]==='2023-08'),['2023-08','L0그 달 조건 L−','PdH · D','박스 (하단 시험)','—']);
- assert.deepEqual(rows.find(r=>r[0].startsWith('2024-01')),['2024-01여기부터 '+api.HOLDOUT_MARK,'L0','PdH · D','박스 (하단 시험)','계절성(1~6월)']);
+ assert.deepEqual(rows[0],['2022-01','2022-02-28','L0','P+H · A','금리 상방 관찰 (물가 선행)','—']);
+ assert.deepEqual(rows.find(r=>r[0]==='2023-08'),['2023-08','2023-09-28','L0그 달 조건 L−','PdH · D','박스 (하단 시험)','—']);
+ assert.deepEqual(rows.find(r=>r[0].startsWith('2024-01')),['2024-01여기부터 '+api.HOLDOUT_MARK,'2024-02-28','L0','PdH · D','박스 (하단 시험)','계절성(1~6월)']);
+ assert.equal(api.HOLDOUT_MARK,'표본 밖(운영자 지정)');                              // '문턱 고정 뒤'가 아니다 — 문턱은 2026-10-14에 고정했다
  assert.equal(rows.filter(r=>r[0].includes(api.HOLDOUT_MARK)).length,1);
- assert.deepEqual(rows.find(r=>r[0]==='2024-08'),['2024-08','L−','P−M · D','되돌림 위험 (2024 하반기형)','—']);   // '상당 부분 반영'은 빠진다
- assert.deepEqual(rows.find(r=>r[0]==='2024-12').slice(3),['박스','고점 통과 — 되돌림 소진 가능']);
- assert.deepEqual(rows.find(r=>r[0]==='2026-06').slice(4),['공급형(에너지)']);        // TP 주도 · 폭 좁음은 빠진다
- assert.deepEqual(rows.find(r=>r[0]==='2026-08').slice(1),['L0그 달 조건 L−','P+H · F','금리 상방 관찰 (물가 선행)','—']);   // 밸류 꼬리표도 빠진다
- assert.deepEqual(rows[rows.length-1],['2026-10','L−','?','판정 보류(물가)','—']);
+ assert.deepEqual(rows.find(r=>r[0]==='2024-08').slice(2),['L−','P−M · D','되돌림 위험 (2024 하반기형)','—']);   // '상당 부분 반영'은 빠진다
+ assert.deepEqual(rows.find(r=>r[0]==='2024-12').slice(4),['박스','고점 통과']);   // 자료에 긴 꼴이 와도 앞부분(사실)만
+ assert.equal(api.PEAK,'고점 통과');
+ assert.deepEqual(rows.find(r=>r[0]==='2026-06').slice(5),['공급형(에너지)']);        // TP 주도 · 폭 좁음은 빠진다
+ assert.deepEqual(rows.find(r=>r[0]==='2026-08').slice(2),['L0그 달 조건 L−','P+H · F','금리 상방 관찰 (물가 선행)','—']);   // 밸류 꼬리표도 빠진다
+ assert.deepEqual(rows[rows.length-1],['2026-10','2026-11-28','L−','?','판정 보류(물가)','—']);
  const tr=tags(tags(t,'tbody')[0],'tr');
  assert.ok(tr[tr.length-1].attrs.class.includes('lp-k-hold'));
  for(const w of api.EXCLUDED)assert.ok(!t.textContent.includes(w),w);
  assert.ok(!t.textContent.includes('밸류'));
+ assert.ok(!t.textContent.includes('되돌림 소진'));
+ // 실업률이 발표되지 않은 달(기준월 없음)은 말없이 건너뛰지 않는다 — 줄 하나와 머리의 '빠진 달'
+ const d=lp();d.history=d.history.filter(r=>r.month!=='2025-10');
+ const g=cls(draw(d).wrap,'lp-more').find(x=>tags(x,'summary')[0].textContent.startsWith('2022년부터 달마다'));
+ assert.equal(tags(g,'summary')[0].textContent,'2022년부터 달마다 — 57달(2022-01 ~ 2026-10 · 빠진 달 1(2025-10))');
+ const gt=tableOf(g,'lp-hist'),gr=tags(tags(gt,'tbody')[0],'tr');
+ const gap=gr.find(r=>r.kids[0].textContent==='2025-10');
+ assert.ok(gap.attrs.class.split(' ').includes('lp-gap'));
+ assert.equal(gap.kids[1].attrs.colspan,'5');
+ assert.equal(gap.kids[1].textContent,'기준월이 없습니다 — 그 달 실업률이 발표되지 않았습니다(재생은 다음 달로 이어집니다).');
+ assert.deepEqual(gr.slice(gr.indexOf(gap)-1,gr.indexOf(gap)+2).map(r=>r.kids[0].textContent),['2025-09','2025-10','2025-11']);
+ assert.equal(rowsOf(gt).length,58);
 });
 
-test('expected cases: closed details under the label, hold-out chip from 2024-01, L · P match only, tag checks said to be not computed',()=>{
+test('expected cases: closed details under the label, operator-designated hold-out, L · P match only, a hold month is ? not a miss, tag checks said to be not computed',()=>{
  const {api,wrap}=draw(lp());
  const det=cls(wrap,'lp-more').find(d=>tags(d,'summary')[0].textContent.startsWith('미리 적어 둔 기대와 대조'));
  assert.ok(det&&!('open' in det.attrs));
@@ -260,20 +348,31 @@ test('expected cases: closed details under the label, hold-out chip from 2024-01
  const note=det.kids[2].textContent;
  assert.ok(note.includes('꼬리표 점검(상당 부분 반영 · TP 주도)은 이 사이트가 계산하지 않습니다'),note);
  assert.ok(note.includes('2024-01부터의 사례는 '+api.HOLDOUT_MARK+'입니다'),note);
+ assert.ok(note.includes('문턱을 고정한 2026-10-14에는 이 구간의 자료도 이미 나와 있었고 둔화 모멘텀 문턱(-0.3 이하 2번 연속)은 ' +
+  '2024-09의 재생 결과도 보고 골랐습니다. 문턱을 정한 뒤에 나온 자료로 한 검증이 아닙니다.'),note);
+ for(const w of ['문턱 고정 뒤','문턱을 정한 뒤의 구간','근거로 세지 않고'])assert.ok(!det.textContent.includes(w),w);
  const cases=cls(det,'lp-case');
  assert.deepEqual(cases.map(c=>c.kids[0].textContent),['2022 2022-01 ~ 2022-12','2023 하반기 2023-07 ~ 2023-12',
-  '2024 1분기 2024-01 ~ 2024-03'+api.HOLDOUT_MARK,'2024-08~09 2024-08 ~ 2024-09'+api.HOLDOUT_MARK,
-  '2024-12~2025-01 2024-12 ~ 2025-01'+api.HOLDOUT_MARK,'2026-05 이후 2026-05 ~ 지금'+api.HOLDOUT_MARK]);
+  '2024 1분기 2024-01 ~ 2024-03 '+api.HOLDOUT_MARK,'2024-08~09 '+api.HOLDOUT_MARK,   // 사례 이름이 곧 기간이면 되풀이하지 않는다
+  '2024-12~2025-01 '+api.HOLDOUT_MARK,'2026-05 이후 '+api.HOLDOUT_MARK]);
+ assert.equal(cls(cases[2],'lp-out-tag')[0].textContent,api.HOLDOUT_MARK);
  assert.equal(cases[0].kids[1].textContent,'기대(운영자 메모): 노동 L0 또는 L+ · 물가 P+');
  assert.equal(cases[3].kids[3].textContent,"이 사례에 적힌 꼬리표 '상당 부분 반영'의 대조는 이 사이트가 계산하지 않습니다.");
  assert.equal(cases[5].kids[3].textContent,"이 사례에 적힌 꼬리표 'TP 주도'의 대조는 이 사이트가 계산하지 않습니다.");
  assert.ok(!cases[0].textContent.includes('꼬리표'));
  assert.deepEqual(cases.map(c=>c.kids[2].textContent),['기대한 L · P에 든 달 12/12','기대한 L · P에 든 달 6/6',
-  '기대한 L · P에 든 달 2/3','기대한 L · P에 든 달 2/2','기대한 L · P에 든 달 2/2','기대한 L · P에 든 달 4/6']);
- const last=rowsOf(tableOf(cases[5],'lp-exp'));
- assert.deepEqual(last.map(r=>r[4]),['●','●','●','●','○','○']);                    // 2026-05~08 P+ · 2026-09 P0 · 2026-10 ?
- assert.deepEqual(last[5],['2026-10','L−','?','판정 보류(물가)','○']);
- assert.ok(capOf(cases[5],tableOf(cases[5],'lp-exp')).textContent.endsWith('● 기대한 L · P에 듦 · ○ 벗어남'));
+  '기대한 L · P에 든 달 2/3','기대한 L · P에 든 달 2/2','기대한 L · P에 든 달 2/2',
+  '기대한 L · P에 든 달 4/6 — 판정 보류 1달은 아직 가를 수 없어 벗어남으로 셉니다(판정한 달만 보면 4/5)']);   // 자료의 셈은 그대로, 보류 달을 밝힌다
+ const lt=tableOf(cases[5],'lp-exp'),last=rowsOf(lt);
+ assert.deepEqual(last.map(r=>r[4]),['●','●','●','●','○','?']);                    // 2026-05~08 P+ · 2026-09 P0 · 2026-10 판정 보류
+ assert.deepEqual(last[5],['2026-10','L−','?','판정 보류(물가)','?']);
+ assert.equal(noteOf(cases[5],lt),'● 기대한 L · P에 듦 · ○ 벗어남 · ? 판정 보류(아직 가를 수 없음)');
+ // 보류 달이라도 아는 쪽이 이미 벗어났으면 벗어남(○), 기대 목록이 없는 옛 꼴은 칸이 판정 보류인 달만 '?'
+ const h=lp();const it=h.expected[2].items[0];Object.assign(it,{L:'?',P:'Pd',cell:'판정 보류(노동)'});
+ assert.deepEqual(rowsOf(tableOf(cls(draw(h).wrap,'lp-case')[2],'lp-exp')).map(r=>r[4]),['○','●','●']);
+ assert.equal(cls(draw(h).wrap,'lp-case')[2].kids[2].textContent,'기대한 L · P에 든 달 2/3');
+ const o=lp();for(const c of o.expected){delete c.want_L;delete c.want_P;}
+ assert.deepEqual(rowsOf(tableOf(cls(draw(o).wrap,'lp-case')[5],'lp-exp')).map(r=>r[4]),['●','●','●','●','○','?']);
  // 셈이 항목과 다르거나 항목 하나가 깨진 사례는 통째로 뺀다 · 항목이 없는 사례는 한 줄
  const d=lp();d.expected[0].matched=11;d.expected[1].items[2].cell='박스';d.expected[2].n=99;
  d.expected[3].items=[];d.expected[3].n=0;d.expected[3].matched=0;d.expected[4].holdout='yes';
@@ -295,27 +394,50 @@ test('expected cases: closed details under the label, hold-out chip from 2024-01
  assert.ok(!cls(draw(e).wrap,'lp-more').some(x=>tags(x,'summary')[0].textContent.startsWith('미리 적어 둔')));
 });
 
-test('definitions: the P table only when all nine cells match, rules and thresholds from the file',()=>{
+test('definitions: L in the order the rules are read, replay rules and tag glossary from the file, the P table only when all nine cells match',()=>{
  const {wrap}=draw(lp());
- const det=cls(wrap,'lp-more').find(d=>tags(d,'summary')[0].textContent==='읽는 법 — 상태와 문턱');
+ const det=cls(wrap,'lp-more').find(d=>tags(d,'summary')[0].textContent==='읽는 법 — 상태 · 문턱 · 재생 규칙 · 꼬리표');
  assert.ok(det&&!('open' in det.attrs));
  const t=tableOf(det,'lp-pgrid');
  assert.deepEqual(rowsOf(t),[['H 높음','P+','P+','Pd'],['M 중간','P+','P0','P−'],['Lo 낮음','P0','P−','P−']]);
- const items=tags(cls(det,'lp-list')[0],'li').map(l=>l.textContent);
- assert.equal(items.length,14);
- assert.equal(items[0],'L+ · 회복 전환 — 고점 대비 하락과 확인');
+ assert.equal(cls(det,'lp-sub')[0].textContent,'노동 L — 위에서부터 차례로 보고 처음 맞는 상태입니다(지금 상태는 아래 재생 규칙을 거칩니다):');
+ const lists=cls(det,'lp-list'),li=n=>tags(n,'li').map(l=>l.textContent);
+ assert.deepEqual(li(lists[0]),['L−− · 비선형 악화 — Sahm형 0.50 이상 · 실업률 상승 · 청구 다리',   // 정의 글이 앞 상태를 가리키는 차례
+  'L− · 냉각 — L−−가 아니면서 고용률 Δ6 ≤ -0.3 등','L+ · 회복 전환 — L−−·L−가 아니면서 고점 대비 하락과 확인','L0 · L−−·L−·L+가 아닌 달']);
+ const items=li(lists[1]);
+ assert.equal(items.length,10);
+ assert.equal(items[0],'P+ · 높거나 가속');
+ assert.equal(items[9],'D · a6 − y12 ≤ -0.3이 두 발표 연속');
  const text=det.textContent;
- assert.ok(text.includes('(H 3.1/2.9 · Lo 2.6/2.7)'),text);
+ assert.ok(text.includes('(H 3.1/2.9 · Lo 2.6/2.7)'),text);                     // 자료에 재생 규칙이 없으면 이 사이트의 짧은 설명
  assert.ok(text.includes('가속이 1번, 둔화가 2번 이어진 발표에서 켜집니다'),text);
+ assert.ok(text.includes('노동 L을 모르는 달은 연속 셈이 끊기지만, 물가 P만 모르는 달(대개 근원 PCE 발표 전)은 칸만 판정 보류이고 셈은 이어집니다.'),text);
+ assert.ok(text.includes('청구 다리가 켜져 있지 않고(꺼짐 또는 ?)'),text);
  assert.ok(text.includes('문턱(운영자 2026-10-14 고정): Sahm형 0.50(주의 0.40) · 청구 1.25배 × 4주'),text);
  assert.ok(text.includes('모멘텀 가속 +0.50 이상 1회, 둔화 -0.30 이하 2회 연속.'),text);
- const d=lp();d.defs.pgrid[0].P='P0';
- assert.equal(tableOf(draw(d).wrap,'lp-pgrid'),undefined);
- const e=lp();e.defs.pgrid.pop();
+ assert.equal(lists.length,2);
+ // 자료의 재생 규칙 · 꼬리표 풀이 — 글 그대로(숫자 앞 빼기만 '-'), 꼴 밖 · 권유 낱말 · 싣지 않는 꼬리표 · 겹친 꼬리표는 뺀다
+ const d=lp();
+ d.defs.replay=['기준월은 실업률이 발표된 달이다.','그 달 L을 모르면 연속 셈이 끊긴다. P만 모르면 이어진다.','<b>x</b>','이 달은 매수',3];
+ d.defs.tags=[{tag:'고점 통과 — 되돌림 소진 가능',text:'L−·L−−에서 L0으로 나온 달에 한 번.'},{tag:'TP 주도',text:'x'},
+  {tag:'에너지 하락',text:'CPI 전체 − 근원 ≤ −1.0.'},{tag:'에너지 하락',text:'겹침'},{tag:'<b>',text:'x'},{tag:'재화 주도',text:'전망'}];
+ const dd=cls(draw(d).wrap,'lp-more').find(x=>tags(x,'summary')[0].textContent.startsWith('읽는 법'));
+ assert.deepEqual(cls(dd,'lp-sub').map(p=>p.textContent),['노동 L — 위에서부터 차례로 보고 처음 맞는 상태입니다(지금 상태는 아래 재생 규칙을 거칩니다):',
+  '재생 규칙(운영자 정의):','꼬리표 풀이:']);
+ const dl=cls(dd,'lp-list');
+ assert.equal(dl.length,4);
+ assert.deepEqual(li(dl[2]),['기준월은 실업률이 발표된 달이다.','그 달 L을 모르면 연속 셈이 끊긴다. P만 모르면 이어진다.']);
+ assert.deepEqual(li(dl[3]),['고점 통과 · L−·L−−에서 L0으로 나온 달에 한 번.','에너지 하락 · CPI 전체 − 근원 ≤ -1.0.']);
+ assert.ok(!dd.textContent.includes('가속이 1번, 둔화가 2번'));                       // 자료의 재생 규칙이 있으면 짧은 설명은 싣지 않는다
+ // P 표 · 정의 — 아홉 칸이 모두 맞을 때만, 꼴 밖 · 꺾쇠 · 권유 낱말이 든 정의는 싣지 않는다
+ const e=lp();e.defs.pgrid[0].P='P0';
  assert.equal(tableOf(draw(e).wrap,'lp-pgrid'),undefined);
- const f=lp();f.defs={L:[{state:'L9',text:'x'},{state:'L0',text:'<b>x</b>'},{state:'L+',text:'이 칸은 유망하다'}]};   // 꼴 밖 · 꺾쇠 · 권유 낱말
- const g=draw(f).wrap;
- assert.equal(cls(cls(g,'lp-more').find(d=>tags(d,'summary')[0].textContent==='읽는 법 — 상태와 문턱'),'lp-list').length,0);
+ const f=lp();f.defs.pgrid.pop();
+ assert.equal(tableOf(draw(f).wrap,'lp-pgrid'),undefined);
+ const g=lp();g.defs={L:[{state:'L9',text:'x'},{state:'L0',text:'<b>x</b>'},{state:'L+',text:'이 칸은 유망하다'}]};
+ const gd=cls(draw(g).wrap,'lp-more').find(x=>tags(x,'summary')[0].textContent.startsWith('읽는 법'));
+ assert.equal(cls(gd,'lp-list').length,0);
+ assert.equal(cls(gd,'lp-sub').length,0);
 });
 
 test('notes, computed-values notices, FRED citations and series — citation shape checked, links only to FRED',()=>{
@@ -424,11 +546,15 @@ test('malformed items are skipped one by one',()=>{
  h.push(Object.assign({},h[h.length-1],{tags:['겹친 달']}));                       // 같은 달이 두 번이면 파일에서 앞의 것
  const {wrap}=draw(d);
  const det=cls(wrap,'lp-more').find(x=>tags(x,'summary')[0].textContent.startsWith('2022년부터 달마다'));
- assert.equal(tags(det,'summary')[0].textContent,'2022년부터 달마다 — 51달(2022-01 ~ 2026-10)');
- const rows=rowsOf(tableOf(det,'lp-hist'));
+ assert.equal(tags(det,'summary')[0].textContent,'2022년부터 달마다 — 51달(2022-01 ~ 2026-10 · 빠진 달 7(2022-02 · 2022-05 · 2022-06 · ' +
+  '2022-07 · 2022-08 · 2022-09 외 1))');
+ const all=rowsOf(tableOf(det,'lp-hist')),rows=all.filter(r=>r.length===6);
  assert.deepEqual(rows.slice(0,4).map(r=>r[0]),['2022-01','2022-03','2022-04','2022-11']);
- assert.equal(rows[0][4],'—');
- assert.equal(rows[3][4],'재화 주도');
+ assert.equal(rows[0][5],'—');
+ assert.equal(rows[3][5],'재화 주도');
+ const gaps=all.filter(r=>r.length===2);                                         // 꼴이 어긋나 뺀 달은 '실업률 미발표'와 가른다
+ assert.deepEqual(gaps.map(r=>r[0]),['2022-02','2022-05','2022-06','2022-07','2022-08','2022-09','2022-10']);
+ for(const r of gaps)assert.equal(r[1],'자료 꼴이 어긋나 싣지 않았습니다.');
  // 지금 칸 — 판정 보류이거나 이름이 맞지 않으면 없는 것으로(재생 기록은 그대로)
  for(const m of [c=>{c.kind='hold';},c=>{c.cell='박스';},c=>{c.L='?';},c=>{c.band=null;},c=>{c.mom_class='Z';}]){
   const e=lp();m(e.current);
@@ -442,21 +568,25 @@ test('malformed items are skipped one by one',()=>{
   assert.equal(cls(draw(e).wrap,'lp-latest').length,0);
  }
  const f=lp();Object.assign(f.latest,{L:'?',P:'P0',cell:'판정 보류(노동)'});
- assert.equal(cls(draw(f).wrap,'lp-latest')[0].textContent,'2026-10: 물가 P0 — 노동 상태를 정할 자료가 모자라 판정 보류');
+ assert.equal(cls(draw(f).wrap,'lp-latest')[0].textContent,'2026-10: 물가 P0 — 노동 상태를 정할 자료가 모자라 판정 보류 · 알려진 날 2026-11-28(근사)');
  const g=lp();Object.assign(g.latest,{L:'?',P:'?',cell:'판정 보류(노동·물가)',tags:['2개월 평균','상당 부분 반영']});
- assert.equal(cls(draw(g).wrap,'lp-latest')[0].textContent,'2026-10: 노동·물가 모두 판정 보류 · 꼬리표: 2개월 평균');
+ assert.equal(cls(draw(g).wrap,'lp-latest')[0].textContent,'2026-10: 노동·물가 모두 판정 보류 · 알려진 날 2026-11-28(근사) · 꼬리표: 2개월 평균');
  // 다리 — 이름 앞부분 · 값의 꼴 · 충족 칸의 꼴이 어긋난 다리만 빠진다
  const k=lp();const L=k.current.legs;
  L[0].name='Sham형 ≥ 0.50';L[2].value=1;L[4].on='해고';L[7].value='0.4';L[11].on='HH';L[12].month='2026-9';
- const kt=rowsOf(tableOf(draw(k).wrap,'lp-legs'));
+ const kt=rowsAll(tableOf(draw(k).wrap,'lp-legs'));
  assert.equal(kt.length,7);
- assert.deepEqual(kt.map(r=>r[0]),[1,3,5,6,8,9,10].map(i=>LEG_NAMES[i]));
+ assert.deepEqual(kt.map(r=>r[0]),[1,3,5,6,8,9,10].map(i=>dashed(LEG_NAMES[i])));
+ const kb=tags(tableOf(draw(k).wrap,'lp-legs'),'tbody');                         // 다리가 하나도 남지 않은 묶음은 머리 줄도 없다
+ assert.equal(kb.length,2);
+ const k2=lp();k2.current.legs=k2.current.legs.slice(0,8);
+ assert.deepEqual(tags(tableOf(draw(k2).wrap,'lp-legs'),'tbody').map(b=>tags(b,'tr')[0].textContent),['노동 — 악화 쪽 다리(L−− · L− 판단)']);
  const n=lp();n.current.legs=[];
  assert.equal(cls(draw(n).wrap,'lp-legs').length,0);
  assert.ok(draw(n).wrap.textContent.includes('다리 자료가 없습니다.'));
  const z=lp();Object.assign(z.current.legs[0],{value:null,on:null});Object.assign(z.current.legs[11],{value:null,on:null});
  Object.assign(z.current.legs[4],{value:null,on:'-'});Object.assign(z.current.legs[2],{value:null,on:null});
- const zr=rowsOf(tableOf(draw(z).wrap,'lp-legs'));
+ const zr=rowsAll(tableOf(draw(z).wrap,'lp-legs'));
  assert.deepEqual([zr[0].slice(1),zr[2].slice(1),zr[4].slice(1),zr[11].slice(1)],
   [['—','2026-09','?'],['—','2026-09','?'],['—','2026-09','—'],['—','2026-09','?']]);
  // 지금 칸의 L과 그 달 조건이 다르면 한 줄
@@ -466,18 +596,21 @@ test('malformed items are skipped one by one',()=>{
 });
 
 // ── 글 ────────────────────────────────────────────────────────────────────────────────
-test('no stray words, no prediction words, and no direction words beyond the cell names and their kinds',()=>{
- const {api,wrap}=draw(lp());
+test('no stray words, no prediction words, and no direction words beyond the operator\'s 16 cell names',()=>{
+ const d0=lp();d0.current.tags=['고점 통과 — 되돌림 소진 가능','에너지 하락'];          // 비공개 도구의 긴 꼴이 와도 해석 부분은 싣지 않는다
+ const {api,wrap}=draw(d0);
  const text=wrap.textContent;
  assert.ok(!STRAY.test(text),text);
  for(const w of BANNED)assert.ok(!text.includes(w),w);
  const code=SRC.replace(/const BANNED_WORDS = \[[^\]]*\];/,'');
  for(const w of BANNED)assert.ok(!code.includes(w),w);
  assert.deepEqual(plain(api.BANNED_WORDS),BANNED);
- // 방향을 말하는 낱말은 칸 이름 · 칸 종류의 말 · 운영자 도구의 꼬리표에만(기대 글은 상태 이름으로만 적혀 온다)
+ // 방향을 말하는 낱말은 운영자 칸 이름 16개에만(기대 글은 상태 이름으로만 적혀 오고, 칸 종류는 색 띠로만 가르며, 꼬리표 '고점 통과'는 앞부분만)
+ assert.equal(cls(wrap,'lp-tags')[0].textContent,'꼬리표: 고점 통과 · 에너지 하락');
+ assert.ok(!text.includes('되돌림 소진'));
+ assert.ok(!/\u2212\d/.test(text),'숫자 앞 빼기(U+2212)가 남음');                    // 화면의 음수 부호는 '-' 하나
  let rest=text;
- const allowed=[...Object.values(NAMES).map(x=>x[0]),...Object.values(api.KIND_WORD),'고점 통과 — 되돌림 소진 가능',api.LABEL]
-  .sort((a,b)=>b.length-a.length);
+ const allowed=[...Object.values(NAMES).map(x=>x[0]),api.LABEL].sort((a,b)=>b.length-a.length);
  for(const a of allowed)rest=rest.split(a).join(' ');
  for(const w of ['상방','하방','되돌림','스티프닝','상충','박스','골디락스','스태그'])assert.ok(!rest.includes(w),w+' — '+rest.slice(0,200));
  for(const w of ['예측이 아니고 예측력을 검증하지 않았습니다','예측 아님'])assert.ok(text.includes(w),w);
@@ -529,10 +662,16 @@ test('the committed data/lp.json (if any) draws whole — nothing in it is skipp
  assert.equal(d.label,api.LABEL);
  const det=cls(wrap,'lp-more');
  const hist=det.find(x=>tags(x,'summary')[0].textContent.startsWith('2022년부터 달마다'));
- assert.equal(rowsOf(tableOf(hist,'lp-hist')).length,d.history.length);
+ const hrows=rowsOf(tableOf(hist,'lp-hist'));
+ assert.equal(hrows.filter(r=>r.length===6).length,d.history.length);
+ const months=d.history.map(r=>r.month);                                         // 빠진 달 줄은 재생 기록 사이의 빈 달뿐
+ for(const r of hrows.filter(r=>r.length===2)){
+  assert.ok(!months.includes(r[0])&&r[0]>months[0]&&r[0]<months[months.length-1],r[0]);
+  assert.equal(r[1],'기준월이 없습니다 — 그 달 실업률이 발표되지 않았습니다(재생은 다음 달로 이어집니다).');
+ }
  assert.equal(cls(wrap,'lp-case').length,d.expected.length);
  if(d.current){
-  assert.equal(rowsOf(tableOf(wrap,'lp-legs')).length,d.current.legs.length);
+  assert.equal(rowsAll(tableOf(wrap,'lp-legs')).length,d.current.legs.length);
   assert.equal(d.current.legs.length,13);
   assert.equal(walk(tableOf(wrap,'lp-grid'),n=>n.attrs['aria-current']==='true').length,1);
  }
@@ -546,4 +685,24 @@ test('the committed data/lp.json (if any) draws whole — nothing in it is skipp
  assert.ok(!STRAY.test(text));
  for(const w of BANNED)assert.ok(!text.includes(w),w);
  for(const t of api.EXCLUDED)assert.ok(!d.history.some(r=>r.tags.includes(t)),t);
+ assert.ok(!text.includes('되돌림 소진'));
+ assert.ok(!/\u2212\d/.test(text));
+ const defs=det.find(x=>tags(x,'summary')[0].textContent.startsWith('읽는 법'));   // 자료의 재생 규칙 · 꼬리표 풀이가 모두 실린다
+ assert.equal(tags(cls(defs,'lp-list')[2],'li').length,d.defs.replay.length);
+ assert.equal(tags(cls(defs,'lp-list')[3],'li').length,d.defs.tags.length);
+});
+
+test('legs: the 13-leg table is folded away, the line naming the rule that set raw L stays in view (2026-11-18)',()=>{
+ const {wrap}=draw(lp());
+ const fold=cls(wrap,'lp-legs-more');
+ assert.equal(fold.length,1);
+ assert.equal(fold[0].tag,'details');
+ assert.equal(fold[0].attrs.open,undefined);                                        // 처음엔 닫혀 있다
+ assert.equal(tags(fold[0],'summary')[0].textContent,'다리 13개 — 값과 충족(2026-09)');
+ assert.ok(tableOf(fold[0],'lp-legs'));                                              // 표는 접은 칸 안에
+ assert.equal(cls(fold[0],'lp-why').length,0);                                       // 왜 그 상태인지 한 줄은 접은 칸 밖에
+ const why=cls(wrap,'lp-why');
+ assert.equal(why.length,1);
+ const kids=cls(wrap,'lp')[0].kids;
+ assert.equal(kids.indexOf(why[0])+1,kids.indexOf(fold[0]));                         // 그 줄 바로 뒤에 접은 칸
 });

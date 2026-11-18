@@ -137,6 +137,10 @@
   <section id="ledger-wrap" hidden aria-labelledby="ledger-title"></section>
   <p id="ledger-empty" class="empty-state" hidden>기록 장부를 불러오지 못했습니다. 자료가 갱신된 뒤 다시 확인해 주세요.</p>
 
+  <!-- 판단 격자 L × P(lp.js ← data/lp.json) — 첫 화면에서만, '주제별 점검' 절 바로 앞(그 절 안의 규칙 상태 고르기와 규칙 목록 사이에
+       두지 않고, 13개 규칙 뒤로 묻지도 않는다). 파일이 없거나 꼴이 어긋나면 숨긴 채 -->
+  <section id="lp-ref" class="lp-ref" hidden aria-labelledby="lp-ref-title"></section>
+
   <section id="rules-wrap" aria-labelledby="summary">
     <div class="section-heading"><h2 id="summary">주제별 점검</h2><p id="rule-count" class="muted" aria-live="polite"></p></div>
     <div class="rule-toolbar"><label for="rule-filter">규칙 상태</label><select id="rule-filter"><option value="all">전체 상태</option><option value="met">충족</option><option value="not_met">미충족</option><option value="unknown">판정 불가</option></select><span>조건과 해석은 각 지표에서 확인하세요.</span></div>
@@ -144,9 +148,6 @@
     <p id="charts-note-rules" class="muted" hidden></p>
     <div id="rules"></div>
     <p id="empty-rules" class="empty-state" hidden>이 카테고리에 선택한 상태의 규칙이 없습니다. ‘전체 상태’를 선택해 보세요.</p>
-    <!-- 판단 격자 L × P(lp.js ← data/lp.json) — 첫 화면에서만, 규칙 목록 뒤(규칙 상태 고르기와 그 목록 사이에 두지 않는다).
-         파일이 없거나 꼴이 어긋나면 숨긴 채 -->
-    <section id="lp-ref" class="lp-ref" hidden aria-labelledby="lp-ref-title"></section>
   </section>
 
   <section id="evening-wrap" hidden aria-label="저녁판"></section>

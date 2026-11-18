@@ -139,7 +139,7 @@ class PageTest(unittest.TestCase):
         self.assertLess(self.page.index('<script src="ledger.js">'), self.page.index("applyView();"))
 
     def test_lp_card_is_wired(self):
-        # 판단 격자 L × P(2026-11-18) — 첫 화면에서만, '주제별 점검' 절 끝(규칙 목록 뒤)의 절. 자료 파일 하나를 읽고, 그리기는 try 안에서 한 번,
+        # 판단 격자 L × P(2026-11-18) — 첫 화면에서만, '주제별 점검' 절 바로 앞의 절. 자료 파일 하나를 읽고, 그리기는 try 안에서 한 번,
         # 절은 처음에 숨어 있고 첫 화면에서만 열린다. 자료 파일은 꼬리말의 '원자료'에도 있다
         for snippet in ('getJson("data/lp.json")', '<script src="lp.js"></script>',
                         '<section id="lp-ref" class="lp-ref" hidden aria-labelledby="lp-ref-title"></section>',
@@ -149,13 +149,14 @@ class PageTest(unittest.TestCase):
             self.assertIn(snippet, self.page, snippet)
         line = next(l for l in self.page.splitlines() if "window.LpCard.render(" in l)
         self.assertRegex(line, r"^\s*try \{ if \(isObj\(lp\) && window\.LpCard\) available\.lp = window\.LpCard\.render\(lp\.value\) === true; \}$")
-        # 규칙 목록(#rules · #empty-rules) 뒤, 같은 절(#rules-wrap) 안 — 규칙 상태 고르기와 그 목록 사이에 끼지 않는다
-        wrap = self.page[self.page.index('<section id="rules-wrap"'):]
+        # '주제별 점검' 절(#rules-wrap) 바로 앞, 그 절 밖 — 규칙 상태 고르기와 규칙 목록 사이에 끼지 않고, 13개 규칙 뒤로 묻히지도 않는다
+        start = self.page.index('<section id="rules-wrap"')
+        wrap = self.page[start:]
         wrap = wrap[:wrap.index('</section>\n\n')]
-        self.assertLess(wrap.index('<p id="empty-rules"'), wrap.index('<section id="lp-ref"'))
-        self.assertLess(wrap.index('<div class="rule-toolbar">'), wrap.index('<div id="rules">'))
-        between = wrap[wrap.index('<div class="rule-toolbar">'):wrap.index('<div id="rules">')]
-        self.assertNotIn('id="lp-ref"', between)
+        self.assertNotIn('id="lp-ref"', wrap)
+        before = self.page[:start].rstrip()
+        self.assertTrue(before.endswith('<section id="lp-ref" class="lp-ref" hidden aria-labelledby="lp-ref-title"></section>'), before[-200:])
+        self.assertLess(self.page.index('<p id="ledger-empty"'), self.page.index('<section id="lp-ref"'))
         self.assertEqual(self.page.count('id="lp-ref"'), 1)
         # 스크립트는 다른 카드 스크립트와 함께, 인라인 스크립트 앞
         self.assertLess(self.page.index('<script src="ledger.js">'), self.page.index('<script src="lp.js">'))

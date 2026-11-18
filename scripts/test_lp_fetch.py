@@ -1050,8 +1050,8 @@ class MainTest(unittest.TestCase):
             with open(ff.cache_path(self.reuse, sid), "w", encoding="utf-8") as f:
                 f.write(text)
             os.utime(ff.cache_path(self.reuse, sid), (NOW.timestamp(), NOW.timestamp()))
-        self.assertTrue(math.isnan(dict(ff.parse_csv(open(ff.cache_path(self.reuse, "LNS12300060"), encoding="utf-8").read()))
-                                   [D(2026, 9, 1)]))                                       # 거르지 않으면 NaN이 들어온다
+        with open(ff.cache_path(self.reuse, "LNS12300060"), encoding="utf-8") as f:
+            self.assertTrue(math.isnan(dict(ff.parse_csv(f.read()))[D(2026, 9, 1)]))     # 거르지 않으면 NaN이 들어온다
         code, out = self.run_main(FakeFred({}))
         self.assertEqual(code, 0, out)
         with open(os.path.join(self.out, lp.FILE), encoding="utf-8") as f:
