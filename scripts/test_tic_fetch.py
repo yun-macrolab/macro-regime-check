@@ -89,8 +89,10 @@ def hist_value(m):
             "China, Mainland": 11000 - 20 * k, "Korea, South": 400 + 5 * k, "Belgium": 2000 + k}
 
 
-def hist_text(years=range(2025, 2008, -1), value=hist_value, eol="\r\n", skip=(), date="9/16/2026"):
-    """과거 표의 글자 — 해마다 한 덩어리(2011과 그 앞은 'Jun'이 두 번인 13열), 따옴표 이름, 주석 표시 이름, 앞 빈칸 합계 줄."""
+def hist_text(years=range(2025, 2008, -1), value=hist_value, eol="\r\n", skip=(), date="9/16/2026",
+              revised=("2025 revised July 14, 2026", "2024 revised September 16, 2026")):
+    """과거 표의 글자 — 해마다 한 덩어리(2011과 그 앞은 'Jun'이 두 번인 13열), 따옴표 이름, 주석 표시 이름, 앞 빈칸 합계 줄,
+    날짜 줄과 그 뒤의 해마다 개정일 줄(실제 파일처럼 따옴표 — 파일 날짜는 2024년 개정일이고 2025년 덩어리는 7월 판)."""
     out = ["\t\t\tMAJOR FOREIGN HOLDERS OF TREASURY SECURITIES", "\t\t\t\t    (in billions of dollars)", ""]
     for y in years:
         if y in skip:
@@ -118,7 +120,7 @@ def hist_text(years=range(2025, 2008, -1), value=hist_value, eol="\r\n", skip=()
         out.append(row("  For. Official" if y <= 2022 else "For. Official", "official"))
         out.append("    Treasury Bills\t" + "\t".join("1.0" for _ in cols))
         out.append("    T-Bonds & Notes\t" + "\t".join("1.0" for _ in cols))
-    out += ["", "", "Department of the Treasury/Federal Reserve Board", date, '"(2025 revised July 14, 2026)"', "",
+    out += ["", "", "Department of the Treasury/Federal Reserve Board", date, *[f'"({x})"' for x in revised], "",
             "*     Less than $50 million.", "17/   Denotes series break."]
     return eol.join(out) + eol
 
@@ -276,6 +278,29 @@ class ParseTableTest(unittest.TestCase):
         self.fails(table_text().replace("Japan\t1200.0", "Japan\t1.2e3"))
         self.assertIn("빈 칸은 어디서나 실패", tf.__doc__)                    # 머리말이 코드와 같은 규칙을 적는다
 
+    def test_a_named_row_with_every_cell_blank_fails_but_label_rows_pass(self):
+        """2차 검토: 칸이 모두 빈 나라 줄을 라벨 줄로 보고 빼면 순위가 밀리고('한국은 표에 없음'도 거짓이 된다), 합계 뒤의 빈 단기채
+        줄이 표를 끝내 이표채 줄까지 잃었다 — 이제 나라·합계 줄은 칸이 모두 비어도 실패한다."""
+        def blank(text, label):
+            rows = text.split("\r\n")
+            i = next(i for i, r in enumerate(rows) if r.split("\t")[0] == label)
+            rows[i] = label + "\t" * 13
+            return "\r\n".join(rows)
+        for label in ("Japan", "Korea, South", "United Arab Emirates", "All Other", "Grand Total", "Of Which: Foreign Official",
+                      "Of Which: Foreign Official Treasury Bills", "Of Which: Foreign Official T-Bonds & Notes"):
+            self.fails(blank(table_text(), label))
+        want = tf.parse_table(table_text(), TODAY)
+        # 라벨 줄('Of which:')은 표 안 어디서나 넘기고, 합계 뒤의 글 줄은 표 끝 — 숫자는 그대로
+        text = table_text().replace("Grand Total\t", "Of which:" + "\t" * 13 + "\r\nGrand Total\t")
+        self.assertEqual(tf.parse_table(text, TODAY), want)
+        text = table_text().replace("Of Which: Foreign Official\t", "Of which:" + "\t" * 13 + "\r\nOf Which: Foreign Official\t", 1)
+        self.assertEqual(tf.parse_table(text, TODAY), want)
+        for line in ("Source: U.S. Department of the Treasury", "Totals may not add due to rounding."):
+            text = table_text().replace("\r\n\t", "\r\n" + line + "\t" * 13 + "\r\n\t", 1)
+            self.assertEqual(tf.parse_table(text, TODAY), want, line)
+        self.fails(table_text().replace("Bermuda\t", "Rest of World" + "\t" * 13 + "\r\nBermuda\t"))   # 표 안의 빈 '나머지' 줄
+        self.assertIn("칸이 모두 비어도 실패", tf.parse_table.__doc__)
+
     def test_out_of_range_values_fail_as_range(self):
         t = table_rows()
         t2 = {**t, "grand": [g * 1000 for g in t["grand"]]}                  # 백만 달러로 읽힌 것
@@ -315,6 +340,16 @@ class ParseHistoryTest(unittest.TestCase):
             self.assertEqual(h["months"][m]["official"], v["official"] / 10)      # 앞 빈칸이 붙은 'For. Official'
             self.assertEqual(h["months"][m]["countries"]["China, Mainland"], v["China, Mainland"] / 10)   # 따옴표 이름
             self.assertEqual(h["months"][m]["countries"]["Korea, South"], v["Korea, South"] / 10)
+
+    def test_revision_lines_give_a_date_per_year(self):
+        """날짜 줄 뒤의 '(YYYY revised Month D, YYYY)' — 파일 날짜는 어느 해든 마지막으로 고친 날이라 해마다 따로 읽는다(2차 검토)."""
+        h = tf.parse_history(hist_text())
+        self.assertEqual(h["revised"], {"2025": "2026-07-14", "2024": "2026-09-16"})
+        odd = hist_text(revised=("2025 revised Sept. 3, 2026", "2023 revised Foo 1, 2026", "2022 revised February 30, 2026",
+                                 "2021 revised March 1, 2025", "2021 revised March 9, 2025"))
+        self.assertEqual(tf.parse_history(odd)["revised"], {"2025": "2026-09-03", "2021": "2025-03-09"})   # 읽을 수 없는 줄만 넘긴다
+        self.assertEqual(tf.parse_history(hist_text(revised=()))["revised"], {})
+        self.assertEqual(tf.parse_history(odd)["months"], h["months"])
 
     def test_footnote_marked_rows_are_a_different_definition(self):
         h = tf.parse_history(hist_text())
@@ -545,13 +580,24 @@ class ChartTest(unittest.TestCase):
         t2 = table_rows(m0="2026-11")
         _, _, d2 = run(self.out, Route(table=table_text(t2)), now=datetime.datetime(2027, 1, 19, tzinfo=datetime.timezone.utc))
         self.assertEqual((g(d2, "2025-09"), g(d2, "2025-10")), (first["grand"][12] / 10, t1["grand"][12] / 10))
-        # 그보다 새 과거 표(2027-01-20) — 과거 표가 이기고 그 달들의 받은 날을 지운다
-        _, _, d3 = run(self.out, Route(table=table_text(t2), hist=hist_text(date="1/20/2027")),
+        # 다른 해(2023)만 고쳐 파일 날짜만 새로운 과거 표(2027-01-20) — 2025년 덩어리는 여전히 7월 판이라 표 5의 값이 남는다
+        # (2026-11-19 2차 검토 — 전엔 파일 날짜 하나로 견줘 과거 표가 이겼다. 실제 파일의 2026년 개정도 이 꼴이었다)
+        redated = hist_text(date="1/20/2027", revised=("2025 revised July 14, 2026", "2023 revised January 20, 2027"))
+        _, _, d3 = run(self.out, Route(table=table_text(t2), hist=redated),
                        now=datetime.datetime(2027, 1, 21, tzinfo=datetime.timezone.utc))
-        self.assertEqual((g(d3, "2025-09"), g(d3, "2025-10")),
+        self.assertEqual((g(d3, "2025-09"), g(d3, "2025-10")), (first["grand"][12] / 10, t1["grand"][12] / 10))
+        self.assertEqual(d3["table_asof"]["grand"]["2025-09"], "2026-11-19")
+        self.assertEqual((d3["history"]["file_date"], d3["history"]["year_asof"]["2025"], d3["history"]["year_asof"]["2023"]),
+                         ("2027-01-20", "2026-07-14", "2027-01-20"))
+        self.assertEqual(d3["history"]["year_asof"]["2024"], "2026-09-16")      # 개정 줄이 없어진 해는 직전 파일이 적은 날짜
+        # 2025년 덩어리를 고친 과거 표(2027-01-22) — 그 해의 개정일이 표 5를 받은 날보다 뒤라 과거 표가 이기고 받은 날을 지운다
+        fixed = hist_text(date="1/22/2027", revised=("2025 revised January 22, 2027",))
+        _, _, d4 = run(self.out, Route(table=table_text(t2), hist=fixed),
+                       now=datetime.datetime(2027, 1, 23, tzinfo=datetime.timezone.utc))
+        self.assertEqual((g(d4, "2025-09"), g(d4, "2025-10")),
                          (hist_value("2025-09")["grand"] / 10, hist_value("2025-10")["grand"] / 10))
-        self.assertNotIn("2025-09", d3["table_asof"]["grand"])
-        self.assertEqual(g(d3, "2025-11"), t2["grand"][12] / 10)                  # 지금 표 5의 달은 늘 표 5
+        self.assertNotIn("2025-09", d4["table_asof"]["grand"])
+        self.assertEqual(g(d4, "2025-11"), t2["grand"][12] / 10)                  # 지금 표 5의 달은 늘 표 5
 
     def test_an_older_previous_file_without_table_asof_still_keeps_its_table5_months(self):
         """table_asof가 없던 파일(2026-11-19 첫 판)을 직전 파일로 두어도 그 원표의 달은 그 원표를 받은 날로 본다."""
@@ -568,6 +614,37 @@ class ChartTest(unittest.TestCase):
         # 꼴이 어긋난 table_asof 칸은 버린다(날짜·달 꼴이 아니면 그 칸만)
         d1["table_asof"] = {"grand": {"2025-09": "어제", "x": "2026-11-19"}, "official": "x", "7": {"2025-08": "2026-11-19"}}
         self.assertEqual(tf.prev_asof(d1, None), {"7": {"2025-08": "2026-11-19"}})
+
+    def test_a_year_block_without_a_revision_line_keeps_the_date_it_was_first_seen(self):
+        """2차 검토: 개정 줄이 없는 해(새로 붙은 해 등)는 그 덩어리를 처음 본 파일의 날짜로 — 다른 해를 고쳐 파일 날짜만 바뀌어도
+        그 해를 새 판으로 치지 않는다. 처음 보는 해는 파일 날짜(그보다 먼저 받은 표 5의 값은 과거 표가 덮는다)."""
+        g = lambda d, m: dict(d["chart"]["lines"][0]["points"])[tf.month_end(m)]
+        first = table_rows()
+        _, _, d0 = run(self.out, Route(hist=hist_text(revised=())))
+        self.assertEqual(d0["history"]["year_asof"]["2025"], "2026-09-16")      # 개정 줄 없음 — 파일 날짜
+        t1 = table_rows(m0="2026-10")
+        _, _, d1 = run(self.out, Route(table=table_text(t1), hist=hist_text(revised=())),
+                       now=datetime.datetime(2026, 12, 18, tzinfo=datetime.timezone.utc))
+        self.assertEqual(g(d1, "2025-09"), first["grand"][12] / 10)
+        redated = hist_text(date="1/20/2027", revised=("2023 revised January 20, 2027",))
+        later = datetime.datetime(2027, 1, 21, tzinfo=datetime.timezone.utc)
+        _, _, d2 = run(self.out, Route(table=table_text(t1), hist=redated), now=later)
+        self.assertEqual(d2["history"]["year_asof"]["2025"], "2026-09-16")      # 처음 본 날짜를 이어 온다
+        self.assertEqual(g(d2, "2025-09"), first["grand"][12] / 10)
+        self.assertEqual(d2["table_asof"]["grand"]["2025-09"], "2026-11-19")
+        # 직전 파일에 그 해의 날짜가 없으면(처음 보는 해) 파일 날짜 — 그보다 먼저 받은 표 5의 값은 과거 표가 덮는다
+        path = os.path.join(self.out, tf.FILE)
+        d1["history"].pop("year_asof", None)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(d1, f, ensure_ascii=False)
+        _, _, d3 = run(self.out, Route(table=table_text(t1), hist=redated), now=later)
+        self.assertEqual(d3["history"]["year_asof"]["2025"], "2027-01-20")
+        self.assertEqual(g(d3, "2025-09"), hist_value("2025-09")["grand"] / 10)
+        # 파일 날짜보다 뒤의 개정일·직전 날짜는 쓰지 않는다
+        h = tf.parse_history(hist_text(revised=("2025 revised December 1, 2026",)))
+        self.assertEqual(tf.year_asof(h, {"2024": "2026-12-01"}, TODAY)["2025"], "2026-09-16")
+        self.assertEqual(tf.year_asof(h, {"2024": "2026-12-01"}, TODAY)["2024"], "2026-09-16")
+        self.assertEqual(tf.year_asof(h, {"2024": "2026-01-02"}, TODAY)["2024"], "2026-01-02")
 
 
 # ---------- 실패 · 이어 싣기 ----------
@@ -610,7 +687,10 @@ class FailureTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertTrue(d["ok"])
         self.assertEqual(d["history"], {"ok": False, "stale": True, "error": "형식이 다름(표를 읽지 못함)",
-                                        "failed_since": "2026-11-20", "file_date": "2026-09-16", "last_month": "2025-12"})
+                                        "failed_since": "2026-11-20", "file_date": "2026-09-16", "last_month": "2025-12",
+                                        "year_asof": before["history"]["year_asof"]})
+        self.assertEqual(before["history"]["year_asof"],
+                         {**{str(y): "2026-09-16" for y in range(2011, 2025)}, "2025": "2026-07-14"})
         self.assertEqual(d["chart"], before["chart"])
         self.assertEqual(d["chart_countries"], before["chart_countries"])
         self.assertIn("::warning::TIC 과거 표 받지 못함: 형식이 다름(표를 읽지 못함) — 직전 그래프 점 유지", out)
@@ -620,6 +700,14 @@ class FailureTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual((d["history"]["ok"], d["history"]["stale"]), (False, False))
         self.assertEqual(len(d["chart"]["lines"][0]["points"]), 13)
+        # 덧줄은 그래프의 실제 첫 달로 — '2011년 12월 이후'나 영국 선의 덧줄을 붙이지 않는다(2차 검토)
+        late = tf.CHART_NOTE_LATE.format(y=2025, m=9)
+        self.assertTrue(late.startswith("2025년 9월 이후 · 월말"))
+        self.assertEqual([d[k]["note"] for k in ("chart", "chart_countries", "chart_korea")], [late, late, late])
+        # 과거 표가 2013년부터뿐이면 그 달로, 영국 선도 같은 달에 시작하므로 영국 덧줄 없음
+        _, _, d = run(tmpdir(self), Route(hist=hist_text(years=range(2025, 2012, -1))))
+        self.assertEqual(d["chart_countries"]["note"], tf.CHART_NOTE_LATE.format(y=2013, m=1))
+        self.assertNotIn(tf.UK_NOTE, d["chart_countries"]["note"])
 
     def test_both_fail_with_previous(self):
         before = self.first()
@@ -644,10 +732,36 @@ class FailureTest(unittest.TestCase):
                          (1, False, True, "받은 자료가 직전 자료보다 오래됨", "2026-09"))
 
     def test_a_history_older_than_the_previous_one_is_refused(self):
-        self.first()
+        before = self.first()
         code, _, d = run(self.out, Route(hist=hist_text(years=range(2024, 2008, -1))), now=NOW + datetime.timedelta(days=1))
         self.assertEqual((code, d["history"]["ok"], d["history"]["error"]), (0, False, "받은 자료가 직전 자료보다 오래됨"))
         self.assertEqual(d["history"]["last_month"], "2025-12")
+        # 마지막 달이 같아도 파일 날짜가 앞이면 옛 사본 — 그래프를 옛 개정치로 되돌리지 않는다(2차 검토)
+        stale = hist_text(date="7/14/2026", revised=("2025 revised July 14, 2026",),
+                          value=lambda m: {**hist_value(m), "grand": hist_value(m)["grand"] - 250})
+        code, out, d = run(self.out, Route(hist=stale), now=NOW + datetime.timedelta(days=2))
+        self.assertEqual((code, d["history"]["ok"], d["history"]["error"], d["history"]["file_date"]),
+                         (0, False, "받은 자료가 직전 자료보다 오래됨", "2026-09-16"))
+        self.assertEqual(d["chart"], before["chart"])
+        self.assertEqual(d["history"]["year_asof"], before["history"]["year_asof"])     # 직전 해마다 날짜를 잃지 않는다
+        self.assertIn("::warning::TIC 과거 표 받지 못함: 받은 자료가 직전 자료보다 오래됨", out)
+        # 같은 날짜면 받는다(같은 파일)
+        code, _, d = run(self.out, now=NOW + datetime.timedelta(days=3))
+        self.assertEqual((code, d["history"]["ok"]), (0, True))
+
+    def test_a_history_dated_after_today_is_a_format_error_and_a_bad_previous_date_does_not_lock(self):
+        self.first()
+        code, _, d = run(self.out, Route(hist=hist_text(date="12/1/2026")), now=NOW + datetime.timedelta(days=1))
+        self.assertEqual((code, d["history"]["ok"], d["history"]["error"]), (0, False, "형식이 다름(표를 읽지 못함)"))
+        # 직전 파일의 파일 날짜가 오늘 뒤로 깨져 있어도 뒤의 과거 표를 모두 'older'로 막지 않는다
+        path = os.path.join(self.out, tf.FILE)
+        prev = load_json(path)
+        prev["history"].update(file_date="2099-01-01", year_asof={"2025": "2099-01-01", "x": "2026-01-01"})
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(prev, f, ensure_ascii=False)
+        code, _, d = run(self.out, now=NOW + datetime.timedelta(days=2))
+        self.assertEqual((code, d["history"]["ok"], d["history"]["file_date"]), (0, True, "2026-09-16"))
+        self.assertEqual(d["history"]["year_asof"]["2025"], "2026-07-14")
 
     def test_a_revised_table_for_the_same_month_is_taken(self):
         self.first()
@@ -841,11 +955,17 @@ class TextTest(unittest.TestCase):
         today = datetime.date.fromisoformat(prev["retrieved"])
         now = datetime.datetime.combine(today, datetime.time(1), datetime.timezone.utc)
         d = tf.build(tf.TicError("fetch"), tf.TicError("fetch"), prev, now)
-        # 숫자만 견준다 — 문구(lines·line·notices)는 코드를 고치면 다음 실행에서 바뀌므로 저장된 글과 묶지 않는다
-        nums = lambda rows: [{k: v for k, v in r.items() if k != "line"} for r in rows]
-        self.assertEqual((d["month"], d["totals"], d["table"], d["checks"]["sum_gap_bn"]),
-                         (prev["month"], prev["totals"], prev["table"], prev["checks"]["sum_gap_bn"]))
+        # 숫자만 견준다 — 문구(lines·line·notices)와 이름(합계의 name · 나라의 name_ko)은 코드를 고치면 다음 실행에서 바뀌므로 저장된
+        # 글과 묶지 않는다(2차 검토 — 전엔 이름까지 견줘, 나라 한국어 이름만 고친 커밋이 아침 점검을 막아 tic.json을 다시 만들 단계까지
+        # 가지 못했다)
+        nums = lambda rows: [{k: v for k, v in r.items() if k not in ("line", "name_ko", "name")} for r in rows]
+        tot = lambda t: {k: ({kk: vv for kk, vv in v.items() if kk != "name"} if isinstance(v, dict) else v) for k, v in t.items()}
+        self.assertEqual((d["month"], tot(d["totals"]), d["table"], d["checks"]["sum_gap_bn"]),
+                         (prev["month"], tot(prev["totals"]), prev["table"], prev["checks"]["sum_gap_bn"]))
         self.assertEqual(nums(d["countries"]), nums(prev["countries"]))
+        with mock.patch.dict(tf.NAME_KO, {"Japan": "일본국"}), mock.patch.dict(tf.TOTAL_NAME, {"grand": "해외 보유 전체"}):
+            e = tf.build(tf.TicError("fetch"), tf.TicError("fetch"), prev, now)
+        self.assertEqual((tot(e["totals"]), nums(e["countries"])), (tot(prev["totals"]), nums(prev["countries"])))
         for k in ("chart", "chart_countries", "chart_korea"):
             self.assertEqual([x["points"] for x in d[k]["lines"]], [x["points"] for x in prev[k]["lines"]], k)
 
@@ -893,6 +1013,22 @@ class RealFilesTest(unittest.TestCase):
             self.assertEqual((at["2025-09-30"], at["2025-10-31"], at["2025-12-31"]), (9238.2, 9231.3, 9270.5))
             uk = dict(d1["chart_countries"]["lines"][1]["points"])
             self.assertEqual(uk["2025-12-31"], 863.2)                         # 과거 표 863.1
+            # 2차 검토 재현: 다음 발표(2025-10도 빠짐)에 2023년만 고쳐 날짜가 1/15/2027로 바뀐 과거 표 — 2025년 덩어리는 여전히 7월
+            # 판이라(실제 파일의 9/16/2026도 2024년 개정일이다) 표 5의 값이 남는다. 전엔 9237.5 · 9230.5로 돌아갔다
+            text = self.read(tf.HIST_CACHE)
+            self.assertEqual(h["revised"]["2025"], "2026-07-14")
+            self.assertEqual(h["revised"]["2024"], h["file_date"])
+            redated = tf.parse_history(text.replace("9/16/2026", "1/15/2027", 1)
+                                       .replace("(2023 revised January 15, 2026)", "(2023 revised January 15, 2027)", 1))
+            self.assertEqual((redated["file_date"], redated["revised"]["2023"]), ("2027-01-15", "2027-01-15"))
+            again = {"months": ["2026-11"] + shifted["months"][:-1],
+                     "countries": [[n, [v[0]] + v[:-1]] for n, v in shifted["countries"]],
+                     **{k: [shifted[k][0]] + shifted[k][:-1] for k in ("other", "grand", "official", "official_bills",
+                                                                       "official_notes_bonds")}}
+            d2 = tf.build(again, redated, json.loads(json.dumps(d1)), datetime.datetime(2027, 1, 19, tzinfo=datetime.timezone.utc))
+            at = dict(d2["chart"]["lines"][0]["points"])
+            self.assertEqual((at["2025-09-30"], at["2025-10-31"]), (9238.2, 9231.3))
+            self.assertEqual(d2["table_asof"]["grand"]["2025-09"], "2026-11-19")
 
 
 

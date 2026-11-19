@@ -12,12 +12,15 @@
          주석 · SLT·BL2 양식으로 낸 추정치라는 주석). 매달 18일 무렵 두 달 전 월말 자료가 나온다(2026-09 자료는 2026-11-18).
   과거 표 HIST_URL — 해마다 한 덩어리(Dec … Jan 열), 2011년과 그 앞 덩어리는 'Jun'이 두 번인 13열(시리즈 구분), 이름은 따옴표가
          붙기도 하고("China, Mainland"), 합계 줄은 'Grand Total'·'For. Official'(옛 덩어리는 앞에 빈칸), 숫자는 1200 또는 1200.0.
-         주석 17/: 2011년 12월부터 모든 달이 월간 SLT 기준이다 — 그 앞은 집계 방식이 달라(시리즈 구분) 쓰지 않고 그래프도 잇지
-         않는다(FROM_MONTH). 이름 끝에 주석 표시가 붙은 나라 줄은 나라 그래프에 쓰지 않는다(표시의 뜻을 하나하나 가리지 않는 보수적
-         규칙). 그래서 영국 선은 2012-01부터다 — 2011년 덩어리의 영국 줄만 'United Kingdom 2/'(주석 2/: 채널 제도·맨섬을 함께 묶은
-         줄, 그 묶음은 2016년 2월 자료 뒤에 끝났다)이고 2012년부터의 덩어리는 표시 없는 'United Kingdom'이다. 표시 없는 2012~2016년
+         주석 17/: 2011년 12월부터 모든 달의 이표채 보유가 월간 SLT 보고 기준이다(단기채는 그 주석 밖 — 표 5 주석으로는 BL2 보고로
+         추정) — 그 앞은 이표채 집계 방식이 달라(시리즈 구분) 쓰지 않고 그래프도 잇지 않는다(FROM_MONTH). 이름 끝에 주석 표시가
+         붙은 나라 줄은 나라 그래프에 쓰지 않는다(표시의 뜻을 하나하나 가리지 않는 보수적 규칙). 그래서 영국 선은 2012-01부터다
+         — 2011년 덩어리의 영국 줄만 'United Kingdom 2/'(주석 2/: 채널 제도·맨섬을 함께 묶은 줄, 그 묶음은 2016년 2월 자료 뒤에
+         끝났다)이고 2012년부터의 덩어리는 표시 없는 'United Kingdom'이다. 표시 없는 2012~2016년
          2월 값이 새 기준으로 다시 계산된 것인지는 파일에 적혀 있지 않다. 고쳐 나오는 때는 정해져 있지 않다(파일의 개정 기록: 2026년에만
-         1·7·9월 — 2026-11-19 받은 파일은 2026-09-16, 마지막 덩어리 2025년).
+         1·7·9월 — 2026-11-19 받은 파일은 2026-09-16, 마지막 덩어리 2025년). 파일 날짜는 어느 해든 마지막으로 고친 날일 뿐이다 —
+         날짜 줄 뒤의 '(2025 revised July 14, 2026)' 같은 줄이 해마다의 개정일이고(2026-09-16은 2024년 개정일, 2025년 덩어리는
+         7월 판), 그래프 잇기는 이 해마다의 날짜를 쓴다(아래 chart).
   옛 파일 mfh.txt는 2023년 1월에서 멈췄다 — 쓰지 않는다.
 
 계산(십억 달러, 표의 값 그대로 — 소수 첫째 자리):
@@ -30,12 +33,19 @@
   korea     한국 줄(같은 꼴) — 그 달 표에 없으면 null(상위 20개 밖, '그 밖'에 들어 있다)
   chart     해외 전체·해외 공적의 월말 값, 2011-12부터 마지막 달까지 — 직전 tic.json의 점 위에 과거 표, 그 위에 표 5를 덮는다
             (겹치는 달은 표 5가 이긴다 — 더 새 발표라 개정이 들어 있다). 표 5에서 빠진 달도 그 값이 전에 받은 표 5에서 온 것이고
-            (table_asof — 선마다 {달: 그 값을 담은 표 5를 받은 날}) 그 받은 날이 과거 표 파일의 날짜보다 뒤면 과거 표가 덮지 않는다
-            — 13개 달 창을 벗어난 달이 더 옛 개정치로 돌아가지 않게(2026-11-19 검토 반영). 과거 표가 그보다 새 파일이면 과거 표가
-            이기고 그 달의 table_asof는 지운다. 과거 표를 이번에 못 받았으면 직전 파일의 점을 그대로 두고, 과거 표의 마지막 달과
+            (table_asof — 선마다 {달: 그 값을 담은 표 5를 받은 날}) 그 받은 날이 과거 표에서 그 해 덩어리의 날짜(year_asof)보다
+            뒤면 과거 표가 덮지 않는다 — 13개 달 창을 벗어난 달이 더 옛 개정치로 돌아가지 않게(2026-11-19 검토 반영). 그 해
+            덩어리의 날짜는 그 해의 개정 줄('(YYYY revised …)'), 개정 줄이 없으면 그 덩어리를 처음 본 파일의 날짜(직전 tic.json의
+            history.year_asof에서 이어 온다 — 다른 해를 고쳐 파일 날짜만 바뀐 것으로 그 해를 새 판으로 보지 않게), 처음 보면 파일
+            날짜다(2026-11-19 2차 검토 반영 — 전엔 파일 날짜 하나로 견줘, 2024년만 고친 9/16/2026 파일이 7월 판인 2025년 덩어리까지
+            새 판으로 쳤다). 그 해의 개정 줄이 표 5를 받은 날보다 뒤면 과거 표가 이기고 그 달의 table_asof는 지운다. 표 5 쪽은
+            발표일이 아니라 받은 날이다(파일에 발표일이 없다) — 수신이 며칠 끊긴 사이 그 해가 고쳐 나오면 그 뒤에 받은 옛 발표의 표 5가
+            이길 수 있다. 과거 표를 이번에 못 받았으면 직전 파일의 점을 그대로 두고, 과거 표의 마지막 달과
             표 5의 첫 달 사이가 비면(과거 표는 정해진 때 없이 고쳐 나온다) 직전 파일의 점으로 채운다. 그래도 빈 달은 null(선이
-            끊긴다 — 없는 달을 곧은 선으로 잇지 않는다). 점의 날짜는 그 달 말일(월말 잔액)
-  chart_countries  일본·영국·중국 본토(같은 규칙, 그 나라 줄이 있는 달만 — 없는 달은 null)
+            끊긴다 — 없는 달을 곧은 선으로 잇지 않는다). 점의 날짜는 그 달 말일(월말 잔액). 덧줄(note)은 그래프의 첫 달이 2011-12일
+            때만 '2011년 12월 이후 …', 더 늦게 시작하면(과거 표도 직전 점도 없을 때) 그 첫 달로 적는다
+  chart_countries  일본·영국·중국 본토(같은 규칙, 그 나라 줄이 있는 달만 — 없는 달은 null). 영국 선이 2012-01부터이고 다른 선이
+                   2011-12부터일 때만 덧줄에 그 까닭(UK_NOTE)
   chart_korea      한국(같은 규칙) — 화면이 쓸지 정한다(값의 크기가 달라 위 그래프와 따로 둔다)
   checks    표 5의 나라 20줄 + '그 밖'의 합 − 전체(열마다, 반올림 오차 SUM_TOL 안이면 맞음)와 공적 = 단기채 + 이표채(PARTS_TOL).
             어긋나도 숫자를 지어내거나 고치지 않는다 — 표 그대로 싣고 note에 적는다(아래 '닫힌 쪽으로 실패하는 것'과 다르다:
@@ -44,10 +54,14 @@
 닫힌 쪽으로 실패하는 것(그 파일을 싣지 않고 직전 값을 '받지 못함'으로 이어 싣는다): 머리 줄('Country' 뒤 YYYY-MM 달들)이 없음,
   달이 한 달씩 이어지지 않음, 'All Other'·'Grand Total'·'Of Which: Foreign Official'이 없음(그 밖 줄이 이름만 바뀌면 나라 1위로
   읽혀 순위가 모두 밀리므로 — 2026-11-19 검토 반영), 이름에 other·others·total·rest·remainder 낱말이 든 나라 줄, 숫자가 아닌 칸
-  (빈 칸은 어디서나 실패, '*'만 나라 칸에서 허용 — '5천만 달러 미만'이라 값 없음으로), 범위 밖의 값(전체 GRAND_BN, 공적
+  (빈 칸은 어디서나 실패 — 나라·합계 줄은 칸이 모두 비어도 실패하고, 칸이 모두 빈 줄은 'Of which:' 같은 라벨 줄과 주석('Notes')·
+  합계 뒤의 글 줄만 넘긴다(2026-11-19 2차 검토 반영 — 전엔 칸이 모두 빈 나라 줄을 라벨로 보고 빼 순위가 밀렸다), '*'만 나라 칸에서
+  허용 — '5천만 달러 미만'이라 값 없음으로), 범위 밖의 값(전체 GRAND_BN, 공적
   OFFICIAL_BN이면서 전체 이하, 나라 ROW_BN), 같은 이름 두 번, 나라 줄이 COUNTRY_ROWS 밖, 마지막 달이 오늘 달보다 뒤, 마지막
   달이 직전 tic.json보다 앞(older). 단기채·이표채 줄은 없어도 읽는다(그 칸만 비운다). 과거 표는 2011-12 뒤의 달마다
-  전체·공적이 있고 범위 안이며 달이 이어져야 한다(아니면 과거 표만 실패 — 직전 그래프 점으로 대신하고 표 5 숫자는 싣는다).
+  전체·공적이 있고 범위 안이며 달이 이어져야 하고, 마지막 달이나 파일 날짜가 직전 tic.json보다 앞이면(older — 옛 사본이 그래프를
+  옛 개정치로 되돌리지 않게, 2026-11-19 2차 검토 반영) 받지 않으며, 파일 날짜가 오늘 뒤면 형식 오류다(아니면 과거 표만 실패 —
+  직전 그래프 점으로 대신하고 표 5 숫자는 싣는다).
 
 실패·이어 싣기(supply_fetch와 같은 원칙): 표 5를 못 받으면 직전 tic.json의 원표(table — 표 5를 읽은 그대로, 다시 계산의 원천)를
   '받지 못함(stale)'과 못 받기 시작한 날(failed_since)과 함께 다시 계산해 싣는다(직전 값이 없으면 사유만). 직전 파일이 깨졌거나 꼴이
@@ -99,7 +113,7 @@ TIMEOUT = 20                   # 요청 하나엔 min(이것, 남은 예산) —
 MIN_LEFT = 1                   # 남은 예산이 이보다 적으면 요청하지 않는다
 MAX_BYTES = 2_000_000          # 응답 하나(2026-11-19: 표 5 약 4KB, 과거 표 약 100KB)
 CHUNK = 65536
-FROM_MONTH = "2011-12"         # 과거 표 주석 17/ — 이달부터 모든 달이 월간 SLT 기준(그 앞은 시리즈 구분)
+FROM_MONTH = "2011-12"         # 과거 표 주석 17/ — 이달부터 모든 달의 이표채 보유가 월간 SLT 보고 기준(그 앞은 시리즈 구분)
 GRAND_BN = (1000.0, 30000.0)   # 해외 전체의 그럴듯한 범위(십억 달러) — 밖이면 단위·열을 잘못 읽은 것으로 본다
 OFFICIAL_BN = (100.0, 20000.0)
 ROW_BN = (0.0, 5000.0)         # 나라 한 줄·공적 단기채·이표채
@@ -114,6 +128,8 @@ CHART_COUNTRIES = ("Japan", "United Kingdom", "China, Mainland")
 MONTH_RE = re.compile(r"\d{4}-(0[1-9]|1[0-2])")
 MONTH_ABBR = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
 FOOTNOTE = re.compile(r"\s+\d{1,2}/$")         # 이름 끝의 주석 표시('United Kingdom 2/', 'Belgium  5/')
+# 과거 표 날짜 줄 뒤의 해마다 개정일 줄 — '(2025 revised July 14, 2026)'(따옴표는 _cells가 뗀다)
+REVISED = re.compile(r"\((\d{4}) revised ([A-Za-z]{3,9})\.? (\d{1,2}), (\d{4})\)", re.I)
 # 나라 줄로 받지 않는 이름 — 합계·나머지 줄이 이름만 바뀐 것('All Others', 'Other Countries', 'Rest of World')을 나라로 읽지 않게
 NOT_COUNTRY = re.compile(r"\b(?:others?|totals?|rest|remainder)\b", re.I)
 
@@ -176,6 +192,9 @@ VS_CUSTODY_NOTE = ("TIC의 '해외 공적'은 미국 안의 보관 기관·브�
                    "두 숫자를 같은 양으로 보지 않는다.")
 RELEASE_NOTE = "매달 18일 무렵 두 달 전 월말 자료"
 CHART_NOTE = "2011년 12월 이후 · 월말 · 십억 달러 — 그 앞은 집계 방식이 달라(시리즈 구분) 잇지 않는다"
+# 그래프가 2011-12보다 늦게 시작할 때(과거 표도 직전 점도 없을 때) — 그 첫 달로 적는다(2026-11-19 2차 검토 반영)
+CHART_NOTE_LATE = ("{y}년 {m}월 이후 · 월말 · 십억 달러 — 그 앞 달은 받아 둔 자료에 없어 싣지 않는다(2011년 12월 앞은 집계 방식이 "
+                   "달라 잇지 않는다)")
 # 나라 그래프에만 덧붙인다 — 영국 선이 한 달 늦게 시작하는 까닭(과거 표의 주석 표시 줄은 쓰지 않는다)
 UK_NOTE = ("영국 선은 2012년 1월부터 — 과거 표의 2011년 영국 줄에는 채널 제도·맨섬을 함께 묶은 줄이라는 주석 표시(2/)가 붙어 있어 "
            "쓰지 않는다(2012년부터의 영국 줄에는 표시가 없다)")
@@ -433,7 +452,8 @@ def check_table(t, today):
 def parse_table(text, today):
     """표 5의 글자 → 원표 {months(새 달부터), countries [[이름, 값…]…](표의 차례), other, grand, official, official_bills,
     official_notes_bonds}. 꼴이 어긋나면 TicError — 닫힌 쪽으로('All Other'·'Grand Total'·'Of Which: Foreign Official'은 꼭 있어야
-    하고, 빈 칸은 어느 줄에서나 실패, '*'는 나라 칸만)."""
+    하고, 빈 칸은 어느 줄에서나 실패 — 나라·합계 줄은 칸이 모두 비어도 실패, '*'는 나라 칸만). 칸이 모두 빈 줄은 라벨 줄('Of which:')과
+    주석('Notes')·합계 뒤의 글 줄만 넘긴다."""
     rows = _rows(text)
     hdr = None
     for i, r in enumerate(rows):
@@ -455,12 +475,18 @@ def parse_table(text, today):
         if not name and set("".join(raw)) <= set("- "):
             continue                                  # 빈 줄 · 줄긋기('------')
         vals = [_val(c) for c in raw]
-        if all(v == "" for v in vals):
-            if t["grand"] is not None or name.lower().startswith("notes"):
-                break                                 # 합계 뒤의 라벨 줄 · 주석 — 표 끝
-            continue                                  # 표 안의 라벨 줄
         if name.lower().startswith("notes"):
-            break
+            break                                     # 주석 — 표 끝
+        if all(v == "" for v in vals):
+            # 칸이 모두 빈 줄 — 라벨 줄('Of which:')만 넘기고, 합계 뒤의 다른 글 줄은 표 끝(숫자가 있는 줄과 같은 규칙).
+            # 나라·합계 줄이면 실패(2026-11-19 2차 검토 반영 — 전엔 라벨로 보고 빼 순위가 밀리고, 합계 뒤의 빈 단기채 줄은 표를
+            # 끝내 이표채 줄까지 잃었다)
+            kind = row_kind(name)
+            if kind == "skip":
+                continue
+            if kind in (None, "bad") and (t["grand"] is not None or t["other"] is not None):
+                break                                 # 합계 뒤의 글 줄('Totals may not add …' 같은 것도) — 표 끝
+            raise TicError("format")
         if any(v is None or v == "" for v in vals):
             raise TicError("format")                  # 숫자가 아닌 칸·일부만 빈 줄
         kind = row_kind(name)
@@ -482,10 +508,23 @@ def parse_table(text, today):
     return check_table(t, today)
 
 
+def _revised(m):
+    """'(2025 revised July 14, 2026)'의 짝 → 'YYYY-MM-DD' 또는 None(달 이름·날짜가 어긋나면)."""
+    mon = m.group(2)[:3].lower()
+    if mon not in MONTH_ABBR:
+        return None
+    try:
+        return datetime.date(int(m.group(4)), MONTH_ABBR.index(mon) + 1, int(m.group(3))).isoformat()
+    except ValueError:
+        return None
+
+
 def parse_history(text):
-    """과거 표 → {"months": {YYYY-MM: {"grand", "official", "countries": {영어 이름: 값}}}, "file_date": "YYYY-MM-DD"|None}.
-    FROM_MONTH 앞 달·한 덩어리에 두 번 나온 달(시리즈 구분)·주석 표시가 붙은 나라 줄은 쓰지 않는다. 꼴이 어긋나면 TicError."""
-    months, file_date = {}, None
+    """과거 표 → {"months": {YYYY-MM: {"grand", "official", "countries": {영어 이름: 값}}}, "file_date": "YYYY-MM-DD"|None,
+    "revised": {"YYYY": "YYYY-MM-DD"}} — revised는 날짜 줄 뒤의 해마다 개정일 줄(파일 날짜는 어느 해든 마지막으로 고친 날이라
+    해마다 다르다). FROM_MONTH 앞 달·한 덩어리에 두 번 나온 달(시리즈 구분)·주석 표시가 붙은 나라 줄은 쓰지 않는다. 꼴이 어긋나면
+    TicError(개정일 줄은 읽을 수 없으면 그 줄만 넘긴다)."""
+    months, file_date, revised = {}, None, {}
     pending, cols = None, None
     for r in _rows(text):
         if not r:
@@ -519,6 +558,12 @@ def parse_history(text):
                 pass
             cols = None                               # 날짜 줄 뒤는 주석
             continue
+        rv = REVISED.fullmatch(r[0])
+        if rv:
+            d = _revised(rv)
+            if d is not None and d > revised.get(rv.group(1), ""):
+                revised[rv.group(1)] = d              # 같은 해가 두 번이면 늦은 날
+            continue
         if not cols or set(r[0]) <= set("- "):
             continue
         name, marked = clean_name(r[0])
@@ -546,7 +591,23 @@ def parse_history(text):
             raise TicError("range")
         if any(not _in(v, ROW_BN) for v in months[k]["countries"].values()):
             raise TicError("range")
-    return {"months": months, "file_date": file_date}
+    return {"months": months, "file_date": file_date, "revised": revised}
+
+
+def year_asof(hres, prev_years, today):
+    """과거 표의 해마다 덩어리의 날짜 {"YYYY": "YYYY-MM-DD"|None} — 그 해의 개정일 줄, 없으면 직전 tic.json이 적어 둔 그 해의 날짜
+    (그 덩어리를 처음 본 파일의 날짜 — 다른 해를 고쳐 파일 날짜만 바뀐 것으로 그 해를 새 판으로 보지 않게), 그것도 없으면 파일
+    날짜. 파일 날짜(없으면 오늘)보다 뒤의 날짜는 쓰지 않는다. merged가 표 5에서 온 점과 견주는 날짜다."""
+    fd = hres.get("file_date")
+    cap = fd or today.isoformat()
+    out = {}
+    for y in sorted({k[:4] for k in hres["months"]}):
+        d = hres.get("revised", {}).get(y)
+        if d is None or d > cap:
+            p = (prev_years or {}).get(y)
+            d = p if p is not None and p <= cap else fd
+        out[y] = d
+    return out
 
 
 # ---------- 계산 ----------
@@ -600,20 +661,21 @@ def checks_of(t):
             "note": " ".join(notes) or None}
 
 
-def merged(table_vals, months, hist, prev, field, asof=None, hist_date=None, retrieved=None):
+def merged(table_vals, months, hist, prev, field, asof=None, hist_asof=None, retrieved=None):
     """({YYYY-MM: 값}, {YYYY-MM: 받은 날}) — 직전 파일의 점 < 과거 표 < 표 5 차례로 덮는다. field는 'grand' · 'official' 또는 나라
-    영어 이름. asof는 직전 파일의 점 가운데 표 5에서 온 것의 받은 날(table_asof의 그 선) — 그 날이 과거 표 파일 날짜(hist_date)보다
-    뒤면(또는 과거 표에 날짜가 없으면) 과거 표가 그 점을 덮지 않는다(더 나중에 받은 표 5의 개정치). 과거 표가 덮은 달은 받은 날을
-    지우고, 표 5가 덮은 달은 retrieved로 적는다. 두 번째 값은 다음 파일의 table_asof가 된다."""
+    영어 이름. asof는 직전 파일의 점 가운데 표 5에서 온 것의 받은 날(table_asof의 그 선) — 그 날이 과거 표에서 그 달이 든 해
+    덩어리의 날짜(hist_asof — {"YYYY": 날짜|None}, year_asof)보다 뒤면(또는 그 해의 날짜를 모르면) 과거 표가 그 점을 덮지 않는다(더
+    나중에 받은 표 5의 개정치 — 파일 날짜 하나로 견주면 다른 해를 고친 파일이 그 해까지 새 판으로 친다). 과거 표가 덮은 달은 받은
+    날을 지우고, 표 5가 덮은 달은 retrieved로 적는다. 두 번째 값은 다음 파일의 table_asof가 된다."""
     out = {k: v for k, v in (prev or {}).items() if v is not None}
     when = {k: d for k, d in (asof or {}).items() if k in out}
     for k, e in (hist or {}).items():
         v = e.get(field) if field in ("grand", "official") else e["countries"].get(field)
         if v is None:
             continue
-        d = when.get(k)
-        if d is not None and (hist_date is None or d > hist_date):
-            continue                                  # 직전 파일의 점이 과거 표보다 나중에 받은 표 5의 값
+        d, hd = when.get(k), (hist_asof or {}).get(k[:4])
+        if d is not None and (hd is None or d > hd):
+            continue                                  # 직전 파일의 점이 과거 표의 그 해 덩어리보다 나중에 받은 표 5의 값
         out[k] = v
         when.pop(k, None)
     for k, v in zip(months, table_vals or []):
@@ -636,11 +698,21 @@ def _points(series, last):
     return out
 
 
+def _first(spec):
+    """그래프의 첫 달(선마다의 첫 점 가운데 가장 이른 달) 또는 None."""
+    starts = [x["points"][0][0][:7] for x in spec["lines"] if x["points"]]
+    return min(starts) if starts else None
+
+
 def _chart(key, title, lines, last):
-    return {"key": key, "title": title, "unit": "bn", "years": None, "zero": False, "threshold": None, "note": CHART_NOTE,
+    spec = {"key": key, "title": title, "unit": "bn", "years": None, "zero": False, "threshold": None, "note": CHART_NOTE,
             "source_note": CHART_SOURCE, "notices": [],
             "lines": [{"key": k, "label": label, "role": "series", "series": [series], "derived": False,
                        "points": _points(s, last)} for k, label, series, s in lines]}
+    first = _first(spec)
+    if first is not None and first > FROM_MONTH:              # 과거 표도 직전 점도 없어 늦게 시작한다 — 덧줄도 그 첫 달로
+        spec["note"] = CHART_NOTE_LATE.format(y=int(first[:4]), m=int(first[5:7]))
+    return spec
 
 
 def _total(name, level, prev, year_ago, share=None):
@@ -671,11 +743,14 @@ def present(t, hist, prev_pts, hist_meta, retrieved, prev_asof=None):
     m0 = months[0]
     p1, p12 = _prev_month(m0), _prev_month(m0, 12)
     prev_asof = prev_asof or {}
-    hist_date = (hist_meta or {}).get("file_date") if hist is not None else None
+    meta = hist_meta or {}
+    years = meta.get("year_asof") if isinstance(meta.get("year_asof"), dict) else {}
+    # 과거 표의 해마다 덩어리의 날짜 — year_asof가 없는 해는 파일 날짜로
+    hist_asof = {y: years.get(y, meta.get("file_date")) for y in {k[:4] for k in hist}} if hist is not None else None
     asof = {}
 
     def ser(vals, key, field):
-        out, when = merged(vals, months, hist, prev_pts.get(key), field, prev_asof.get(key), hist_date, retrieved)
+        out, when = merged(vals, months, hist, prev_pts.get(key), field, prev_asof.get(key), hist_asof, retrieved)
         keep = {k: d for k, d in when.items() if FROM_MONTH <= k <= m0}
         if keep:
             asof[key] = dict(sorted(keep.items()))
@@ -728,8 +803,9 @@ def present(t, hist, prev_pts, hist_meta, retrieved, prev_asof=None):
     chart_countries = _chart("tic_countries", "주요 보유 나라(월말)",
                              [(c, NAME_KO[c], c, ser(rows.get(c), c, c)) for c in CHART_COUNTRIES], m0)
     uk = next((x for x in chart_countries["lines"] if x["key"] == "United Kingdom"), None)
-    if uk and uk["points"] and uk["points"][0][0][:7] > FROM_MONTH:
-        chart_countries["note"] = CHART_NOTE + " · " + UK_NOTE     # 영국 선이 늦게 시작할 때만
+    # 영국 선만 2012-01부터이고 다른 선이 2011-12부터일 때만(과거 표의 2011년 영국 줄이 주석 표시 줄이라) — 모든 선이 늦게 시작하면 아니다
+    if uk and uk["points"] and uk["points"][0][0][:7] == _next_month(FROM_MONTH) and _first(chart_countries) == FROM_MONTH:
+        chart_countries["note"] = CHART_NOTE + " · " + UK_NOTE
     chart_korea = _chart("tic_korea", "한국 보유(월말)", [(KOREA, NAME_KO[KOREA], KOREA, ser(rows.get(KOREA), KOREA, KOREA))], m0)
     return {"month": m0, "month_end": month_end(m0), "prev_month": p1, "year_ago": p12, "retrieved": retrieved,
             "totals": totals, "countries": countries, "korea": korea, "lines": lines, "checks": checks_of(t),
@@ -823,14 +899,19 @@ def prev_asof(prev, old):
     return out
 
 
-def prev_hist_meta(prev):
+def prev_hist_meta(prev, today):
+    """직전 파일의 과거 표 정보 — 꼴이 어긋난 칸과 오늘 뒤의 날짜는 버린다(깨진 날짜가 뒤의 과거 표를 모두 'older'로 막지 않게)."""
     h = prev.get("history")
     if not isinstance(h, dict):
         return {}
-    return {"file_date": h["file_date"] if _is_day(h.get("file_date")) else None,
+    day = lambda v: v if _is_day(v) and v <= today.isoformat() else None
+    ya = h.get("year_asof")
+    return {"file_date": day(h.get("file_date")),
             "last_month": h["last_month"] if isinstance(h.get("last_month"), str) and MONTH_RE.fullmatch(h["last_month"])
             else None,
-            "failed_since": h["failed_since"] if _is_day(h.get("failed_since")) else None}
+            "failed_since": h["failed_since"] if _is_day(h.get("failed_since")) else None,
+            "year_asof": {y: day(d) for y, d in ya.items() if isinstance(y, str) and re.fullmatch(r"\d{4}", y)}
+            if isinstance(ya, dict) else {}}
 
 
 # ---------- 산출물 ----------
@@ -840,23 +921,26 @@ def build(tres, hres, prev, now):
     today = now.date()
     head = {"schema": SCHEMA, "generated_at": now.isoformat(timespec="seconds"), "notice": NOTICE}
     old = prev_table(prev, today)
-    pmeta = prev_hist_meta(prev)
+    pmeta = prev_hist_meta(prev, today)
     pts = prev_points(prev)
     when = prev_asof(prev, old)
 
     if not isinstance(hres, TicError):
-        last = max(hres["months"])
-        if pmeta.get("last_month") and last < pmeta["last_month"]:
-            hres = TicError("older")
+        last, fd, pfd = max(hres["months"]), hres.get("file_date"), pmeta.get("file_date")
+        if fd is not None and fd > today.isoformat():
+            hres = TicError("format")                 # 오늘 뒤의 파일 날짜 — 날짜 줄을 잘못 읽은 것
+        elif (pmeta.get("last_month") and last < pmeta["last_month"]) or (fd and pfd and fd < pfd):
+            hres = TicError("older")                  # 마지막 달이나 파일 날짜가 직전보다 앞 — 옛 사본(2026-11-19 2차 검토 반영)
     if isinstance(hres, TicError):
         hist = None
         hist_meta = {"ok": False, "stale": bool(pts.get("grand")), "error": REASONS[hres.code],
                      "failed_since": pmeta.get("failed_since") or today.isoformat(),
-                     "file_date": pmeta.get("file_date"), "last_month": pmeta.get("last_month")}
+                     "file_date": pmeta.get("file_date"), "last_month": pmeta.get("last_month"),
+                     "year_asof": pmeta.get("year_asof") or {}}
     else:
         hist = hres["months"]
-        hist_meta = {"ok": True, "stale": False, "error": None, "failed_since": None, "file_date": hres["file_date"],
-                     "last_month": max(hist)}
+        hist_meta = {"ok": True, "stale": False, "error": None, "failed_since": None, "file_date": hres.get("file_date"),
+                     "last_month": max(hist), "year_asof": year_asof(hres, pmeta.get("year_asof"), today)}
 
     table = None if isinstance(tres, TicError) else tres
     code = tres.code if isinstance(tres, TicError) else None

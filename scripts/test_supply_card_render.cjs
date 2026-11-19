@@ -1,5 +1,5 @@
 // 미 국채 수급 카드(site/supply.js, 2026-11-19 — 운영자 결정 '1번 카드로 꺼내고 TIC도 추가해') — 금리·커브 묶음의 참고 카드 한 장에
-// 주간(뉴욕 연은 — data/supply.json)과 월간(재무부 TIC — data/tic.json). index.html에서 el()·chartFigure()를 잘라 아주 작은 가짜 DOM 위에
+// 주간(뉴욕 연은 딜러 통계 · 연준 H.4.1 해외 공적 수탁 — data/supply.json)과 월간(재무부 TIC — data/tic.json). index.html에서 el()·chartFigure()를 잘라 아주 작은 가짜 DOM 위에
 // supply.js와 같은 맥락으로 싣고 render()를 돌려 글을 본다. 주간 부분의 쪽마다의 규칙(출처 표기·⚠ 줄·7~11년·경과일)은
 // test_supply_ktb_render.cjs가 본다. 이름은 재무부 표의 꼴이고, 숫자는 2026-09 말 표를 본떠 지어낸 것이다.
 // 실행: node --test scripts/test_supply_card_render.cjs
@@ -117,7 +117,11 @@ test('full card: one article, heading with the label, weekly part then monthly p
  assert.equal(h3.attrs.id,'supply-title');
  assert.equal(h3.textContent,'미 국채 수급 — 딜러 재고 · 해외 보유참고 — 예측 아님 · 판정에 쓰지 않음');
  assert.equal(cls(h3,'reference-label')[0].textContent,api.LABEL);
- assert.deepEqual(tags(card,'h4').map(h=>h.textContent),['주간 — 뉴욕 연은','월간 — 재무부 TIC']);
+ // 부분 머리는 숫자를 낸 곳 — 해외 공적 수탁은 뉴욕 연은이 보관하지만 숫자는 연준 이사회 H.4.1(FRED WMTSECL1)이다(2026-11-19 2차 검토)
+ assert.deepEqual(tags(card,'h4').map(h=>h.textContent),['주간 — 뉴욕 연은 · 연준 H.4.1','월간 — 재무부 TIC']);
+ assert.ok(api.ABOUT.includes('뉴욕 연은의 딜러 재고 · 연준 H.4.1의 해외 공적 수탁'),api.ABOUT);
+ assert.ok(!api.ABOUT.includes('뉴욕 연은 숫자'));
+ assert.ok(api.WEEKLY_GUIDE.find(g=>g[0]==='해외 공적 수탁')[1].includes('연준 이사회의 주간 H.4.1(FRED WMTSECL1)'));
  assert.deepEqual(tags(card,'section').map(s=>s.attrs['aria-labelledby']),['supply-weekly-title','supply-monthly-title']);
  const ls=lines(card);
  assert.ok(ls.includes('supply-num|433bn · 4주 +23 (2019년 이후 p5 -45 / p95 +52) · 52주 +54'),ls.join('\n'));
@@ -187,7 +191,9 @@ test('monthly totals: level, signed 1- and 12-month changes with thousands separ
  const small=tags(cls(m,'supply-name')[0],'small')[0];
  assert.deepEqual(cls(small,'nw').map(n=>n.textContent),['2026-09 말 기준','받은 날 2026-11-19']);
  assert.ok(lines(m).includes('supply-name|재무부 TIC 해외 보유 2026-09 말 기준 · 받은 날 2026-11-19'),lines(m).join('\n'));
- assert.ok(lines(m).includes('muted|1개월·12개월은 2026-08 말·2025-09 말 잔액과의 차(bn), 비중은 해외 전체 보유 대비입니다.'));
+ // 비중의 기준은 줄마다(공적 '해외 전체의' · 단기채 '공적의') — 이 한 줄은 나라 표의 비중만 말한다(2026-11-19 2차 검토)
+ assert.ok(lines(m).includes('muted|1개월·12개월은 2026-08 말·2025-09 말 잔액과의 차(bn)이고, 나라 표의 비중은 해외 전체 보유 대비입니다.'));
+ assert.ok(!m.textContent.includes('(bn), 비중은'));                          // 옛 꼴 — 모든 비중을 해외 전체 대비로 묶었다
  assert.ok(m.textContent.includes(api.MONTHLY_NOTE));
  assert.ok(!m.textContent.includes('JSON용 글'));                            // lines는 읽지 않는다
  // 자료 파일에 이름이 없으면 정해 둔 이름, 없는 합계 줄은 빼고, 비중 칸이 없으면 비중 없이
@@ -280,7 +286,9 @@ test('Korea inside the top 10 needs no gap row; Korea at 12 says "11위"; absent
  const none=tic({korea:null});none.countries=none.countries.filter(c=>c.name_en!=='Korea, South');
  t=load();t.api.render(supply(),none);
  assert.equal(cls(t.slot,'tic-korea').length,0);
- assert.ok(lines(t.slot).includes('muted|한국은 이번 달 재무부 표(상위 20곳)에 없습니다 — ‘그 밖’에 들어 있습니다.'));
+ // 머리에 '한국'을 적지 않고, 없다는 줄의 곳 수는 실제 표의 줄 수(2026-11-19 2차 검토 — 전엔 '상위 10곳과 한국'과 '상위 20곳'으로 고정)
+ assert.equal(tags(tags(t.slot,'table')[0],'caption')[0].textContent,'상위 10곳 — 2026-09 말');
+ assert.ok(lines(t.slot).includes('muted|한국은 이번 달 재무부 표(상위 19곳)에 없습니다 — ‘그 밖’에 들어 있습니다.'),lines(t.slot).join('\n'));
  assert.equal(tags(tags(tags(t.slot,'table')[0],'tbody')[0],'tr').length,10);
  // korea 칸이 없는 옛 꼴 — 나라 줄에서 재무부 표의 이름으로 찾는다
  const old=tic();delete old.korea;
@@ -438,7 +446,7 @@ test('stale and late marks: not received this run, and a data month older than t
  t=load();t.api.render(supply(),tic({retrieved:'어제',prev_month:'8월'}));
  const m=part(t.slot.kids[0],1);
  assert.equal(cls(m,'supply-name')[0].textContent,'재무부 TIC 해외 보유 2026-09 말 기준');
- assert.ok(lines(m).includes('muted|1개월·12개월은 한 달 전·1년 전 월말 잔액과의 차(bn), 비중은 해외 전체 보유 대비입니다.'));
+ assert.ok(lines(m).includes('muted|1개월·12개월은 한 달 전·1년 전 월말 잔액과의 차(bn)이고, 나라 표의 비중은 해외 전체 보유 대비입니다.'));
 });
 
 test('real charts.js: TIC end labels use the same integer bn as the totals line',()=>{
@@ -464,10 +472,12 @@ test('real charts.js: TIC end labels use the same integer bn as the totals line'
 
 test('the 10-year term premium guide no longer carries the supply numbers — one pointer line to the card',()=>{
  const src=[slice('function el(tag, attrs','const SVG_NS'),slice('const GUIDE = {','// 읽는 법의 흐름도 — 요인'),
-  slice('function guideDetails(g)','let activeView'),'({ GUIDE, guideDetails })'].join('\n');
+  slice('function guideDetails(g)','let activeView'),'({ GUIDE, guideDetails, supplyCardDone })'].join('\n');
  const target=new El('h3');target.offsetParent={};
  let scrolled=0;target.scrollIntoView=()=>{scrolled++;};target.focus=()=>{};
- const document={createElement:t=>new El(t),getElementById:id=>id==='supply-title'?target:null};
+ const built=[];
+ const document={createElement:t=>new El(t),getElementById:id=>id==='supply-title'?target:null,
+  querySelectorAll:sel=>sel==='.supply-pointer'?built.flatMap(d=>cls(d,'supply-pointer')):[]};
  const g=vm.runInNewContext(src,{document,tpFlowFigure:()=>new El('figure')});
  assert.equal(g.GUIDE.term_premium.title,'읽는 법 — 흐름도 · Kim-Wright와 ACM');
  const det=g.guideDetails(g.GUIDE.term_premium), text=det.textContent;
@@ -485,7 +495,17 @@ test('the 10-year term premium guide no longer carries the supply numbers — on
  let prevented=0;a.listeners.click({preventDefault(){prevented++;}});
  assert.deepEqual([prevented,scrolled,target.attrs.tabindex],[1,1,'-1']);
  target.offsetParent=null;prevented=0;a.listeners.click({preventDefault(){prevented++;}});
- assert.equal(prevented,0);                                                // 카드가 없으면 금리·커브 화면으로(주소 그대로 따른다)
+ assert.equal(prevented,0);                                                // 카드가 보이지 않는 화면이면 금리·커브 화면으로(주소 그대로 따른다)
+ // 두 자료 파일을 다 쓰지 못해 카드를 두지 못한 날 — 이미 그린 줄과 그 뒤에 그리는 줄 모두 링크 없이 '지금은 자료 없음'(2026-11-19 2차 검토)
+ built.push(det);
+ const NONE='흐름도에서 TFP로 가는 요인 가운데 둘(딜러 재고, 해외 공적 수요)의 숫자는 같은 묶음 아래 ‘미 국채 수급 — 딜러 재고 · 해외 보유’ 카드에 싣습니다 — 지금은 자료 없음(판정에 쓰지 않음).';
+ g.supplyCardDone(true);
+ assert.equal(tags(ptr[0],'a').length,1);                                   // 카드가 있으면 그대로
+ g.supplyCardDone(false);
+ assert.deepEqual([ptr[0].textContent,tags(ptr[0],'a').length],[NONE,0]);
+ const again=cls(g.guideDetails(g.GUIDE.term_premium),'guide-pointer')[0];
+ assert.deepEqual([again.textContent,tags(again,'a').length],[NONE,0]);
+ assert.ok(texts(again).every(x=>typeof x==='string'));
  // 페이지에는 옛 칸의 함수·변수가 남아 있지 않다
  for(const w of ['supplyPanel','supplySide','supplyData','SUPPLY_SIDES'])assert.ok(!HTML.includes(w),w);
 });

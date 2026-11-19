@@ -823,7 +823,7 @@ class StaticTest(unittest.TestCase):
         self.assertIn("panel: () => supplyPointer()", guide)
         self.assertNotIn("supplyPanel", page)
         card = self.read("site", "supply.js")
-        self.assertIn('const WEEKLY = "주간 — 뉴욕 연은";', card)
+        self.assertIn('const WEEKLY = "주간 — 뉴욕 연은 · 연준 H.4.1";', card)        # 숫자를 낸 곳 — 수탁은 연준 H.4.1(2차 검토)
         self.assertIn("판정에 쓰지 않음", card)
         self.assertIn('<a href="data/supply.json">', page)                                # 꼬리말의 원자료 목록
 

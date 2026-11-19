@@ -222,8 +222,11 @@ class PageTest(unittest.TestCase):
         for gone in ("supplyPanel", "supplySide", "supplyData", "SUPPLY_SIDES", "흐름도 · 수급 참고"):
             self.assertNotIn(gone, self.page, gone)
         line = next(l for l in self.page.splitlines() if "window.SupplyCard.render(" in l)
-        self.assertRegex(line, r"^\s*try \{ if \(\(isObj\(sp\) \|\| isObj\(tic\)\) && window\.SupplyCard\) window\.SupplyCard\.render\("
-                               r"isObj\(sp\) \? sp\.value : null, isObj\(tic\) \? tic\.value : null\); \}$")
+        self.assertRegex(line, r"^\s*try \{ if \(\(isObj\(sp\) \|\| isObj\(tic\)\) && window\.SupplyCard\) supplyShown = "
+                               r"window\.SupplyCard\.render\(isObj\(sp\) \? sp\.value : null, isObj\(tic\) \? tic\.value : null\) === true; \}$")
+        # 카드를 두지 못한 날은 기간 프리미엄 읽는 법의 가리키는 줄을 '지금은 자료 없음'으로(2026-11-19 2차 검토) — 그리기 바로 뒤, 따로 try
+        after = self.page[self.page.index(line):]
+        self.assertLess(after.index("try { supplyCardDone(supplyShown); }"), after.index("window.LiquidityCard.render("))
         self.assertLess(self.page.index("window.OisCard.render("), self.page.index("window.SupplyCard.render("))
         # 자리: 금리·커브 묶음, 국채–OIS 바로 뒤(국채–OIS가 기간 프리미엄 바로 뒤라는 자리는 그대로) — 빈 자리는 .oil-slot:empty로 숨는다
         self.assertIn('g.id === "rates" ? el("div", {id:"supply-slot", class:"oil-slot supply-slot"}) : null,', self.page)
