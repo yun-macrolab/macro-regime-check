@@ -54,13 +54,15 @@
 닫힌 쪽으로 실패하는 것(그 파일을 싣지 않고 직전 값을 '받지 못함'으로 이어 싣는다): 머리 줄('Country' 뒤 YYYY-MM 달들)이 없음,
   달이 한 달씩 이어지지 않음, 'All Other'·'Grand Total'·'Of Which: Foreign Official'이 없음(그 밖 줄이 이름만 바뀌면 나라 1위로
   읽혀 순위가 모두 밀리므로 — 2026-11-19 검토 반영), 이름에 other·others·total·rest·remainder 낱말이 든 나라 줄, 숫자가 아닌 칸
-  (빈 칸은 어디서나 실패 — 나라·합계 줄은 칸이 모두 비어도 실패하고, 칸이 모두 빈 줄은 'Of which:' 같은 라벨 줄과 주석('Notes')·
-  합계 뒤의 글 줄만 넘긴다(2026-11-19 2차 검토 반영 — 전엔 칸이 모두 빈 나라 줄을 라벨로 보고 빼 순위가 밀렸다), '*'만 나라 칸에서
+  (빈 칸은 어디서나 실패 — 나라·합계 줄은 칸이 모두 비어도 실패하고, 칸이 모두 빈 줄은 'Of which:' 같은 라벨 줄만 넘기며 주석('Notes')과
+  합계 뒤의 다른 글 줄은 표를 끝내되 그 뒤에 합계 줄이 또 나오면 실패(2026-11-19 2·3차 검토 반영 — 전엔 칸이 모두 빈 나라 줄을 라벨로
+  보고 빼 순위가 밀렸고, 공적과 단기채 줄 사이의 글 줄 하나가 단기채·이표채 줄을 말없이 잃게 했다), '*'만 나라 칸에서
   허용 — '5천만 달러 미만'이라 값 없음으로), 범위 밖의 값(전체 GRAND_BN, 공적
   OFFICIAL_BN이면서 전체 이하, 나라 ROW_BN), 같은 이름 두 번, 나라 줄이 COUNTRY_ROWS 밖, 마지막 달이 오늘 달보다 뒤, 마지막
   달이 직전 tic.json보다 앞(older). 단기채·이표채 줄은 없어도 읽는다(그 칸만 비운다). 과거 표는 2011-12 뒤의 달마다
   전체·공적이 있고 범위 안이며 달이 이어져야 하고, 마지막 달이나 파일 날짜가 직전 tic.json보다 앞이면(older — 옛 사본이 그래프를
-  옛 개정치로 되돌리지 않게, 2026-11-19 2차 검토 반영) 받지 않으며, 파일 날짜가 오늘 뒤면 형식 오류다(아니면 과거 표만 실패 —
+  옛 개정치로 되돌리지 않게, 2026-11-19 2차 검토 반영) 받지 않으며, 파일 날짜가 오늘 뒤이거나 날짜 줄(m/d/yyyy)이 없거나 읽을 수
+  없으면 형식 오류다(날짜 없는 파일을 받으면 다음 실행의 older 견줌이 꺼지므로 — 3차 검토 반영. 아니면 과거 표만 실패 —
   직전 그래프 점으로 대신하고 표 5 숫자는 싣는다).
 
 실패·이어 싣기(supply_fetch와 같은 원칙): 표 5를 못 받으면 직전 tic.json의 원표(table — 표 5를 읽은 그대로, 다시 계산의 원천)를
@@ -452,8 +454,8 @@ def check_table(t, today):
 def parse_table(text, today):
     """표 5의 글자 → 원표 {months(새 달부터), countries [[이름, 값…]…](표의 차례), other, grand, official, official_bills,
     official_notes_bonds}. 꼴이 어긋나면 TicError — 닫힌 쪽으로('All Other'·'Grand Total'·'Of Which: Foreign Official'은 꼭 있어야
-    하고, 빈 칸은 어느 줄에서나 실패 — 나라·합계 줄은 칸이 모두 비어도 실패, '*'는 나라 칸만). 칸이 모두 빈 줄은 라벨 줄('Of which:')과
-    주석('Notes')·합계 뒤의 글 줄만 넘긴다."""
+    하고, 빈 칸은 어느 줄에서나 실패 — 나라·합계 줄은 칸이 모두 비어도 실패, '*'는 나라 칸만). 칸이 모두 빈 줄은 라벨 줄('Of which:')만
+    넘기고, 주석('Notes')과 합계 뒤의 다른 글 줄은 표를 끝낸다 — 그 글 줄 뒤(주석 앞)에 합계 줄이 또 나오면 형식 오류."""
     rows = _rows(text)
     hdr = None
     for i, r in enumerate(rows):
@@ -467,7 +469,19 @@ def parse_table(text, today):
     idx, months = [j for j, _ in cols], [c for _, c in cols]
     t = {"months": months, "countries": [], "other": None, "grand": None, "official": None, "official_bills": None,
          "official_notes_bonds": None}
-    for r in rows[hdr + 1:]:
+    body = rows[hdr + 1:]
+
+    def end_here(i):
+        """합계 뒤의 글 줄에서 표를 끝낸다 — 다만 그 뒤(주석 앞)에 합계 줄이 또 나오면 형식 오류(2026-11-19 3차 검토 반영 — 전엔
+        공적과 단기채 줄 사이의 글 줄 하나가 표를 끝내 단기채·이표채 줄을 말없이 잃었다)."""
+        for r in body[i + 1:]:
+            nm = clean_name(r[0])[0] if r else ""
+            if nm.lower().startswith("notes"):
+                break
+            if row_kind(nm) in ("grand", "official", "bills", "notes", "other"):
+                raise TicError("format")
+
+    for i, r in enumerate(body):
         name = clean_name(r[0])[0] if r else ""
         if not name and not any(r):
             continue                                  # 빈 줄
@@ -485,6 +499,7 @@ def parse_table(text, today):
             if kind == "skip":
                 continue
             if kind in (None, "bad") and (t["grand"] is not None or t["other"] is not None):
+                end_here(i)
                 break                                 # 합계 뒤의 글 줄('Totals may not add …' 같은 것도) — 표 끝
             raise TicError("format")
         if any(v is None or v == "" for v in vals):
@@ -495,6 +510,7 @@ def parse_table(text, today):
         nums = [None if v == "*" else v for v in vals]
         if kind is None:
             if t["grand"] is not None or t["other"] is not None:
+                end_here(i)
                 break                                 # 합계 뒤에 나온 다른 줄 — 표 끝으로 본다
             t["countries"].append([name, nums])
             continue
@@ -520,10 +536,12 @@ def _revised(m):
 
 
 def parse_history(text):
-    """과거 표 → {"months": {YYYY-MM: {"grand", "official", "countries": {영어 이름: 값}}}, "file_date": "YYYY-MM-DD"|None,
+    """과거 표 → {"months": {YYYY-MM: {"grand", "official", "countries": {영어 이름: 값}}}, "file_date": "YYYY-MM-DD",
     "revised": {"YYYY": "YYYY-MM-DD"}} — revised는 날짜 줄 뒤의 해마다 개정일 줄(파일 날짜는 어느 해든 마지막으로 고친 날이라
     해마다 다르다). FROM_MONTH 앞 달·한 덩어리에 두 번 나온 달(시리즈 구분)·주석 표시가 붙은 나라 줄은 쓰지 않는다. 꼴이 어긋나면
-    TicError(개정일 줄은 읽을 수 없으면 그 줄만 넘긴다)."""
+    TicError(개정일 줄은 읽을 수 없으면 그 줄만 넘긴다). 날짜 줄(m/d/yyyy)이 없거나 읽을 수 없는 파일도 형식 오류다 — 그런 파일을
+    받으면 history.file_date가 null로 바뀌어 다음 실행의 'older' 견줌이 꺼지고 옛 사본이 그래프를 옛 개정치로 되돌릴 수 있었다
+    (2026-11-19 3차 검토 반영)."""
     months, file_date, revised = {}, None, {}
     pending, cols = None, None
     for r in _rows(text):
@@ -578,8 +596,8 @@ def parse_history(text):
                 months[k][kind] = v
             elif isinstance(v, float) and not marked:
                 months[k]["countries"][canonical(name)] = v
-    if len(months) < MIN_HIST_MONTHS:
-        raise TicError("format")
+    if file_date is None or len(months) < MIN_HIST_MONTHS:
+        raise TicError("format")                      # 날짜 줄이 없으면 'older' 견줌·해마다 날짜가 기댈 곳이 없다(3차 검토)
     keys = sorted(months)
     if any(keys[i + 1] != _next_month(keys[i]) for i in range(len(keys) - 1)):
         raise TicError("format")                      # 빈 달

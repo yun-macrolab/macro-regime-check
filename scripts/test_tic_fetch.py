@@ -301,6 +301,20 @@ class ParseTableTest(unittest.TestCase):
         self.fails(table_text().replace("Bermuda\t", "Rest of World" + "\t" * 13 + "\r\nBermuda\t"))   # 표 안의 빈 '나머지' 줄
         self.assertIn("칸이 모두 비어도 실패", tf.parse_table.__doc__)
 
+    def test_a_text_line_before_more_total_rows_fails_instead_of_dropping_them(self):
+        """3차 검토: 공적과 단기채 줄 사이의 글 줄 하나(칸이 비었든 아니든)가 표를 끝내 단기채·이표채 줄을 말없이 잃었다 — 이제 그
+        글 줄 뒤에 합계 줄이 또 나오면 형식 오류(직전 값을 '받지 못함'으로). 마지막 합계 뒤의 글 줄은 지금처럼 표 끝이다."""
+        bills = "Of Which: Foreign Official Treasury Bills\t"
+        for line in ("Memo:" + "\t" * 13, "Of which, by type:" + "\t" * 13, "Totals may not add due to rounding." + "\t" * 13,
+                     "Memo\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13"):
+            self.fails(table_text().replace(bills, line + "\r\n" + bills, 1))
+        want = tf.parse_table(table_text(), TODAY)
+        self.assertIsNotNone(want["official_bills"])
+        self.assertIsNotNone(want["official_notes_bonds"])
+        text = table_text().replace("\r\n\t", "\r\nTotals may not add due to rounding." + "\t" * 13 + "\r\n\t", 1)
+        self.assertEqual(tf.parse_table(text, TODAY), want)
+        self.assertIn("합계 줄이 또 나오면 형식 오류", tf.parse_table.__doc__)
+
     def test_out_of_range_values_fail_as_range(self):
         t = table_rows()
         t2 = {**t, "grand": [g * 1000 for g in t["grand"]]}                  # 백만 달러로 읽힌 것
@@ -645,6 +659,11 @@ class ChartTest(unittest.TestCase):
         self.assertEqual(tf.year_asof(h, {"2024": "2026-12-01"}, TODAY)["2025"], "2026-09-16")
         self.assertEqual(tf.year_asof(h, {"2024": "2026-12-01"}, TODAY)["2024"], "2026-09-16")
         self.assertEqual(tf.year_asof(h, {"2024": "2026-01-02"}, TODAY)["2024"], "2026-01-02")
+        # 그 해의 날짜가 표 5를 받은 날과 같으면 과거 표가 이긴다(화면 '개정과 그래프'의 '같거나 뒤' — 3차 검토)
+        hist = {"2025-09": {"grand": 9237.5, "official": 1.0, "countries": {}}}
+        for hd, want in (("2026-07-14", ({"2025-09": 9237.5}, {})), ("2026-07-13", ({"2025-09": 9238.2}, {"2025-09": "2026-07-14"}))):
+            self.assertEqual(tf.merged(None, [], hist, {"2025-09": 9238.2}, "grand", {"2025-09": "2026-07-14"}, {"2025": hd}),
+                             want, hd)
 
 
 # ---------- 실패 · 이어 싣기 ----------
@@ -748,6 +767,26 @@ class FailureTest(unittest.TestCase):
         # 같은 날짜면 받는다(같은 파일)
         code, _, d = run(self.out, now=NOW + datetime.timedelta(days=3))
         self.assertEqual((code, d["history"]["ok"]), (0, True))
+
+    def test_a_history_without_a_readable_date_line_fails_and_keeps_the_previous_date(self):
+        """3차 검토: 날짜 줄을 읽지 못한 과거 표를 받으면 history.file_date가 null이 되어 다음 실행의 'older' 견줌이 꺼지고, 그 뒤에
+        온 옛 사본(7/14/2026)이 그래프를 옛 개정치로 되돌렸다. 이제 날짜 없는 파일은 형식 오류이고 직전 날짜를 잃지 않는다."""
+        for date in ("September 16, 2026", "", "9-16-2026", "2026-09-16", "2/30/2026"):
+            with self.assertRaises(tf.TicError) as e:
+                tf.parse_history(hist_text(date=date))
+            self.assertEqual(e.exception.code, "format", date)
+        before = self.first()
+        code, out, d = run(self.out, Route(hist=hist_text(date="September 16, 2026")), now=NOW + datetime.timedelta(days=1))
+        self.assertEqual((code, d["history"]["ok"], d["history"]["stale"], d["history"]["error"], d["history"]["file_date"]),
+                         (0, False, True, "형식이 다름(표를 읽지 못함)", "2026-09-16"))
+        self.assertEqual((d["chart"], d["history"]["year_asof"]), (before["chart"], before["history"]["year_asof"]))
+        self.assertIn("::warning::TIC 과거 표 받지 못함: 형식이 다름(표를 읽지 못함)", out)
+        stale = hist_text(date="7/14/2026", revised=("2025 revised July 14, 2026",),
+                          value=lambda m: {**hist_value(m), "grand": hist_value(m)["grand"] - 250})
+        code, _, d = run(self.out, Route(hist=stale), now=NOW + datetime.timedelta(days=2))
+        self.assertEqual((code, d["history"]["ok"], d["history"]["error"], d["history"]["file_date"]),
+                         (0, False, "받은 자료가 직전 자료보다 오래됨", "2026-09-16"))
+        self.assertEqual(d["chart"], before["chart"])
 
     def test_a_history_dated_after_today_is_a_format_error_and_a_bad_previous_date_does_not_lock(self):
         self.first()

@@ -380,6 +380,13 @@ test('caveats: custody attribution, holdings ≠ net purchases, revisions, TIC o
   '범위가 다르고','평가 기준도 다를 수 있습니다','해외 보관 기관을 거친 몫은 공적으로 잡히지 않을 수 있습니다','WMTSECL1','매달 18일 무렵','SLT','BL2',
   '정해진 때 없이','전에 받은 표의 값을 둡니다'])assert.ok(all.includes(w),w);
  // 2026-11-19 검토 반영 — 나라는 '보관 기관이 있는 곳'이 아니고, TIC 공적이 수탁을 '모두' 포함한다고도, 기록 파일이 '해마다 한 번'이라고도 쓰지 않는다
+ // 3차 검토 — 잇기 규칙은 코드(tic_fetch.year_asof · merged)와 같게: 그 해의 날짜가 받은 날과 같으면 기록 파일이 이기고, 개정일이
+ // 없는 해는 전에 적어 둔 날짜(처음 보면 파일 날짜) — '파일 날짜는 쓰지 않는다'고 하지 않는다
+ const rev=api.GUIDE.find(g=>g[0]==='개정과 그래프')[1];
+ for(const w of ['그 표를 받은 날과 같거나 뒤가 되기 전까지는 전에 받은 표의 값을 둡니다','파일에 해마다 적힌 개정일',
+  '개정일이 적히지 않은 해는 전에 적어 둔 그 해의 날짜(처음 보는 해는 그 파일의 날짜)','이미 본 해를 새로 고친 것으로 치는 데는 쓰지 않습니다'])
+  assert.ok(rev.includes(w),w);
+ assert.ok(!rev.includes('받은 날보다 뒤가 되기 전까지는')&&!/파일 날짜는[^.]*바뀌므로 쓰지 않습니다/.test(rev));
  const card=slot.kids[0].textContent;
  for(const w of ['보관 기관이 있는 곳','어느 보관 기관에 맡겼든','그 가운데 뉴욕 연은','뉴욕 연은에 맡긴 몫만','해마다 한','중장기채','T-Bills'])
   assert.ok(!card.includes(w),w);
