@@ -1,5 +1,7 @@
-// 수급 참고 칸(supplyPanel)과 국고채 민평 참고 절(renderKtb) — site/index.html 안의 함수라 그 부분만 잘라 아주 작은 가짜 DOM 위에서
-// 돌려 글을 본다. 실패를 알리는 메일이 없는 칸이라 페이지의 표시(자료 없음·받지 못함·경과일·묵은 글)가 곧 실패 신호다. 숫자는 지어낸 것이다.
+// 미 국채 수급 카드의 주간 부분(site/supply.js의 SupplyCard.weekly · side — 2026-11-19까지는 index.html 안의 supplyPanel · supplySide로
+// 기간 프리미엄 읽는 법 안에 있던 '수급 참고' 칸)과 국고채 민평 참고 절(index.html의 renderKtb). index.html에서는 el()·chartFigure()·renderKtb만
+// 잘라 아주 작은 가짜 DOM 위에서 supply.js와 같은 맥락에 싣고 글을 본다(카드 전체와 월간 TIC 부분은 test_supply_card_render.cjs).
+// 실패를 알리는 메일이 없는 칸이라 페이지의 표시(자료 없음·받지 못함·경과일·묵은 글)가 곧 실패 신호다. 숫자는 지어낸 것이다.
 // 실행: node --test scripts/test_supply_ktb_render.cjs
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
@@ -26,8 +28,8 @@ function slice(start,end){
  return HTML.slice(i,j);
 }
 const SRC=[slice('function el(tag, attrs','const SVG_NS'),slice('function chartFigure(','const GROUPS = ['),
- slice('let supplyData = null;','let activeView'),'const available = {};',slice('function renderKtb(k)','function renderPublic'),
- '({ supplyPanel, supplySide, renderKtb, available })'].join('\n');
+ 'var available = {};',slice('function renderKtb(k)','function renderPublic')].join('\n');
+const SUPPLY=fs.readFileSync(path.join(__dirname,'../site/supply.js'),'utf8');
 const NOW=Date.parse('2026-11-10T03:00:00Z');                   // 한국 12:00
 const KTB_IDS=['ktb-head','ktb-table','ktb-spreads','ktb-charts','ktb-notices'];
 
@@ -37,8 +39,11 @@ function load(opts={}){
  class FakeDate extends Date{static now(){return opts.now||NOW;}}
  const document={createElement:t=>new El(t),getElementById:id=>ids[id]||null};
  const window=opts.charts?{MacroCharts:opts.charts}:{MacroCharts:{lineChart:(spec,o)=>{calls.push({spec,o});return new El('figure');}}};
- const api=vm.runInNewContext(SRC,{document,window,Date:FakeDate});
- return {...api,ids,calls};
+ const ctx=vm.createContext({document,window,Date:FakeDate});
+ vm.runInContext(SRC,ctx);                      // el · chartFigure · renderKtb — 페이지에서처럼 전역에
+ vm.runInContext(SUPPLY,ctx);                   // supply.js는 그 전역 el · chartFigure를 쓴다
+ const card=window.SupplyCard;
+ return {supplyPanel:card.weekly,supplySide:card.side,renderKtb:ctx.renderKtb,available:ctx.available,ids,calls,api:card};
 }
 
 const pts=(...vs)=>vs.map((v,i)=>['2026-10-'+String(7+7*i).padStart(2,'0'),v]);
@@ -84,13 +89,42 @@ test('supply: both sides draw name, date, line, extra, chart and notices as text
  assert.ok(ls.includes('supply-num|433bn · 4주 +23 (2019년 이후 p5 -45 / p95 +52) · 52주 +54'));
  assert.ok(ls.includes('muted|2022년 말 이후 +282bn (기준 2022-12-28 150bn)'));
  assert.ok(ls.includes('supply-num|2,565bn · 4주 -25 (2019년 이후 p5 -53 / p95 +43) · 52주 -212'));
+ // 짧은 토막(수준 · 52주)과 관측 날짜는 좁은 화면에서도 가운데서 끊지 않는다(span.nw) — 긴 p5·p95 토막은 그대로 접힌다
+ assert.deepEqual(cls(panel,'supply-num').map(n=>cls(n,'nw').map(x=>x.textContent)),[['433bn','52주 +54'],['2,565bn','52주 -212']]);
+ assert.deepEqual(cls(panel,'supply-name').map(n=>cls(n,'nw').map(x=>x.textContent)),[['2026-11-04'],['2026-11-04']]);
  assert.equal(cls(panel,'supply-flag').length,0);
  assert.equal(cls(panel,'supply-late').length,0);
  assert.equal(t.calls.length,2);
- assert.deepEqual(t.calls.map(c=>[c.o.height,c.o.caption,c.o.format]),[[150,false,undefined],[150,false,undefined]]);   // 기본 꼴(정수 bn)
- assert.equal(cls(panel,'notices').length,2);
+ assert.deepEqual(t.calls.map(c=>[c.o.height,c.o.caption]),[[150,false],[150,false]]);
+ // 끝 값·읽기 글자는 줄과 같은 꼴 — 천 단위 쉼표 정수 bn(2026-11-19 검토 반영 — 전엔 기본 꼴이라 '2565bn')
+ assert.deepEqual(t.calls.map(c=>[433.46,2565.477,-12.4].map(c.o.format)),[['433bn','2,565bn','-12bn'],['433bn','2,565bn','-12bn']]);
+ // 고지는 주간 부분 끝에 한 번 — 숫자를 실은 쪽들의 것을 겹치지 않게(같은 '계산값 고지'가 두 쪽에 있어도 한 번)
+ assert.equal(cls(panel,'notices').length,1);
+ assert.deepEqual(cls(panel,'notices')[0].kids.map(k=>k.textContent),['계산값 고지','© 2026 Federal Reserve Bank of New York.','관계없음 고지']);
+ assert.equal(panel.kids.filter(k=>k instanceof El).slice(-1)[0],cls(panel,'notices')[0]);
  assert.ok(texts(panel).every(x=>typeof x==='string'));
  assert.ok(!/undefined|NaN|null/.test(panel.textContent));
+});
+
+test('supply: the explanations live in a closed "읽는 법 — 주간 숫자" fold; the operator-memo line shows next to a ⚠ line only',()=>{
+ const t=load(), api=t.api, panel=t.supplyPanel(supply());
+ const guide=cls(panel,'rule-guide')[0];
+ assert.equal(guide.tag,'details');
+ assert.equal(guide.attrs.open,undefined);
+ assert.equal(walk(guide,n=>n.tag==='summary')[0].textContent,'읽는 법 — 주간 숫자');
+ const paras=walk(guide,n=>n.tag==='p').map(p=>p.textContent);
+ assert.deepEqual(paras.map(p=>p.split(' · ')[0]),[...api.WEEKLY_GUIDE].map(g=>g[0]));
+ const all=paras.join('\n');
+ for(const w of ['프라이머리 딜러','공적·국제 기관','곧 판 것으로 볼 수는 없습니다','p5·p95','운영자 메모','숫자만','TFP'])assert.ok(all.includes(w),w);
+ assert.ok(!all.includes('매도'));
+ // 접는 설명 밖에는 그 긴 글이 없다 — 숫자 줄 위의 안내 글 없이 바로 쪽들
+ assert.equal(walk(panel,n=>n.tag==='p'&&(n.attrs.class||'')==='muted'&&n.textContent.includes('프라이머리 딜러')).filter(n=>!walk(guide,x=>x===n).length).length,0);
+ assert.equal(cls(panel,'supply-flag-note').length,0);
+ const flag='⚠ 딜러 4주 변화 -45.4bn이 2019년 이후 p5(-45.3) 아래(하위 5%) — 재고 급감';
+ const f=t.supplyPanel(supply({flag_text:flag}));
+ const ls=lines(f).filter(l=>/^(supply-flag|muted supply-flag-note)\|/.test(l));
+ assert.deepEqual(ls,['supply-flag|'+flag,'muted supply-flag-note|'+api.FLAG_NOTE]);
+ assert.ok(api.FLAG_NOTE.includes('운영자 메모')&&api.FLAG_NOTE.includes('예측이 아닙니다'));
 });
 
 test('supply: the dealer side without the New York Fed notices shows no numbers, custody still draws',()=>{
@@ -142,11 +176,12 @@ test('supply: the dealer 7–11y side comes last with a signed line and its char
  assert.equal(cls(panel,'supply-flag').length,0);                                         // 자료 파일에 있어도 싣지 않는다
  assert.equal(t.calls.length,3);
  assert.equal(t.calls[2].spec.key,'supply_dealer_7_11');
- assert.deepEqual(t.calls.slice(0,2).map(c=>c.o.format),[undefined,undefined]);           // 합계·수탁은 기본 꼴 그대로
+ assert.deepEqual(t.calls.slice(0,2).map(c=>c.o.format(2565.477)),['2,565bn','2,565bn']);  // 합계·수탁은 천 단위 쉼표 정수
  assert.deepEqual([37.315,-3.2,-0.4,0.4,1234.6,-1234.6].map(t.calls[2].o.format),
   ['+37bn','-3bn','0bn','0bn','+1,235bn','-1,235bn']);                                   // 7~11년은 줄처럼 부호 붙인 정수
- assert.equal(cls(panel,'notices').length,3);
- assert.ok(cls(panel,'notices')[2].textContent.includes('7~11년 계산값 고지'));
+ assert.equal(cls(panel,'notices').length,1);                                             // 세 쪽의 고지를 겹치지 않게 한 번
+ assert.deepEqual(cls(panel,'notices')[0].kids.map(k=>k.textContent),
+  ['계산값 고지','© 2026 Federal Reserve Bank of New York.','관계없음 고지','7~11년 계산값 고지']);
  assert.ok(texts(panel).every(x=>typeof x==='string'));
  assert.ok(!/undefined|NaN|null/.test(panel.textContent));
  const d=load().supplyPanel({...supply3(),dealer:side('dealer',{flag_text:flag})});
@@ -154,7 +189,8 @@ test('supply: the dealer 7–11y side comes last with a signed line and its char
 });
 
 test('supply: the 7–11y side is left out of an older file, a broken one is "자료 없음", and it needs the New York Fed notices',()=>{
- const old=lines(load().supplyPanel(supply())).filter(l=>!l.startsWith('muted|흐름도'));      // 머리 안내 글은 빼고
+ const p0=load().supplyPanel(supply()), guide=cls(p0,'rule-guide')[0];
+ const old=walk(p0,n=>n.tag==='p'&&!walk(guide,x=>x===n).length).map(p=>p.textContent);   // 접는 설명(읽는 법)은 빼고
  assert.ok(!old.some(l=>l.includes('7~11년')),old.join('\n'));                             // 그 쪽이 없던 때의 파일 — 줄이 없다
  for(const bad of [null,'x',{...bucket(),date:'2026-11-4'},{...bucket(),line:''},{...bucket(),notices:[]},{...bucket(),notices:['',7]}]){
   const ls=lines(load().supplyPanel({...supply(),dealer_7_11:bad}));
@@ -266,5 +302,5 @@ test('real charts.js: KTB end labels and read-out match the table; a supply poin
  assert.ok(svgs[1].attrs['aria-label'].includes('10년−3년 24.0bp(2026-11-09)'),svgs[1].attrs['aria-label']);
  const p=load({charts:sc.MacroCharts}).supplyPanel(supply3());
  const ends=walk(p,n=>n.attrs.class==='ch-end').map(n=>n.textContent);
- assert.deepEqual(ends,['433bn','2565bn','+37bn']);                                       // 줄의 433bn·2,565bn·+37bn과 같은 글자
+ assert.deepEqual(ends,['433bn','2,565bn','+37bn']);                                      // 줄의 433bn·2,565bn·+37bn과 같은 글자(천 단위 쉼표까지)
 });

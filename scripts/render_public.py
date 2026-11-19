@@ -86,6 +86,8 @@ DATA_LICENSE = ("코드는 MIT 라이선스지만 자료와 그것으로 계산�
                 "스트레스 지수 CMDI)는 "
                 "newyorkfed.org 이용약관, "
                 "단일종목 CDS 건수·호가는 DTCC가 SEC 규정 Reg SBSR에 따라 공개 배포한 거래 보고, "
+                "미 국채 해외 보유는 미 재무부 TIC(Treasury International Capital) 시스템의 표 'Major Foreign Holders of "
+                "Treasury Securities'(미 정부 공개 자료 — 출처를 그 카드에 함께)에서 옮기고 변화·비중을 계산하며, "
                 "하이퍼스케일러 조달 숫자는 미 정부 공개 자료인 SEC EDGAR 공시에서 계산한다. "
                 "FRED 시리즈의 권장 인용은 공개 JSON 파일의 citation 칸에 싣고, 인용 필요 시리즈는 그 값을 싣는 카드에도 싣는다.")
 

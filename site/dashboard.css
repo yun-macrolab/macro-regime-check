@@ -254,16 +254,41 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .tpf .tpf-arrow { fill: var(--black); stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: miter; }
 .tpf .tpf-link { fill: none; stroke: var(--ink); stroke-width: 1; stroke-linecap: square; }
 .tpf .tpf-obs { fill: none; stroke: var(--gold); stroke-width: 1; }   /* TFP → 'TFP를 보는 값' — 영향이 아니라 관측이라 점선과 다르게 */
-/* 수급 참고(읽는 법 안, 흐름도 바로 뒤) — 판정에 쓰지 않는 두 지표의 숫자 두 줄과 작은 그래프. 금색은 흐름도의 것이라 쓰지 않는다.
-   숫자 줄은 좁은 화면에서 아무 데서나 접는다(390px에서 가로로 넘치지 않게). 그래프는 카드의 다른 그래프와 같은 틀(.rule figure.ch) */
-.supply { margin: 14px 0 2px; padding-top: 8px; border-top: 1px solid var(--rule); }
-.rule-guide .supply p { margin: 4px 0 0; line-height: 1.6; overflow-wrap: anywhere; }
-.rule-guide .supply .supply-name { margin-top: 12px; }
-.supply-head { font-size: 13px; }
-.supply-name small { font: 400 11.5px var(--f-mono); }
+/* 미 국채 수급(site/supply.js, 2026-11-19 — 전엔 기간 프리미엄 읽는 법 안의 '수급 참고' 칸) — 금리·커브 묶음의 참고 카드(.oil-card 틀).
+   주간(뉴욕 연은)과 월간(재무부 TIC) 두 부분. 금색은 흐름도의 것이라 쓰지 않는다. 숫자 줄은 좁은 화면에서 아무 데서나 접고,
+   나라 표는 가로 스크롤 상자(.tic-scroll) 안에서만 넘친다(390px에서 화면이 가로로 넘치지 않게). 한국 줄은 글자 표시('늘 싣는 줄')에 더해
+   바탕과 왼쪽 선 — 색만으로 가리지 않는다 */
+#supply-title, #supply-monthly-title, #supply-korea-row { scroll-margin-top: 140px; }
+/* 카드 머리 아래 바로 가기(월간 부분 · 한국 줄) — 움직임 단추와 같은 작은 틀 */
+.supply-card p.supply-jump { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 6px; font-size: 11.5px; color: var(--dim); }
+.supply-jump-btn { padding: 1px 8px; cursor: pointer; background: #000; color: var(--key); border: 1px solid var(--rule); font: 500 12px var(--f-text); }
+/* 두 부분(주간 · 월간)의 머리는 그 안의 그래프 제목(.ch-title 13.5px)보다 분명히 크게 — 굵은 15px와 두꺼운 윗선(2026-11-19 검토 반영) */
+.supply-part { margin-top: 18px; padding-top: 0; border-top: 2px solid var(--key); min-width: 0; }
+.supply-part > h4 { margin: 0; padding: 7px 0 2px; font-size: 15px; font-weight: 700; color: var(--key); }
+.supply-row { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #262626; min-width: 0; }
+.supply-row figure.ch { margin-top: 6px; }
+.supply-name small { font: 400 11.5px var(--f-mono); color: #8a8a8a; }
 .supply-num { color: var(--amber); font-variant-numeric: tabular-nums; }
-.supply-flag { color: var(--key); }
+.supply-flag, .tic-note { color: var(--key); }
+.supply-card p.supply-flag-note, .supply-card p.tic-ends { font-size: 11.5px; }
+.supply-card p.tic-pair { margin-top: 6px; }
 .supply-late { color: var(--alert); }
+.tic-totals p strong { font-weight: 500; }
+.tic-scroll { max-width: 100%; overflow-x: auto; margin-top: 8px; }
+.tic-table { border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.tic-table caption { caption-side: top; text-align: left; color: var(--dim); font-size: 11.5px; padding: 0 0 4px; }
+.tic-table th, .tic-table td { padding: 3px 14px 3px 0; text-align: right; white-space: nowrap; border-bottom: 1px solid #1c1c1c; }
+.tic-table th:last-child, .tic-table td:last-child { padding-right: 4px; }
+.tic-table th[scope="row"], .tic-table thead th:nth-child(2) { text-align: left; font-weight: 500; }
+.tic-table thead th { font-size: 11.5px; font-weight: 500; color: var(--dim); }
+.tic-table td { font-family: var(--f-mono); }
+.tic-table td:nth-child(3) { color: var(--amber); }
+.tic-table tr.tic-korea > * { background: var(--bar); }
+.tic-table tr.tic-korea > td:first-child { box-shadow: inset 2px 0 0 var(--key); padding-left: 6px; }
+.tic-mark { color: var(--key); font-size: 11px; font-weight: 400; }
+.tic-table tr.tic-gap td { text-align: left; color: var(--dim); font: 400 11.5px var(--f-text); }
+.tic-table tfoot th, .tic-table tfoot td { border-top: 1px solid var(--rule); border-bottom: 0; }
+.tic-all { margin-top: 8px; }
 /* AI 투자 참고(판정 제외) — 첫 화면 요약 줄과 'AI 투자' 화면의 채널별 칸. 칸은 넓은 화면에서 둘씩, 숫자 줄은 좁은 화면에서 아무 데서나 접는다 */
 .ai-teaser { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .ai-teaser li { padding: 6px 10px; background: var(--panel); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }

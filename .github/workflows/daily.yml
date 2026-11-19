@@ -21,6 +21,11 @@
 #           매일 실패 메일이 오지 않게(뉴욕 연은 단일 시계열 주소의 응답 형식은 2026-11-10 한 번 받아 확인했다).
 #           한쪽 실패는 그 단계 로그의 경고 줄(::warning:: — 실행 요약에 보이고 단계는 초록)과 페이지의 '받지 못함'·'자료 없음'으로,
 #           두 쪽 다 실패하면 그 단계가 빨간 표시(실행 결과는 성공)로 보인다.
+#           재무부 TIC 해외 보유(tic.json — 2026-11-19 더함, 운영자 결정 '1번 카드로 꺼내고 TIC도 추가해')는 수급 참고 바로 다음에
+#           받는다 — 화면에서 같은 '미 국채 수급' 카드의 월간 부분이다. 미 재무부 ticdata.treasury.gov의 표 5(최근 13개월)와 연도별
+#           기록 파일, 요청 두 번(요청마다 min(20초, 남은 예산), 전체 45초 굳은 상한 — 이 서버는 첫 바이트까지 8~11초 걸린 적이 있다).
+#           표 5를 받지 못하면 직전 값을 '받지 못함'과 함께, 기록 파일만 받지 못하면 그래프 앞부분을 직전 파일의 점으로 둔다.
+#           규칙 판정에 쓰지 않고, 실패해도 알림 없음. 내용이 그대로면 다시 쓰지 않는다.
 #           AI 투자 참고 자료(ai_invest.json — FRED 공개 통계, 재배포 제한 지수는 상관·회귀 계수만)도 같은 원칙이다: 칸마다 따로,
 #           못 받은 칸은 직전 값을 '받지 못함'과 함께 남기고 경고 줄을 찍는다. 알림에 넣지 않는다.
 #           유가·에너지 참고 자료(oil.json — FRED 공개 통계, 물가 묶음의 참고 카드와 한국 시장의 두 줄)도 같은 원칙이다.
@@ -124,6 +129,7 @@ jobs:
           node --test scripts/test_ois_render.cjs
           node --test scripts/test_people_render.cjs
           node --test scripts/test_supply_ktb_render.cjs
+          node --test scripts/test_supply_card_render.cjs
           node --test scripts/test_ledger_render.cjs
           node --test scripts/test_lp_render.cjs
           node --test scripts/test_timeline_render.cjs
@@ -133,7 +139,7 @@ jobs:
     # main에서만 — 다른 브랜치에서 수동 실행하면 그 브랜치 커밋이 main으로 밀려 올라간다
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 36        # 참고 자료 단계 제한의 합(기록 장부 1 + 국고채 2 + 수급 2 + AI 2 + SEC 2 + 신용 2 + 지준 2 + 연준 재무상태표 2 + 기간 프리미엄 2 + CDS 2 + 국채–OIS 2 + 유가 2 + 판단 격자 2 + 판단 연표 2 + 한국 4 = 31분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다(2026-11-18 기록 장부 1분을 더한 데 이어 같은 날 판단 격자 2분을 더하며 32분에서 34분, 2026-11-19 판단 연표 2분을 더하며 36분 — 수집·생성 몫 5분이 남는다)
+    timeout-minutes: 38        # 참고 자료 단계 제한의 합(기록 장부 1 + 국고채 2 + 수급 2 + TIC 2 + AI 2 + SEC 2 + 신용 2 + 지준 2 + 연준 재무상태표 2 + 기간 프리미엄 2 + CDS 2 + 국채–OIS 2 + 유가 2 + 판단 격자 2 + 판단 연표 2 + 한국 4 = 33분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다(2026-11-18 기록 장부 1분을 더한 데 이어 같은 날 판단 격자 2분을 더하며 32분에서 34분, 2026-11-19 판단 연표 2분을 더하며 36분, 같은 날 재무부 TIC 2분을 더하며 38분 — 수집·생성 몫 5분이 남는다)
     permissions:
       contents: write   # 봇이 data/를 커밋한다
     outputs:
@@ -187,6 +193,13 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/supply_fetch.py
+      # 참고 자료 — 재무부 TIC 해외 보유(표 5 + 연도별 기록, 요청 2회 · 전체 45초 상한). '미 국채 수급' 카드의 월간 부분.
+      # 규칙 판정에 쓰지 않고, 실패해도 알림 없음(머리말)
+      - name: 재무부 TIC 해외 보유 받기
+        id: tic
+        continue-on-error: true
+        timeout-minutes: 2
+        run: python scripts/tic_fetch.py
       # 참고 자료 — AI 투자(FRED 공개 통계 + 재배포 제한 지수는 상관·회귀 계수만, 요청 30회, 전체 80초 상한). 규칙 판정에 쓰지
       # 않고, 실패해도 알림 없음
       - name: AI 투자 참고 자료 받기

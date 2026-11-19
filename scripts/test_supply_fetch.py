@@ -814,23 +814,27 @@ class StaticTest(unittest.TestCase):
         self.assertRegex(node_part, rf"(^| · )수급 참고·국고채 절 그리기 {cjs}( · |$)")
         self.assertIn("node --test scripts/test_supply_ktb_render.cjs", readme)
 
-    def test_page_reads_the_file_and_puts_the_panel_in_the_term_premium_guide(self):
+    def test_page_reads_the_file_and_draws_it_in_the_supply_card(self):
+        # 2026-11-19 운영자 결정 '1번 카드로 꺼내고 TIC도 추가해' — 기간 프리미엄 읽는 법 안의 칸에서 금리·커브 묶음의 '미 국채 수급'
+        # 카드(site/supply.js, 주간 부분)로 꺼냈다. 읽는 법에는 그 카드를 가리키는 한 줄만(숫자는 카드에만)
         page = self.read("site", "index.html")
         self.assertIn('getJson("data/supply.json")', page)
         guide = page[page.index("const GUIDE = {"):page.index("function tpFlowFigure()")]
-        self.assertIn("panel: () => supplyPanel(supplyData)", guide)
-        self.assertIn('"수급 참고"', page)
-        self.assertIn("판정에 쓰지 않음", page)
+        self.assertIn("panel: () => supplyPointer()", guide)
+        self.assertNotIn("supplyPanel", page)
+        card = self.read("site", "supply.js")
+        self.assertIn('const WEEKLY = "주간 — 뉴욕 연은";', card)
+        self.assertIn("판정에 쓰지 않음", card)
         self.assertIn('<a href="data/supply.json">', page)                                # 꼬리말의 원자료 목록
 
     def test_page_text_avoids_banned_words_and_wraps_on_narrow_screens(self):
-        page = self.read("site", "index.html")
-        block = page[page.index("// 수급 참고 — data/supply.json"):page.index("\nlet activeView")]
-        self.assertIn("function supplyPanel(", block)
+        block = self.read("site", "supply.js")
+        self.assertIn("function weekly(", block)
         for word in FORBIDDEN_TEXT:                                                     # 공개 문구 원칙 — 화면 쪽 글도
             self.assertNotIn(word, block, word)
         css = self.read("site", "dashboard.css")
-        self.assertRegex(css, r"\.rule-guide \.supply p \{[^}]*overflow-wrap: anywhere")       # 390px에서 숫자 줄이 넘치지 않게
+        self.assertRegex(css, r"\.oil-card p, \.korea-oil p \{[^}]*overflow-wrap: anywhere")   # 390px에서 숫자 줄이 넘치지 않게
+        self.assertIn('class: "oil-card supply-card"', block)
 
 
 if __name__ == "__main__":

@@ -372,7 +372,9 @@ class RenderPublicTest(unittest.TestCase):
                      "DTCC", "Reg SBSR", "SEC EDGAR", "미 정부 공개 자료",
                      # 2026-10-30 운영자 결정 — Moody's Baa(FRED 경유, 인용 + 고지), 나스닥 낙폭, 연준 이사회 EBP, 뉴욕 연은 CMDI
                      "Moody's Baa−10년 스프레드는 FRED 경유 인용 필요 자료", "Moody's 저작권 고지", "나스닥100", "Nasdaq CTA AI",
-                     "연준 이사회", "초과 채권 프리미엄(EBP)", "CMDI"):
+                     "연준 이사회", "초과 채권 프리미엄(EBP)", "CMDI",
+                     # 2026-11-19 운영자 결정 '1번 카드로 꺼내고 TIC도 추가해' — 미 재무부 TIC(미 정부 공개 자료)
+                     "미 재무부 TIC", "Major Foreign Holders of Treasury Securities"):
             self.assertIn(part, t)
         self.assertNotIn("나머지는 FRED", t)                                  # 옛 문장(출처가 둘뿐이던 때)
         self.assertEqual(rp.attribution(2026)[-1], t)

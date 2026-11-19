@@ -205,6 +205,53 @@ class PageTest(unittest.TestCase):
         for sel in (".tl-table tbody th, .tl-table thead th:first-child { position: sticky;", ".tl > .tl-label {"):
             self.assertIn(sel, self.css, sel)
 
+    def test_supply_card_is_wired(self):
+        # 미 국채 수급(2026-11-19 운영자 결정 '1번 카드로 꺼내고 TIC도 추가해') — 기간 프리미엄 읽는 법 안에 접혀 있던 '수급 참고' 칸을
+        # 금리·커브 묶음의 참고 카드(#supply-slot, supply.js)로 꺼내고 재무부 TIC(data/tic.json)를 더했다. 두 파일을 읽고, 그리기는 try 안에서
+        # 한 번(둘 중 하나라도 있으면 부른다 — 없는 쪽은 카드 안에서 '자료 없음'), 자료 파일은 꼬리말의 '원자료'에도 있다
+        for snippet in ('getJson("data/supply.json")', 'getJson("data/tic.json")', '<script src="supply.js"></script>',
+                        '<a href="data/tic.json">tic.json</a>(재무부 TIC 해외 보유)',
+                        '<option value="국채 수급·해외 보유">',
+                        'title: "읽는 법 — 흐름도 · Kim-Wright와 ACM",',
+                        'panel: () => supplyPointer()',
+                        'const supply = ["tic", "해외 보유", "국채 수급", "미 국채 수급", "국채 수급·해외 보유", "딜러 재고"].includes(q);',
+                        'if (supply) jumpTo = ["supply-title"];',
+                        ': supply ? ["rates"] : null;'):
+            self.assertIn(snippet, self.page, snippet)
+        # 옛 칸(읽는 법 안)의 함수·변수와 제목은 남지 않는다 — 숫자는 카드에만
+        for gone in ("supplyPanel", "supplySide", "supplyData", "SUPPLY_SIDES", "흐름도 · 수급 참고"):
+            self.assertNotIn(gone, self.page, gone)
+        line = next(l for l in self.page.splitlines() if "window.SupplyCard.render(" in l)
+        self.assertRegex(line, r"^\s*try \{ if \(\(isObj\(sp\) \|\| isObj\(tic\)\) && window\.SupplyCard\) window\.SupplyCard\.render\("
+                               r"isObj\(sp\) \? sp\.value : null, isObj\(tic\) \? tic\.value : null\); \}$")
+        self.assertLess(self.page.index("window.OisCard.render("), self.page.index("window.SupplyCard.render("))
+        # 자리: 금리·커브 묶음, 국채–OIS 바로 뒤(국채–OIS가 기간 프리미엄 바로 뒤라는 자리는 그대로) — 빈 자리는 .oil-slot:empty로 숨는다
+        self.assertIn('g.id === "rates" ? el("div", {id:"supply-slot", class:"oil-slot supply-slot"}) : null,', self.page)
+        lines = self.page.splitlines()
+        i = next(i for i, l in enumerate(lines) if 'id:"ois-slot"' in l)
+        rest = [l for l in lines[i + 1:i + 4] if not l.strip().startswith("//")]
+        self.assertIn('id:"supply-slot"', rest[0])
+        self.assertEqual(self.page.count('id:"supply-slot"'), 1)
+        # 스크립트는 ois.js 바로 뒤, 인라인 스크립트 앞
+        self.assertIn('<script src="ois.js"></script>\n<script src="supply.js"></script>', self.page)
+        self.assertLess(self.page.index('<script src="supply.js">'), self.page.index('<script>\n"use strict";'))
+        self.assertTrue(os.path.getsize(os.path.join(REPO, "site", "supply.js")) > 2000)
+        # 출처 화면에 TIC가 있고, 수급 카드의 자리를 새 이름으로 적는다
+        sources = self.page[self.page.index('<section id="sources-wrap"'):self.page.index("</section>", self.page.index('<section id="sources-wrap"'))]
+        for word in ("Major Foreign Holders of Treasury Securities", "ticdata.treasury.gov", "사고판 양(순매입)이 아닙니다", "‘미 국채 수급’ 카드"):
+            self.assertIn(word, sources, word)
+        self.assertNotIn("수급 참고", sources)
+        # 나라 표는 상자 안에서만 가로로 넘치고, 명령줄로 내려가면 붙박이 머리에 가리지 않는다
+        # 바로 가기(월간 부분 · 한국 줄)로 내려간 자리도 붙박이 머리에 가리지 않는다(2026-11-19 검토 반영)
+        for sel in (".tic-scroll { max-width: 100%; overflow-x: auto;",
+                    "#supply-title, #supply-monthly-title, #supply-korea-row { scroll-margin-top:", ".oil-slot:empty { display: none; }",
+                    ".supply-num {", ".nw { white-space: nowrap; }"):
+            self.assertIn(sel, self.css, sel)
+        # 나라는 보고한 기관이 '있는 곳'이 아니라 보고된 보유자(또는 해외 보관 기관)의 소재지(2026-11-19 검토 반영)
+        self.assertIn("보유자(또는 국채를 맡긴 해외 보관 기관)의 소재지", sources)
+        self.assertNotIn("보고한 보관 기관이 있는 곳", sources)
+        self.assertNotIn(".rule-guide .supply", self.css)
+
     def test_ktb_table_panel_rule_reaches_the_table_panel(self):
         # 국고채 절의 표 상자는 머리글 다음 둘째 자식이라 :first-of-type에 걸리지 않았다(그래프 첫 상자에 걸렸다) — 자식 선택자로
         self.assertIn("#ktb-wrap > .panel {", self.css)
