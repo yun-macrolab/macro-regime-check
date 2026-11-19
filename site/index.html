@@ -32,7 +32,7 @@
       <label for="cmd" aria-hidden="true">&gt;</label>
       <input id="cmd" name="cmd" list="cmd-list" spellcheck="false" aria-label="화면 이동 명령"
              placeholder="화면 이름을 치고 Enter — 금리, 물가, 신용, 유동성, 국고채, AI, 기록, 출처">
-      <datalist id="cmd-list"><option value="저녁판"><option value="읽기 노트"><option value="전체"><option value="금리·커브"><option value="물가"><option value="신용·경기"><option value="유동성"><option value="한국 시장"><option value="한국 신용"><option value="수급·입찰"><option value="AI 투자"><option value="기록 장부"><option value="출처·갱신"></datalist>
+      <datalist id="cmd-list"><option value="저녁판"><option value="읽기 노트"><option value="전체"><option value="금리·커브"><option value="물가"><option value="신용·경기"><option value="유동성"><option value="한국 시장"><option value="한국 신용"><option value="수급·입찰"><option value="AI 투자"><option value="기록 장부"><option value="판단 연표"><option value="출처·갱신"></datalist>
       <button type="submit">이동</button>
       <span id="cmd-msg" class="cmd-msg" role="status"></span>
     </form>
@@ -49,7 +49,7 @@
     <a href="#evening" data-view="evening" aria-keyshortcuts="8"><kbd aria-hidden="true">8</kbd>저녁판<span>시범</span></a>
     <a href="#notes" data-view="notes" aria-keyshortcuts="9"><kbd aria-hidden="true">9</kbd>읽기 노트<span>공부</span></a>
     <a href="#ai" data-view="ai">AI 투자<span>참고</span></a>
-    <a href="#ledger" data-view="ledger">기록 장부<span>평가 약속</span></a>
+    <a href="#ledger" data-view="ledger">기록 장부<span>평가 약속 · 연표</span></a>
     <a href="people.html">연준 인물<span>참고</span></a>
   </nav>
   <div id="tape" class="tape" hidden role="group" tabindex="0" aria-label="주요 수치 띠 — 초점을 두거나 마우스를 올리면 멈춘다"><div id="tape-track" class="tape-track"></div></div>
@@ -136,6 +136,9 @@
   <!-- 기록 장부(ledger.js ← data/ledger.json) — '기록 장부' 화면(#ledger)에서만. 파일이 없거나 꼴이 어긋나면 아래 빈 줄 -->
   <section id="ledger-wrap" hidden aria-labelledby="ledger-title"></section>
   <p id="ledger-empty" class="empty-state" hidden>기록 장부를 불러오지 못했습니다. 자료가 갱신된 뒤 다시 확인해 주세요.</p>
+  <!-- 판단 연표(timeline.js ← data/timeline.json) — '기록 장부' 화면(#ledger)에서만, 기록 장부 바로 뒤. 파일이 없거나 꼴이 어긋나면 아래 빈 줄 -->
+  <section id="timeline-wrap" hidden aria-labelledby="timeline-title"></section>
+  <p id="timeline-empty" class="empty-state" hidden>판단 연표를 불러오지 못했습니다. 자료가 갱신된 뒤 다시 확인해 주세요.</p>
 
   <!-- 판단 격자 L × P(lp.js ← data/lp.json) — 첫 화면에서만, '주제별 점검' 절 바로 앞(그 절 안의 규칙 상태 고르기와 규칙 목록 사이에
        두지 않고, 13개 규칙 뒤로 묻지도 않는다). 파일이 없거나 꼴이 어긋나면 숨긴 채 -->
@@ -160,8 +163,8 @@
     <article><h3>FRED 밖의 공개 자료</h3><p>기간 프리미엄 모형 대조의 ACM 추정치(Adrian·Crump·Moench)는 뉴욕 연은 웹 사이트에서 직접 받고, 변화·z·몫은 이 사이트가 계산합니다. 신용 긴축 카드의 기업별 조달·조달 흐름·재무상태 잔액 줄은 SEC EDGAR XBRL API(data.sec.gov)의 공시 숫자로 이 사이트가 분기·달력 분기 합·잔액 합계를 계산합니다. 단일종목 CDS는 DTCC Data Repository (U.S.) LLC가 SEC 규칙(Reg SBSR)으로 공개하는 증권기반 스와프 거래 보고의 하루 파일에서 이름별 새 거래 수와 5년 호가 중앙값만 셉니다 — DTCC 쪽 보고만이고, 체결 스프레드라 호가 중간값이 아니며, 다음 날 이후 취소된 거래는 빼지 못합니다. 금리·커브 화면의 국채–OIS 카드(2026-11-15)는 같은 회사가 CFTC 규칙(17 CFR Part 43)으로 공개하는 금리 스와프 거래 보고의 하루 파일에서 SOFR OIS 새 거래의 만기별 고정금리 중앙값만 남기고, FRED의 재무부 par 금리(DGS2·DGS5·DGS10·DGS30, 연준 이사회 H.15 — 공공 자료)에서 뺍니다 — 2026-11-15 운영자가 DTCC 이용 약관을 확인한 뒤 싣고, DTCC 쪽 보고만이며, 체결된 거래라 호가 중간값이 아니고, 다음 날 이후 취소된 거래는 빼지 못합니다. 연준 재무상태표 카드의 지준 관리 매입(RMP) 칸은 뉴욕 연은에서 직접 받습니다(newyorkfed.org 이용약관 — 기본 출처·관계없음 고지와 권장 인용을 카드에 함께). 계획 금액은 뉴욕 연은 'Treasury Securities Operational Details' 페이지(www.newyorkfed.org)의 월 일정 창 계획 문장에서 정해 둔 꼴만 옮긴 재투자·RMP 금액이고, 계획이지 실제 매입이 아닙니다. 누적·묶음·연속 창 수는 그 금액으로 이 사이트가 셈한 값이고, 운영 결과 대조는 뉴욕 연은 Markets API(markets.newyorkfed.org)의 국채 운영 결과를 받아 월 일정 창의 매입 합에서 그 달 MBS 상환(연준 H.4.1 WSHOMCB, FRED 경유)을 뺀 이 사이트의 셈이며 공식 수치가 아닙니다(카드에는 계획과의 차 한 줄만). 같은 카드의 '연준 대차대조표 정책 — 1차 출처' 칸은 연준·뉴욕 연은 원문의 짧은 인용과 출처 주소(글자)입니다. 기관의 로고·인장은 쓰지 않습니다.</p></article>
     <article><h3>싣지 않는 것</h3><p>ICE BofA 회사채 OAS(등급별·장기·HY·IG)의 값과 그 값으로 되살릴 수 있는 등급 간 차이·변화, S&amp;P 500의 값·수익률·13주 변화 %, Nasdaq 지수의 값·수익률·고점·낙폭 시계열은 재배포 조건 때문에 싣지 않습니다. ICE 지수로 정한 ON/OFF·충족 여부와 S&amp;P 500 13주 변화의 방향은 싣습니다. 운영자의 비공개 ICE 등급별 스프레드 사다리 자리는 공개 자료(연준 이사회 EBP·뉴욕 연은 CMDI)로 대신합니다. 거래 식별자·RED 코드 같은 원 행의 식별 정보도 싣지 않습니다.</p></article>
     <article><h3>한국 금리 참고 자료</h3><p>KB증권 리서치본부 채권크레딧팀이 공개 텔레그램 채널에 올리는 일일동향 글에서 옮긴 금리입니다(기준: 민평3사 — 민간 채권평가사 세 곳 평균). 공개 통계가 아니며 규칙 판정에는 쓰지 않습니다. 게시일과 금리 기준일을 구분해 읽습니다.</p></article>
-    <article><h3>시나리오 이름표와 해석 구절</h3><p>규칙 카드의 시나리오 이름표(A~D)·해석 구절과 ‘레짐 점검 참고’(국면 후보·전환 경계·손으로 보는 항목), 수급 참고의 ⚠ 줄 끝 구절은 운영자가 개인 월간 점검에 적어 둔 메모를 옮긴 참고입니다. 첫 화면 ‘판단 격자 L × P’의 칸 이름 16개와 미리 적어 둔 기대도 운영자의 비공개 측정 도구에 적힌 메모이고, 상태와 칸은 이 사이트가 FRED 공개 통계로 다시 계산합니다. 참고 카드의 ‘측정 기록’ 줄(신용 긴축 단계와 그 가설·경로 숫자, 기간 프리미엄 주간 점수와 모형 대조, 유가 방향 상태별 평균, 지준·재정의 상관, AI 고유 몫)도 운영자가 과거 자료로 잰 값을 옮긴 것입니다. 예측이 아니고, 이름표·구절·단계·점수의 예측력은 검증하지 않았습니다. 규칙의 충족 여부는 규칙 문장만으로 정해집니다.</p></article>
-    <article><h3>이 사이트의 계산값</h3><p>증가율·3개월 변화·상관·비율·국고채 금리차와 규칙 판정, 기록 장부의 규칙 전환 뒤 금리 변화·평균을 뺀 값은 원자료를 바탕으로 계산합니다. 원 발행기관의 시장 전망을 뜻하지 않습니다.</p></article>
+    <article><h3>시나리오 이름표와 해석 구절</h3><p>규칙 카드의 시나리오 이름표(A~D)·해석 구절과 ‘레짐 점검 참고’(국면 후보·전환 경계·손으로 보는 항목), 수급 참고의 ⚠ 줄 끝 구절은 운영자가 개인 월간 점검에 적어 둔 메모를 옮긴 참고입니다. 첫 화면 ‘판단 격자 L × P’의 칸 이름 16개와 미리 적어 둔 기대도 운영자의 비공개 측정 도구에 적힌 메모이고, 상태와 칸은 이 사이트가 FRED 공개 통계로 다시 계산합니다. 참고 카드의 ‘측정 기록’ 줄(신용 긴축 단계와 그 가설·경로 숫자, 기간 프리미엄 주간 점수와 모형 대조, 유가 방향 상태별 평균, 지준·재정의 상관, AI 고유 몫)도 운영자가 과거 자료로 잰 값을 옮긴 것입니다. ‘기록 장부’ 화면 ‘판단 연표’의 듀레이션·커브 판정(O/W·U/W·Neutral·Flattening·Steepening 등)과 Total·고친 칸·국면 FLAG는 운영자가 공개 기록 저장소(yun-macrolab/macro-notes-automation)에 올린 주간 기록에서 옮긴 운영자의 기록이고, 투자 판단·권유가 아닙니다. 예측이 아니고, 이름표·구절·단계·점수의 예측력은 검증하지 않았습니다. 규칙의 충족 여부는 규칙 문장만으로 정해집니다.</p></article>
+    <article><h3>이 사이트의 계산값</h3><p>증가율·3개월 변화·상관·비율·국고채 금리차와 규칙 판정, 기록 장부의 규칙 전환 뒤와 판단 연표의 주간 판정 뒤 금리 변화·평균을 뺀 값은 원자료를 바탕으로 계산합니다. 원 발행기관의 시장 전망을 뜻하지 않습니다.</p></article>
   </div>
   <article class="panel"><h3>한국 시장 공식 공개 자료</h3><p>한국은행 스냅샷(금융투자협회·ECOS·미국 재무부), 한국거래소 국채선물 거래통계, 공식 국채시장 입찰 일정·발행공고, 재정경제부 월별 국고채 발행계획 보도자료와 경쟁입찰·매입·교환 입찰 결과 공고, 한국은행 공개시장운영 공지의 통화안정증권 경쟁입찰 결과와 월간 발행 계획을 사용합니다. 최종호가 금리와 민평3사 금리는 평가 기준이 다르므로 이어 붙이지 않습니다.</p><ul id="korea-source-status" class="health"></ul></article>
   <details open>
@@ -174,7 +177,7 @@
   <footer>
     <div id="attribution"></div>
     <p>계산 코드: <a href="https://github.com/yun-macrolab/macro-regime-check">github.com/yun-macrolab/macro-regime-check</a></p>
-    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · <a href="data/supply.json">supply.json</a>(수급 참고) · <a href="data/ai_invest.json">ai_invest.json</a>(AI 투자 참고) · <a href="data/oil.json">oil.json</a>(유가·에너지 참고) · <a href="data/tp.json">tp.json</a>(기간 프리미엄 모형 대조) · <a href="data/ois.json">ois.json</a>(국채–OIS 참고 · 날마다의 중앙값은 <a href="data/ois_days.json">ois_days.json</a>) · <a href="data/liquidity.json">liquidity.json</a>(지준·재정 참고) · <a href="data/fedbs.json">fedbs.json</a>(연준 재무상태표 참고) · <a href="data/credit.json">credit.json</a>(신용 긴축 참고) · <a href="data/sec.json">sec.json</a>(SEC 조달 참고) · <a href="data/cds.json">cds.json</a>(단일종목 CDS 참고 · 날마다의 셈은 <a href="data/cds_days.json">cds_days.json</a>) · <a href="data/korea.json">korea.json</a>(한국 시장) · <a href="data/korea-status.json">korea-status.json</a>(한국 시장 갱신 상태) · <a href="data/changes.json">changes.json</a>(이번 주 달라진 것) · <a href="data/ledger.json">ledger.json</a>(기록 장부 · 평가 약속) · <a href="data/lp.json">lp.json</a>(판단 격자 L × P) · <a href="data/digest.json">digest.json</a>(저녁판) · <a href="data/digest_index.json">digest_index.json</a>(저녁판 목록) · <a href="data/digest_status.json">digest_status.json</a>(저녁판 수집 상태) · <a href="data/digest_overrides.json">digest_overrides.json</a>(저녁판 숨김 목록) · <a href="data/sources.json">sources.json</a>(저녁판 출처) · <a href="data/digest_picks.json">digest_picks.json</a>(저녁판 AI 요약) · <a href="data/notes.json">notes.json</a>(읽기 노트) · <a href="data/notes_charts.json">notes_charts.json</a>(읽기 노트 그래프) · 날짜별 기록은 저장소의 data/history/</p>
+    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · <a href="data/supply.json">supply.json</a>(수급 참고) · <a href="data/ai_invest.json">ai_invest.json</a>(AI 투자 참고) · <a href="data/oil.json">oil.json</a>(유가·에너지 참고) · <a href="data/tp.json">tp.json</a>(기간 프리미엄 모형 대조) · <a href="data/ois.json">ois.json</a>(국채–OIS 참고 · 날마다의 중앙값은 <a href="data/ois_days.json">ois_days.json</a>) · <a href="data/liquidity.json">liquidity.json</a>(지준·재정 참고) · <a href="data/fedbs.json">fedbs.json</a>(연준 재무상태표 참고) · <a href="data/credit.json">credit.json</a>(신용 긴축 참고) · <a href="data/sec.json">sec.json</a>(SEC 조달 참고) · <a href="data/cds.json">cds.json</a>(단일종목 CDS 참고 · 날마다의 셈은 <a href="data/cds_days.json">cds_days.json</a>) · <a href="data/korea.json">korea.json</a>(한국 시장) · <a href="data/korea-status.json">korea-status.json</a>(한국 시장 갱신 상태) · <a href="data/changes.json">changes.json</a>(이번 주 달라진 것) · <a href="data/ledger.json">ledger.json</a>(기록 장부 · 평가 약속) · <a href="data/lp.json">lp.json</a>(판단 격자 L × P) · <a href="data/timeline.json">timeline.json</a>(판단 연표) · <a href="data/digest.json">digest.json</a>(저녁판) · <a href="data/digest_index.json">digest_index.json</a>(저녁판 목록) · <a href="data/digest_status.json">digest_status.json</a>(저녁판 수집 상태) · <a href="data/digest_overrides.json">digest_overrides.json</a>(저녁판 숨김 목록) · <a href="data/sources.json">sources.json</a>(저녁판 출처) · <a href="data/digest_picks.json">digest_picks.json</a>(저녁판 AI 요약) · <a href="data/notes.json">notes.json</a>(읽기 노트) · <a href="data/notes_charts.json">notes_charts.json</a>(읽기 노트 그래프) · 날짜별 기록은 저장소의 data/history/</p>
   </footer>
 </main>
 <script src="charts.js"></script>
@@ -191,6 +194,7 @@
 <script src="cds.js"></script>
 <script src="ledger.js"></script>
 <script src="lp.js"></script>
+<script src="timeline.js"></script>
 <script>
 "use strict";
 // 예약 실행: UTC 월~금 22:17(.github/workflows/daily.yml). 실제로는 2~5시간 뒤에 끝난다(2026-09-29~11-07 서른 번, 한 번은 5시간 14분) —
@@ -528,7 +532,7 @@ function supplyPanel(d) {
 }
 let activeView = "all", ruleState = "all", publicData = null;
 const available = { overview: false, korea: false, snapshot: false, loaded: false, monitor: false, ai: false, regime: false,
-  aiCredit: false, changes: false, ledger: false, lp: false };
+  aiCredit: false, changes: false, timeline: false, ledger: false, lp: false };
 
 function renderRule(r, chart, health) {
   const obs = el("dl", { class: "observations" });
@@ -602,7 +606,7 @@ function applyView() {
   document.getElementById("main").dataset.view = activeView;   // 저녁판·읽기 노트에서는 아침 갱신 상태 줄을 감춘다(dashboard.css)
   const group = GROUPS.find(g => g.id === activeView);
   const titles = {all:"시장의 큰 흐름, 한눈에", korea:"한국 시장 · 금리·커브", "korea-credit":"한국 시장 · 신용·단기자금", "korea-flows":"한국 시장 · 수급·입찰", sources:"출처와 갱신 현황", ai:"AI 투자 참고", ledger:"기록 장부 · 평가 약속", evening:"저녁판 · 여러 곳이 함께 다룬 것", notes:"읽기 노트"};
-  const descriptions = {all:"금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.", korea:"한국과 미국 금리의 수준·차이·변화를 비교합니다.", "korea-credit":"기업과 은행의 자금조달 여건을 비교합니다.", "korea-flows":"누가 거래했고, 국채 공급을 어떻게 소화했는지 살펴봅니다.", sources:"어디에서 왔고, 언제 관측됐는지 확인하세요.", ai:"AI 투자를 실물 투자·조달·전력 가격·금리·주식과의 상관으로 나눠 보고, 아래에 신용 긴축 단계·하이퍼스케일러 조달·단일종목 CDS를 함께 싣습니다. 규칙 판정에 쓰지 않습니다.", ledger:"규칙이 바뀐 날 뒤의 미 국채 금리 변화를 미리 정해 둔 방법(평가 약속)대로 적은 측정 기록입니다. 예측이 아니고, 어느 규칙도 금리를 올리거나 내린다고 가정하지 않습니다.", evening:"텔레그램 공개 채널들이 함께 다룬 주제를 규칙으로 골라 원문 링크로 잇습니다. 채널 글의 문장은 싣지 않습니다. 'AI 요약' 표시가 붙은 문장은 AI가 쓴 것입니다.", notes:"읽은 글을 내 말로 옮기고, 내 틀과 잇고, 질문을 남깁니다. 원문은 링크로만 잇습니다."};
+  const descriptions = {all:"금리에서 물가, 신용과 유동성까지. 관심 있는 주제부터 살펴보세요.", korea:"한국과 미국 금리의 수준·차이·변화를 비교합니다.", "korea-credit":"기업과 은행의 자금조달 여건을 비교합니다.", "korea-flows":"누가 거래했고, 국채 공급을 어떻게 소화했는지 살펴봅니다.", sources:"어디에서 왔고, 언제 관측됐는지 확인하세요.", ai:"AI 투자를 실물 투자·조달·전력 가격·금리·주식과의 상관으로 나눠 보고, 아래에 신용 긴축 단계·하이퍼스케일러 조달·단일종목 CDS를 함께 싣습니다. 규칙 판정에 쓰지 않습니다.", ledger:"규칙이 바뀐 날 뒤의 미 국채 금리 변화를 미리 정해 둔 방법(평가 약속)대로 적은 측정 기록입니다. 아래 판단 연표는 운영자의 주간 판정(공개 기록에서 옮김)을 그 주 이 사이트의 규칙 상태와 그 뒤 금리 변화 옆에 같은 방식으로 적습니다. 예측이 아니고, 어느 규칙도 금리를 올리거나 내린다고 가정하지 않습니다.", evening:"텔레그램 공개 채널들이 함께 다룬 주제를 규칙으로 골라 원문 링크로 잇습니다. 채널 글의 문장은 싣지 않습니다. 'AI 요약' 표시가 붙은 문장은 AI가 쓴 것입니다.", notes:"읽은 글을 내 말로 옮기고, 내 틀과 잇고, 질문을 남깁니다. 원문은 링크로만 잇습니다."};
   document.getElementById("view-title").textContent = group?.title || titles[activeView];
   document.getElementById("view-description").textContent = group?.description || descriptions[activeView];
   document.querySelectorAll("#category-nav a").forEach(a => {
@@ -628,6 +632,8 @@ function applyView() {
   document.getElementById("changes-wrap").hidden = !(available.changes && activeView === "all");
   document.getElementById("ledger-wrap").hidden = !(available.ledger && activeView === "ledger");
   document.getElementById("ledger-empty").hidden = activeView !== "ledger" || available.ledger || !available.loaded;
+  document.getElementById("timeline-wrap").hidden = !(available.timeline && activeView === "ledger");
+  document.getElementById("timeline-empty").hidden = activeView !== "ledger" || available.timeline || !available.loaded;
   document.getElementById("rules-wrap").hidden = !showRules;
   document.getElementById("regime-ref").hidden = !(available.regime && activeView === "all");
   document.getElementById("lp-ref").hidden = !(available.lp && activeView === "all");
@@ -677,14 +683,17 @@ const VIEWS = [["all", ["전체", "홈", "all"]], ["rates", ["금리", "커브",
   ["credit", ["신용", "경기", "대출", "고용", "실업", "credit"]], ["liquidity", ["유동성", "지준", "sofr"]],
   ["korea", ["국고채", "한국", "ktb"]], ["sources", ["출처", "갱신", "자료"]],
   ["evening", ["저녁판", "저녁", "텔레그램", "evening"]], ["notes", ["읽기 노트", "읽기", "노트", "notes"]]];
+// 명령줄 '연표' · '판단 연표' — 기록 장부 화면으로 간 뒤 그 아래 판단 연표 절(또는 그 빈 줄)로 초점을 옮긴다
+let jumpTo = null;
 function go(text) {
   const q = String(text).trim().toLowerCase();
   if (!q) return false;
+  jumpTo = ["연표", "판단 연표"].includes(q) ? ["timeline-title", "timeline-empty"] : null;
   const byNumber = /^[1-9]$/.test(q) ? VIEWS[Number(q) - 1] : null;
   // AI 투자 화면은 이 낱말들과 똑같을 때만 — 'ai'가 'a'·'main'·'daily' 같은 입력을 가로채지 않게(숫자 키도 없다). 기록 장부도 같다
   const detail = q === "한국 신용" ? ["korea-credit"] : ["수급", "입찰", "수급·입찰"].includes(q) ? ["korea-flows"]
     : ["ai", "ai 투자", "인공지능", "데이터센터"].includes(q) ? ["ai"]
-    : ["기록", "장부", "기록 장부", "평가 약속", "ledger"].includes(q) ? ["ledger"] : null;
+    : ["기록", "장부", "기록 장부", "평가 약속", "연표", "판단 연표", "ledger"].includes(q) ? ["ledger"] : null;
   // 똑같은 낱말 → 입력으로 시작하는 낱말 → 입력에 든 낱말 순으로 찾고, 여러 화면에 걸리면 뒤쪽(더 좁은) 화면이 먼저다
   // ("국고채 금리"는 금리·커브가 아니라 한국 시장으로)
   const pick = test => VIEWS.slice().reverse().find(([id, words]) => [id, ...words].some(test));
@@ -700,6 +709,14 @@ document.getElementById("cmd-form").addEventListener("submit", ev => {
     input.value = "";
     msg.textContent = "";
     setTimeout(() => {                                  // 화면이 바뀐 뒤 그 화면의 제목으로 초점을 옮긴다(화면 읽기가 제목을 읽는다)
+      const jump = (jumpTo || []).map(id => document.getElementById(id)).find(h => h && h.offsetParent);
+      jumpTo = null;
+      if (jump) {                                       // 판단 연표 — 기록 장부 아래로 내려가 그 제목(또는 빈 줄)에 초점
+        jump.setAttribute("tabindex", "-1");
+        jump.scrollIntoView({ block: "start" });
+        jump.focus({ preventScroll: true });
+        return;
+      }
       const title = [document.getElementById("bridge-title"), document.getElementById("view-title")].find(h => h && h.offsetParent);
       if (!title) { input.blur(); return; }
       title.setAttribute("tabindex", "-1");
@@ -972,12 +989,12 @@ function renderPublic(p, charts) {
 tick();
 applyView();
 (async () => {
-  const [st, pub, ch, kt, kr, ks, sp, ai, oil, tp, liq, cr, sc, cds, fbs, ois, chg, led, lp] = await Promise.allSettled([getJson("data/status.json"),
+  const [st, pub, ch, kt, kr, ks, sp, ai, oil, tp, liq, cr, sc, cds, fbs, ois, chg, led, lp, tl] = await Promise.allSettled([getJson("data/status.json"),
     getJson("data/public.json"), getJson("data/charts.json"), getJson("data/ktb.json"), getJson("data/korea.json"),
     getJson("data/korea-status.json"), getJson("data/supply.json"), getJson("data/ai_invest.json"), getJson("data/oil.json"),
     getJson("data/tp.json"), getJson("data/liquidity.json"), getJson("data/credit.json"), getJson("data/sec.json"),
     getJson("data/cds.json"), getJson("data/fedbs.json"), getJson("data/ois.json"), getJson("data/changes.json"),
-    getJson("data/ledger.json"), getJson("data/lp.json")]);
+    getJson("data/ledger.json"), getJson("data/lp.json"), getJson("data/timeline.json")]);
   // 그래프 자료가 없거나 깨졌으면 그래프 없이 지금 화면 그대로
   const charts = ch.status === "fulfilled" && ch.value && typeof ch.value === "object" ? ch.value : null;
   const isObj = x => x.status === "fulfilled" && x.value && typeof x.value === "object";
@@ -1030,6 +1047,10 @@ applyView();
   // 판단 격자 L × P(2026-11-18) — 첫 화면의 레짐 점검 참고 바로 뒤. 파일이 없거나 깨졌으면 그 절만 없다
   try { if (isObj(lp) && window.LpCard) available.lp = window.LpCard.render(lp.value) === true; }
   catch (e) { available.lp = false; /* 판단 격자 절만 뺀다 */ }
+  // 판단 연표(2026-11-19) — '기록 장부' 화면에서 기록 장부 바로 뒤. 판단 격자 칸 이름을 lp.js의 운영자 표와 견주므로 그 뒤에 그린다.
+  // 파일이 없거나 깨졌으면 그 절만 없다(기록 장부는 그대로)
+  try { if (isObj(tl) && window.TimelineView) available.timeline = window.TimelineView.render(tl.value) === true; }
+  catch (e) { available.timeline = false; /* 판단 연표 절만 뺀다 */ }
   try { renderTape(pub.status === "fulfilled" ? pub.value : null, charts); }
   catch (e) { /* 시세 띠가 없어도 화면은 그대로 */ }
   available.loaded = true;

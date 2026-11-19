@@ -436,6 +436,36 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .lp-more { margin-top: 10px; }
 .lp-cite p, .lp-cites p { overflow-wrap: anywhere; }
 .lp-sources .lp-cites { margin-top: 8px; }
+/* 판단 연표(site/timeline.js, 2026-11-19) — '기록 장부' 화면의 #timeline-wrap(기록 장부 바로 뒤). 표는 기록 장부와 같은 꼴(.ledger-table)로
+   가로 스크롤 상자 안에서만 넘치고(390px에서 화면이 가로로 넘치지 않게), 첫 열(주)은 넓은 표를 옆으로 밀어도 왼쪽에 붙어 있다.
+   판정 이름표 · 늦게 확정 · 확정 뒤 고침은 색이 아니라 글로 읽는다(색은 덧붙인 표시) */
+.tl p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.6; overflow-wrap: anywhere; }
+.tl > .tl-label { margin: 0; color: var(--key); font-size: 12px; }
+.tl .tl-sum-line { margin-top: 8px; font-size: 13.5px; color: var(--ink); }
+.tl .tl-sum-note { margin-top: 2px; font-size: 12px; }
+.tl .tl-lplabel { margin: 0 0 2px; font-size: 11.5px; }
+.tl .tl-keys { margin-top: 8px; }
+/* 명령줄 '연표'로 내려올 때 붙박이 머리(.term-head)에 제목이 가리지 않게 */
+#timeline-title, #timeline-empty { scroll-margin-top: 140px; }
+.tl-table tbody th, .tl-table thead th:first-child { position: sticky; left: 0; z-index: 1; background: var(--black); min-width: 6.5em;
+  box-shadow: inset -1px 0 0 var(--rule); }
+.tl-week { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tl-table tbody th .ledger-pre { display: table; margin: 3px 0 0; }
+.tl-table td { min-width: 6.5em; }
+.tl-table td small { white-space: normal; word-break: keep-all; }   /* 칸 밑 작은 글(출발 · 끝 점 · 기록 날짜)은 접어 1280px에서 표 폭을
+                                                         줄인다 — 한글 낱말 가운데서는 접지 않는다('비 · 어 있음'처럼) — */
+.tl-nb { white-space: nowrap; }                          /* 날짜 · 숫자 토막은 가운데서 접지 않는다 */
+.tl-verdict { font-family: var(--f-mono); color: var(--ink); white-space: normal; }   /* 'Flattening (+0.88)'은 두 줄로 접혀도 된다 — 1280px에 맞게 */
+.ledger-table td small.tl-moved { color: var(--key); }
+.ledger-table td small.tl-twin { color: var(--ink); }
+.ledger-table td small.tl-cell { font-family: var(--f-text); color: var(--ink); white-space: normal; min-width: 9em; }
+.tl-table td .ledger-pre { display: table; margin: 3px 0 0; }
+.tl-table tr.tl-gap th, .tl-table tr.tl-gap td { color: var(--dim); font-style: italic; }
+.tl-table tr.tl-gap td { white-space: normal; }
+.tl-sum tbody th small { display: block; font: 400 11px var(--f-mono); color: var(--dim); }
+.tl-read > ul { margin-top: 6px; }
+.tl-read strong { color: var(--ink); font-weight: 500; }
+.tl .tl-source { margin-top: 8px; font-size: 12px; }
 
 /* ── 출처 ── */
 .source-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 10px 0; }

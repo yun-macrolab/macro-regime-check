@@ -122,10 +122,10 @@ class PageTest(unittest.TestCase):
         # 기록 장부(2026-11-18) — 첫 화면의 '이번 주 달라진 것'과 '기록 장부' 화면. 두 파일을 읽고, 그리기는 try 안에서 한 번,
         # 상자는 처음에 숨어 있고 그 화면에서만 열린다. 화면 키(숫자)는 없고 명령 낱말은 똑같을 때만(AI 투자와 같다)
         for snippet in ('getJson("data/changes.json")', 'getJson("data/ledger.json")', '<script src="ledger.js"></script>',
-                        '<a href="#ledger" data-view="ledger">기록 장부<span>평가 약속</span></a>',
+                        '<a href="#ledger" data-view="ledger">기록 장부<span>평가 약속 · 연표</span></a>',
                         '<section id="changes-wrap" hidden', '<section id="ledger-wrap" hidden', '<option value="기록 장부">',
                         '"korea-flows", "ledger", "sources", "ai"]',
-                        '["기록", "장부", "기록 장부", "평가 약속", "ledger"].includes(q) ? ["ledger"]',
+                        '["기록", "장부", "기록 장부", "평가 약속", "연표", "판단 연표", "ledger"].includes(q) ? ["ledger"]',
                         'getElementById("changes-wrap").hidden = !(available.changes && activeView === "all")',
                         'getElementById("ledger-wrap").hidden = !(available.ledger && activeView === "ledger")',
                         'getElementById("ledger-empty").hidden = activeView !== "ledger" || available.ledger || !available.loaded'):
@@ -163,6 +163,46 @@ class PageTest(unittest.TestCase):
         self.assertLess(self.page.index('<script src="lp.js">'), self.page.index('<script>\n"use strict";'))
         self.assertTrue(os.path.getsize(os.path.join(REPO, "site", "lp.js")) > 2000)
         for sel in (".lp-scroll { max-width: 100%; overflow-x: auto; }", '.lp-grid td[aria-current="true"]'):
+            self.assertIn(sel, self.css, sel)
+
+    def test_timeline_is_wired(self):
+        # 판단 연표(2026-11-19 운영자 결정 '5번도 공개') — '기록 장부' 화면에서만, 기록 장부(#ledger-wrap · #ledger-empty) 바로 뒤의 절.
+        # 자료 파일 하나를 읽고, 그리기는 try 안에서 한 번(판단 격자 칸 이름을 lp.js의 표와 견주므로 LpCard 뒤), 절은 처음에 숨어 있다.
+        # 자료 파일은 꼬리말의 '원자료'에도 있다. 화면 키(숫자)는 없고 명령 낱말 '연표' · '판단 연표'는 기록 장부 화면으로
+        for snippet in ('getJson("data/timeline.json")', '<script src="timeline.js"></script>',
+                        '<section id="timeline-wrap" hidden aria-labelledby="timeline-title"></section>',
+                        'changes: false, timeline: false, ledger: false',
+                        'getElementById("timeline-wrap").hidden = !(available.timeline && activeView === "ledger")',
+                        '<a href="data/timeline.json">timeline.json</a>(판단 연표)',
+                        '<option value="판단 연표">',
+                        # 못 그린 날의 빈 줄(기록 장부와 같은 꼴) — 그 화면에서 읽기를 마친 뒤에만
+                        '<p id="timeline-empty" class="empty-state" hidden>',
+                        'getElementById("timeline-empty").hidden = activeView !== "ledger" || available.timeline || !available.loaded',
+                        # 명령줄 '연표' · '판단 연표'는 기록 장부 화면으로 간 뒤 그 절로 내려간다
+                        'jumpTo = ["연표", "판단 연표"].includes(q) ? ["timeline-title", "timeline-empty"] : null;'):
+            self.assertIn(snippet, self.page, snippet)
+        self.assertEqual(self.page.count('id="timeline-wrap"'), 1)
+        self.assertIn("#timeline-title, #timeline-empty { scroll-margin-top:", self.css)       # 붙박이 머리에 가리지 않게
+        line = next(l for l in self.page.splitlines() if "window.TimelineView.render(" in l)
+        self.assertRegex(line, r"^\s*try \{ if \(isObj\(tl\) && window\.TimelineView\) available\.timeline = "
+                               r"window\.TimelineView\.render\(tl\.value\) === true; \}$")
+        self.assertLess(self.page.index("window.LpCard.render("), self.page.index("window.TimelineView.render("))
+        # 자리: 기록 장부의 빈 줄 바로 뒤, 판단 격자 절 앞
+        after = self.page[self.page.index('<p id="ledger-empty"'):]
+        after = after[after.index("\n") + 1:]
+        self.assertTrue(after.lstrip().startswith("<!-- 판단 연표") or after.lstrip().startswith('<section id="timeline-wrap"'),
+                        after[:200])
+        self.assertLess(self.page.index('<section id="timeline-wrap"'), self.page.index('<section id="lp-ref"'))
+        # 스크립트는 lp.js 바로 뒤, 인라인 스크립트 앞
+        self.assertIn('<script src="lp.js"></script>\n<script src="timeline.js"></script>', self.page)
+        self.assertLess(self.page.index('<script src="timeline.js">'), self.page.index('<script>\n"use strict";'))
+        self.assertTrue(os.path.getsize(os.path.join(REPO, "site", "timeline.js")) > 2000)
+        # 화면 설명은 연표를 말하고, 탭 이름은 '기록 장부' 그대로
+        desc = re.search(r'ledger:"([^"]*)"', next(l for l in self.page.splitlines() if "const descriptions = {" in l))
+        self.assertIsNotNone(desc)
+        self.assertIn("판단 연표", desc.group(1))
+        self.assertIn("예측이 아니고", desc.group(1))
+        for sel in (".tl-table tbody th, .tl-table thead th:first-child { position: sticky;", ".tl > .tl-label {"):
             self.assertIn(sel, self.css, sel)
 
     def test_ktb_table_panel_rule_reaches_the_table_panel(self):

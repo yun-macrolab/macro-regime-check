@@ -502,10 +502,10 @@ test('the command line goes to the ledger on its exact words only',()=>{
  assert.ok(i>0&&j>i,'명령줄 부분을 찾지 못함');
  const sc={location:{hash:''}};
  const go=vm.runInNewContext(PAGE.slice(i,j)+'\ngo',sc);
- for(const q of ['기록','장부','기록 장부','평가 약속','ledger','LEDGER',' 기록 ']){sc.location.hash='';assert.equal(go(q),true,q);assert.equal(sc.location.hash,'ledger',q);}
+ for(const q of ['기록','장부','기록 장부','평가 약속','연표','판단 연표','ledger','LEDGER',' 기록 ']){sc.location.hash='';assert.equal(go(q),true,q);assert.equal(sc.location.hash,'ledger',q);}
  for(const q of ['led','기','기록 보기','장']){sc.location.hash='x';go(q);assert.notEqual(sc.location.hash,'ledger',q);}
  sc.location.hash='';go('a');assert.equal(sc.location.hash,'all');                              // 'ai'와 같이 앞부분 검색에 끼지 않는다
- assert.ok(PAGE.includes('<a href="#ledger" data-view="ledger">기록 장부<span>평가 약속</span></a>'));
+ assert.ok(PAGE.includes('<a href="#ledger" data-view="ledger">기록 장부<span>평가 약속 · 연표</span></a>'));
 });
 
 test('ledger: a flip with no weekly point yet on or after its day waits without a start (2026-11-18 출발 점 규칙)',()=>{

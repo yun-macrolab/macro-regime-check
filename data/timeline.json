@@ -1,0 +1,815 @@
+{
+  "schema": 1,
+  "generated_at": "2026-11-19T02:13:36+00:00",
+  "notice": "운영자가 공개 기록(macro-notes-automation 저장소의 records/)에 올린 주간 판정을 옮겨, 정해 둔 방법(판단 연표 약속)으로 그 뒤의 미 금리 변화와 나란히 적은 측정 기록이다. 예측이 아니고 투자 판단이나 권유가 아니다.",
+  "label": "운영자 주간 판정(공개 기록에서 옮김) — 투자 판단·권유 아님 · 측정 기록",
+  "lp_label": "운영자 판단 격자의 칸 이름(운영자 메모) — 예측 아님 · 예측력 검증 안 됨",
+  "source": {
+    "repo": "yun-macrolab/macro-notes-automation",
+    "path": "records/",
+    "site": "https://yun-macrolab.github.io/macro-notes-automation/",
+    "newest_commit": "681329cad253570e2c99073c9d40adad8e68854b",
+    "checked_at": "2026-11-19T02:13:36+00:00",
+    "via": "api",
+    "skipped_versions": 0,
+    "rewritten_at": null
+  },
+  "protocol": {
+    "version": 1,
+    "fixed": "2026-11-19",
+    "horizons_weeks": [
+      1,
+      4
+    ],
+    "pairs": [
+      {
+        "verdict": "dur",
+        "series": "DGS10",
+        "label": "미 10년",
+        "line": "dgs10"
+      },
+      {
+        "verdict": "cur",
+        "series": "T10Y2Y",
+        "label": "10년−2년",
+        "line": "t10y2y"
+      }
+    ],
+    "groups": {
+      "dur": {
+        "ow": [
+          "O/W",
+          "강한 O/W"
+        ],
+        "neutral": [
+          "Neutral"
+        ],
+        "uw": [
+          "U/W",
+          "강한 U/W"
+        ]
+      },
+      "cur": {
+        "flat": [
+          "Flattening",
+          "강한 Flattening"
+        ],
+        "neutral": [
+          "Neutral"
+        ],
+        "steep": [
+          "Steepening",
+          "강한 Steepening"
+        ]
+      }
+    },
+    "n_min": 10,
+    "tolerance_days": 3,
+    "start_days": 7,
+    "open_utc": "13:30",
+    "open_kst": "22:30",
+    "text": [
+      "판단 연표 약속 1판 — 2026-11-19에 정했다.",
+      "판정: 공개 기록 저장소(yun-macrolab/macro-notes-automation)의 records/<그 주 월요일>.json이 확정(state.confirmed = true)인 채로 처음 들어간 커밋의 내용을 그 주의 판정으로 적는다. 그 커밋에 적힌 커미터 시각이 잠근 시각이다 — 운영자의 게시기는 커밋을 GitHub API로 날짜 없이 만들므로 GitHub이 그 커밋을 만든 때의 시각이 적히고, PC에서 git으로 만든 커밋에는 그 PC의 시계가 적힌다. 커밋을 만드는 쪽이 날짜를 정할 수도 있어 검증한 시각이 아니라 적힌 시각이다. 그 뒤 커밋이 판정이나 합계를 바꾸면 '확정 뒤 고침'으로 새 값을 함께 적되, 모든 셈은 처음 확정된 판정만 쓴다.",
+      "한 번 잠근 판정과 시각은 바꾸지 않는다. 공개 기록에서 그 주 파일을 지우거나 이름을 바꾸면 '공개 기록에서 지움'으로 적되 판정과 셈은 그대로 두고, 다시 올라오면 다시 잠그지 않고 처음 판정과 다른 값만 '확정 뒤 고침'으로 적는다. 공개 기록 저장소의 기록을 고쳐 써 잠근 커밋이 기록에서 사라져도 잠근 판정과 시각을 그대로 두고 '잠근 커밋이 지금 기록에 없음'으로 적는다. 잠금을 새로 정하는 것은 직전 파일이 없거나 깨졌을 때와 처음부터 다시 셀 때(--rebuild)뿐이다. 정해 둔 꼴에 맞지 않는 판은 쓰지 않는다.",
+      "출발 점: 그 주(월~일) 안의 마지막 주간 점(대개 금요일 종가 — 운영자가 확정 전에 볼 수 있던 값)이다. 잠근 시각이 그 주 다음 월요일 13:30 UTC(한국 시각 22:30 — 뉴욕 주식 현물 시장이 가장 일찍 여는 시각, 서머타임 기간 09:30 EDT)보다 늦으면 '늦게 확정'으로 적고, 출발 점은 잠근 날(UTC 날짜) 이후(그날 포함) 7일 안의 첫 주간 점이다. 그 점이 아직 없으면 '기다리는 중', 7일 안에 점이 없으면 '자료 없음'이다. 확정 전인 주는 출발 점을 정하지 않는다.",
+      "미 국채 현물은 그 시각보다 앞서 아시아·런던 시간에도 거래된다 — 그 시각 앞에 잠근 주도 그 월요일 앞부분의 움직임이 확정 전에 보였을 수 있고, 그 움직임은 1주 변화 안에 든다.",
+      "기간: 출발 점에서 1주·4주 뒤까지의 변화를 bp로 적는다. 끝 점은 출발 점 날짜에 7×주 수 일을 더한 날에 가장 가까운 주간 점(±3일 안, 같은 거리면 이른 점)이다. 그 범위 끝이 그 선의 마지막 점보다 뒤면 '기다리는 중', 범위 안에 점이 없으면 '자료 없음'으로 둔다.",
+      "짝: 듀레이션 판정은 미 10년(DGS10) · 커브 판정은 10년−2년(T10Y2Y)의 변화와 짝짓는다 — 사이트 '금리의 구조' 그래프(data/charts.json)와 같은 주간 점(주마다 마지막 관측)이다.",
+      "평균 빼기: 같은 그래프 선의 모든 주간 점에서 같은 규칙으로 잰 1주·4주 변화의 평균을 빼서 '평균을 뺀 값'으로도 적는다. 평균은 갱신마다 그날 그래프가 싣는 최근 기간(창)으로 다시 잰다 — 창이 옮겨 가면 FRED가 값을 고치지 않아도 조금씩 달라진다.",
+      "요약: 듀레이션은 O/W 쪽(O/W·강한 O/W) · Neutral · U/W 쪽(U/W·강한 U/W), 커브는 Flattening 쪽(Flattening·강한 Flattening) · Neutral · Steepening 쪽(Steepening·강한 Steepening)으로 묶어, 잠근 날(UTC 날짜)이 2026-11-19 이후이고 결과가 나온 ('기다리는 중'·'자료 없음' 제외) 주를 출발 점마다 하나로 센다 — 같은 묶음에서 출발 점이 같은 주들(늦게 확정한 주가 뒤 주와 출발 점을 나눈 경우)은 같은 움직임이라 한 번만 센다. 그렇게 센 출발 점이 10개 이상일 때만 그 출발 점들의 평균을 뺀 값의 평균과 오른 비율(변화가 0보다 큰 몫)을 낸다 — 그 전에는 판단 보류다. '채점 미완' 판정과 확정 전인 주는 세지 않는다.",
+      "약속 전: 잠근 날(UTC 날짜)이 2026-11-19 앞인 주는 결과와 함께 목록에 '약속 전'으로 적되 요약에서 뺀다 — 약속을 정할 때 그 뒤의 금리 변화가 이미 보였다.",
+      "측정 기록이다(예측 아님) — 판정이 금리 변화와 같은 쪽이었는지를 매기지 않는다. 판정은 자동화가 쓴 초안 점수에서 시작하므로 주마다 운영자 시트가 잡은 사람이 고친 칸 수(edited_n)를 함께 적는다. 시트는 자동 실행 때만 고친 칸을 잡아 그 주 마지막 자동 실행 뒤(주말 등)에 고친 칸은 세지 못한다 — 0이 초안 그대로라는 보장은 아니다.",
+      "맥락: 그 주 일요일 이하의 마지막 날짜별 기록(data/history — 그날 이 사이트에 실린 그대로)의 핵심 신호(없으면 충족 규칙 수)와 국면 후보, 운영자가 시트에 적은 국면, 판단 격자 L × P의 칸을 함께 적는다. L × P는 그때 사이트에 실린 값이 아니라 갱신마다 그날의 FRED 자료로 다시 재생한 기록(data/lp.json)에서 알려진 날(발표일 근사)이 그 주 일요일 이하인 마지막 기준월이라, 지난 값이 개정되면 바뀐다. 맥락은 셈에 쓰지 않는다.",
+      "charts.json의 주간 점은 FRED가 값을 고치면 바뀐다 — 결과와 평균은 이 파일을 만든 날의 charts.json으로 잰다.",
+      "약속을 바꾸면 새 판 번호와 날짜를 붙이고, 판을 바꾸지 않고는 정의를 고치지 않는다 — 지난 판으로 낸 파일은 저장소 기록(git)에 남는다. 이 파일의 판 번호가 쓴 약속이다."
+    ]
+  },
+  "charts": {
+    "date": "2026-11-18",
+    "window": {
+      "from": "2021-11-19",
+      "to": "2026-11-17"
+    },
+    "last": {
+      "dgs10": "2026-11-16",
+      "t10y2y": "2026-11-17"
+    },
+    "baseline": {
+      "1": {
+        "dgs10": 1.4,
+        "t10y2y": -0.3
+      },
+      "4": {
+        "dgs10": 5.5,
+        "t10y2y": -0.9
+      }
+    },
+    "baseline_detail": {
+      "1": {
+        "dgs10": {
+          "n": 260,
+          "from": "2021-11-19",
+          "to": "2026-11-13"
+        },
+        "t10y2y": {
+          "n": 260,
+          "from": "2021-11-19",
+          "to": "2026-11-13"
+        }
+      },
+      "4": {
+        "dgs10": {
+          "n": 257,
+          "from": "2021-11-19",
+          "to": "2026-11-13"
+        },
+        "t10y2y": {
+          "n": 257,
+          "from": "2021-11-19",
+          "to": "2026-11-13"
+        }
+      }
+    }
+  },
+  "weeks": [
+    {
+      "week": "2026-11-16",
+      "end": "2026-11-22",
+      "state": "in_progress",
+      "lock": null,
+      "before_protocol": false,
+      "dur": {
+        "total": 0.0,
+        "verdict": "Neutral"
+      },
+      "cur": {
+        "total": 0.0,
+        "verdict": "Neutral"
+      },
+      "edited_n": 0,
+      "regime_flag": null,
+      "regime_flag_other": false,
+      "changed_after": null,
+      "removed": null,
+      "site": {
+        "snapshot": "2026-11-18",
+        "core": "2/11",
+        "met": "2/13",
+        "candidate": "A′"
+      },
+      "lp": {
+        "month": "2026-09",
+        "L": "L+",
+        "P": "P+",
+        "cell": "금리 상방 여지 (확인)"
+      },
+      "outcomes": {
+        "1": {
+          "dur": {
+            "state": "pending",
+            "start": null,
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          },
+          "cur": {
+            "state": "pending",
+            "start": null,
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          }
+        },
+        "4": {
+          "dur": {
+            "state": "pending",
+            "start": null,
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          },
+          "cur": {
+            "state": "pending",
+            "start": null,
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          }
+        }
+      }
+    },
+    {
+      "week": "2026-11-09",
+      "end": "2026-11-15",
+      "state": "confirmed",
+      "lock": {
+        "sha": "19a0f44e26f199e1ae06731437400cee1fb9ef6e",
+        "at": "2026-11-16T04:02:29+00:00",
+        "late": false,
+        "first_upload": false,
+        "in_history": true
+      },
+      "before_protocol": true,
+      "dur": {
+        "total": 0.1,
+        "verdict": "Neutral"
+      },
+      "cur": {
+        "total": 0.2,
+        "verdict": "Neutral"
+      },
+      "edited_n": 0,
+      "regime_flag": null,
+      "regime_flag_other": false,
+      "changed_after": null,
+      "removed": null,
+      "site": {
+        "snapshot": "2026-11-15",
+        "core": "2/11",
+        "met": "2/13",
+        "candidate": "A′"
+      },
+      "lp": {
+        "month": "2026-09",
+        "L": "L+",
+        "P": "P+",
+        "cell": "금리 상방 여지 (확인)"
+      },
+      "outcomes": {
+        "1": {
+          "dur": {
+            "state": "pending",
+            "start": "2026-11-13",
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          },
+          "cur": {
+            "state": "pending",
+            "start": "2026-11-13",
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          }
+        },
+        "4": {
+          "dur": {
+            "state": "pending",
+            "start": "2026-11-13",
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          },
+          "cur": {
+            "state": "pending",
+            "start": "2026-11-13",
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          }
+        }
+      }
+    },
+    {
+      "week": "2026-11-02",
+      "end": "2026-11-08",
+      "state": "confirmed",
+      "lock": {
+        "sha": "1d0b26b924fb9e618656d8d7b00d902c195c33bd",
+        "at": "2026-11-09T04:01:45+00:00",
+        "late": false,
+        "first_upload": false,
+        "in_history": true
+      },
+      "before_protocol": true,
+      "dur": {
+        "total": 0.1,
+        "verdict": "Neutral"
+      },
+      "cur": {
+        "total": 0.2,
+        "verdict": "Neutral"
+      },
+      "edited_n": 0,
+      "regime_flag": null,
+      "regime_flag_other": false,
+      "changed_after": null,
+      "removed": null,
+      "site": {
+        "snapshot": "2026-11-07",
+        "core": "2/11",
+        "met": "2/13",
+        "candidate": "A′"
+      },
+      "lp": {
+        "month": "2026-09",
+        "L": "L+",
+        "P": "P+",
+        "cell": "금리 상방 여지 (확인)"
+      },
+      "outcomes": {
+        "1": {
+          "dur": {
+            "state": "done",
+            "start": "2026-11-06",
+            "end": "2026-11-13",
+            "change_bp": 29.0,
+            "demeaned_bp": 27.6
+          },
+          "cur": {
+            "state": "done",
+            "start": "2026-11-06",
+            "end": "2026-11-13",
+            "change_bp": -8.0,
+            "demeaned_bp": -7.7
+          }
+        },
+        "4": {
+          "dur": {
+            "state": "pending",
+            "start": "2026-11-06",
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          },
+          "cur": {
+            "state": "pending",
+            "start": "2026-11-06",
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          }
+        }
+      }
+    },
+    {
+      "week": "2026-10-26",
+      "end": "2026-11-01",
+      "state": "confirmed",
+      "lock": {
+        "sha": "5caf1295540e964a1188e12524ed34b29c18ff75",
+        "at": "2026-11-02T07:51:04+00:00",
+        "late": false,
+        "first_upload": false,
+        "in_history": true
+      },
+      "before_protocol": true,
+      "dur": {
+        "total": 0.0,
+        "verdict": "Neutral"
+      },
+      "cur": {
+        "total": 0.0,
+        "verdict": "Neutral"
+      },
+      "edited_n": 0,
+      "regime_flag": null,
+      "regime_flag_other": false,
+      "changed_after": null,
+      "removed": null,
+      "site": {
+        "snapshot": "2026-10-31",
+        "core": "2/11",
+        "met": "2/13",
+        "candidate": "A"
+      },
+      "lp": {
+        "month": "2026-09",
+        "L": "L+",
+        "P": "P+",
+        "cell": "금리 상방 여지 (확인)"
+      },
+      "outcomes": {
+        "1": {
+          "dur": {
+            "state": "done",
+            "start": "2026-10-30",
+            "end": "2026-11-06",
+            "change_bp": -8.0,
+            "demeaned_bp": -9.4
+          },
+          "cur": {
+            "state": "done",
+            "start": "2026-10-30",
+            "end": "2026-11-06",
+            "change_bp": -3.0,
+            "demeaned_bp": -2.7
+          }
+        },
+        "4": {
+          "dur": {
+            "state": "pending",
+            "start": "2026-10-30",
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          },
+          "cur": {
+            "state": "pending",
+            "start": "2026-10-30",
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          }
+        }
+      }
+    },
+    {
+      "week": "2026-10-12",
+      "end": "2026-10-18",
+      "state": "confirmed",
+      "lock": {
+        "sha": "26304ea91b61dc41dbe9dd79402490a11eb8e912",
+        "at": "2026-10-27T07:09:53+00:00",
+        "late": true,
+        "first_upload": false,
+        "in_history": true
+      },
+      "before_protocol": true,
+      "dur": {
+        "total": 0.0,
+        "verdict": "Neutral"
+      },
+      "cur": {
+        "total": 0.0,
+        "verdict": "Neutral"
+      },
+      "edited_n": 0,
+      "regime_flag": null,
+      "regime_flag_other": false,
+      "changed_after": null,
+      "removed": null,
+      "site": {
+        "snapshot": "2026-10-17",
+        "core": null,
+        "met": "1/13",
+        "candidate": null
+      },
+      "lp": {
+        "month": "2026-08",
+        "L": "L0",
+        "P": "P+",
+        "cell": "금리 상방 관찰 (물가 선행)"
+      },
+      "outcomes": {
+        "1": {
+          "dur": {
+            "state": "done",
+            "start": "2026-10-30",
+            "end": "2026-11-06",
+            "change_bp": -8.0,
+            "demeaned_bp": -9.4
+          },
+          "cur": {
+            "state": "done",
+            "start": "2026-10-30",
+            "end": "2026-11-06",
+            "change_bp": -3.0,
+            "demeaned_bp": -2.7
+          }
+        },
+        "4": {
+          "dur": {
+            "state": "pending",
+            "start": "2026-10-30",
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          },
+          "cur": {
+            "state": "pending",
+            "start": "2026-10-30",
+            "end": null,
+            "change_bp": null,
+            "demeaned_bp": null
+          }
+        }
+      }
+    },
+    {
+      "week": "2026-10-05",
+      "end": "2026-10-11",
+      "state": "confirmed",
+      "lock": {
+        "sha": "8ab5b067abac06701e164fddb5e0b40151c77a6c",
+        "at": "2026-10-12T04:03:36+00:00",
+        "late": false,
+        "first_upload": false,
+        "in_history": true
+      },
+      "before_protocol": true,
+      "dur": {
+        "total": -0.2,
+        "verdict": "Neutral"
+      },
+      "cur": {
+        "total": -0.28,
+        "verdict": "Neutral"
+      },
+      "edited_n": 0,
+      "regime_flag": null,
+      "regime_flag_other": false,
+      "changed_after": null,
+      "removed": null,
+      "site": {
+        "snapshot": "2026-10-10",
+        "core": null,
+        "met": "1/11",
+        "candidate": null
+      },
+      "lp": {
+        "month": "2026-08",
+        "L": "L0",
+        "P": "P+",
+        "cell": "금리 상방 관찰 (물가 선행)"
+      },
+      "outcomes": {
+        "1": {
+          "dur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-10-16",
+            "change_bp": -15.0,
+            "demeaned_bp": -16.4
+          },
+          "cur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-10-16",
+            "change_bp": -9.0,
+            "demeaned_bp": -8.7
+          }
+        },
+        "4": {
+          "dur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-11-06",
+            "change_bp": -38.0,
+            "demeaned_bp": -43.5
+          },
+          "cur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-11-06",
+            "change_bp": -9.0,
+            "demeaned_bp": -8.1
+          }
+        }
+      }
+    },
+    {
+      "week": "2026-09-28",
+      "end": "2026-10-04",
+      "state": "confirmed",
+      "lock": {
+        "sha": "6776ef499377556fc64737a170d991bad377a112",
+        "at": "2026-10-08T02:42:51+00:00",
+        "late": true,
+        "first_upload": false,
+        "in_history": true
+      },
+      "before_protocol": true,
+      "dur": {
+        "total": -0.33,
+        "verdict": "Neutral"
+      },
+      "cur": {
+        "total": 0.05,
+        "verdict": "Neutral"
+      },
+      "edited_n": 0,
+      "regime_flag": null,
+      "regime_flag_other": false,
+      "changed_after": null,
+      "removed": null,
+      "site": {
+        "snapshot": "2026-10-03",
+        "core": null,
+        "met": "0/11",
+        "candidate": null
+      },
+      "lp": {
+        "month": "2026-08",
+        "L": "L0",
+        "P": "P+",
+        "cell": "금리 상방 관찰 (물가 선행)"
+      },
+      "outcomes": {
+        "1": {
+          "dur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-10-16",
+            "change_bp": -15.0,
+            "demeaned_bp": -16.4
+          },
+          "cur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-10-16",
+            "change_bp": -9.0,
+            "demeaned_bp": -8.7
+          }
+        },
+        "4": {
+          "dur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-11-06",
+            "change_bp": -38.0,
+            "demeaned_bp": -43.5
+          },
+          "cur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-11-06",
+            "change_bp": -9.0,
+            "demeaned_bp": -8.1
+          }
+        }
+      }
+    },
+    {
+      "week": "2026-09-21",
+      "end": "2026-09-27",
+      "state": "confirmed",
+      "lock": {
+        "sha": "aafd6ac297a0339257e29acc054dd26e451c7013",
+        "at": "2026-10-08T02:16:44+00:00",
+        "late": true,
+        "first_upload": true,
+        "in_history": true
+      },
+      "before_protocol": true,
+      "dur": {
+        "total": -0.9,
+        "verdict": "U/W"
+      },
+      "cur": {
+        "total": 0.88,
+        "verdict": "Flattening"
+      },
+      "edited_n": 0,
+      "regime_flag": null,
+      "regime_flag_other": false,
+      "changed_after": null,
+      "removed": null,
+      "site": {
+        "snapshot": "2026-09-27",
+        "core": null,
+        "met": "0/11",
+        "candidate": null
+      },
+      "lp": {
+        "month": "2026-07",
+        "L": "L0",
+        "P": "P+",
+        "cell": "금리 상방 관찰 (물가 선행)"
+      },
+      "outcomes": {
+        "1": {
+          "dur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-10-16",
+            "change_bp": -15.0,
+            "demeaned_bp": -16.4
+          },
+          "cur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-10-16",
+            "change_bp": -9.0,
+            "demeaned_bp": -8.7
+          }
+        },
+        "4": {
+          "dur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-11-06",
+            "change_bp": -38.0,
+            "demeaned_bp": -43.5
+          },
+          "cur": {
+            "state": "done",
+            "start": "2026-10-09",
+            "end": "2026-11-06",
+            "change_bp": -9.0,
+            "demeaned_bp": -8.1
+          }
+        }
+      }
+    }
+  ],
+  "summary": {
+    "dur": {
+      "ow": {
+        "1": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        },
+        "4": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        }
+      },
+      "neutral": {
+        "1": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        },
+        "4": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        }
+      },
+      "uw": {
+        "1": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        },
+        "4": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        }
+      }
+    },
+    "cur": {
+      "flat": {
+        "1": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        },
+        "4": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        }
+      },
+      "neutral": {
+        "1": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        },
+        "4": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        }
+      },
+      "steep": {
+        "1": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        },
+        "4": {
+          "n": 0,
+          "starts": 0,
+          "mean_demeaned_bp": null,
+          "up_share": null
+        }
+      }
+    }
+  },
+  "sources": [
+    {
+      "series": "DGS10",
+      "url": "https://fred.stlouisfed.org/series/DGS10",
+      "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis [DGS10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DGS10, November 18, 2026.",
+      "citation_required": false
+    },
+    {
+      "series": "T10Y2Y",
+      "url": "https://fred.stlouisfed.org/series/T10Y2Y",
+      "citation": "Federal Reserve Bank of St. Louis, 10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity [T10Y2Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10Y2Y, November 18, 2026.",
+      "citation_required": true
+    }
+  ],
+  "notices": [
+    "1주·4주 변화 · 평균을 뺀 값 · 평균(기준) · 요약은 macro-regime-check가 그래프 자료(data/charts.json)의 주간 점으로 계산한 값이다. 연준 이사회 · 세인트루이스 연은 · FRED가 발표한 값이 아니다.",
+    "The 1- and 4-week changes, demeaned values, baselines and summaries are computed by macro-regime-check from the weekly points in data/charts.json; they are not published by the Federal Reserve Board, the Federal Reserve Bank of St. Louis or FRED."
+  ]
+}
