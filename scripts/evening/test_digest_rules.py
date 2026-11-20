@@ -102,6 +102,20 @@ class LexiconTest(unittest.TestCase):
         self.assertTrue(R.has_tag(["관세", "AI Capex"], R.TOPIC_TAG) and R.has_tag(["커브"], R.RATE_TAG))
         self.assertFalse(R.has_tag(["관세", "미 CPI"], R.TOPIC_TAG) or R.has_tag(["미 CPI"], R.RATE_TAG))
 
+    def test_beige_book_sits_in_the_fundamentals_cell(self):
+        # 2026-11-20 운영자 결정: 베이지북은 지역 연은이 모은 경기 일화라 펀더멘털/글로벌 칸(전엔 통화정책/글로벌) — 주간 시트의 뉴스 분류와
+        # 같은 칸. 등급(B)과 찾는 꼴은 그대로다
+        import digest_cluster as DC
+        e = R.TERMS["베이지북"]
+        self.assertEqual((e["grade"], R.cell_id(e["factor"], e["region"]), e["pats"], e["not"], e["tags"]),
+                         ("B", "펀더멘털/글로벌", (r"베이지\s?북",), (), ()))
+        self.assertEqual(terms("연준 베이지북, 지어낸 지역 넷에서 활동 둔화"), ["연준", "베이지북"])
+        self.assertEqual(terms("11월 베이지 북 공개"), ["베이지북"])
+        member = lambda ch, lead: {"lead": lead, "role": "source", "fwd": False, "at": 1, "id": f"{ch}/1", "ch": ch}
+        # 대표 낱말이 베이지북인 묶음은 펀더멘털/글로벌 칸으로 간다 — 곁의 넓은 C급 '연준'(통화정책)이 칸을 가져가지 않는다
+        self.assertEqual(DC.cell_of([member("a", ["베이지북"]), member("b", ["연준", "베이지북"])]),
+                         {"factor": "펀더멘털", "region": "글로벌"})
+
     def test_made_up_sentences(self):
         cases = {
             "미 CPI 9월 전년 대비 3.1%로 예상 상회": ["미 CPI"],
