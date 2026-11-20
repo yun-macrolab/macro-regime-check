@@ -104,7 +104,8 @@
             site/people-data.js의 회의 장부와 같다, 테스트가 견준다. 2027년은 연준 보도자료 2026-11-12(잠정 일정 개정)와 FOMC
             일정 페이지(2026-11-18 갱신)의 여덟 회의, 2028년은 01-25~26 하나 — 연준 고지대로 각 회의는 직전 회의에서 확정되기
             전까지 잠정이다. 2027-10-26~27은 통화정책 전략 회의라 정책 결정·성명이 없다(표의 넷째 칸 False) — 'FOMC 뒤 첫
-            H.4.1'과 '다음 FOMC'(RMP 칸의 다음 날짜도)는 그 회의를 건너뛰고 다음 결정 회의를 보인다. '다음 FOMC'는 대개 직전
+            H.4.1'과 '다음 FOMC'(RMP 칸의 다음 날짜도)는 그 회의를 건너뛰고 다음 결정 회의를 보인다 — 그 회의가 든 주는
+            'FOMC 없음'이 아니라 'FOMC 전략 회의(결정 없음)'(값 strategy — FOMC가 열리는 주다). '다음 FOMC'는 대개 직전
             회의의 성명 뒤라 이미 확정된 날짜여서 '(잠정)'을 붙이지 않는다 — 표의 잠정 표시는 next_fomc가 바로 앞 회의(결정
             없는 회의도)를 보고 지운다. 그래서 2027-09-15 성명 뒤 ~ 10-27 전략 회의까지 '다음 FOMC 2027-11-17'은 '(잠정)')
 산식은 비공개 파이프라인의 fed_bs.py와 같다(저장소를 넘어 가져오지 않고 여기서 따로 쓴다 — 고치면 양쪽을 같이 — rmp_view
@@ -549,7 +550,8 @@ def next_fomc(today, now=None):
 def calc_week(S, today, now=None):
     """그 H.4.1 주(목~수 — 주 평균 지준의 마지막 수요일)가 15일·월말·FOMC 결정일을 품는지와 다음 FOMC 결정일 — now(실행 시각,
     UTC)에 아직 성명(decided_at)이 나오지 않은 첫 결정 회의. now가 없으면 today 0시(UTC)로 본다(그날 회의는 '다음'). 결정
-    없는 회의(2027-10-26~27 전략 회의)는 두 칸 모두 건너뛴다."""
+    없는 회의(2027-10-26~27 전략 회의)는 두 칸 모두 건너뛰고, 그 주에 들면 strategy에 적는다(글은 'FOMC 없음'이 아니라
+    '전략 회의(결정 없음)' — 2026-11-20)."""
     wed = S[RES_AVG][-1][0]
     start = wed - TD(days=6)
     days = [start + TD(days=i) for i in range(7)]
@@ -559,6 +561,7 @@ def calc_week(S, today, now=None):
             "values": {"from": _iso(start), "d15": any(d.day == 15 for d in days),
                        "month_end": any((d + TD(days=1)).month != d.month for d in days),
                        "fomc": [_iso(b) for _, b, _, dec in ms if dec and start <= b <= wed],   # 결정 회의만
+                       "strategy": [_iso(b) for _, b, _, dec in ms if not dec and start <= b <= wed],   # 결정 없는 회의
                        "next_fomc": _iso(nxt[0]) if nxt else None, "next_tentative": bool(nxt and nxt[1])},
             "lines": {}}
 
@@ -1267,9 +1270,10 @@ ITEMS = [
     {"key": "rrp", "title": "익일물 역레포 (마지막 값)", "series": ["RRPONTSYD"], "calc": calc_rrp,
      "values": {"bn": "num", "tag": "tag"}},
     {"key": "week", "title": "이 H.4.1 주 (목~수)", "series": [RES_AVG], "calc": calc_week, "now": True,
-     "values": {"from": "day", "d15": "bool", "month_end": "bool", "fomc": "days", "next_fomc": "day?",
+     "values": {"from": "day", "d15": "bool", "month_end": "bool", "fomc": "days", "strategy": "days", "next_fomc": "day?",
                 "next_tentative": "bool"},
-     "check": lambda v: (v["next_fomc"] is not None or not v["next_tentative"]) and all(v["from"] <= x for x in v["fomc"])},
+     "check": lambda v: (v["next_fomc"] is not None or not v["next_tentative"])
+     and all(v["from"] <= x for x in v["fomc"] + v["strategy"]) and not set(v["fomc"]) & set(v["strategy"])},
 ]
 BY_KEY = {it["key"]: it for it in ITEMS}
 
@@ -1599,8 +1603,10 @@ def texts(key, v, date):
                       "H.4.1 수요일 수준이라 날짜가 다르다."]
     if key == "week":
         marks = [x for x, on in (("15일", v["d15"]), ("월말", v["month_end"])) if on]
+        strat = v.get("strategy") or []
         bits = [("·".join(marks) + " 포함") if marks else "",
-                f"FOMC 뒤 첫 H.4.1({', '.join(v['fomc'])} 결정)" if v["fomc"] else ""]
+                f"FOMC 뒤 첫 H.4.1({', '.join(v['fomc'])} 결정)" if v["fomc"] else "",
+                "FOMC 전략 회의(결정 없음)" if strat else ""]        # FOMC가 열리는 주라 'FOMC 없음'이 아니다
         inside = " · ".join(b for b in bits if b) or "15일·월말·FOMC 없음"
         nxt = (f" · 다음 FOMC {v['next_fomc']}" + ("(잠정)" if v["next_tentative"] else "")) if v["next_fomc"] \
             else " · 다음 FOMC 미기재"
@@ -1609,6 +1615,9 @@ def texts(key, v, date):
         if v["fomc"]:
             extra.append("FOMC 결정일(수)이 이 주의 마지막 날이라 이 주의 지준·나눔·주 평균은 결정이 시행되기 전 값이다 — "
                          "IORB·역레포 금리·운용 변경은 결정 다음 날(목)부터라 결정의 흔적은 다음 주 숫자에서 본다.")
+        if strat:
+            extra.append("이 주의 FOMC는 통화정책 전략 회의라 정책 결정·성명이 없다(연준 보도자료 2026-11-12) — 'FOMC 뒤 첫 "
+                         "H.4.1' 표시를 붙이지 않고, '다음 FOMC'는 다음 결정 회의다.")
         if marks:
             extra.append("15일·월말이 든 주는 수요일 수준이 그날 하루의 결제(국채 결제·세금)에 흔들릴 수 있다.")
         extra.append("H.4.1 주는 목요일부터 수요일까지이고, 연준이 다음 날(목) 16:30(미 동부)에 발표한다 — 목요일이 연방 공휴일이면 "

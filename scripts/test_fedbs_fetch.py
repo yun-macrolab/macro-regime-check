@@ -609,7 +609,7 @@ class ArithmeticTest(unittest.TestCase):
     def test_week_tags_and_next_fomc(self):
         v = calc("week")["values"]
         self.assertEqual(v, {"from": "2026-10-22", "d15": False, "month_end": False, "fomc": ["2026-10-28"],
-                             "next_fomc": "2026-12-09", "next_tentative": False})
+                             "strategy": [], "next_fomc": "2026-12-09", "next_tentative": False})
         line, extra = fb.texts("week", v, "2026-10-28")
         self.assertEqual(line, "이 주(2026-10-22~2026-10-28) FOMC 뒤 첫 H.4.1(2026-10-28 결정) · 다음 FOMC 2026-12-09")
         self.assertTrue(extra[0].startswith("FOMC 결정일(수)이 이 주의 마지막 날이라"), extra[0])
@@ -718,15 +718,24 @@ class ArithmeticTest(unittest.TestCase):
         S = world()
         S["WRESBAL"] = [(D(2027, 10, 20), 3_000_000.0), (D(2027, 10, 27), 3_000_000.0)]   # 10-21~10-27 = 전략 회의 주
         v = fb.calc_week(S, D(2027, 10, 29))["values"]
-        self.assertEqual((v["fomc"], v["next_fomc"], v["next_tentative"]), ([], "2027-11-17", False))
-        line = fb.texts("week", v, "2027-10-27")[0]
+        self.assertEqual((v["fomc"], v["strategy"], v["next_fomc"], v["next_tentative"]),
+                         ([], ["2027-10-27"], "2027-11-17", False))
+        self.assertTrue(fb.values_ok(fb.BY_KEY["week"], v, {}))
+        line, extra = fb.texts("week", v, "2027-10-27")
         self.assertNotIn("FOMC 뒤 첫 H.4.1", line)
         self.assertNotIn("10-27", line.split("이 주(")[1].split(")")[1])           # 이 주의 범위 밖 어디에도 10-27 없음
-        self.assertTrue(line.endswith("다음 FOMC 2027-11-17"), line)
+        # FOMC가 열리는 주다 — 'FOMC 없음'이 아니라 '전략 회의(결정 없음)'(2026-11-20 검토 반영, 전엔 '15일·월말·FOMC 없음')
+        self.assertEqual(line, "이 주(2027-10-21~2027-10-27) FOMC 전략 회의(결정 없음) · 다음 FOMC 2027-11-17")
+        self.assertNotIn("FOMC 없음", line)
+        self.assertTrue(extra[0].startswith("이 주의 FOMC는 통화정책 전략 회의라 정책 결정·성명이 없다"), extra[0])
+        self.assertFalse(any(x.startswith("FOMC 결정일(수)이") for x in extra))
+        self.assertFalse(fb.values_ok(fb.BY_KEY["week"], {**v, "fomc": ["2027-10-27"]}, {}))   # 같은 날이 두 칸에 — 깨진 값
         for k in range(0, 500):                                                       # 결정 표시는 어느 주에도 10-27을 대지 않는다
             wed = D(2027, 1, 6) + TD(days=7 * (k % 70))
             S["WRESBAL"] = [(wed - TD(days=7), 3_000_000.0), (wed, 3_000_000.0)]
-            self.assertNotIn("2027-10-27", fb.calc_week(S, wed)["values"]["fomc"], wed)
+            w = fb.calc_week(S, wed)["values"]
+            self.assertNotIn("2027-10-27", w["fomc"], wed)
+            self.assertEqual(w["strategy"], ["2027-10-27"] if wed == D(2027, 10, 27) else [], wed)
         # 09-16 ~ 10-27 사이 '다음 FOMC'는 11-17 — 바로 앞 회의(전략 회의)가 끝나기 전엔 잠정
         for d in (D(2027, 9, 16) + TD(days=k) for k in range((D(2027, 10, 27) - D(2027, 9, 16)).days + 1)):
             self.assertEqual(fb.next_fomc(d), (D(2027, 11, 17), d <= D(2027, 10, 27)), d)
