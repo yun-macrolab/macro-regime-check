@@ -225,7 +225,7 @@ def check_ledger(t, l):
             t.assertEqual(list(e["outcomes"]), [str(h) for h in lb.HORIZONS])
             for h in lb.HORIZONS:
                 t.assertEqual(list(e["outcomes"][str(h)]), keys)
-                for o in e["outcomes"][str(h)].values():
+                for k, o in e["outcomes"][str(h)].items():
                     t.assertEqual(set(o), {"state", "start", "end", "change_bp", "demeaned_bp"})
                     if o["state"] == "done":
                         t.assertTrue(DATE.match(o["start"]) and DATE.match(o["end"]) and _num(o["change_bp"]))
@@ -233,7 +233,12 @@ def check_ledger(t, l):
                     else:
                         t.assertIn(o["state"], ("pending", "missing"))
                         t.assertEqual((o["end"], o["change_bp"], o["demeaned_bp"]), (None, None, None))
-                        if o["state"] == "pending":
+                        if o["state"] == "pending" and o["start"] is None:
+                            # 전환 날 이후의 점이 그 선에 아직 없다 — 출발 점이 정해지기 전(ledger_build.outcome, 2026-11-18 출발 점
+                            # 규칙). 실자료로는 2026-11-20 reserves_multiplier 전환이 처음(세 선의 마지막 점이 모두 그 앞이다)
+                            last = l["charts"]["last"][k]
+                            t.assertTrue(last is None or last < e["date"], (r["key"], e["date"], h, k, last))
+                        elif o["state"] == "pending":
                             t.assertRegex(o["start"], DATE)
         for name in ("to_met", "to_not_met"):
             for h in lb.HORIZONS:
