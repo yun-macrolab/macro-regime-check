@@ -101,9 +101,12 @@
   week      그 H.4.1 주(목~수)가 15일·월말·FOMC 결정일을 품는지('FOMC 뒤 첫 H.4.1' — 결정일(수)이 그 주 마지막 날이라 그 주
             숫자는 시행 전 값)와 다음 FOMC 결정일(실행 시각에 아직 성명 — 결정일 14:00 미 동부 — 이 나오지 않은 첫 회의: 예약
             실행 UTC 22:17은 결정일에도 성명 뒤라 그날 회의는 '다음'이 아니다). FOMC 일정은 이 파일의 FOMC 표(2026년은
-            site/people-data.js의 회의 장부와 같다, 테스트가 견준다. 2027년은 연준 FOMC 일정 페이지(2026-10-28 갱신)의 여덟
-            회의 — 연준 고지대로 각 회의는 직전 회의에서 확정되기 전까지 잠정이다. '다음 FOMC'는 직전 회의의 성명 뒤라 이미
-            확정된 날짜여서 '(잠정)'을 붙이지 않는다 — 표의 잠정 표시는 next_fomc가 직전 회의를 보고 지운다)
+            site/people-data.js의 회의 장부와 같다, 테스트가 견준다. 2027년은 연준 보도자료 2026-11-12(잠정 일정 개정)와 FOMC
+            일정 페이지(2026-11-18 갱신)의 여덟 회의, 2028년은 01-25~26 하나 — 연준 고지대로 각 회의는 직전 회의에서 확정되기
+            전까지 잠정이다. 2027-10-26~27은 통화정책 전략 회의라 정책 결정·성명이 없다(표의 넷째 칸 False) — 'FOMC 뒤 첫
+            H.4.1'과 '다음 FOMC'(RMP 칸의 다음 날짜도)는 그 회의를 건너뛰고 다음 결정 회의를 보인다. '다음 FOMC'는 대개 직전
+            회의의 성명 뒤라 이미 확정된 날짜여서 '(잠정)'을 붙이지 않는다 — 표의 잠정 표시는 next_fomc가 바로 앞 회의(결정
+            없는 회의도)를 보고 지운다. 그래서 2027-09-15 성명 뒤 ~ 10-27 전략 회의까지 '다음 FOMC 2027-11-17'은 '(잠정)')
 산식은 비공개 파이프라인의 fed_bs.py와 같다(저장소를 넘어 가져오지 않고 여기서 따로 쓴다 — 고치면 양쪽을 같이 — rmp_view
 칸은 이 카드에만 있다). 비공개 쪽과 다른 곳: 상태 파일이 없다 — 날마다 받고, '분모 바뀜'은 직전 fedbs.json의 주를 처음 실을 때의
 GDP와 견준다(비공개는 메일로 실은 주의 GDP와 — 같은 뜻, 같은 주를 다시 실을 때도 그 견줌을 보인다).
@@ -210,19 +213,27 @@ PART_NAME = {"tga": "재무부 현금(TGA)", "onrrp": "익일물 역레포", "po
 SIGN_NOTE = "(부호는 지준 쪽)"
 WINDOWS = (("4", WIN4), ("13", WIN13))
 
-# FOMC 결정일 표 — (첫날, 결정일, 잠정). 2025-12·2026년은 연준 FOMC 성명 일정(2026년은 site/people-data.js의 meetings_2026과
-# 같다 — 테스트가 견준다). 2027년은 연준 FOMC 일정 페이지(federalreserve.gov/monetarypolicy/fomccalendars.htm, 'Last Update:
-# October 28, 2026' — 2026-11-03 확인)의 여덟 회의다. 연준 고지('Each meeting date is tentative until confirmed at the meeting
-# immediately preceding it')대로 잠정 표시를 붙인다. 2027년 회의 하나(가을부터, 어느 회의인지 미정)는 표결·성명 없는 전략
-# 회의라고 의장이 밝혔다(기자회견 2026-10-28). 매년 1월 갱신 때 비공개 fed_people.json의 fomc와 같이 고친다(그쪽 짝 테스트가
-# 이 표가 그 일정의 앞부분과 같은지 본다)
-FOMC = (("2025-12-09", "2025-12-10", False),
-        ("2026-01-27", "2026-01-28", False), ("2026-03-17", "2026-03-18", False), ("2026-04-28", "2026-04-29", False),
-        ("2026-06-16", "2026-06-17", False), ("2026-07-28", "2026-07-29", False), ("2026-09-15", "2026-09-16", False),
-        ("2026-10-27", "2026-10-28", False), ("2026-12-08", "2026-12-09", False),
-        ("2027-01-26", "2027-01-27", True), ("2027-03-16", "2027-03-17", True), ("2027-04-27", "2027-04-28", True),
-        ("2027-06-08", "2027-06-09", True), ("2027-07-27", "2027-07-28", True), ("2027-09-14", "2027-09-15", True),
-        ("2027-10-26", "2027-10-27", True), ("2027-12-07", "2027-12-08", True))
+# FOMC 회의 표 — (첫날, 마지막 날(결정일), 잠정, 결정). 2025-12·2026년은 연준 FOMC 성명 일정(2026년은 site/people-data.js의
+# meetings_2026과 같다 — 테스트가 견준다). 2027년은 연준 보도자료 'Federal Reserve announces revised tentative schedule of
+# Federal Open Market Committee meetings in 2027'(federalreserve.gov/newsevents/pressreleases/monetary20261112a.htm,
+# 2026-11-12)과 FOMC 일정 페이지(federalreserve.gov/monetarypolicy/fomccalendars.htm, 'Last Update: November 18, 2026' —
+# 2026-11-20 확인)의 여덟 회의와 2028-01-25~26이다(2026-11-20 정정 — 전엔 2026-10-28 판의 12-07~08이 있었고 10-26~27을 결정
+# 회의로 셌다). 연준 고지('Each meeting date is tentative until confirmed at the meeting immediately preceding it')대로 잠정
+# 표시를 붙인다. 넷째 칸 False = 정책 결정·성명이 없는 회의: 보도자료가 'will announce its policy decision as usual on the
+# second day of each meeting, except the October 26-27 meeting. That meeting will be dedicated to the discussion of broad
+# monetary policy strategy issues'라고 적었다(일정 페이지의 이름 'Monetary Policy Strategy Meeting'). 2027년 회의의 경제전망
+# 요약(점도표)은 일정 페이지에 아직 표시가 없다. 매년 1월 갱신 때 비공개 fed_people.json의 fomc와 같이 고친다(그쪽 짝 테스트가
+# 이 표가 그 일정 전체 — 넷째 칸은 그쪽 `decision` — 와 같은지 본다)
+FOMC = (("2025-12-09", "2025-12-10", False, True),
+        ("2026-01-27", "2026-01-28", False, True), ("2026-03-17", "2026-03-18", False, True),
+        ("2026-04-28", "2026-04-29", False, True), ("2026-06-16", "2026-06-17", False, True),
+        ("2026-07-28", "2026-07-29", False, True), ("2026-09-15", "2026-09-16", False, True),
+        ("2026-10-27", "2026-10-28", False, True), ("2026-12-08", "2026-12-09", False, True),
+        ("2027-01-26", "2027-01-27", True, True), ("2027-03-16", "2027-03-17", True, True),
+        ("2027-04-27", "2027-04-28", True, True), ("2027-06-08", "2027-06-09", True, True),
+        ("2027-07-27", "2027-07-28", True, True), ("2027-09-14", "2027-09-15", True, True),
+        ("2027-10-26", "2027-10-27", True, False), ("2027-11-16", "2027-11-17", True, True),
+        ("2028-01-25", "2028-01-26", True, True))
 DECISION_HOUR = 14                            # FOMC 성명 시각(미 동부) — 이보다 늦은 실행에서 그날 회의는 '다음'이 아니다
 
 NOTICE = ("이 사이트의 규칙 점검에 쓰지 않는 참고 자료다. 연준 H.4.1 주간 대차대조표와 단기자금 시장의 공개 통계로 계산한 "
@@ -377,8 +388,8 @@ def cal_tag(d, dates):
 
 
 def meetings():
-    """FOMC 표 → [(첫날, 결정일, 잠정)] 날짜 차례."""
-    return sorted((_day(a), _day(b), t) for a, b, t in FOMC)
+    """FOMC 표 → [(첫날, 마지막 날, 잠정, 결정)] 날짜 차례 — 결정 없는 회의(넷째 칸 False)도 든다."""
+    return sorted((_day(a), _day(b), t, dec) for a, b, t, dec in FOMC)
 
 
 def _nth_sunday(y, m, n):
@@ -519,24 +530,26 @@ def calc_rrp(S, today):
 
 
 def next_fomc(today, now=None):
-    """다음 FOMC — now(실행 시각, UTC)에 아직 성명(decided_at)이 나오지 않은 첫 회의 → (결정일, 잠정) 또는 None. now가 없으면
-    today 0시(UTC)로 본다(그날 회의는 '다음'). 주 칸과 RMP 칸의 다음 날짜가 같이 쓴다. 잠정은 표의 표시이되, 연준 고지대로
-    각 회의는 직전 회의에서 확정되므로 직전 회의의 성명이 이미 나왔으면 잠정이 아니다 — '다음' 회의는 늘 그렇다(표의 첫
-    회의만 예외)."""
+    """다음 FOMC — now(실행 시각, UTC)에 아직 성명(decided_at)이 나오지 않은 첫 결정 회의 → (결정일, 잠정) 또는 None. 결정
+    없는 회의(표의 넷째 칸 False — 2027-10-26~27 전략 회의)는 건너뛴다. now가 없으면 today 0시(UTC)로 본다(그날 회의는
+    '다음'). 주 칸과 RMP 칸의 다음 날짜가 같이 쓴다. 잠정은 표의 표시이되, 연준 고지대로 각 회의는 바로 앞 회의에서 확정되므로
+    바로 앞 회의(결정 없는 회의도 — 성명이 없어 같은 시각 decided_at을 회의가 끝난 때로 본다)가 이미 끝났으면 잠정이 아니다 —
+    결정 회의가 이어지면 '다음' 회의는 늘 그렇다(표의 첫 회의와, 바로 앞이 아직 열리지 않은 전략 회의인 2027-11-17은 예외)."""
     if now is None:
         now = datetime.datetime.combine(today, datetime.time(0), tzinfo=datetime.timezone.utc)
     elif now.tzinfo is None:
         now = now.replace(tzinfo=datetime.timezone.utc)
     ms = meetings()
-    for i, (_, b, t) in enumerate(ms):
-        if decided_at(b) > now:
+    for i, (_, b, t, dec) in enumerate(ms):
+        if dec and decided_at(b) > now:
             return b, bool(t and not (i and decided_at(ms[i - 1][1]) <= now))
     return None
 
 
 def calc_week(S, today, now=None):
     """그 H.4.1 주(목~수 — 주 평균 지준의 마지막 수요일)가 15일·월말·FOMC 결정일을 품는지와 다음 FOMC 결정일 — now(실행 시각,
-    UTC)에 아직 성명(decided_at)이 나오지 않은 첫 회의. now가 없으면 today 0시(UTC)로 본다(그날 회의는 '다음')."""
+    UTC)에 아직 성명(decided_at)이 나오지 않은 첫 결정 회의. now가 없으면 today 0시(UTC)로 본다(그날 회의는 '다음'). 결정
+    없는 회의(2027-10-26~27 전략 회의)는 두 칸 모두 건너뛴다."""
     wed = S[RES_AVG][-1][0]
     start = wed - TD(days=6)
     days = [start + TD(days=i) for i in range(7)]
@@ -545,7 +558,7 @@ def calc_week(S, today, now=None):
     return {"date": _iso(wed),
             "values": {"from": _iso(start), "d15": any(d.day == 15 for d in days),
                        "month_end": any((d + TD(days=1)).month != d.month for d in days),
-                       "fomc": [_iso(b) for _, b, _ in ms if start <= b <= wed],
+                       "fomc": [_iso(b) for _, b, _, dec in ms if dec and start <= b <= wed],   # 결정 회의만
                        "next_fomc": _iso(nxt[0]) if nxt else None, "next_tentative": bool(nxt and nxt[1])},
             "lines": {}}
 

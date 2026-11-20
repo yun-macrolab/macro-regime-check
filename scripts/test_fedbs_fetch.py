@@ -633,10 +633,12 @@ class ArithmeticTest(unittest.TestCase):
         self.assertEqual((v["next_fomc"], v["next_tentative"]), ("2027-04-28", False))
         late = datetime.datetime(2026, 12, 9, 22, 17, tzinfo=datetime.timezone.utc)      # 12-09 성명 뒤 첫 실행부터
         self.assertEqual(fb.next_fomc(D(2026, 12, 9), late), (D(2027, 1, 27), False))
-        self.assertTrue(all(not fb.next_fomc(None, datetime.datetime.combine(d, datetime.time(22, 17),
-                                                                             tzinfo=datetime.timezone.utc))[1]
-                            for d in (D(2026, 12, 9) + datetime.timedelta(days=k) for k in range(0, 360, 3))))
-        first = (("2027-01-26", "2027-01-27", True), ("2027-03-16", "2027-03-17", True))
+        # '다음' 회의는 직전 회의의 성명 뒤라 잠정이 아니다 — 다만 2027-11-17은 바로 앞 회의가 결정 없는 전략 회의(10-26~27)라
+        # 그 회의가 끝나기 전(09-15 성명 뒤 ~ 10-27)엔 잠정(2026-11-20)
+        for d in (D(2026, 12, 9) + datetime.timedelta(days=k) for k in range(0, 360, 3)):
+            got = fb.next_fomc(None, datetime.datetime.combine(d, datetime.time(22, 17), tzinfo=datetime.timezone.utc))
+            self.assertEqual(got[1], D(2027, 9, 15) <= d < D(2027, 10, 27), d)
+        first = (("2027-01-26", "2027-01-27", True, True), ("2027-03-16", "2027-03-17", True, True))
         with mock.patch.object(fb, "FOMC", first):                                       # 표의 첫 회의 — 앞 회의가 없어 표대로
             self.assertEqual(fb.next_fomc(D(2026, 12, 20)), (D(2027, 1, 27), True))
             self.assertEqual(fb.next_fomc(D(2027, 2, 1)), (D(2027, 3, 17), False))
@@ -645,7 +647,7 @@ class ArithmeticTest(unittest.TestCase):
         v = fb.calc_week(S, D(2027, 4, 30))["values"]
         self.assertEqual((v["fomc"], v["next_fomc"]), (["2027-04-28"], "2027-06-09"))
         self.assertIn("FOMC 뒤 첫 H.4.1(2027-04-28 결정)", fb.texts("week", v, "2027-04-28")[0])
-        v = fb.calc_week(world(), D(2027, 12, 9))["values"]                              # 표 밖(2027-12-08 뒤)
+        v = fb.calc_week(world(), D(2028, 1, 27))["values"]                              # 표 밖(2028-01-26 뒤)
         self.assertEqual((v["next_fomc"], v["next_tentative"]), (None, False))
         self.assertTrue(fb.texts("week", v, "2026-10-28")[0].endswith("다음 FOMC 미기재"))
         v = calc("week", world(last_wed=D(2026, 10, 7)), D(2026, 10, 9))["values"]       # 15일·월말·FOMC 없음
@@ -684,7 +686,7 @@ class ArithmeticTest(unittest.TestCase):
             ny = ZoneInfo("America/New_York")
         except Exception:                                                              # 시간대 자료가 없는 환경 — 위 손 셈만
             return
-        for _, b, _ in fb.FOMC:                                                         # 표의 모든 결정일 — tzdata와 같다
+        for _, b, _, _ in fb.FOMC:                                                      # 표의 모든 마지막 날 — tzdata와 같다
             d = D.fromisoformat(b)
             want = datetime.datetime(d.year, d.month, d.day, fb.DECISION_HOUR, tzinfo=ny).astimezone(utc)
             self.assertEqual(fb.decided_at(d), want, b)
@@ -693,18 +695,56 @@ class ArithmeticTest(unittest.TestCase):
         with open(os.path.join(REPO, "site", "people-data.js"), encoding="utf-8") as f:
             page = load_people(f.read())
         theirs = [(m["first_day"], m["date"]) for m in page["meetings_2026"]]
-        mine = [(a, b) for a, b, _ in fb.FOMC if b.startswith("2026")]
+        mine = [(a, b) for a, b, _, _ in fb.FOMC if b.startswith("2026")]
         self.assertEqual(mine, theirs)
-        for a, b, tentative in fb.FOMC:
-            self.assertEqual(D.fromisoformat(b).weekday(), 2, b)                       # 결정일은 수요일
+        for a, b, tentative, decision in fb.FOMC:
+            self.assertEqual(D.fromisoformat(b).weekday(), 2, b)                       # 마지막 날(결정일)은 수요일
             self.assertEqual(D.fromisoformat(b) - D.fromisoformat(a), TD(days=1))
-            self.assertEqual(tentative, b >= "2027", b)                                # 잠정은 2027년만
-        self.assertEqual([b for _, b, _ in fb.FOMC], sorted(b for _, b, _ in fb.FOMC))
-        # 2027년 = 연준 FOMC 일정 페이지(2026-10-28 갱신, 2026-11-03 확인)의 여덟 회의(검토 F1 — 전엔 2차 보도의 3월까지만)
-        self.assertEqual([(a, b) for a, b, _ in fb.FOMC if b.startswith("2027")],
+            self.assertEqual(tentative, b >= "2027", b)                                # 잠정은 2027년부터
+            self.assertIs(type(decision), bool, b)
+        self.assertEqual([b for _, b, _, _ in fb.FOMC], sorted(b for _, b, _, _ in fb.FOMC))
+        # 2027년 = 연준 보도자료 2026-11-12(잠정 일정 개정)·일정 페이지(2026-11-18 갱신)의 여덟 회의(2026-11-20 정정 — 전엔
+        # 10-28 판의 12-07~08), 결정 없는 회의는 10-26~27 전략 회의 하나, 2028-01-25~26 잠정
+        self.assertEqual([(a, b) for a, b, _, _ in fb.FOMC if b.startswith("2027")],
                          [("2027-01-26", "2027-01-27"), ("2027-03-16", "2027-03-17"), ("2027-04-27", "2027-04-28"),
                           ("2027-06-08", "2027-06-09"), ("2027-07-27", "2027-07-28"), ("2027-09-14", "2027-09-15"),
-                          ("2027-10-26", "2027-10-27"), ("2027-12-07", "2027-12-08")])
+                          ("2027-10-26", "2027-10-27"), ("2027-11-16", "2027-11-17")])
+        self.assertEqual([b for _, b, _, dec in fb.FOMC if not dec], ["2027-10-27"])
+        self.assertEqual(fb.FOMC[-1], ("2028-01-25", "2028-01-26", True, True))
+
+    def test_strategy_meeting_without_decision_is_skipped(self):
+        # 2026-11-20: 2027-10-26~27은 통화정책 전략 회의 — 결정·성명이 없어 'FOMC 뒤 첫 H.4.1'과 '다음 FOMC'에 나오지 않는다
+        utc = datetime.timezone.utc
+        S = world()
+        S["WRESBAL"] = [(D(2027, 10, 20), 3_000_000.0), (D(2027, 10, 27), 3_000_000.0)]   # 10-21~10-27 = 전략 회의 주
+        v = fb.calc_week(S, D(2027, 10, 29))["values"]
+        self.assertEqual((v["fomc"], v["next_fomc"], v["next_tentative"]), ([], "2027-11-17", False))
+        line = fb.texts("week", v, "2027-10-27")[0]
+        self.assertNotIn("FOMC 뒤 첫 H.4.1", line)
+        self.assertNotIn("10-27", line.split("이 주(")[1].split(")")[1])           # 이 주의 범위 밖 어디에도 10-27 없음
+        self.assertTrue(line.endswith("다음 FOMC 2027-11-17"), line)
+        for k in range(0, 500):                                                       # 결정 표시는 어느 주에도 10-27을 대지 않는다
+            wed = D(2027, 1, 6) + TD(days=7 * (k % 70))
+            S["WRESBAL"] = [(wed - TD(days=7), 3_000_000.0), (wed, 3_000_000.0)]
+            self.assertNotIn("2027-10-27", fb.calc_week(S, wed)["values"]["fomc"], wed)
+        # 09-16 ~ 10-27 사이 '다음 FOMC'는 11-17 — 바로 앞 회의(전략 회의)가 끝나기 전엔 잠정
+        for d in (D(2027, 9, 16) + TD(days=k) for k in range((D(2027, 10, 27) - D(2027, 9, 16)).days + 1)):
+            self.assertEqual(fb.next_fomc(d), (D(2027, 11, 17), d <= D(2027, 10, 27)), d)
+        self.assertEqual(fb.next_fomc(D(2027, 10, 27), datetime.datetime(2027, 10, 27, 22, 17, tzinfo=utc)),
+                         (D(2027, 11, 17), False))                                      # 전략 회의가 끝난 뒤 — 확정
+        # 09-15 성명 뒤의 다음 결정 회의는 11-17
+        self.assertEqual(fb.next_fomc(D(2027, 9, 15), datetime.datetime(2027, 9, 15, 22, 17, tzinfo=utc)),
+                         (D(2027, 11, 17), True))
+        self.assertEqual(fb.next_fomc(D(2027, 9, 15)), (D(2027, 9, 15), False))
+        v = fb.calc_week(world(), D(2027, 9, 20))["values"]
+        self.assertTrue(fb.texts("week", v, "2026-10-28")[0].endswith("다음 FOMC 2027-11-17(잠정)"))
+        # 2028-01-26 회의는 표에 있고 잠정 — 11-17 성명 뒤에 '다음'으로 보일 땐 직전 회의 뒤라 확정
+        self.assertIn(("2028-01-25", "2028-01-26", True, True), fb.FOMC)
+        self.assertEqual(fb.next_fomc(D(2027, 11, 18)), (D(2028, 1, 26), False))
+        # RMP 칸의 다음 날짜(kind fomc)도 같은 규칙 — 전략 회의를 싣지 않는다
+        got = [x for x in fb.next_dates((2027, 9), None, D(2027, 10, 1)) if x["kind"] == "fomc"]
+        self.assertEqual(got, [{"kind": "fomc", "date": "2027-11-17", "tentative": True}])
+        self.assertTrue(fb._next_ok(fb.next_dates((2027, 9), None, D(2027, 10, 1))))
 
     def test_observations_after_today_are_dropped(self):
         S = world()
@@ -2432,9 +2472,11 @@ class StaticTest(unittest.TestCase):
         self.assertIn('const RMP_GUIDE_HEAD = "읽는 법 — RMP 흐름도";', js)
         self.assertNotIn("RMP 추정", js)                                                 # 옛 이름(추정 줄)이 화면 글에 없다
         fomc = "".join(re.findall(r'"([^"]*)"', js[js.index('["FOMC 뒤 첫 H.4.1"'):].split("]", 1)[0]))
-        for word in ("2026-10-28 갱신", "확정되기 전까지 잠정", "FOMCpresconf20261028", "14:00 미 동부"):
+        for word in ("2026-11-18 갱신", "확정되기 전까지 잠정", "monetary20261112a", "14:00 미 동부", "2027-10-26~27",
+                     "결정 없음", "2027-11-17"):
             self.assertIn(word, fomc)
-        self.assertNotIn("2차 보도", fomc)
+        for gone in ("2차 보도", "어느 회의인지 미정", "2026-10-28 갱신"):                 # 2026-11-20 정정 앞의 글
+            self.assertNotIn(gone, fomc)
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
