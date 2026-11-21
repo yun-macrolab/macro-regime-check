@@ -3,7 +3,7 @@
  * 발언자 본인의 영어 원문(q — 짧게, 원문·보도에서 찾은 것만). 새 묶음을 받으면 같은 꼴로 notes 앞쪽에 더한다(id = <키>-<날짜>).
  * 연준 밖 인사는 others에 이름·기관을 적고 같은 notes에 넣는다(화면의 '기타' 칸). 꼴은 scripts/test_people_site.py가 본다. */
 window.PEOPLE_NOTES = {
- "asof": "2026-11-16",
+ "asof": "2026-11-21",
  "about": "운영자가 받은 발언 요약을 이 저장소가 다시 쓴 것이다. 문장은 이 저장소의 요약이고, q(따옴표)만 발언자 본인의 영어 원문이다. 확인 수준: 원문 확인(1차 자료를 직접 읽어 인용을 찾음) · 보도 확인(보도·검색으로 날짜·자리·인용을 찾음) · 출처 미확인. 칩은 운영자가 읽은 것이고 예측이 아니다.",
  "topics": [
   [
@@ -128,6 +128,918 @@ window.PEOPLE_NOTES = {
   }
  },
  "notes": [
+  {
+   "id": "cook-20261120",
+   "who": "cook",
+   "date": "2026-11-20",
+   "venue": "연설",
+   "event": "칠레 중앙은행 제29회 연례 콘퍼런스 기조연설(산티아고)",
+   "src": "https://www.federalreserve.gov/newsevents/speech/cook20261120a.htm",
+   "cert": "원문 확인",
+   "head": "10월 동결 반대·25bp 인상 선호 — 미루면 뒤처질 위험, 9월 한 번으론 모자랄 듯",
+   "chips": {
+    "next": [
+     "추가 인상(10월 반대표)",
+     "up"
+    ],
+    "pace": [
+     "기다림에도 비용",
+     "up"
+    ],
+    "level": [
+     "금융여건 너무 완화적",
+     "up"
+    ],
+    "inflation": [
+     "67개월째 목표 위·넓게 퍼짐",
+     "up"
+    ],
+    "labor": [
+     "최대고용 부합",
+     "mid"
+    ],
+    "ai": [
+     "성장 가속·가격 파급",
+     "up"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "9월 목표 범위 3.75~4%로의 인상엔 찬성했고 10월 동결엔 반대해 25bp 더 올리길 원했다. 첫째 이유: 물가가 목표를 끈질기게 웃돌고 둔화 조짐도 뚜렷하지 않은데 금융여건이 너무 완화적이다 — 지금 기조는 AI 인프라 구축을 누르지 못하는 듯하고 주가는 계속 소비를 받친다.",
+     "q": "financial conditions are too accommodative at a time when inflation remains stubbornly above target, with no clear signs of disinflation in train"
+    },
+    {
+     "t": "policy",
+     "s": "그래서 동결을 이어가면 플러스 산출갭이 벌어지고 물가 압력도 커진다. 금리를 그대로 두는 것도 올리는 것과 똑같이 하나의 통화정책 행동으로 본다.",
+     "q": "I see the act of holding the rate steady as much a monetary policy action as the act of increasing the rate"
+    },
+    {
+     "t": "policy",
+     "s": "둘째 이유는 급함 — 5년 반 넘게 목표를 웃돌아 하루가 지날수록 가격·임금 결정자가 기대인플레이션을 올려 잡을 위험이 커진다. 인상을 미루면 뒤처질 위험이 있고, 뒤처지면 나중에 따라잡느라 더 많이·더 크게 올려야 할 수 있어 금융시스템의 스트레스를 키우고 가계에 불필요한 피해를 줄 수 있다.",
+     "q": "waiting longer to implement rate increases risks getting behind the curve"
+    },
+    {
+     "t": "policy",
+     "s": "다른 환경이라면 위원회가 인내할 수 있겠지만 지금은 그럴 여유가 없다. 9월 인상 뒤 나온 물가 지표(지난주 발표 포함)는 물가가 지속 가능한 경로로 돌아간다는 충분한 증거가 못 된다.",
+     "q": "in this economic climate we do not have that luxury"
+    },
+    {
+     "t": "policy",
+     "s": "9월 25bp 한 번으로 물가 경로가 바뀔지는 회의적이다. 앞으로의 조정 횟수와 폭은 정책에 대한 경제의 반응을 지켜보며 정해야 한다.",
+     "q": "I am skeptical that September's single 1/4 point rate increase will be enough to change the path of inflation"
+    },
+    {
+     "t": "inflation",
+     "s": "물가는 67개월째 2%를 웃돈다. 지난주 지표로 추정한 10월 PCE 전년비 3.8%, 근원 3.2% — 에너지가 큰 몫이지만 압력의 원천이 갈수록 다양해진다.",
+     "q": "the sources of price pressure facing American families are increasingly varied"
+    },
+    {
+     "t": "inflation",
+     "s": "2022년 중반~작년 초엔 2%로 가는 듯했으나 지난 18개월 통상정책 변화·지정학·기술 인프라 대규모 투자로 일부 되돌려졌다. 올해 대부분 3%를 웃돌았고 둔화 증거가 거의 없다 — 최근 지표에선 항공료·가전·가구·호텔·외식 등 넓은 품목이 빠르게 오른다.",
+     "q": "there is little evidence inflation is declining"
+    },
+    {
+     "t": "inflation",
+     "s": "중동 분쟁으로 올해 에너지 가격이 다시 올랐고, 기반시설 손상·재고 고갈로 유가가 오래 높을 수 있다는 전문가 경고가 있다. 미국에서 관세의 물가 효과는 누그러진 것으로 보이지만 앞으로의 통상정책 불확실성은 남아 있다."
+    },
+    {
+     "t": "labor",
+     "s": "10월 실업률 4.1%로 1년 가까이 소폭 내려왔다. 10월 고용 +16.5만명에 업종도 넓어지는 조짐, 9월 구인 750만건(대체로 그대로), 신규 실업수당 청구 4주 평균 약 19.5만건(역사적 저점 근처) — 노동시장은 대체로 균형이고 서서히 나아진다."
+    },
+    {
+     "t": "labor",
+     "s": "'낮은 채용' 환경이 신규 진입자에게 특히 어렵고 임금이 물가의 타격을 넘을 만큼 오르지 않아 불만은 이해할 만하다. 그래도 낮은 실업률은 최대고용에 부합해, 통화정책 결정자로서 물가 쪽에 더 집중한다.",
+     "q": "I am more focused on the inflation side of our remit"
+    },
+    {
+     "t": "growth",
+     "s": "성장은 강하고 빨라진다. 3분기 GDP 연율 3.4%로 상반기보다 높아졌고 AI 인프라 구축이 큰 기여 요인이다. 높은 에너지 가격과 물가에도 실질 가계지출이 연율 3.8% 늘었다.",
+     "q": "The AI infrastructure buildout I previously discussed is a significant contributor to this acceleration"
+    },
+    {
+     "t": "ai",
+     "s": "기업들이 발표한 데이터센터 건설 계획은 2조달러를 넘지만 실현된 건 일부다. 이미 산출 지표에 보이고, 반도체·첨단장비 가격, 건설 임금, 전기요금으로 번진다는 증거가 있다. 일부 추정으로는 건설 중인 세계 데이터센터 용량의 약 절반이 미국 밖이다.",
+     "q": "there is evidence of spillovers to other parts of the economy"
+    },
+    {
+     "t": "labor",
+     "s": "AI가 총실업률에 뚜렷한 흔적을 남긴 증거는 거의 없지만 도입 초기라 안심하기 이르다. 소프트웨어 코딩·동시통역 일자리 수요가 식었다는 증거가 이미 일부 있고, 젊은 층의 구직이 길어지는 것을 초급 일자리에 대한 AI 압력 탓으로 보는 이도 있다.",
+     "q": "I think it is too soon to feel comforted"
+    },
+    {
+     "t": "ai",
+     "s": "역사로 보면 성공적 전환 가능성이 크고 영구적 일자리 손실은 가능성이 낮지만, 전환이 오래 걸리고 AI로 인한 일자리 감소가 새 일자리 창출보다 먼저 올 가능성도 0이 아니다. 업종별 AI 도입 속도와 기업 안 일자리 구성 변화를 지켜본다.",
+     "q": "job losses due to AI could precede new job creation"
+    },
+    {
+     "t": "finstab",
+     "s": "AI는 증기기관·전기·인터넷에 견주거나 넘어설 수 있는 범용기술로 생산성 붐을 가져올 수 있지만, 고통스러운 노동시장 전환과 사이버·금융안정 위험을 깊이 걱정한다. 받은 요약에는 AI 인프라 자금조달 방식을 신중히 지켜본다는 대목도 있으나 연설 원문에서 원래 문장은 찾지 못했다(질의응답은 확인하지 못함).",
+     "q": "I worry deeply about our shared risks resulting from the technology"
+    }
+   ]
+  },
+  {
+   "id": "paulson-20261120",
+   "who": "paulson",
+   "date": "2026-11-20",
+   "venue": "인터뷰",
+   "event": "블룸버그 뉴스 인터뷰(뉴욕)",
+   "src": "https://www.investing.com/news/economy-news/feds-paulson-open-to-backtoback-rate-hikes-at-steady-pace-5042425",
+   "cert": "보도 확인",
+   "date_note": "블룸버그 기사 주소의 날짜와 '뉴욕에서 한 블룸버그 인터뷰'라는 보도 조각으로 정함 — 기사 본문을 열지 못해 미 동부 날짜를 직접 확인하지는 못했다(11-19 뉴욕 연설과는 다른 자리)",
+   "head": "금리는 더 높아져야 — 연속 인상도 검토하되 일정 약속 없이 신중한 속도로",
+   "chips": {
+    "next": [
+     "인상(연속도 검토)",
+     "up"
+    ],
+    "pace": [
+     "신중한 속도·일정 약속 없음",
+     "mid"
+    ],
+    "level": [
+     "더 높아져야",
+     "up"
+    ],
+    "inflation": [
+     "최우선(위험은 양쪽)",
+     "up"
+    ],
+    "labor": [
+     "임금 압력 확산 증거 없음",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "금리가 어느 쪽으로 가야 하는지는 아주 분명하다 — 더 높아져야 한다.",
+     "q": "The direction of travel, in terms of where rates need to go, is really clear"
+    },
+    {
+     "t": "policy",
+     "s": "올리더라도 신중한 속도로 가야 한다는 뜻을 다시 밝혔다. 보도에 따르면 가계·기업·은행이 적응할 시간을 주려는 것이고, 여건보다 너무 앞서거나 뒤처지지 않으려는 취지의 설명도 했다 — 그 대목의 원래 문장은 찾지 못했다."
+    },
+    {
+     "t": "policy",
+     "s": "연속 인상도 충분히 검토할 만한 선택지라고 했다. 다만 매 회의나 한 회의 걸러 올리는 식의 정해진 일정을 약속하지는 않는다는 뜻도 보도됐다 — 보도마다 옮긴 말이 달라 원래 문장은 찾지 못했다.",
+     "q": "I'm certainly open to considering that. I think that's a very reasonable thing to have on the table"
+    },
+    {
+     "t": "inflation",
+     "s": "물가가 분명히 우선이지만 위험은 양쪽에 다 있다고 했다.",
+     "q": "Clearly inflation is the priority, but there are risks on both sides"
+    },
+    {
+     "t": "growth",
+     "s": "보도에 따르면 경제가 꽤 잘 돌아간다고 했다 — 보도마다 표현이 조금 달라 원래 문장은 찾지 못했다."
+    },
+    {
+     "t": "labor",
+     "s": "보도에 따르면 개별 임금 압력 사례는 눈여겨보지만 그런 사례가 노동시장 전반으로 번진다는 증거는 아직 없다고 했다. 임금 상승률이 그동안 2% 물가와 맞아 왔다는 대목은 원래 문장을 찾지 못했다."
+    }
+   ]
+  },
+  {
+   "id": "jefferson-20261119",
+   "who": "jefferson",
+   "date": "2026-11-19",
+   "venue": "연설",
+   "event": "IMF·브라질 중앙은행 '중남미 물가목표제 25년' 콘퍼런스 패널(브라질리아)",
+   "src": "https://www.federalreserve.gov/newsevents/speech/jefferson20261119a.htm",
+   "cert": "원문 확인",
+   "head": "에너지 충격 전부터 물가는 2% 위 — 기대가 흔들리면 물가에 더 강하게, 억제되면 고용 위험을 앞세울 수도",
+   "chips": {
+    "next": [
+     "조건부(기대·물가 압력)",
+     "mid"
+    ],
+    "inflation": [
+     "에너지 충격 전부터 2% 위",
+     "up"
+    ],
+    "labor": [
+     "AI 대체·새 일자리 모두",
+     "mid"
+    ],
+    "ai": [
+     "지금은 수요·물가 상방",
+     "up"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "충격이 산출 갭과 물가를 같은 방향으로 움직이면 두 목표가 함께 가지만, 반대로 움직이면 상충이 생긴다. 중동 분쟁과 엮인 최근 유가 상승이 그 예 — 에너지 충격은 물가를 밀어 올리면서 실질소득과 수요를 누를 수 있다. 대응은 각 목표를 놓쳤을 때의 상대적 비용과 위험 균형에 달렸다.",
+     "q": "The appropriate response depends on the relative costs of missing each objective and the balance of risks"
+    },
+    {
+     "t": "inflation",
+     "s": "최근 에너지 가격 충격이 닥쳤을 때 미국 물가는 이미 2% 목표를 웃돌고 있었다.",
+     "q": "inflation in the U.S. was already above our 2 percent target"
+    },
+    {
+     "t": "policy",
+     "s": "기대인플레이션이 고정에서 풀릴 위험이 있으면 물가에 더 강하게 대응하는 것이 맞고, 물가 압력이 억제돼 있으면 고용의 하방 위험을 앞세우는 것이 신중할 수 있다 — 어느 쪽인지는 조건으로만 말했다.",
+     "q": "If inflation expectations risk becoming unanchored, a stronger reaction to inflation is warranted"
+    },
+    {
+     "t": "ai",
+     "s": "빠른 AI 도입은 수요와 공급에 시차를 두고 닿는 까다로운 충격이다. 기업의 AI 도입은 지난 2년 새 크게 늘었다. 수요 쪽에선 낙관론이 데이터센터·첨단 컴퓨팅 장비 투자를 끌고, 공급 쪽에선 업무 자동화·보강으로 생산성과 잠재성장률을 높일 수 있다. 지금은 구축이 수요·물가를 밀어 올리지만 앞으로는 생산성 향상이 성장을 받치며 물가를 누를 수 있다.",
+     "q": "Currently, the AI buildout is exerting upward pressure on demand and inflation"
+    },
+    {
+     "t": "labor",
+     "s": "AI는 일부 일자리를 대체할 수 있고 해당 가계엔 적잖은 어려움이다. 다만 과거의 여러 기술 혁신처럼 아직 상상하지 못한 새 일자리와 기업을 만들 수도 있다.",
+     "q": "AI could lead to the creation of new jobs and new firms that we have not yet imagined"
+    },
+    {
+     "t": "policy",
+     "s": "에너지·무역·AI 충격이 한꺼번에 펼쳐져 연준과 각국 중앙은행이 동시에 따져야 한다. 과제는 각자 책무에 주의를 기울이며 정책 기조를 목표에 맞게 조율하는 것 — 미국 경제에 대한 목표는 견조한 노동시장을 지키면서 물가 안정을 되찾는 것이다.",
+     "q": "my goal is to restore price stability while maintaining a solid labor market"
+    }
+   ]
+  },
+  {
+   "id": "goolsbee-20261119",
+   "who": "goolsbee",
+   "date": "2026-11-19",
+   "venue": "대담",
+   "event": "이코노믹 클럽 오브 인디애나 오찬 대담(인디애나폴리스) · 같은 날 기자 전화 회견",
+   "src": "https://www.investing.com/news/economy-news/feds-goolsbee-says-ai-surge-could-strain-us-capacity-overheat-economy-5039887",
+   "cert": "보도 확인",
+   "head": "AI 붐이 과열 위험을 키운다 — 연준의 일은 과열을 막는 것, 지금은 2%로 가는 경로 아님",
+   "chips": {
+    "next": [
+     "모든 선택지(폭은 미언급)",
+     "up"
+    ],
+    "inflation": [
+     "경계선상 우려 수준",
+     "up"
+    ],
+    "ai": [
+     "투자 과열·IPO 부 효과 주시",
+     "up"
+    ]
+   },
+   "points": [
+    {
+     "t": "ai",
+     "s": "AI 붐이 경제의 과열 가능성을 키운다 — 달리 보기 어렵다. 거의 전례 없는 규모의 기업 투자가 한꺼번에 몰려, 경제의 생산능력이 그 덩어리를 소화하지 못할 위험이 크다.",
+     "q": "there's a high danger that the economy's capacity cannot handle that kind of a pig through the python"
+    },
+    {
+     "t": "policy",
+     "s": "AI가 나중에 생산성 붐을 가져올 수는 있어도, 그사이 연준의 일은 물가를 잡는 것 — 곧 이 붐이 경제를 과열시키지 않게 막는 것이다.",
+     "q": "The Fed's job is to prevent this thing from overheating the economy"
+    },
+    {
+     "t": "growth",
+     "s": "과열을 부를 수 있는 두 힘은 데이터센터 건설과, 앞으로 생길 AI 관련 부를 미리 당겨 쓰는 소비다 — 보도로는 둘 다 경제를 쉽게 달굴 수 있다고 했다. 부가 1조달러 단위로 생기면 그 돈은 쓰이게 마련이다.",
+     "q": "If you hand people a trillion dollars of wealth, they're going to spend it"
+    },
+    {
+     "t": "growth",
+     "s": "그가 '1.5조달러짜리 IPO'라 부른 앤트로픽 상장으로 초기 주주의 지분이 1조달러를 훌쩍 넘는다 — 그 돈을 어떻게 쓰느냐가 거시적으로 의미 있는 통계가 될 것이다. 다만 보도로는 지금까지 과열 위험은 새 주주의 소비보다 AI 투자 쪽이 더 컸고, 이미 효과가 났다고 걱정하기보다 지켜보는 단계라고 했다.",
+     "q": "is going to become a macro-relevant statistic"
+    },
+    {
+     "t": "inflation",
+     "s": "여러 달 연속 경계선상의, 우려스러울 만큼 높은 물가가 이어졌고, 진전을 기대한 부문에서도 진전이 거의 없다.",
+     "q": "borderline, disturbingly high inflation rates"
+    },
+    {
+     "t": "policy",
+     "s": "물가가 저절로 2%로 돌아가리라고 보느냐 아니냐를 짚었는데(앞뒤 원래 문장은 찾지 못했다), 지금까지의 증거는 그 경로를 가리키지 않는다고 했다. 12월에 더 큰 폭의 인상을 지지할지는 밝히지 않았고, 보도로는 모든 선택지가 열려 있다고 했다.",
+     "q": "The evidence does not suggest we're on a path back to 2%"
+    },
+    {
+     "t": "ai",
+     "s": "보도로는 연준이 AI 생산성 효과가 기술 부문 밖으로 번지는 증거를 아직 찾는 중이고, 넓게 번지지 않으면 AI가 반짝하고 마는 현상에 그칠 수 있다고 했다."
+    },
+    {
+     "t": "labor",
+     "s": "받은 요약에는 이민 정책이 바뀌어 경기를 판단할 때 월간 고용 증가 폭의 무게가 줄었다는 대목도 있다 — 원래 문장은 찾지 못했다."
+    }
+   ]
+  },
+  {
+   "id": "barr-20261119",
+   "who": "barr",
+   "date": "2026-11-19",
+   "venue": "대담",
+   "event": "FinRegLab 2026 AI 심포지엄 대담(워싱턴)",
+   "src": "https://www.investing.com/news/economy-news/feds-barr-worried-regulation-changes-may-increase-financial-sector-risks-5039831",
+   "cert": "보도 확인",
+   "head": "물가 너무 높아 통화정책 더 조정해야 — 감독·규제 변화는 당장보다 긴 꼬리가 걱정",
+   "chips": {
+    "next": [
+     "추가 조정 필요(인상 쪽)",
+     "up"
+    ],
+    "level": [
+     "금융여건 꽤 완화적",
+     "up"
+    ],
+    "inflation": [
+     "너무 높음",
+     "up"
+    ],
+    "ai": [
+     "접근성 확대·뱅크런 가속 위험",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "물가가 너무 높아 통화정책을 더 조정해야 할 것으로 본다. 전날(11-18) 뉴욕 연은 행사의 연설 원고에선 경제가 지금 전망대로 가면 금리를 더 올리는 것이 적절하다고 했다.",
+     "q": "I think we're going to need to adjust monetary policy further"
+    },
+    {
+     "t": "rates",
+     "s": "보도로는 금융여건이 꽤 완화적이어서 경기를 받쳐 주고 있다고 했다 — 원래 문장은 찾지 못했다."
+    },
+    {
+     "t": "finstab",
+     "s": "최근의 감독·규제 변화는 당장 걱정할 일은 아니지만 길게 이어질 결과를 낳는다. 보도로는 시간이 갈수록 감독이 서서히 약해져 은행 체계가 덜 안전해질 수 있고, 앞으로 시장의 문제를 알아채고 대응하기도 어려워질 수 있다고 했다.",
+     "q": "longer term tails to them, longer term consequences"
+    },
+    {
+     "t": "finstab",
+     "s": "어느 한 변화도 내일 닥칠 위험은 아니지만 걱정할 만한 위험은 있다. 지난 1년 반 동안의 감독·규제 방향에 반대한다는 뜻을 공개적으로 밝혀 왔다고 했다.",
+     "q": "there are risks worth worrying about"
+    },
+    {
+     "t": "ai",
+     "s": "보도로는 AI가 금융서비스 접근성을 넓힐 수 있지만 금융 부문 규정을 따라야 하고 뱅크런을 더 빠르게 만들 위험도 있다고 했다 — 원래 문장은 찾지 못했다. 사흘 전(11-16) 밀라노 연설 원고에도 AI 에이전트가 자금을 빠르게 옮겨 몇 분 만에 번지는 뱅크런을 부추길 수 있다는 대목이 있다."
+    }
+   ]
+  },
+  {
+   "id": "paulson-20261119",
+   "who": "paulson",
+   "date": "2026-11-19",
+   "venue": "연설·대담",
+   "event": "머니 마케티어스(뉴욕) — 통화정책 소통 연설과 질의응답",
+   "src": "https://www.philadelphiafed.org/the-economy/monetary-policy/261119-money-marketeers-speech",
+   "cert": "보도 확인",
+   "head": "긴축할 일이 더 남았다 — 평시엔 금리 경로 안내보다 반응함수를 함께 이해하는 게 중요",
+   "chips": {
+    "next": [
+     "추가 긴축(시점 언급 없음)",
+     "up"
+    ],
+    "pace": [
+     "신중히(악화 시 더 빠르게)",
+     "mid"
+    ],
+    "level": [
+     "금리 더 높여야",
+     "up"
+    ],
+    "inflation": [
+     "너무 높음 — 우선 과제",
+     "up"
+    ],
+    "labor": [
+     "완전고용",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "연설 뒤 질의응답에서: 성장은 강해졌고 노동시장은 완전고용이라 지금은 물가가 분명한 우선 과제다. 보도에 따르면 준비한 원고에는 가까운 정책 전망이 없었다.",
+     "q": "it's clear that inflation needs to be ... the priority"
+    },
+    {
+     "t": "policy",
+     "s": "물가를 끌어내리는 길은 금리를 높이는 것이고 긴축할 일이 더 남았다고 질의응답에서 말했다.",
+     "q": "The way we bring inflation down is by having higher rates"
+    },
+    {
+     "t": "policy",
+     "s": "10월 동결은 방향이 아니라 속도의 문제다. 보도에 따르면 시장이 추가 긴축을 예상하고 있어 한 번 쉬어도 정책이 있어야 할 자리보다 뒤처지지 않았고, 신중한 속도는 경제가 적응할 시간을 주고 새 정보를 소화하기에도 낫다고 했다.",
+     "q": "I see holding rates steady in October as a matter of pace, not direction"
+    },
+    {
+     "t": "policy",
+     "s": "기대인플레이션이 오르거나 임금 압력이 커지거나 기조 물가가 높아지면 더 빨리 움직이겠다 — 11월 10일 연설의 세 조건을 되풀이했다.",
+     "q": "I would want to move more quickly"
+    },
+    {
+     "t": "policy",
+     "s": "연설의 물음은 제목대로 '서로 이해하느냐'다. 소통은 반응함수를 함께 이해하게 할 때 가장 잘 작동하고 사람들은 믿는 메시지에 따라 움직인다 — 그래서 신뢰가 핵심이고 그것을 당연하게 여기지 않는다.",
+     "q": "I don't take credibility for granted"
+    },
+    {
+     "t": "policy",
+     "s": "보도에 따르면 평시에는 반응함수가 잘 이해되면 금리 경로 안내의 값어치가 크지 않다고 했다. 안내가 가장 값진 때는 기준금리가 제로 하한 근처일 때(통상의 반응함수에서 벗어나겠다는 약속)라는 대목은 의역으로만 봤고 원래 문장은 찾지 못했다."
+    },
+    {
+     "t": "policy",
+     "s": "점도표의 쓸모는 시기에 따라 다르다 — 어떤 때엔 매우 유용하고 어떤 때엔 덜하다.",
+     "q": "I view the dot plot as very helpful in some periods and less helpful in others"
+    },
+    {
+     "t": "inflation",
+     "s": "일시적 충격은 신뢰를 잃지 않고 넘겨 볼 수 있다 — 다만 무엇을 일시적으로 보는지, 무엇이 그 판단을 바꿀지 함께 설명해야 한다는 취지다. 장기 기대가 잘 고정돼 있을 때라는 조건과 충격이 이어지면 대응한다는 믿음이 전제라는 대목은 원래 문장을 찾지 못했다."
+    },
+    {
+     "t": "inflation",
+     "s": "보도에 따르면 장기 기대인플레이션이 안정돼 있다는 것은 연준이 신뢰를 지키고 있다는 증거라고 했다."
+    },
+    {
+     "t": "labor",
+     "s": "보도에 따르면 임금 상승률은 2% 물가와 맞는 흐름이라고 했다 — 다만 그 흐름을 흔들 수 있는 현장 일화는 눈여겨볼 만하다는 것이다."
+    }
+   ]
+  },
+  {
+   "id": "barkin-20261119",
+   "who": "barkin",
+   "date": "2026-11-19",
+   "venue": "대담",
+   "event": "버지니아 주 상원 재정·세출위원회 연례회의(샬러츠빌)",
+   "src": "https://virginiabusiness.com/barkin-fed-richmond-workforce-ai-data-centers/",
+   "cert": "보도 확인",
+   "date_note": "보도(11-20 자)의 '목요일' — 위원회 연례회의 일정(11-19~20)으로 맞춘 미 동부 날짜",
+   "head": "수요가 견조한 까닭의 일부는 AI — 나중엔 문제 될 수도, 노동력은 늘지 않아",
+   "chips": {
+    "next": [
+     "확인한 보도엔 언급 없음",
+     "mid"
+    ],
+    "labor": [
+     "노동력 늘지 않음",
+     "mid"
+    ],
+    "ai": [
+     "지금 수요 요인·나중엔 문제",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "ai",
+     "s": "경제 전반의 수요가 견조한 까닭의 일부는 AI다. 지금은 성장을 돕지만 나중에는 문제를 낳을 수도 있다.",
+     "q": "Part of the reason demand's so healthy in the entire economy is AI"
+    },
+    {
+     "t": "growth",
+     "s": "보도에 따르면 데이터센터 투자가 꺾이거나 AI발 해고가 늘면 경제의 약 70%를 차지하는 소비가 줄어들 수 있다고 짚었다."
+    },
+    {
+     "t": "labor",
+     "s": "지금까지는 AI가 실업률 급등을 부르지 않았다."
+    },
+    {
+     "t": "labor",
+     "s": "미국과 버지니아의 노동력이 모두 늘지 않는다 — 은퇴, 낮은 출산율, 그리고 3년 전 약 200만 명이던 이민 유입이 사실상 0으로 줄어든 탓."
+    },
+    {
+     "t": "housing",
+     "s": "적정 가격 주택이 모자라 일하는 사람이 다른 주로 떠나면 버지니아 노동력이 줄어들 위험이 있다."
+    }
+   ]
+  },
+  {
+   "id": "waller-20261118",
+   "who": "waller",
+   "date": "2026-11-18",
+   "venue": "인터뷰",
+   "event": "CNBC 스쿼크박스",
+   "src": "https://www.cnbc.com/2026/11/18/federal-reserve-governor-christopher-waller.html",
+   "cert": "보도 확인",
+   "head": "12월 50bp가 아마 필요 — 25bp라면 1월 인상을 아주 분명히 예고해야",
+   "chips": {
+    "next": [
+     "50bp 또는 25bp+1월 예고",
+     "up"
+    ],
+    "pace": [
+     "분명한 신호로 빨리",
+     "up"
+    ],
+    "level": [
+     "작년 인하 3번 되돌려야",
+     "up"
+    ],
+    "inflation": [
+     "서비스로 확산·3% 굳기",
+     "up"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "12월 8~9일 회의에서는 50bp 인상이 아마 필요하다 — 사람들을 놀라게 할 만큼 움직여야 할 수도 있다.",
+     "q": "You might need to, like, shock people"
+    },
+    {
+     "t": "policy",
+     "s": "25bp로 그치려면 1월에도 올린다는 것을 시장에 아주 분명히 알려야 하고, 그러지 않을 거면 12월에 50bp로 해 둬야 한다. 로이터는 대안을 '2027년 더 빠른 인상 속도를 알리는 것'으로 전했다.",
+     "q": "If you're not going to signal this very clearly to markets"
+    },
+    {
+     "t": "policy",
+     "s": "로이터는 워시 의장이 선제 안내를 피하려 하지만 지금은 강한 소통이 필요하다는 대목도 전했다 — 월러 본인의 말인지 기사의 설명인지는 가리지 못했다. 그 신호를 FOMC 성명과 의장 기자회견으로 내야 한다는 대목 — 원래 문장은 찾지 못했다. 보도는 시장에 분명히 신호하라는 데까지만 전한다."
+    },
+    {
+     "t": "rates",
+     "s": "보도로는 작년의 인하 세 번은 되돌려야 한다고 했다."
+    },
+    {
+     "t": "inflation",
+     "s": "최근 물가는 연율 3%를 웃돌고 빨라지고 있을 수 있다. 방향이 잘못됐고 번지는 중이다 — 빨리 오르는 품목 상당수가 서비스라 높은 유가 같은 일시적 요인으로는 대부분 설명되지 않는다."
+    },
+    {
+     "t": "inflation",
+     "s": "기업들이 3% 안팎을 당연한 인상 폭으로 여기고 소비자에게 넘기기 시작했다. 지난주 만난 한 사업가는 고객이 감당할 수 있다고 봐 3%를 올렸다고 했다 — 이런 말이 들리기 시작하면 물가를 끌어내리기 어려워진다.",
+     "q": "that's when you start having problems trying to get inflation down"
+    },
+    {
+     "t": "inflation",
+     "s": "기업이 3% 인상을 당연하게 여기는 이런 심리를 이제 깨기 시작해야 한다 — 그래서 물가 대응이 더 적극적이어야 한다.",
+     "q": "That's the kind of psychology we need to start breaking"
+    }
+   ]
+  },
+  {
+   "id": "daly-20261118",
+   "who": "daly",
+   "date": "2026-11-18",
+   "venue": "대담",
+   "event": "세인트루이스 연은 행사(화상 대담)",
+   "src": "https://www.bloomberg.com/news/articles/2026-11-18/fed-s-daly-urges-rate-hikes-with-a-thoughtful-measured-approach",
+   "cert": "보도 확인",
+   "head": "추가 긴축이 필요하다 — 다만 지금까지처럼 신중한 접근으로",
+   "chips": {
+    "next": [
+     "추가 인상 필요",
+     "up"
+    ],
+    "pace": [
+     "신중한 접근 유지",
+     "mid"
+    ],
+    "inflation": [
+     "너무 오래 높았음",
+     "up"
+    ],
+    "labor": [
+     "안정·역동성 낮음",
+     "mid"
+    ],
+    "ai": [
+     "AI 투자도 불확실성",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "물가가 2%로 서서히 내려가는 경로에 있다고 완전히 확신할 수 있는 데까지 가려면 금리를 더 올려야 한다.",
+     "q": "We'll have to further tighten interest rates"
+    },
+    {
+     "t": "policy",
+     "s": "지금까지 해 온 신중한 접근이 옳은 길이라고 했다(한 보도는 이를 이어 가는 것을 지지한다는 말까지 실었다). 들어오는 지표를 따져 보고 기업·소비자의 이야기를 들으며 움직인다는 것.",
+     "q": "the right way to go"
+    },
+    {
+     "t": "policy",
+     "s": "보도로는 신중해야 하는 까닭으로 높은 불확실성을 들었다 — 관세 정책의 향방, 이란 전쟁, AI 인프라 투자의 결과가 아직 분명하지 않다."
+    },
+    {
+     "t": "inflation",
+     "s": "속보 머리글로는 물가가 너무 오래 너무 높았다고 했다."
+    },
+    {
+     "t": "growth",
+     "s": "속보 머리글로는 소비가 소득 하위층에서도 견조하고, 이 회복력은 강점이지만 위험이기도 하다고 했다. 받은 요약은 그 위험을 물가 안정의 부담으로 읽었지만 원래 문장은 찾지 못했다."
+    },
+    {
+     "t": "labor",
+     "s": "속보 머리글로는 노동시장이 전반적으로 안정돼 있지만 역동성은 크지 않다고 했다."
+    }
+   ]
+  },
+  {
+   "id": "barr-20261118",
+   "who": "barr",
+   "date": "2026-11-18",
+   "venue": "연설",
+   "event": "뉴욕 연은 '빠진 시장 만들기' 콘퍼런스 — 소외 지역 투자",
+   "src": "https://www.federalreserve.gov/newsevents/speech/barr20261118a.htm",
+   "cert": "원문 확인",
+   "head": "전망대로면 추가 인상이 적절 — 경제는 강하지만 중·저소득층은 힘들고 일부 지역은 뒤처짐",
+   "chips": {
+    "next": [
+     "전망대로면 추가 인상",
+     "up"
+    ],
+    "inflation": [
+     "너무 높음 — 생계비 부담",
+     "up"
+    ],
+    "labor": [
+     "실업률 낮음",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "물가를 2% 목표로 제때 되돌리는 일이 중요하다. 경제가 지금 전망대로 움직이면 그 목표를 위해 금리를 더 올리는 것이 적절할 것으로 본다 — 판단은 들어오는 지표, 바뀌는 전망, 위험의 균형을 계속 보며 한다.",
+     "q": "If the economy evolves as I currently forecast, I expect it will be appropriate to raise rates further"
+    },
+    {
+     "t": "inflation",
+     "s": "물가가 너무 높아 가계가 생활비를 감당하기 어렵고, 힘겨운 가정이 많다.",
+     "q": "inflation is too high, making it hard for American families to make ends meet"
+    },
+    {
+     "t": "growth",
+     "s": "경제 전체는 강하다 — 실업률이 낮고 소비가 견조하며 기업투자도 탄탄하다.",
+     "q": "the economy is strong, with low unemployment, solid consumer spending, and robust business investment"
+    },
+    {
+     "t": "growth",
+     "s": "나라 전체로는 활동과 고용이 늘지만 모든 가계·지역이 잘되는 것은 아니다. 부유한 가계는 괜찮지만 중·저소득 가계는 힘들고 일부 지역은 뒤처진다. 연준 소비자금융조사로는 가계 대다수가 가진 재산이 매우 적고, 많은 지역에서 경제가 강해도 보수 좋은 일자리를 찾기 어려운 사람이 있다.",
+     "q": "middle- and lower-income households are struggling, and the economy is leaving some communities behind"
+    },
+    {
+     "t": "housing",
+     "s": "미국인의 44%가 빈곤선 아래 인구가 5분의 1 이상인 저소득 지역에 산다는 추정(브루킹스)을 들며, 이런 지역은 주택·사업·기반시설 투자가 모자란 경우가 많다고 했다.",
+     "q": "These communities often lack sufficient investment in housing, business, and infrastructure."
+    },
+    {
+     "t": "housing",
+     "s": "공공·민간·비영리가 모두 필요하다 — 정보 비대칭 같은 시장 실패가 민간이 혼자 들어가는 것을 자주 막는다. 은행이 CDFI 등 지역개발 단체와 손잡으면 그 단체들이 정보 비용을 낮추고 대출을 조율하며 위험을 나눠, 은행이 신용·투자·서비스를 넓히도록 돕는다.",
+     "q": "there are market failures that often prevent the private sector from coming in on its own"
+    },
+    {
+     "t": "housing",
+     "s": "사례로 브루클린 City Point(슈퍼마켓·저렴 주택 120가구·소상공인 상가, 신시장세액공제로 민간 투자를 끌어냄)와 시러큐스의 혼합소득 주택 회전 대출기금(종잣돈 3천만 달러 + 민간 파트너 1억2천만 달러)을 들었다. 저소득주택세액공제는 지난 40년간 400만 가구 가까이를 짓거나 지키는 데 도움이 됐고, 이 사업들의 바탕은 지역재투자법(CRA)이다."
+    }
+   ]
+  },
+  {
+   "id": "kashkari-20261118",
+   "who": "kashkari",
+   "date": "2026-11-18",
+   "venue": "대담",
+   "event": "FinRegLab AI 심포지엄 노변 대담(워싱턴, 진행 캐서린 램펠)",
+   "src": "https://www.investing.com/news/economy-news/feds-kashkari-says-interest-rates-can-impact-tech-investment-5037179",
+   "cert": "보도 확인",
+   "head": "금리는 AI 투자에도 영향을 줄 수 있다 — 물가 쪽 책무는 못 맞춰, 기대인플레이션 고정이 관건",
+   "chips": {
+    "next": [
+     "12월 선호 언급 못 찾음",
+     "mid"
+    ],
+    "inflation": [
+     "공급충격 반복·목표 못 맞춤",
+     "up"
+    ],
+    "labor": [
+     "회복력 유지",
+     "mid"
+    ],
+    "ai": [
+     "투자도 금리 영향 받음",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "ai",
+     "s": "금리가 기술 투자 규모에 영향을 줄 수 있다고 봤다 — AI 인프라 투자가 거센 지금도 금리는 작동한다. 데이터센터 투자는 빠르게 늘지만 금리의 영향을 받고 있고, 금리가 지금보다 훨씬 낮았다면 이 분야 투자는 더 많았을 것이라고 했다."
+    },
+    {
+     "t": "inflation",
+     "s": "최근 높은 물가에는 잇따른 공급충격이 영향을 줬다고 봤다. 한편 연준이 책무 가운데 물가 쪽을 분명히 맞추지 못하고 있다고 했고, 기대인플레이션이 고정된 채로 있는 것이 중요하다고 강조했다."
+    },
+    {
+     "t": "growth",
+     "s": "미국 수요가 예상보다 다소 강하다고 했다. AI를 미국 경제의 주요 성장 동력으로 꼽았다."
+    },
+    {
+     "t": "labor",
+     "s": "노동시장은 회복력을 유지하고 있다고 평가했다."
+    },
+    {
+     "t": "policy",
+     "s": "시장은 연준이 위원들의 지금 전망보다 금리를 더 올려야 할 것으로 본다고 짚었다. 12월 회의에서 본인이 바라는 결정은 검색으로 본 보도에서 찾지 못했다."
+    }
+   ]
+  },
+  {
+   "id": "warsh-20261116",
+   "who": "warsh",
+   "date": "2026-11-16",
+   "venue": "연설",
+   "event": "생산성·일자리 태스크포스 콘퍼런스 개회사(이사회·샌프란시스코 연은 공동 주최, 샌프란시스코)",
+   "src": "https://www.federalreserve.gov/newsevents/speech/warsh20261116a.htm",
+   "cert": "원문 확인",
+   "head": "초지능이 성장률을 크게 높일 수도 — 생산성 돌파는 아직, 시나리오 셋은 예측 아님",
+   "chips": {
+    "next": [
+     "정책 경로 언급 없음",
+     "mid"
+    ],
+    "labor": [
+     "대체 땐 실업 오를 수도",
+     "mid"
+    ],
+    "ai": [
+     "성장 높일 수도 — 예측 아님",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "ai",
+     "s": "지금은 그가 성인이 된 뒤 가장 큰 전환기일 수 있다 — 범용기술 '초지능(SI)'의 등장. 내연기관·전기 같은 과거 범용기술은 뒤따르는 혁신을 낳았을 뿐 아이디어 생산 자체를 자동화하진 않았지만, SI는 혁신의 방법과 속도를 바꾸는 것으로 보인다. 아이디어 생산이 넓어지면 성장이 장기 평균보다 상당히 높게 이어질 수 있다.",
+     "q": "If idea generation broadens, growth could be sustained at a level substantially higher than the long-run average"
+    },
+    {
+     "t": "growth",
+     "s": "지난 수십 년 획기적 아이디어는 찾기 어려워졌다 — 어떤 추정으로는 연구 투입이 1930년대보다 20배 넘게 늘었지만, 블룸·존스 등이 짚었듯 연구 생산성은 그보다 더 크게 떨어졌다. 인구 증가 둔화까지 겹쳐 금융위기 뒤 장기 정체론이 다시 나왔다. 생산성 증가율은 오르내렸고 최근 몇 분기는 꽤 강했지만 구조적으로 확실히 위로 올라서진 않았다.",
+     "q": "But it hasn't yet broken out definitively and structurally to the upside"
+    },
+    {
+     "t": "policy",
+     "s": "이 기술이 넓게 쓰이면 경제에 큰 영향을 주고 앞으로 통화정책에도 중요한 함의가 있다. 연준의 몫은 옹호도 반대도 아니다. 큰 질문은 크기·범위·시점 — 총요소생산성이 오를지, 언제 시작해 언제 잦아들지, 다른 나라보다 빠를지 — 이고 시간이 지나며 훨씬 분명해질 것으로 본다.",
+     "q": "with important implications for monetary policy down the road"
+    },
+    {
+     "t": "policy",
+     "s": "미래를 점치러 온 자리가 아니다 — 미래는 알 수 없고 아는 척해서도 안 되며, 할 일은 무엇이 오든 대비하는 비상 계획이다. 이사회 실무진이 양식화한 모형으로 시나리오를 짜기 시작했지만 예시일 뿐 예측이 아니고, 가장 맞을 결과를 포함해 다른 결과도 많이 그릴 수 있다. 이 개회사엔 다음 결정이나 금리 경로 언급이 없다.",
+     "q": "These are illustrative scenarios, not forecasts"
+    },
+    {
+     "t": "growth",
+     "s": "시나리오 ① 생산성이 오르고 그 이득이 노동과 자본 소유자에게 넓게 나뉘면 실질 GDP 성장률이 장기 평균을 꾸준히 웃돌고 완전고용 가까이 머문다.",
+     "q": "real GDP growth rises persistently above its long-run average, and the U.S. stays close to full employment"
+    },
+    {
+     "t": "labor",
+     "s": "시나리오 ② SI 주도 확장에서 일부 일자리가 기술에 보완되기보다 대체되면 노동시장이 크게 흔들릴 수 있다. 성장률은 여전히 장기 평균을 웃돌지만, 넓은 자동화와 노동시장 마찰이 겹쳐 실업률이 완전고용에 맞는 수준 위로 오를 수 있다.",
+     "q": "widespread automation, combined with labor market frictions, could push the jobless rate above levels consistent with full employment"
+    },
+    {
+     "t": "growth",
+     "s": "시나리오 ③ SI가 실망을 줄 수도 있다 — 큰 자본 투자와 주가 상승 뒤 기대수익이 꺾이고 주식 가치가 떨어지면 경기가 둔화하고 실업이 더 뚜렷이 오른다. 경제는 결국 회복하지만 생산성 이득은 없다.",
+     "q": "expected returns could turn down and equity valuations could fall, leading to an economic slowdown and a more notable rise in unemployment"
+    },
+    {
+     "t": "ai",
+     "s": "큰 기회가 위험 없이 오는 일은 드물고, 그 위험을 놓치면 크게 흔들리고 비용도 클 수 있다. SI는 나쁜 행위자에게도 힘을 주므로 핵심 기반시설과 그 취약성을 특히 살핀다 — 적대 세력이 미국 경제를 해치려 SI를 서둘러 쓸지도 질문으로 꼽았다.",
+     "q": "SI empowers all, including bad actors"
+    },
+    {
+     "t": "ai",
+     "s": "그래도 사람을 과소평가해선 안 된다 — 기계는 판단·도덕·책임을 대신하지 못하고 결정은 사람이 해야 한다. '초지능 없이 초강대국일 수 있나'를 물으며, 예측은 하지 않지만 미국의 주도에 대해서는 중립이 아니라고 했다.",
+     "q": "Humans are the designers and the builders, and humans must be the deciders"
+    }
+   ]
+  },
+  {
+   "id": "barr-20261116",
+   "who": "barr",
+   "date": "2026-11-16",
+   "venue": "연설",
+   "event": "제7회 ACM 금융 AI 국제회의(이탈리아 밀라노)",
+   "src": "https://www.federalreserve.gov/newsevents/speech/barr20261116a.htm",
+   "cert": "원문 확인",
+   "head": "AI 붐의 빚·부외 의무(잠재 최대치 3조달러 초과) — 직접 손실보다 급반전 땐 디레버리징 경계",
+   "chips": {
+    "ai": [
+     "빚·부외 구조·쏠림 경계",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "growth",
+     "s": "최근 몇 주 투자자들이 AI 투자 붐의 지속 가능성에 의문을 제기했다. 여러 시나리오 중 하나로, AI가 생산성을 크게 높여도 수익이 기대한 때·규모로 나오지 않아 크게 재평가되면 그 투자 손실이 투자 감소와 부의 손실에 따른 소비(어쩌면 기업 지출) 감소, 두 경로로 성장을 낮출 수 있다. 주식 위험 프리미엄은 역사적으로 낮지만 닷컴 붐 때만큼 낮지는 않다 — 연준은 시장 수준을 겨냥하지 않는다는 단서를 달았다.",
+     "q": "The potential investment losses that could result from a large-scale repricing could lower output growth in two ways"
+    },
+    {
+     "t": "finstab",
+     "s": "AI 확장은 점점 빚으로 조달된다. 연설이 정리한 FSR 내용으로, 7대 AI 기업의 재무상태표 부채가 올해 크게 늘어 연말 전 8,000억달러를 넘을 전망이다. 1990년대 말~2000년대 초 통신 투자 순환을 떠올리게 하고, 하이퍼스케일러의 2020년 이후 누적 설비투자·부채 발행이 1995년에 시작된 통신업계 순환에 아직 못 미치지만 최근 설비투자 가속을 보면 곧 넘어설 수 있다.",
+     "q": "expected to exceed $800 billion before year's end"
+    },
+    {
+     "t": "finstab",
+     "s": "장기계약·리스 약정·잔존가치 보증 같은 다른 의무는 더 빨리 늘었다. FSR은 이런 부외 부채의 잠재적 최대 명목가치를 3조달러 넘게 본다(할인 전 금액이라 재무상태표 숫자와 바로 견주긴 어렵다). 이런 복잡한 구조는 덜 정교한 투자자에게 불투명해, 심리가 바뀔 때 위험이 어디 있는지 몰라 매도가 커질 수 있으니 면밀히 봐야 한다.",
+     "q": "that opacity can exacerbate selloffs when investor sentiment shifts"
+    },
+    {
+     "t": "finstab",
+     "s": "외부 조달에 기대는 신용 약한 업체는 최근 자본비용이 크게 올라 더 복잡한 자산담보 조달로 옮겨 간다. 하이퍼스케일러·GPU 업체는 LLM 연구소·클라우드 신생사에 누적 1,000억달러 넘게 지분 투자했고(순환 조달), 담보로 쓰인 데이터센터·GPU의 재판매 가치를 보증하기도 한다."
+    },
+    {
+     "t": "finstab",
+     "s": "붐을 받치는 빚이 아직 제한적이라 직접 손실은 덜 걱정한다. 다만 헤지펀드 레버리지와 전반적 위험선호가 꽤 높아 보여 급반전 땐 빠른 디레버리징과 자기강화적 투매가 생길 수 있다. 주식 전략 레버리지도 최근 몇 년 늘었고 일부를 대형 딜러의 프라임 브로커리지가 대므로 주식시장 변동기엔 거래상대방 익스포저가 늘 수 있다 — 대형 은행 자본이 방파제지만 AI에 큰 포지션을 쥔 상대방을 포함해 계속 봐야 한다.",
+     "q": "a sharp reversal could lead to rapid deleveraging and, potentially, self-reinforcing fire sales"
+    },
+    {
+     "t": "market",
+     "s": "생성형 AI는 진입 장벽을 낮추고 참여자를 다양하게 하며 시장 감시를 도와 효율·건전성·기능을 높일 수 있다(대규모 자율 거래엔 아직 쓰이지 않는 것으로 안다). 그러나 비슷한 데이터로 학습한 비슷한 모델에 기대면 쏠림 위험이 있다 — 전략이 비슷해지고 뉴스 반응이 한꺼번에 움직일 수 있고, 같은 결함을 가질 수 있는 모델이 많으면 실패가 시스템 전체로 번질 수 있다.",
+     "q": "If traders rely on a small set of similar AI models trained on similar data, they face the risk of herding behavior"
+    },
+    {
+     "t": "finstab",
+     "s": "올해 사고들은 AI 모델이 보안 경계를 지킬 규칙이 아니라 넘을 장애물로 다루는 위험을 보여 줬다. 방어 쪽도 AI로 훨씬 빨리 취약점을 고치지만, 최근 사고는 방어가 늘 불리할 수 있는지 묻게 한다 — 사이버 위험 관리는 금융안정에 계속 중요하고, 업계가 방어에서 협력하길 바란다.",
+     "q": "Attackers only need to be right once, while defenders need to be right all the time"
+    },
+    {
+     "t": "finstab",
+     "s": "대형 은행들이 진위·동의를 확인할 수 없는 AI 에이전트가 고객 계좌에서 행동하려 한 사례를 보고한다 — 엄격한 인증·동의 확인 같은 안전장치가 필요하다. 스트레스 때 에이전트가 수익률 차·안정 신호를 즉시 감지해 자금을 자동으로 옮기면 예금 유출이 빨라져, 몇 분 만에 번지는 뱅크런을 가속할 수 있다.",
+     "q": "potentially accelerating runs that unfold in minutes"
+    },
+    {
+     "t": "ai",
+     "s": "금융사가 생성형·에이전트 AI를 핵심 업무에 쓰려면 모델에 기댄 결정이 잘 통제되고 수치·법적으로 정확하며 설명·재현 가능해야 한다 — 개발자들은 아직 이 기준들에서 어느 정도 애를 먹는다. 담합·시장 조작·큰 변동성 위험을 막아야 하고, 투자 권유의 이해상충, 대출 심사의 편향·공정대출 위험도 짚었다.",
+     "q": "well controlled, numerically and legally precise, explainable, and replicable"
+    }
+   ]
+  },
+  {
+   "id": "hammack-20261116",
+   "who": "hammack",
+   "date": "2026-11-16",
+   "venue": "인터뷰",
+   "event": "블룸버그TV",
+   "src": "https://www.investing.com/news/economy-news/feds-hammack-reiterates-case-for-slow-steady-rate-hikes-bloomberg-tv-5030761",
+   "cert": "보도 확인",
+   "head": "금융여건이 아직 성장을 못 누른다 — 작게·꾸준히 올리되 뒤처지면 크게",
+   "chips": {
+    "next": [
+     "추가 인상(작은 폭)",
+     "up"
+    ],
+    "pace": [
+     "작게·꾸준히(뒤처지면 크게)",
+     "mid"
+    ],
+    "level": [
+     "아직 제약 부족",
+     "up"
+    ],
+    "inflation": [
+     "잘못된 방향·확산",
+     "up"
+    ],
+    "labor": [
+     "균형·역동성 부족",
+     "mid"
+    ]
+   },
+   "points": [
+    {
+     "t": "policy",
+     "s": "작은 폭으로 꾸준히 올려 정책의 제약을 경제에 되살리는 쪽을 선호한다. 물가 압력이 번지지만 아직 더 공격적인 경로로 바꿀 준비는 안 됐다.",
+     "q": "I like moving in smaller increments"
+    },
+    {
+     "t": "policy",
+     "s": "예측할 수 있는 조정이 가계·기업의 계획을 돕고, 점진적인 길은 경제 활동을 불필요하게 흔들지 않고 제약을 되살린다는 설명이다."
+    },
+    {
+     "t": "policy",
+     "s": "뒤처져서 제약을 더 넣어야 한다면 큰 폭으로도 얼마든지 움직일 수 있다. FOMC 회의에는 늘 열린 마음으로 들어간다고도 했다.",
+     "q": "If we get behind the curve and we need to put more restriction in, we absolutely can move in those larger increments"
+    },
+    {
+     "t": "policy",
+     "s": "인플레이션 심리가 자리 잡으면 더 큰 폭으로, 그렇지 않을 때보다 더 높은 곳까지 올려야 할 수 있다. 그런 경우라면 지난주 월러 이사가 꺼낸 더 큰 폭 인상 제안에도 열려 있다고 보도됐다.",
+     "q": "to a higher destination than we might otherwise need to"
+    },
+    {
+     "t": "rates",
+     "s": "금융여건이 아직 성장을 누르지 못하고, 그 제약 부족이 경제 전반에서 보인다 — 시장 차입비용이 더 올라야 한다. 경제는 제약을 더 견딜 수 있지만 연준이 어디까지 가야 할지는 분명하지 않다."
+    },
+    {
+     "t": "inflation",
+     "s": "물가가 잘못된 방향으로 가고 압력이 넓게 번지는 것으로 보인다."
+    },
+    {
+     "t": "inflation",
+     "s": "기업들이 높아진 비용을 소비자에게 점점 더 넘기고, 가격을 올리는 쪽으로 기울고 있다."
+    },
+    {
+     "t": "labor",
+     "s": "노동시장은 대체로 균형이지만 역동적이지 않다. 문제는 물가 쪽이라 두 책무 사이의 긴장은 크지 않다고 봤다."
+    }
+   ]
+  },
   {
    "id": "waller-20261110",
    "who": "waller",
