@@ -1,18 +1,52 @@
 {
   "schema": 1,
-  "generated_at": "2026-11-20T03:26:31+00:00",
+  "generated_at": "2026-11-21T03:16:46+00:00",
   "notice": "날짜별 공개 기록(data/history)끼리 견준 것이다. 예측이 아니고 투자 판단이나 권유가 아니다.",
-  "asof": "2026-11-20",
+  "asof": "2026-11-21",
   "headline": [
     "핵심 신호 1/11 · 1주 전 2/11",
     "1주 사이 바뀐 규칙 1개: 지준과 통화승수(충족→미충족)",
-    "국면 후보 A′ · 1주 전 판정불가"
+    "국면 후보 A′ · 1주 전 A′"
   ],
   "windows": [
     {
       "key": "prev",
       "label": "직전 기록",
-      "from": "2026-11-19",
+      "from": "2026-11-20",
+      "rules": [],
+      "met": {
+        "from": 1,
+        "to": 1,
+        "total_from": 13,
+        "total_to": 13
+      },
+      "core": {
+        "from": "1/11",
+        "to": "1/11"
+      },
+      "neutral": {
+        "from": "0/2",
+        "to": "0/2"
+      },
+      "candidate": {
+        "from": "A′",
+        "to": "A′"
+      },
+      "transition": {
+        "from": 0,
+        "to": 0
+      },
+      "health": {
+        "lost": [],
+        "recovered": [],
+        "stale": [],
+        "fresh": []
+      }
+    },
+    {
+      "key": "w1",
+      "label": "1주 전",
+      "from": "2026-11-14",
       "rules": [
         {
           "key": "reserves_multiplier",
@@ -40,47 +74,6 @@
         "to": "A′"
       },
       "transition": {
-        "from": 0,
-        "to": 0
-      },
-      "health": {
-        "lost": [],
-        "recovered": [],
-        "stale": [],
-        "fresh": []
-      }
-    },
-    {
-      "key": "w1",
-      "label": "1주 전",
-      "from": "2026-11-13",
-      "rules": [
-        {
-          "key": "reserves_multiplier",
-          "title": "지준과 통화승수",
-          "from": "met",
-          "to": "not_met"
-        }
-      ],
-      "met": {
-        "from": 2,
-        "to": 1,
-        "total_from": 13,
-        "total_to": 13
-      },
-      "core": {
-        "from": "2/11",
-        "to": "1/11"
-      },
-      "neutral": {
-        "from": "0/2",
-        "to": "0/2"
-      },
-      "candidate": {
-        "from": "판정불가",
-        "to": "A′"
-      },
-      "transition": {
         "from": 1,
         "to": 0
       },
@@ -94,7 +87,7 @@
     {
       "key": "w4",
       "label": "4주 전",
-      "from": "2026-10-23",
+      "from": "2026-10-24",
       "rules": [],
       "met": {
         "from": 1,
@@ -126,7 +119,7 @@
       }
     }
   ],
-  "recent_from": "2026-10-22",
+  "recent_from": "2026-10-23",
   "recent": [
     {
       "date": "2026-11-20",
