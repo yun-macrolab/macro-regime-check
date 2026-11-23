@@ -3,8 +3,9 @@
 올린다 (2026-11-23, PC에서만 돈다 — 운영자 결정 '조건 붙여 싣기 (추천)' · '둘 다 자동으로 받기').
 
   KIS자산평가 'KIS WEEKLY'(bond.co.kr) — 요약 + 숫자 열 칸(아래 ROWS)
-  한국자산평가 'Fixed Income Weekly'(koreaap.com) — 요약만. 보고서 표지에 '당사의 허가없이 제3자에게 배포하는 것을 금합니다'가 있어
-      숫자는 싣지 않는다(요약에도 숫자를 쓰지 않는다 — 검사가 숫자가 든 요약을 버린다)
+  한국자산평가 'Fixed Income Weekly'(koreaap.com) — 요약만(숫자 표는 만들지 않는다). 요약 문장 속 숫자는 KIS와 같은 규칙으로 쓴다
+      (2026-11-23 운영자 결정 'KIS와 같은 규칙으로 전부 허용' — 그 전엔 표지의 '당사의 허가없이 제3자에게 배포하는 것을 금합니다' 때문에
+      요약에도 숫자를 쓰지 않았다. 그 문구를 알고 정했다)
 두 회사와 맺은 계약은 없다. 실을 때의 조건(운영자 결정): 최신 호 하나만(지난 호는 남기지 않는다 — 파일을 통째로 덮어쓴다), 칸마다
 '평가사 산출값'과 출처 · 호수 · 링크, 요청이 있으면 바로 내린다(아래 '내리기'). 보고서의 문장은 옮기지 않는다 — 요약은 도구를 모두 끈
 claude가 보고서의 요약 쪽과 주요 절의 본문을 읽고 주제별로 쓴 것이고(저녁판 AI 요약과 같은 격리 · 검사), PDF · 본문 · 담당자 이름 · 연락처는
@@ -41,8 +42,9 @@ koreaap.com은 /admin만 막고, bond.co.kr에는 robots.txt가 없다(2026-11-2
   evening_llm 그대로 — 바뀌는 것은 시스템 문구 하나(SYSTEM)다. 답은 JSON 객체 하나 {보고서 key: {주제: 간추림 | null}}.
   주제(TOPICS_OF): 국채 · 크레딧 · 단기자금 · 해외 금리 · 스왑(KIS만) — 주제마다 2~3문장, TOPIC_TARGET자 안팎(받는 상한 TOPIC_CHARS자).
   검사는 주제마다: 꼴(TOPIC_MIN~TOPIC_CHARS자 · '다.'로 맺는 문장 1~TOPIC_SENTENCES개 · 저녁판 문장과 같은 글자 · 주소 · 전화 꼴 없음) ·
-  저녁판 digest_picks의 금지 낱말 · 베낌(어절 차례만 COPY_STEMS개) · 숫자 대조 · 낱말(절들을 한 출처로) · 이름 · KAP는 숫자 없음(digits).
-  베낌은 그 물음에 든 모든 보고서의 글과 견준다(다른 보고서의 문장을 옮겨 와도 걸리게). KAP 숫자 검사(KAP_NUMERIC)는 숫자 대조보다 먼저 한다.
+  저녁판 digest_picks의 금지 낱말 · 베낌(어절 차례만 COPY_STEMS개) · 숫자 대조(글에 적힌 숫자만) · 값 숫자(%, %p, bp, 금액 · 배율)는
+  주제마다 TOPIC_NUMS개까지 · 낱말(절들을 한 출처로) · 이름 — 두 보고서 같은 규칙이다(두 보고서 모두 '숫자 씀'으로 묻는다).
+  베낌은 그 물음에 든 모든 보고서의 글과 견준다(다른 보고서의 문장을 옮겨 와도 걸리게).
   걸린 주제는 까닭만 알려 한 번 고쳐 쓰게 하고(REPAIR — 버린 글은 건네지 않는다), 그래도 걸린 주제는 빼고, 남은 주제가 SUMMARY_MIN_TOPICS개 이상이면 싣는다(summary_dropped = 뺀 수 — 화면에 한 줄). 모자라면 요약 없이
   가장 많이 걸린 사유 하나만 남긴다. 버린 글은 어디에도 남기지 않는다.
 
@@ -68,7 +70,7 @@ koreaap.com은 /admin만 막고, bond.co.kr에는 robots.txt가 없다(2026-11-2
 로그: 한 실행에 한 줄, 사용자 폴더의 .macro-notes/fi-weekly.log — 코드 · 개수 · 날짜뿐이다(요약 · 본문 · 숫자는 싣지 않는다).
   kis= · kap= : off(내림) · wait(때가 아님) · same(새 호 없음) · new(새 호를 실음) · retry(같은 호의 요약을 다시) · later(오늘 이미
                 받아 본 호) · fetch · timeout · budget · format(목록 · PDF 꼴이 다름) · cover(표지가 목록과 다름) · pypdf · pdf
-  sum= : ok · model(claude 실패 — 로그인 만료 등, ask= 에 evening_llm의 코드) · none · shape · banned · copy · number · term · name · digits ·
+  sum= : ok · model(claude 실패 — 로그인 만료 등, ask= 에 evening_llm의 코드) · none · shape · banned · copy · number · term · name ·
          text(두 보고서면 'ok_copy'처럼 이어 붙인다), drop= 실은 요약에서 검사에 걸려 뺀 주제 수
   num= : ok · table
   code= : ok · switch · gone · dirty · scope · blind · head · commit · commits · moved · push · file · error(kind=) ·
@@ -107,7 +109,7 @@ NUM_KEYS = ("date", "prev", "credit_date", "credit_prev", "rows")
 # 숫자 칸 — (열쇠, 단위). 값 하나와 전주 대비(bp) 하나씩. 화면의 이름표는 fiweekly.js의 ROWS
 ROWS = (("irs_1y", "%"), ("irs_3y", "%"), ("crs_1y", "%"), ("crs_3y", "%"), ("ss_1y", "bp"), ("ss_3y", "bp"),
         ("basis_1y", "bp"), ("basis_3y", "bp"), ("aa_minus_3y", "bp"), ("a_minus_3y", "bp"))
-NOTES = ("model", "none", "shape", "banned", "copy", "number", "term", "name", "digits", "text")   # 요약이 없는 사유
+NOTES = ("model", "none", "shape", "banned", "copy", "number", "term", "name", "text")   # 요약이 없는 사유
 NUM_NOTES = ("table",)                                         # 숫자가 없는 사유
 ISSUE_RE = {"kis": re.compile(r"[0-9]{1,5}", re.ASCII), "kap": re.compile(r"[0-9]{2}-[0-9]{1,3}", re.ASCII)}
 KIS_ITEM_RE = re.compile(r"https://www\.bond\.co\.kr/post/dawn/[0-9]{1,9}", re.ASCII)
@@ -116,7 +118,7 @@ DATE_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", re.ASCII)
 MODEL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._\[\]-]{0,63}", re.ASCII)
 TOPIC_MIN, TOPIC_TARGET, TOPIC_CHARS, TOPIC_SENTENCES = 20, 150, 230, 3     # 주제 하나의 글자 수: 지시는 150자 안팎, 받는 상한 230자
 SUMMARY_MIN_TOPICS = 2                                          # 검사를 지난 주제가 이보다 적으면 요약을 싣지 않는다
-TOPIC_NUMS = 3                                                  # KIS 주제 하나에 실을 수 있는 값 숫자(%, %p, bp, 금액)의 개수 — 보고서의 숫자를 더 옮기지 않게
+TOPIC_NUMS = 3                                                  # 주제 하나에 실을 수 있는 값 숫자(%, %p, bp, 금액)의 개수 — 보고서의 숫자를 더 옮기지 않게
 # 주제 글의 꼴 — 저녁판 digest_picks의 같은 이름 규칙을 2026-11-23 판으로 굳혀 둔 것(CI가 올라 있는 파일을 볼 때 저녁판 규칙이 나중에
 # 바뀌어도 이 파일이 갑자기 떨어지지 않게). 금지 낱말은 굳히지 않는다 — PC가 올리기 전에만 본다(validate strict)
 _CHARS = re.compile(r"^[가-힣A-Za-z0-9 .,·%()~/+:&-]+$")
@@ -125,9 +127,6 @@ _DECIMAL = re.compile(r"(?<=[0-9])\.(?=[0-9])")
 _LINKISH = re.compile(r"https?:|www\.|[A-Za-z0-9-]+\.[A-Za-z]{2,}", re.IGNORECASE)
 _PHONE = re.compile(r"[0-9]{2,4}-[0-9]{3,4}-[0-9]{4}|[0-9]{8,}")
 HANGUL_MIN = 0.6
-# KAP 요약에 수치가 든 꼴 — 아라비아 숫자 · %, 단위 낱말, 한글로 쓴 소수(십삼점오) · 한글 수 + 단위(십 bp · 삼 퍼센트)
-KAP_NUMERIC = re.compile(r"[0-9%]|\bbps?\b|퍼센트|포인트|[일이삼사오육칠팔구십백천만]+\s?점\s?[영공일이삼사오육칠팔구]|"
-                         r"[일이삼사오육칠팔구십백천]+\s?(?:bp|베이시스)", re.IGNORECASE)
 _VALUE_UNIT = ("%", "%p", "bp", "달러", "엔", "유로", "위안", "배", "원")
 _VALUE_HEAD = ("조", "억", "원", "천", "백", "만")          # 3천억원 → '천', 5백억원 → '백', 2조 → '조'
 
@@ -203,7 +202,6 @@ RULES = """아래 '자료' 경계 안에는 한국 채권 평가사가 낸 주�
    (글이 '국고 3년물은 지난주 대비 13.5bp 상승했다'이면 '한 주 사이 13.5bp 오른 국고 3년물'처럼).
 6. 숫자: '숫자 씀' 보고서는 글에 적힌 숫자만, 단위까지 적힌 그대로, 주제마다 셋까지 쓴다(반올림 · 계산 · 단위 바꾸기를 하지 않는다).
    '예상 · 전월 · 전주 · 전년' 같은 말이 붙은 숫자는 그 말을 숫자 바로 앞에 쓰고, 그 말이 붙지 않은 숫자 가까이에는 그런 말을 두지 않는다.
-   '숫자 없음' 보고서는 숫자를 하나도 쓰지 않는다(1년 · 3개월 · 10월 같은 말도 '단기물' · '지난달'처럼 숫자 없이 쓴다).
 7. 오르다 · 내리다, 웃돌다 · 밑돌다, 늘다 · 줄다, 확대 · 축소, 강세 · 약세는 글에 적힌 방향 그대로인지 한 번 더 확인한다.
    값이 음수인 스프레드 · 베이시스(예: -11.7bp)의 '감소 · 하락'은 폭이 커진 것일 수 있다 - '좁혀졌다 · 넓어졌다'로 바꾸지 말고 글의 말
    그대로(감소했다 · 하락했다) 쓴다. 글이 까닭을 붙인 대상에만 그 까닭을 쓴다 - 다른 사실의 까닭을 옮겨 붙이거나 두 사실을 한 까닭으로 묶지 않는다.
@@ -227,8 +225,7 @@ WHY = {"copy": "글의 문장과 너무 비슷했다 - 글과 다른 낱말 · �
        "shape": "꼴이 어긋났다 - 2~3문장, 정해 둔 글자 수 안, '다.'로 맺고 정해 둔 글자만 쓴다",
        "banned": "쓰지 않는 말(전망 · 권유 · 평가 · 앞일을 말하는 꼴)이 들어갔다",
        "term": "글에 없는 낱말로 주제를 넓혔거나, 오름 · 내림 · 확대 · 축소 같은 방향이 글과 달랐다",
-       "name": "글에 없는 이름이나 영문 약어가 들어갔다",
-       "digits": "숫자를 쓰지 않는 보고서인데 숫자가 들어갔다"}
+       "name": "글에 없는 이름이나 영문 약어가 들어갔다"}
 _MAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 _URLISH = re.compile(r"(?:https?://|www\.)\S+|\b(?:[A-Za-z0-9-]+\.)+(?:com|kr|net|org)\b\S*", re.IGNORECASE)
 _TEL = re.compile(r"\(?0[0-9]{1,2}\)?[ .)-]*[0-9]{3,4}[ .-]+[0-9]{4}|\(?\b[0-9]{3,4}-[0-9]{4}\b\)?")
@@ -763,7 +760,7 @@ def prompt_of(asked, mark, failed=None):
     '| '를 붙인다(글이 틀을 흉내 내지 못하게)."""
     rows = []
     for x in asked:
-        rows.append(f"보고서 {x['key']} — {'숫자 씀' if x['numbers'] else '숫자 없음'} — 주제: {', '.join(TOPICS_OF[x['key']])}")
+        rows.append(f"보고서 {x['key']} — 숫자 씀 — 주제: {', '.join(TOPICS_OF[x['key']])}")
         for label, text in x["sections"]:
             rows.append(f"[{label}]")
             rows += ["| " + line for line in text.split("\n")]
@@ -892,15 +889,13 @@ def topic_code(src, s, texts, prompt_texts=None):
         return "shape"
     if not K.ok_banned(s):
         return "banned"
-    if src == "kap" and KAP_NUMERIC.search(s):
-        return "digits"                                    # 숫자 대조보다 먼저 — 고쳐 쓰기가 '숫자는 글 그대로'로 이끌지 않게
     texts = list(texts)
     item = {"terms": [], "words": [], "src": [("report", i) for i in range(len(texts))]}
     if not ok_copy(s, list(prompt_texts) if prompt_texts is not None else texts):
         return "copy"                                      # 베낌은 모델이 읽은 모든 글과 — 다른 보고서의 문장을 옮겨 와도 걸리게
     if not K.ok_number(s, texts):
         return "number"
-    if src == "kis" and value_nums(K, s) > TOPIC_NUMS:
+    if value_nums(K, s) > TOPIC_NUMS:
         return "number"
     if not K.ok_term(s, item, texts):
         return "term"
@@ -968,8 +963,8 @@ def validate(doc, today=None, strict=True):
 
 
 def _summary(src, r, strict=True):
-    """요약 칸 — null(사유 · 뺀 수 0 · 모델 없음)이거나, 정해 둔 주제가 차례대로 SUMMARY_MIN_TOPICS개 이상이고 주제마다 꼴 · 금지 낱말
-    (KAP는 숫자 없음까지)을 지나는 [{topic, text}]. 뺀 수는 0 ~ (남은 주제 수)."""
+    """요약 칸 — null(사유 · 뺀 수 0 · 모델 없음)이거나, 정해 둔 주제가 차례대로 SUMMARY_MIN_TOPICS개 이상이고 주제마다 꼴 · 금지 낱말을
+    지나는 [{topic, text}]. 뺀 수는 0 ~ (남은 주제 수)."""
     K, _, _ = _evening()
     s, note, dropped, model = r["summary"], r["summary_note"], r["summary_dropped"], r["model"]
     if type(dropped) is not int or isinstance(dropped, bool) or dropped < 0:
@@ -987,7 +982,7 @@ def _summary(src, r, strict=True):
     for x in s:
         if type(x) is not dict or tuple(x) != ITEM_KEYS or x["topic"] not in topics:
             raise Bad("summary")
-        if not ok_form(x["text"]) or (strict and not K.ok_banned(x["text"])) or (src == "kap" and KAP_NUMERIC.search(x["text"])):
+        if not ok_form(x["text"]) or (strict and not K.ok_banned(x["text"])):
             raise Bad("summary")
         seen.append(topics.index(x["topic"]))
     if seen != sorted(set(seen)):
@@ -1141,7 +1136,7 @@ def update(old, off, today, io, state, force=False, model=None, claude=None):
         seen[src] = "retry" if cur and cur["issue"] == item["issue"] else "new"
         reps[src] = entry
         if sum(len(t) for _, t in sections) >= TEXT_MIN:
-            pending.append({"key": src, "sections": sections, "numbers": src == "kis", "entry": entry})
+            pending.append({"key": src, "sections": sections, "entry": entry})
         else:
             state[src]["tries"] = tries + 1                # 읽힐 글을 찾지 못한 것도 한 번으로 센다(같은 PDF는 다음에도 같다)
             io.get("save", lambda: None)()

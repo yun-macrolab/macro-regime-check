@@ -628,15 +628,27 @@ class SummaryTest(unittest.TestCase):
                  ("kis", "국고 3년물이 12.5bp, 국고 10년은 14.0bp 올랐고 CD 91일물은 0.03% 올랐다. 스프레드는 0.7bp 줄었다.", "number"),  # 값 숫자 넷
                  ("kis", "국고 3년물이 한 주 사이 12.5bp 올라 국공채가 약세를 보였다. 기준금리는 동결됐다.", "term"),
                  ("kis", "국고 3년물이 한 주 사이 12.5bp 올라 국공채가 약세를 보였다. QQZ 쪽 영향이 컸다.", "name"),
-                 ("kap", "국채 금리가 크게 올랐다. CD 91일물은 3.37%로 마감했다는 사실이 적혔다.", "digits"),   # KAP는 숫자 대조보다 먼저
-                 ("kap", "국채 금리가 크게 올랐다. 단기물 수익률도 십 bp 넘게 상승했다.", "digits"),
-                 ("kap", "국채 금리가 크게 올랐다. 국고 삼년물 수익률이 십삼점오 bp 올랐다.", "digits"),
-                 ("kap", "국채 금리가 크게 올랐다. 수익률이 몇 퍼센트 포인트 움직였다.", "digits"),
+                 ("kap", "국채 금리가 크게 올랐다. CD 91일물은 3.37%로 마감했다는 사실이 적혔다.", "number"),   # KAP도 숫자 대조(글에 없는 숫자)
                  ("kis", "국고 3년물이 12.5bp 올랐고, 순발행은 회사채 3천억원, 여전채 2천억원, 은행채 5천억원이었다.", "number"),   # 천억원도 값 숫자
-                 ("kap", "지어낸 물가 지표 상회로 국채 금리가 크게 올랐다. 단기물은 1년 안팎이 강세였다.", "digits")]
+                 ("kap", "지어낸 물가 지표 상회로 국채 금리가 크게 올랐다. 단기물은 1년 안팎이 강세였다.", None)]   # 글에 있는 숫자(1년)는 KAP도 쓴다
         for src, s, want in cases:
             with self.subTest(s=s):
                 self.assertEqual(F.topic_code(src, s, self.kis if src == "kis" else self.kap), want)
+
+    def test_kap_numbers_follow_the_kis_rules(self):
+        # 2026-11-23 운영자 결정 'KIS와 같은 규칙으로 전부 허용' — 한국자산평가 요약도 글에 적힌 숫자만, 값 숫자는 주제마다 셋까지
+        texts = self.kap + ["지난 주 CD 91일물은 전전주 대비 3bp 상승한 3.37%로 마감하였고 CP 91일물은 3.85%, MMF 잔고는 275조원, 지준 적수 부족은 7조원이었음."]
+        cases = [("CD 91일물 금리가 3.37%로 오르며 단기 금리 오름세가 계속됐다. MMF 자금은 줄었다.", None),
+                 ("CD 91일물 금리가 3.39%로 오르며 단기 금리 오름세가 계속됐다. MMF 자금은 줄었다.", "number"),     # 글에 없는 숫자
+                 ("CD 91일물은 3.37%, CP 91일물은 3.85%로 오르며 단기 금리가 높아졌다. MMF 잔고는 275조원이었다.", None),   # 값 숫자 셋
+                 ("CD 91일물은 3.37%, CP 91일물은 3.85%로 오르며 단기 금리가 높아졌다. 적수 부족이 7조원으로 커졌고 MMF 잔고는 275조원이었다.", "number")]   # 값 숫자 넷
+        for s, want in cases:
+            with self.subTest(s=s):
+                self.assertEqual(F.topic_code("kap", s, texts), want)
+        self.assertTrue(K.ok_number(cases[3][0], texts))                               # 넷 모두 글에 있다 — 걸린 것은 셈 때문
+        self.assertEqual(F.value_nums(K, cases[3][0]), 4)
+        self.assertFalse(hasattr(F, "KAP_NUMERIC"))                                    # 한국자산평가 전용 숫자 금지 검사는 없앴다
+        self.assertNotIn("digits", F.NOTES)
 
     def test_copying_the_other_report_is_caught(self):
         # 한 물음에 두 보고서가 함께 들어간다 — KIS 주제가 KAP 문장을 옮겨도 걸린다(그 반대도)
@@ -684,16 +696,17 @@ class SummaryTest(unittest.TestCase):
         self.assertFalse(F.ok_copy(six, [text]))
 
     def test_prompt_shape(self):
-        asked = [{"key": "kis", "sections": F.sections_of("kis", kis_pages()), "numbers": True},
-                 {"key": "kap", "sections": F.sections_of("kap", kap_pages()), "numbers": False}]
+        asked = [{"key": "kis", "sections": F.sections_of("kis", kis_pages())},
+                 {"key": "kap", "sections": F.sections_of("kap", kap_pages())}]
         p = F.prompt_of(asked, "ab" * 8)
         body = p.split("<<<자료 abababababababab 시작>>>\n")[1].split("\n<<<자료 abababababababab 끝>>>")[0]
         lines = body.split("\n")
         self.assertEqual(lines[0], "보고서 kis — 숫자 씀 — 주제: 국채, 크레딧, 단기자금, 해외 금리, 스왑")
-        self.assertIn("보고서 kap — 숫자 없음 — 주제: 국채, 크레딧, 단기자금, 해외 금리", lines)
+        self.assertIn("보고서 kap — 숫자 씀 — 주제: 국채, 크레딧, 단기자금, 해외 금리", lines)      # 두 보고서 모두 숫자 씀(2026-11-23)
         heads = [x for x in lines if not x.startswith("| ")]
         self.assertEqual(heads, ["보고서 kis — 숫자 씀 — 주제: 국채, 크레딧, 단기자금, 해외 금리, 스왑", "[요약 쪽]", "[국공채]", "[회사채]", "[스왑]",
-                                 "보고서 kap — 숫자 없음 — 주제: 국채, 크레딧, 단기자금, 해외 금리", "[요약 쪽]", "[단기 금융시장]", "[국공채]"])
+                                 "보고서 kap — 숫자 씀 — 주제: 국채, 크레딧, 단기자금, 해외 금리", "[요약 쪽]", "[단기 금융시장]", "[국공채]"])
+        self.assertNotIn("숫자 없음", p)
         self.assertNotIn("고쳐 쓰기:", p)
         fix = F.prompt_of(asked, "cd" * 8, {"kap": {"국채": "copy"}})
         self.assertIn("고쳐 쓰기:", fix)
@@ -720,6 +733,11 @@ class ValidateTest(unittest.TestCase):
         with self.assertRaises(F.Bad):
             F.validate(d, TODAY)
 
+    def test_kap_summary_may_carry_numbers(self):
+        d = json.loads(F.dump(self.doc))
+        d["reports"][1]["summary"][0]["text"] = "국채 금리가 3bp 올랐고 크레딧은 강세를 이어갔다."   # 2026-11-23부터 한국자산평가 요약의 숫자도 받는다
+        F.validate(d, TODAY)
+
     def test_mutations_fail(self):
         kis, kap = 0, 1
         self.broken(lambda d: d.update(schema="fi-weekly/2"))
@@ -733,7 +751,6 @@ class ValidateTest(unittest.TestCase):
         self.broken(lambda d: d["reports"][kap].update(posted="2026-11-15"))           # 게시가 기준일보다 앞
         item = lambda t, x: {"topic": t, "text": x}
         self.broken(lambda d: d["reports"][kis]["summary"][0].update(text="앞으로 금리는 오를 것으로 보인다는 말이 적혔다."))
-        self.broken(lambda d: d["reports"][kap]["summary"][0].update(text="국채 금리가 3bp 올랐고 크레딧은 강세를 이어갔다."))
         self.broken(lambda d: d["reports"][kis].update(summary="한 덩어리 글은 이제 꼴이 아니다."))
         self.broken(lambda d: d["reports"][kis].update(summary=d["reports"][kis]["summary"][:1]))      # 주제가 둘보다 적다
         self.broken(lambda d: d["reports"][kis]["summary"].reverse())                                  # 주제 차례
@@ -910,7 +927,7 @@ class UpdateTest(unittest.TestCase):
         main = self.claude.main_calls()[0]
         self.assertTrue(main.empty)
         self.assertIn("보고서 kis — 숫자 씀 — 주제: 국채, 크레딧, 단기자금, 해외 금리, 스왑", main.text)
-        self.assertIn("보고서 kap — 숫자 없음 — 주제: 국채, 크레딧, 단기자금, 해외 금리", main.text)
+        self.assertIn("보고서 kap — 숫자 씀 — 주제: 국채, 크레딧, 단기자금, 해외 금리", main.text)
         marks = re.findall(r"<<<자료 ([0-9a-f]{16}) (시작|끝)>>>", main.text)
         self.assertEqual([m[1] for m in marks], ["시작", "끝"])
         body = main.text.split(f"<<<자료 {marks[0][0]} 시작>>>\n")[1].split(f"\n<<<자료 {marks[0][0]} 끝>>>")[0]
