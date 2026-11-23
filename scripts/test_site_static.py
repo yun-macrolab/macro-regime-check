@@ -143,7 +143,7 @@ class PageTest(unittest.TestCase):
         # 절은 처음에 숨어 있고 첫 화면에서만 열린다. 자료 파일은 꼬리말의 '원자료'에도 있다
         for snippet in ('getJson("data/lp.json")', '<script src="lp.js"></script>',
                         '<section id="lp-ref" class="lp-ref" hidden aria-labelledby="lp-ref-title"></section>',
-                        'ledger: false, lp: false };',
+                        'ledger: false, lp: false, fiweekly: false };',
                         'getElementById("lp-ref").hidden = !(available.lp && activeView === "all")',
                         '<a href="data/lp.json">lp.json</a>(판단 격자 L × P)'):
             self.assertIn(snippet, self.page, snippet)

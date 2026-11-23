@@ -110,6 +110,11 @@
     <div id="korea-oil" class="panel korea-oil" hidden aria-label="Brent·두바이 × 원/달러 참고"></div>
     <div id="korea-market-notices" class="notices"></div>
   </section>
+  <!-- 평가사 주간 보고서(fiweekly.js ← data/fi_weekly.json, 운영자 PC의 저녁 예약 작업이 올린다) — 한국 시장 화면 세 칸 모두 -->
+  <section id="fiweekly-wrap" hidden aria-labelledby="fiweekly-title">
+    <div class="section-heading"><h2 id="fiweekly-title">평가사 주간 보고서</h2><span class="reference-label">평가사 산출값 · AI 요약 · 규칙 판정 제외</span></div>
+    <div id="fiweekly-body"></div>
+  </section>
   <p id="korea-empty" class="empty-state" hidden>국고채 민평 참고 자료를 불러오지 못했습니다. 자료가 갱신된 뒤 다시 확인해 주세요.</p>
   <section id="ktb-wrap" hidden>
     <div class="section-heading"><h2>국고채 민평 참고</h2><span class="reference-label">채널 자료 · 규칙 판정 제외</span></div>
@@ -162,6 +167,7 @@
     <article><h3>미국 공개 자료 (FRED 경유)</h3><p>FRED를 통해 연방준비제도·뉴욕 연은·BEA·BLS 등의 자료를 받습니다. FRED는 자료를 제공하는 창구이며, 원 발행기관은 지표마다 다릅니다. 민간 지수 3개(S&amp;P 500 · ICE BofA HY·IG OAS)는 재배포가 제한돼 값은 싣지 않고 판정과 자료 상태, 레짐 점검 참고의 S&amp;P 500 13주 방향(상승·하락·보합)과 IG OAS 전환 경계(ON/OFF)만 보여 줍니다. Moody's Baa−10년(BAA10Y)은 FRED가 'Copyrighted: Citation Required'로 표시하지만 Moody's 고지가 재배포를 막는 회색 지대입니다. 2026-10-30 운영자 결정(위험을 알고 받아들임)으로 수준·12개월 저점 대비·1990년 이후 분위를 FRED 권장 인용·Moody's 고지와 함께 신용 스프레드 카드에 싣습니다(시세 띠에는 싣지 않습니다). 금리·커브 화면 ‘미 국채 수급’ 카드(판정 제외)의 주간 부분은 FRED의 WMTSECL1과, 뉴욕 연은에서 직접 받는 프라이머리 딜러 통계를 씁니다. AI 투자 참고(판정 제외)는 BEA·Census·BLS·연준·재무부(HQM 회사채 곡선)의 공개 통계(FRED 경유 — 사모대출 줄의 연준 Z.1 시리즈는 FRED에 이용 조건 표시가 없어 연준의 공공 자료 원칙에 기대어 출처와 함께 싣습니다)와, 재배포가 제한된 Nasdaq·S&amp;P 지수로 계산한 상관·회귀 계수만 씁니다(지수 값·수익률은 싣지 않습니다). 물가 묶음의 유가·에너지 참고(판정 제외)는 EIA·BLS·BEA·연준의 공개 통계, 세인트루이스 연은의 5년 BEI·5년 뒤 5년(출처 표기 조건)과 IMF의 두바이 유가(저작권 표시 — 출처와 함께, 원화 환산은 이 사이트의 계산)를 씁니다. 유동성 묶음의 지준·재정 참고는 연준·재무부·BEA의 공개 통계, 연준 재무상태표 참고(H.4.1 주간)는 연준 이사회 H.4.1·IORB와 BEA GDP(공공 자료)에 뉴욕 연은 SOFR·상시 레포·익일물 역레포(FRED 'Copyrighted: Citation Required' — FRED 권장 인용과 뉴욕 연은 이용약관의 고지를 카드에 함께, SOFR − IORB 차는 이 사이트의 계산 — 그 카드의 지준 관리 매입(RMP) 칸의 계획 금액·운영 결과는 FRED 밖, 아래 — 그 칸의 RMP 시작 뒤 지준 나눔과 규칙 하한의 달러 크기는 같은 H.4.1 열·GDP로 이 사이트가 계산), 신용 긴축 참고는 연준 SLOOS·시카고 연은 NFCI 신용 하위 지수(출처 표기 조건)·BEA·연준 Z.1(회사채 순발행과 그것을 사들인 부문 포함), 신용 스트레스 칸의 연준 이사회 EBP(공공 영역)·뉴욕 연은 CMDI(뉴욕 연은 이용약관 — 둘 다 FRED 밖에서 직접 받습니다)와, 나스닥100·AI 지수의 252영업일 고점 대비 정수 낙폭 %·구간·날짜를 씁니다(지수 값·고점·수익률 없이, 저작권 표시·FRED 권장 인용과 함께 — 2026-10-30 운영자 결정, 회색 지대). Baa−10년 값과 정수 낙폭 %는 그래프·날짜별 기록(data/history/)에는 넣지 않지만, 봇이 날마다 커밋하는 public.json·credit.json의 git 기록에는 지난 날의 값이 남습니다(운영자가 같은 결정에서 받아들임).</p></article>
     <article><h3>FRED 밖의 공개 자료</h3><p>기간 프리미엄 모형 대조의 ACM 추정치(Adrian·Crump·Moench)는 뉴욕 연은 웹 사이트에서 직접 받고, 변화·z·몫은 이 사이트가 계산합니다. 금리·커브 화면 ‘미 국채 수급’ 카드의 월간 부분(2026-11-19)은 미 재무부 TIC(Treasury International Capital) 시스템의 표 ‘Major Foreign Holders of Treasury Securities’(ticdata.treasury.gov — 미국 정부 공공 자료)와 그 연도별 기록 파일에서 월말 보유 잔액을 옮기고, 1개월·12개월 변화와 비중은 이 사이트가 계산합니다. 숫자는 주로 미국 안의 보관 기관·증권사가 보고한 것이고, 나라는 그들이 아는 보유자(또는 국채를 맡긴 해외 보관 기관)의 소재지라 실제 주인의 나라와 다를 수 있으며, 잔액의 변화는 사고판 양(순매입)이 아닙니다. 신용 긴축 카드의 기업별 조달·조달 흐름·재무상태 잔액 줄은 SEC EDGAR XBRL API(data.sec.gov)의 공시 숫자로 이 사이트가 분기·달력 분기 합·잔액 합계를 계산합니다. 단일종목 CDS는 DTCC Data Repository (U.S.) LLC가 SEC 규칙(Reg SBSR)으로 공개하는 증권기반 스와프 거래 보고의 하루 파일에서 이름별 새 거래 수와 5년 호가 중앙값만 셉니다 — DTCC 쪽 보고만이고, 체결 스프레드라 호가 중간값이 아니며, 다음 날 이후 취소된 거래는 빼지 못합니다. 금리·커브 화면의 국채–OIS 카드(2026-11-15)는 같은 회사가 CFTC 규칙(17 CFR Part 43)으로 공개하는 금리 스와프 거래 보고의 하루 파일에서 SOFR OIS 새 거래의 만기별 고정금리 중앙값만 남기고, FRED의 재무부 par 금리(DGS2·DGS5·DGS10·DGS30, 연준 이사회 H.15 — 공공 자료)에서 뺍니다 — 2026-11-15 운영자가 DTCC 이용 약관을 확인한 뒤 싣고, DTCC 쪽 보고만이며, 체결된 거래라 호가 중간값이 아니고, 다음 날 이후 취소된 거래는 빼지 못합니다. 연준 재무상태표 카드의 지준 관리 매입(RMP) 칸은 뉴욕 연은에서 직접 받습니다(newyorkfed.org 이용약관 — 기본 출처·관계없음 고지와 권장 인용을 카드에 함께). 계획 금액은 뉴욕 연은 'Treasury Securities Operational Details' 페이지(www.newyorkfed.org)의 월 일정 창 계획 문장에서 정해 둔 꼴만 옮긴 재투자·RMP 금액이고, 계획이지 실제 매입이 아닙니다. 누적·묶음·연속 창 수는 그 금액으로 이 사이트가 셈한 값이고, 운영 결과 대조는 뉴욕 연은 Markets API(markets.newyorkfed.org)의 국채 운영 결과를 받아 월 일정 창의 매입 합에서 그 달 MBS 상환(연준 H.4.1 WSHOMCB, FRED 경유)을 뺀 이 사이트의 셈이며 공식 수치가 아닙니다(카드에는 계획과의 차 한 줄만). 같은 카드의 '연준 대차대조표 정책 — 1차 출처' 칸은 연준·뉴욕 연은 원문의 짧은 인용과 출처 주소(글자)입니다. 기관의 로고·인장은 쓰지 않습니다.</p></article>
     <article><h3>싣지 않는 것</h3><p>ICE BofA 회사채 OAS(등급별·장기·HY·IG)의 값과 그 값으로 되살릴 수 있는 등급 간 차이·변화, S&amp;P 500의 값·수익률·13주 변화 %, Nasdaq 지수의 값·수익률·고점·낙폭 시계열은 재배포 조건 때문에 싣지 않습니다. ICE 지수로 정한 ON/OFF·충족 여부와 S&amp;P 500 13주 변화의 방향은 싣습니다. 운영자의 비공개 ICE 등급별 스프레드 사다리 자리는 공개 자료(연준 이사회 EBP·뉴욕 연은 CMDI)로 대신합니다. 거래 식별자·RED 코드 같은 원 행의 식별 정보도 싣지 않습니다.</p></article>
+    <article><h3>평가사 주간 보고서</h3><p>한국 시장 화면 아래 절은 두 채권 평가사가 누리집에 공개한 주간 보고서(KIS자산평가 ‘KIS WEEKLY’ — bond.co.kr, 한국자산평가 ‘Fixed Income Weekly’ — koreaap.com)의 최신 호 하나씩을 운영자 PC가 받아, AI가 보고서의 요약 쪽만 읽고 쓴 두세 문장(보고서의 문장이 아닙니다)과 KIS 보고서에 적힌 평가사 산출값 열 칸(IRS · CRS 1·3년, 스왑 스프레드 · 베이시스는 그 값으로 이 사이트가 뺀 것, AA- · A- 회사채 3년 크레딧 스프레드)을 싣습니다. 두 회사와 맺은 계약은 없고(2026-11-23 운영자 결정 — 출처 · 호수 · 링크를 밝히고, 지난 호는 남기지 않고, 요청이 있으면 바로 내립니다), 한국자산평가 보고서는 표지에 배포 금지 문구가 있어 숫자를 싣지 않습니다. PDF와 보고서의 글은 저장하지 않습니다. 규칙 판정에는 쓰지 않습니다.</p></article>
     <article><h3>한국 금리 참고 자료</h3><p>KB증권 리서치본부 채권크레딧팀이 공개 텔레그램 채널에 올리는 일일동향 글에서 옮긴 금리입니다(기준: 민평3사 — 민간 채권평가사 세 곳 평균). 공개 통계가 아니며 규칙 판정에는 쓰지 않습니다. 게시일과 금리 기준일을 구분해 읽습니다.</p></article>
     <article><h3>시나리오 이름표와 해석 구절</h3><p>규칙 카드의 시나리오 이름표(A~D)·해석 구절과 ‘레짐 점검 참고’(국면 후보·전환 경계·손으로 보는 항목), ‘미 국채 수급’ 카드의 ⚠ 줄 끝 구절은 운영자가 개인 월간 점검에 적어 둔 메모를 옮긴 참고입니다. 첫 화면 ‘판단 격자 L × P’의 칸 이름 16개와 미리 적어 둔 기대도 운영자의 비공개 측정 도구에 적힌 메모이고, 상태와 칸은 이 사이트가 FRED 공개 통계로 다시 계산합니다. 참고 카드의 ‘측정 기록’ 줄(신용 긴축 단계와 그 가설·경로 숫자, 기간 프리미엄 주간 점수와 모형 대조, 유가 방향 상태별 평균, 지준·재정의 상관, AI 고유 몫)도 운영자가 과거 자료로 잰 값을 옮긴 것입니다. ‘기록 장부’ 화면 ‘판단 연표’의 듀레이션·커브 판정(O/W·U/W·Neutral·Flattening·Steepening 등)과 Total·고친 칸·국면 FLAG는 운영자가 공개 기록 저장소(yun-macrolab/macro-notes-automation)에 올린 주간 기록에서 옮긴 운영자의 기록이고, 투자 판단·권유가 아닙니다. 예측이 아니고, 이름표·구절·단계·점수의 예측력은 검증하지 않았습니다. 규칙의 충족 여부는 규칙 문장만으로 정해집니다.</p></article>
     <article><h3>이 사이트의 계산값</h3><p>증가율·3개월 변화·상관·비율·국고채 금리차와 규칙 판정, 기록 장부의 규칙 전환 뒤와 판단 연표의 주간 판정 뒤 금리 변화·평균을 뺀 값은 원자료를 바탕으로 계산합니다. 원 발행기관의 시장 전망을 뜻하지 않습니다.</p></article>
@@ -177,11 +183,12 @@
   <footer>
     <div id="attribution"></div>
     <p>계산 코드: <a href="https://github.com/yun-macrolab/macro-regime-check">github.com/yun-macrolab/macro-regime-check</a></p>
-    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · <a href="data/supply.json">supply.json</a>(미 국채 수급 주간 · 뉴욕 연은 딜러 통계 · 연준 H.4.1 해외 공적 수탁) · <a href="data/tic.json">tic.json</a>(재무부 TIC 해외 보유) · <a href="data/ai_invest.json">ai_invest.json</a>(AI 투자 참고) · <a href="data/oil.json">oil.json</a>(유가·에너지 참고) · <a href="data/tp.json">tp.json</a>(기간 프리미엄 모형 대조) · <a href="data/ois.json">ois.json</a>(국채–OIS 참고 · 날마다의 중앙값은 <a href="data/ois_days.json">ois_days.json</a>) · <a href="data/liquidity.json">liquidity.json</a>(지준·재정 참고) · <a href="data/fedbs.json">fedbs.json</a>(연준 재무상태표 참고) · <a href="data/credit.json">credit.json</a>(신용 긴축 참고) · <a href="data/sec.json">sec.json</a>(SEC 조달 참고) · <a href="data/cds.json">cds.json</a>(단일종목 CDS 참고 · 날마다의 셈은 <a href="data/cds_days.json">cds_days.json</a>) · <a href="data/korea.json">korea.json</a>(한국 시장) · <a href="data/korea-status.json">korea-status.json</a>(한국 시장 갱신 상태) · <a href="data/changes.json">changes.json</a>(이번 주 달라진 것) · <a href="data/ledger.json">ledger.json</a>(기록 장부 · 평가 약속) · <a href="data/lp.json">lp.json</a>(판단 격자 L × P) · <a href="data/timeline.json">timeline.json</a>(판단 연표) · <a href="data/digest.json">digest.json</a>(저녁판) · <a href="data/digest_index.json">digest_index.json</a>(저녁판 목록) · <a href="data/digest_status.json">digest_status.json</a>(저녁판 수집 상태) · <a href="data/digest_overrides.json">digest_overrides.json</a>(저녁판 숨김 목록) · <a href="data/sources.json">sources.json</a>(저녁판 출처) · <a href="data/digest_picks.json">digest_picks.json</a>(저녁판 AI 요약) · <a href="data/notes.json">notes.json</a>(읽기 노트) · <a href="data/notes_charts.json">notes_charts.json</a>(읽기 노트 그래프) · 날짜별 기록은 저장소의 data/history/</p>
+    <p>원자료: <a href="data/public.json">public.json</a> · <a href="data/status.json">status.json</a> · <a href="data/charts.json">charts.json</a>(그래프) · <a href="data/ktb.json">ktb.json</a>(국고채 참고) · <a href="data/supply.json">supply.json</a>(미 국채 수급 주간 · 뉴욕 연은 딜러 통계 · 연준 H.4.1 해외 공적 수탁) · <a href="data/tic.json">tic.json</a>(재무부 TIC 해외 보유) · <a href="data/ai_invest.json">ai_invest.json</a>(AI 투자 참고) · <a href="data/oil.json">oil.json</a>(유가·에너지 참고) · <a href="data/tp.json">tp.json</a>(기간 프리미엄 모형 대조) · <a href="data/ois.json">ois.json</a>(국채–OIS 참고 · 날마다의 중앙값은 <a href="data/ois_days.json">ois_days.json</a>) · <a href="data/liquidity.json">liquidity.json</a>(지준·재정 참고) · <a href="data/fedbs.json">fedbs.json</a>(연준 재무상태표 참고) · <a href="data/credit.json">credit.json</a>(신용 긴축 참고) · <a href="data/sec.json">sec.json</a>(SEC 조달 참고) · <a href="data/cds.json">cds.json</a>(단일종목 CDS 참고 · 날마다의 셈은 <a href="data/cds_days.json">cds_days.json</a>) · <a href="data/korea.json">korea.json</a>(한국 시장) · <a href="data/korea-status.json">korea-status.json</a>(한국 시장 갱신 상태) · <a href="data/fi_weekly.json">fi_weekly.json</a>(평가사 주간 보고서 — 최신 호의 AI 요약 · KIS 산출값) · <a href="data/changes.json">changes.json</a>(이번 주 달라진 것) · <a href="data/ledger.json">ledger.json</a>(기록 장부 · 평가 약속) · <a href="data/lp.json">lp.json</a>(판단 격자 L × P) · <a href="data/timeline.json">timeline.json</a>(판단 연표) · <a href="data/digest.json">digest.json</a>(저녁판) · <a href="data/digest_index.json">digest_index.json</a>(저녁판 목록) · <a href="data/digest_status.json">digest_status.json</a>(저녁판 수집 상태) · <a href="data/digest_overrides.json">digest_overrides.json</a>(저녁판 숨김 목록) · <a href="data/sources.json">sources.json</a>(저녁판 출처) · <a href="data/digest_picks.json">digest_picks.json</a>(저녁판 AI 요약) · <a href="data/notes.json">notes.json</a>(읽기 노트) · <a href="data/notes_charts.json">notes_charts.json</a>(읽기 노트 그래프) · 날짜별 기록은 저장소의 data/history/</p>
   </footer>
 </main>
 <script src="charts.js"></script>
 <script src="korea.js"></script>
+<script src="fiweekly.js"></script>
 <script src="evening.js"></script>
 <script src="notes.js"></script>
 <script src="ai_invest.js"></script>
@@ -514,7 +521,7 @@ function supplyCardDone(shown) {
 }
 let activeView = "all", ruleState = "all", publicData = null;
 const available = { overview: false, korea: false, snapshot: false, loaded: false, monitor: false, ai: false, regime: false,
-  aiCredit: false, changes: false, timeline: false, ledger: false, lp: false };
+  aiCredit: false, changes: false, timeline: false, ledger: false, lp: false, fiweekly: false };
 
 function renderRule(r, chart, health) {
   const obs = el("dl", { class: "observations" });
@@ -607,6 +614,7 @@ function applyView() {
   document.getElementById("overview-wrap").hidden = !(available.overview && ["all","rates"].includes(activeView));
   document.getElementById("ktb-wrap").hidden = !(available.korea && ["all","korea"].includes(activeView));
   document.getElementById("korea-empty").hidden = activeView !== "korea" || available.korea || !available.loaded;
+  document.getElementById("fiweekly-wrap").hidden = !(available.fiweekly && (activeView === "korea" || activeView.startsWith("korea-")));
   document.getElementById("ai-teaser").hidden = !(available.ai && activeView === "all");
   document.getElementById("ai-wrap").hidden = !(available.ai && activeView === "ai");
   document.getElementById("ai-empty").hidden = activeView !== "ai" || available.ai || !available.loaded;
@@ -977,12 +985,13 @@ function renderPublic(p, charts) {
 tick();
 applyView();
 (async () => {
-  const [st, pub, ch, kt, kr, ks, sp, ai, oil, tp, liq, cr, sc, cds, fbs, ois, chg, led, lp, tl, tic] = await Promise.allSettled([getJson("data/status.json"),
+  const [st, pub, ch, kt, kr, ks, sp, ai, oil, tp, liq, cr, sc, cds, fbs, ois, chg, led, lp, tl, tic, fiw] = await Promise.allSettled([getJson("data/status.json"),
     getJson("data/public.json"), getJson("data/charts.json"), getJson("data/ktb.json"), getJson("data/korea.json"),
     getJson("data/korea-status.json"), getJson("data/supply.json"), getJson("data/ai_invest.json"), getJson("data/oil.json"),
     getJson("data/tp.json"), getJson("data/liquidity.json"), getJson("data/credit.json"), getJson("data/sec.json"),
     getJson("data/cds.json"), getJson("data/fedbs.json"), getJson("data/ois.json"), getJson("data/changes.json"),
-    getJson("data/ledger.json"), getJson("data/lp.json"), getJson("data/timeline.json"), getJson("data/tic.json")]);
+    getJson("data/ledger.json"), getJson("data/lp.json"), getJson("data/timeline.json"), getJson("data/tic.json"),
+    getJson("data/fi_weekly.json")]);
   // 그래프 자료가 없거나 깨졌으면 그래프 없이 지금 화면 그대로
   const charts = ch.status === "fulfilled" && ch.value && typeof ch.value === "object" ? ch.value : null;
   const isObj = x => x.status === "fulfilled" && x.value && typeof x.value === "object";
@@ -1045,6 +1054,9 @@ applyView();
   // 파일이 없거나 깨졌으면 그 절만 없다(기록 장부는 그대로)
   try { if (isObj(tl) && window.TimelineView) available.timeline = window.TimelineView.render(tl.value) === true; }
   catch (e) { available.timeline = false; /* 판단 연표 절만 뺀다 */ }
+  // 평가사 주간 보고서(2026-11-23) — 한국 시장 화면의 지표 아래 절. 파일이 없거나 깨졌으면 그 절만 없다
+  try { if (isObj(fiw) && window.FiWeekly) available.fiweekly = window.FiWeekly.render(fiw.value) === true; }
+  catch (e) { available.fiweekly = false; /* 평가사 주간 보고서 절만 뺀다 */ }
   try { renderTape(pub.status === "fulfilled" ? pub.value : null, charts); }
   catch (e) { /* 시세 띠가 없어도 화면은 그대로 */ }
   available.loaded = true;

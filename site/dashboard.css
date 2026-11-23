@@ -203,6 +203,20 @@ table.ktb tbody th { font-weight: 500; }
 table.ktb td { font: 500 13.5px var(--f-mono); }
 table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 #ktb-head { margin: 0 0 8px; font-size: 12.5px; }
+/* ── 평가사 주간 보고서(참고, fiweekly.js) ── */
+#fiweekly-wrap { margin: 18px 0 0; }
+.fi-label { margin: 0 0 8px; font-size: 12px; }
+.fi-report > h3 { margin: 0 0 2px; font-size: 13.5px; }
+.fi-report > p.muted { margin: 0; font-size: 12px; }
+.fi-summary { margin: 8px 0; line-height: 1.65; }
+.fi-ai-tag { display: inline-block; margin-right: 6px; padding: 0 6px; background: var(--amber); color: var(--black); font: 600 11.5px/1.6 var(--f-text); white-space: nowrap; }
+.fi-numbers { display: flex; flex-wrap: wrap; gap: 6px 28px; align-items: flex-start; }
+.fi-numbers > p { flex: 1 1 100%; margin: 0; }
+table.fi-table th, table.fi-table td { padding: 4px 14px 4px 0; vertical-align: top; }
+table.fi-table thead th:first-child, table.fi-table tbody th { white-space: normal; }
+table.fi-table td, table.fi-table td:nth-child(2) { font-size: 13.5px; color: inherit; }
+table.fi-table td strong { display: block; color: var(--amber); font-weight: 600; }
+table.fi-table td small.fi-chg { display: block; font: 500 11px var(--f-text); color: var(--dim); }
 
 /* ── 규칙 카드 ── */
 .rule-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 12px; font-size: 12px; color: var(--dim); }
@@ -572,6 +586,7 @@ main[data-view="evening"] .update-label, main[data-view="notes"] .update-label {
 #category-nav a:focus-visible { outline-offset: -3px; }
 /* 강제 색(Windows 고대비) — 배경색·그림자로만 하던 구분을 테두리로. 실제 고대비 화면에서는 아직 확인하지 못했다 */
 @media (forced-colors: active) {
+  .fi-ai-tag { border: 1px solid CanvasText; }
   #category-nav a[aria-current] { outline: 2px solid Highlight; outline-offset: -3px; }
   .cmd input:focus-visible { outline: 2px solid Highlight; }
   .ch-key { forced-color-adjust: none; }

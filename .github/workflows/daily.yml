@@ -133,6 +133,7 @@ jobs:
           node --test scripts/test_ledger_render.cjs
           node --test scripts/test_lp_render.cjs
           node --test scripts/test_timeline_render.cjs
+          node --test scripts/test_fiweekly_render.cjs
 
   update:
     needs: check

@@ -50,6 +50,16 @@
   (its own file and the evening one) and it restores its file whenever it stops - so a people run that was
   killed half way (shutdown, the 40-minute limit) never makes the evening publish stop as "dirty".
   It adds one line per run to %USERPROFILE%\.macro-notes\people-push.log (codes and counts only).
+
+  Valuation-house weekly reports: BEFORE the people step another SEPARATE step runs scripts\fi_weekly.py with the
+  same Python and PATH (--repo-dir <folder>). It fetches the latest weekly report of KIS (bond.co.kr) and KAP
+  (koreaap.com) only when one is due, writes an AI summary of each (claude with every tool off, as above) and KIS
+  numbers, and publishes only data/fi_weekly.json. It reads the repository variable FI_WEEKLY_OFF (takedown:
+  kis, kap or all), runs whether EVENING_ENABLED is on or off, never changes the exit code or the error file above,
+  and is skipped quietly while the folder does not hold that script yet. It goes first because the other two syncs
+  do not know its file: its own sync undoes what an interrupted earlier run of any of the three left behind.
+  It adds one line per run to %USERPROFILE%\.macro-notes\fi-weekly.log (codes and counts only). It needs the
+  pypdf package in the same Python (requirements.txt of this repository); without it the log says code=pypdf.
 #>
 [CmdletBinding()]
 param(
@@ -151,6 +161,21 @@ try {
     $ready = $true
 } catch {
     $code = 1
+}
+
+# Valuation-house weekly reports - a separate step with its own try/catch, FIRST: the other two publishers' syncs do
+# not know data/fi_weekly.json, while its own sync undoes the leftovers of all three. It never touches $code or the
+# error file and is skipped quietly while the folder does not hold the script yet. Its result goes to fi-weekly.log only.
+try {
+    if ($ready) {
+        $fi = Join-Path $repo "scripts\fi_weekly.py"
+        if (Test-Path -LiteralPath $fi) {
+            $fiArgs = @("-X", "utf8", ('"{0}"' -f $fi), "--repo-dir", ('"{0}"' -f $repo))
+            $w = Start-Process -FilePath $py -ArgumentList $fiArgs -WindowStyle Hidden -Wait -PassThru
+            [void]$w.ExitCode
+        }
+    }
+} catch {
 }
 
 # Fed people remarks - a separate step with its own try/catch, BEFORE the evening step: its sync undoes the
