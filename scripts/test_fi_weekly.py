@@ -446,6 +446,8 @@ class ListTest(unittest.TestCase):
         self.assertRaises(F.Bad, F.kap_list, bad)                                     # 파일 이름의 날짜가 제목과 다르다 · 이름 꼴이 아니다
         for raw in (b"{", b"[]", b'{"list": 3}', b"\xff"):
             self.assertRaises(F.Bad, F.kap_list, raw)
+        reposted = kap_json((("b" * 32, "261109", "26-45", "2026.11.09", "2026-11-17 09:00"), ("a" * 32, "261116", "26-46", "2026.11.16", "2026-11-16 16:21")))
+        self.assertEqual(F.kap_list(reposted)[0]["issue"], "26-46")                   # 옛 호를 다시 올려도 기준일이 늦은 호가 앞
 
 
 # ---------- 표 ----------
@@ -560,6 +562,14 @@ class TextTest(unittest.TestCase):
         dup = F.sections_of("kap", kap_pages() + [KAP_SHORT.replace("지어낸 적수", "다른 적수")])
         self.assertIn("지어낸 적수", dict(dup)["단기 금융시장"])                             # 같은 절이 둘이면 앞의 것
 
+    def test_mask_then_cut_at_a_real_sentence_end(self):
+        t = "가" * 850 + " 문의는 hong.gildong@example.invalid 으로 한다고 적었음. 국고 10년물은 3.125%로 마감했음." + "나" * 100
+        cut = F._cut(F._mask(t))
+        self.assertNotIn("hong", cut)
+        self.assertNotIn("@", cut)
+        self.assertTrue(cut.endswith("적었음.") or cut.endswith("마감했음."), cut[-30:])
+        self.assertFalse(F._cut("가" * 800 + " 3.125%로 올랐다" + "나" * 200).endswith("3."))   # 소수점은 문장 끝이 아니다
+
     def test_section_text_is_cut_at_a_sentence_end(self):
         long = "Fixed Income Weekly\n주간 국공채 시장동향\n" + "\n".join(["국고채 금리가 지어낸 까닭으로 올랐음." * 3] * 40) + "\n<표>\n"
         t = dict(F.sections_of("kap", kap_pages()[:1] + [long]))["국공채"]
@@ -618,11 +628,29 @@ class SummaryTest(unittest.TestCase):
                  ("kis", "국고 3년물이 12.5bp, 국고 10년은 14.0bp 올랐고 CD 91일물은 0.03% 올랐다. 스프레드는 0.7bp 줄었다.", "number"),  # 값 숫자 넷
                  ("kis", "국고 3년물이 한 주 사이 12.5bp 올라 국공채가 약세를 보였다. 기준금리는 동결됐다.", "term"),
                  ("kis", "국고 3년물이 한 주 사이 12.5bp 올라 국공채가 약세를 보였다. QQZ 쪽 영향이 컸다.", "name"),
-                 ("kap", "국채 금리가 크게 올랐다. CD 91일물은 3.37%로 마감했다는 사실이 적혔다.", "number"),
+                 ("kap", "국채 금리가 크게 올랐다. CD 91일물은 3.37%로 마감했다는 사실이 적혔다.", "digits"),   # KAP는 숫자 대조보다 먼저
+                 ("kap", "국채 금리가 크게 올랐다. 단기물 수익률도 십 bp 넘게 상승했다.", "digits"),
+                 ("kap", "국채 금리가 크게 올랐다. 국고 삼년물 수익률이 십삼점오 bp 올랐다.", "digits"),
+                 ("kap", "국채 금리가 크게 올랐다. 수익률이 몇 퍼센트 포인트 움직였다.", "digits"),
+                 ("kis", "국고 3년물이 12.5bp 올랐고, 순발행은 회사채 3천억원, 여전채 2천억원, 은행채 5천억원이었다.", "number"),   # 천억원도 값 숫자
                  ("kap", "지어낸 물가 지표 상회로 국채 금리가 크게 올랐다. 단기물은 1년 안팎이 강세였다.", "digits")]
         for src, s, want in cases:
             with self.subTest(s=s):
                 self.assertEqual(F.topic_code(src, s, self.kis if src == "kis" else self.kap), want)
+
+    def test_copying_the_other_report_is_caught(self):
+        # 한 물음에 두 보고서가 함께 들어간다 — KIS 주제가 KAP 문장을 옮겨도 걸린다(그 반대도)
+        both = self.kis + self.kap
+        self.assertIsNone(F.topic_code("kis", KAP_COPIED, self.kis))                  # 제 보고서만 보면 지나간다(재현)
+        self.assertEqual(F.topic_code("kis", KAP_COPIED, self.kis, both), "copy")
+        self.assertEqual(F.topic_code("kap", COPIED.replace("영업일", "날"), self.kap, both), "copy")
+        items, failed = F.judge_topics("kis", {**KIS_GOOD, "국채": KAP_COPIED}, self.kis, both)
+        self.assertEqual(failed, {"국채": "copy"})
+
+    def test_value_numbers(self):
+        for text, n in (("국고 3년물이 12.5bp, 10년물이 14.0bp 올랐다.", 2), ("CD 91일물 금리는 0.03% 올랐다.", 1),
+                        ("회사채 3천억원, 은행채 5백억원, 2조원이 들어왔다.", 3), ("100만달러와 80달러, 2.8배였다.", 3), ("13일 3년물이 올랐다.", 0)):
+            self.assertEqual(F.value_nums(K, text), n, text)
 
     def test_terms_from_one_section_are_enough(self):
         # 절을 서로 다른 채널로 보면 A · B급 낱말이 한 절에만 있을 때 걸린다 — 보고서 하나는 한 출처다
@@ -778,18 +806,29 @@ class NetTest(unittest.TestCase):
         self.assertEqual(clock.naps, [F.GAP_S] * 6)                                    # 요청 사이 GAP_S초
         self.assertTrue(all(t <= F.REQ_S for t in web.timeouts))
 
-    def test_budget(self):
+    def test_budget_counts_only_time_inside_requests(self):
         clock = Clock()
-        n = F.Net(Web({"https://www.bond.co.kr/a": b"x"}), clock.sleep, clock, budget=10)
-        clock.t = 9.5
-        with self.assertRaises(F.Fetch) as e:
-            n.get("https://www.bond.co.kr/a", 9)
-        self.assertEqual(e.exception.code, "budget")
-        clock.t = 3
-        web = Web({"https://www.bond.co.kr/a": b"x"})
+        slow = Resp("https://www.bond.co.kr/a", b"xy", on_read=lambda k: setattr(clock, "t", clock.t + 4))
+        b_ = Resp("https://www.bond.co.kr/b", b"x", on_read=lambda k: setattr(clock, "t", clock.t + 0.6))
+        web = Web({"https://www.bond.co.kr/a": slow, "https://www.bond.co.kr/b": b_})
         n = F.Net(web, clock.sleep, clock, budget=10)
-        n.get("https://www.bond.co.kr/a", 9)
-        self.assertEqual(web.timeouts, [10.0])                                         # min(REQ_S, 남은 예산)
+        n.get("https://www.bond.co.kr/a", 9)                                           # 요청 안에서 8초(읽기 두 번)
+        clock.t += 500                                                                 # 요청 밖(PDF 글 뽑기 · 모델)은 세지 않는다
+        n.get("https://www.bond.co.kr/b", 9)
+        self.assertEqual(web.timeouts[0], 10.0)                                        # min(REQ_S, 남은 예산)
+        self.assertLess(web.timeouts[1], 2.5)
+        with self.assertRaises(F.Fetch) as e:
+            n.get("https://www.bond.co.kr/b", 9)
+        self.assertEqual(e.exception.code, "budget")
+
+    def test_read1_is_used_when_there_is_one(self):
+        class One(Resp):
+            def read1(self, n=-1):
+                self.ones = getattr(self, "ones", 0) + 1
+                return Resp.read(self, min(n, 7))
+        r = One("https://www.bond.co.kr/a", b"x" * 20)
+        self.assertEqual(F.Net(Web({"https://www.bond.co.kr/a": r}), *(lambda c: (c.sleep, c))(Clock())).get("https://www.bond.co.kr/a", 99), b"x" * 20)
+        self.assertGreaterEqual(r.ones, 3)
 
     def test_reads_in_chunks_with_a_deadline(self):
         clock = Clock()
@@ -899,6 +938,24 @@ class UpdateTest(unittest.TestCase):
         self.assertEqual((new["reports"][0]["issue"], new["reports"][0]["numbers"]["prev"]), ("1213", "2026-11-13"))
         self.assertEqual(new["reports"][1], doc["reports"][1])
         self.assertNotIn("보고서 kap", self.claude.main_calls()[0].text)                # 새 호만 묻는다
+
+    def test_an_older_issue_never_replaces_the_one_up(self):
+        doc, _ = self.run_update()
+        web = Web(site(**{"https://www.bond.co.kr/": kis_main((("37144", "1211", "20261106", "2026.11.09"),))}))
+        got, seen = self.run_update(doc, today=datetime.date(2026, 11, 23), web=web)
+        self.assertEqual((seen["kis"], got["reports"][0]["issue"]), ("same", "1212"))
+        self.assertNotIn("https://www.bond.co.kr/post/dawn/37144", web.asked)
+
+    def test_the_state_is_saved_before_each_download(self):
+        saved = []
+        io_ = make_io()
+        io_["save"] = lambda: saved.append(json.loads(json.dumps(state)))
+        real = io_["pages"]
+        io_["pages"] = lambda raw: (self.assertTrue(saved and saved[-1].get("kis", {}).get("day") == "2026-11-17"), real(raw))[1]
+        state = {}
+        F.update(None, set(), TODAY, io_, state, claude=self.exe)
+        self.assertEqual(saved[-1], state)                                             # 요약 셈도 바로 남겼다
+        self.assertGreaterEqual(len(saved), 4)                                         # 출처마다 받기 전 · 묻고 난 뒤
 
     def test_off_sources_are_removed_and_never_fetched(self):
         doc, _ = self.run_update()
@@ -1030,7 +1087,7 @@ class UpdateTest(unittest.TestCase):
         self.assertEqual((seen["kis"], seen["kap"]), ("retry", "retry"))
         table = {**PAGES, KAP_PDF: [kap_pages()[0].split("▲")[0] + "▲ 그림\n짧은 글만 있다.\n본보고서는 x"]}
         doc, seen = self.run_update(table=table)
-        self.assertEqual((doc["reports"][1]["summary_note"], seen["sum"]), ("text", "ok"))   # 묻지 않았다
+        self.assertEqual((doc["reports"][1]["summary_note"], seen["sum"]), ("text", "ok_text"))   # 묻지 않았다 — 로그에도 text
         self.assertNotIn("보고서 kap", self.claude.main_calls()[0].text)
         self.assertEqual(self.state["kap"]["tries"], 1)                                # 읽힐 글이 없던 것도 한 번
 
@@ -1106,6 +1163,19 @@ class PublishTest(unittest.TestCase):
         later["asof"] = "2026-11-18"
         self.assertEqual(F.publish(self.repo, later, datetime.date(2026, 11, 18), t), "same")   # 날짜만 다르다
         self.assertEqual(t.names(), [])
+
+    def test_a_file_hit_by_a_newer_word_list_keeps_its_reports(self):
+        d = json.loads(F.dump(self.doc))
+        d["reports"][0]["summary"][0]["text"] = "앞으로 금리는 오를 것으로 보인다는 말이 적혔다."   # 올린 뒤 저녁판 금지 낱말에 걸리게 된 글
+        F._write(self.repo, F.dump(d))
+        self.assertIsNone(F.published(self.repo, TODAY))
+        got = F.carried(self.repo, TODAY)
+        self.assertEqual([r["src"] for r in got["reports"]], ["kis", "kap"])            # 호 · 숫자는 이어받는다
+        self.assertEqual((got["reports"][0]["summary"], got["reports"][0]["summary_note"]), (None, "banned"))
+        self.assertEqual(got["reports"][0]["numbers"], self.doc["reports"][0]["numbers"])
+        self.assertEqual(got["reports"][1], self.doc["reports"][1])
+        t = good_tool(status=(0, MOD))
+        self.assertEqual(F.publish(self.repo, got, TODAY, t), "pushed")               # 걸린 글을 뺀 파일이 올라간다(빈 파일이 아니라)
 
     def test_nothing_to_carry_on_the_first_run_writes_nothing(self):
         t = good_tool()
