@@ -57,9 +57,13 @@
   numbers, and publishes only data/fi_weekly.json. It reads the repository variable FI_WEEKLY_OFF (takedown:
   kis, kap or all), runs whether EVENING_ENABLED is on or off, never changes the exit code or the error file above,
   and is skipped quietly while the folder does not hold that script yet. It goes first because the other two syncs
-  do not know its file: its own sync undoes what an interrupted earlier run of any of the three left behind.
-  It adds one line per run to %USERPROFILE%\.macro-notes\fi-weekly.log (codes and counts only). It needs the
-  pypdf package in the same Python (requirements.txt of this repository); without it the log says code=pypdf.
+  do not know its file: its own sync (done before it reads the switch) undoes what an interrupted earlier run of
+  any of the three left behind. It gets at most 15 minutes; if it is still running it is stopped and run once more
+  with --tidy (at most 2 minutes), which only puts its file back, so the people and evening steps never find the
+  folder dirty because of it. It adds one line per run to %USERPROFILE%\.macro-notes\fi-weekly.log (codes and
+  counts only). It needs the pypdf package in the same Python (requirements.txt of this repository); without it
+  nothing is fetched and the log says pypdf. To take the card down: set FI_WEEKLY_OFF to all first (the next run
+  removes both reports), then delete data/fi_weekly.json and scripts/fi_weekly.py on main together.
 #>
 [CmdletBinding()]
 param(
@@ -171,8 +175,13 @@ try {
         $fi = Join-Path $repo "scripts\fi_weekly.py"
         if (Test-Path -LiteralPath $fi) {
             $fiArgs = @("-X", "utf8", ('"{0}"' -f $fi), "--repo-dir", ('"{0}"' -f $repo))
-            $w = Start-Process -FilePath $py -ArgumentList $fiArgs -WindowStyle Hidden -Wait -PassThru
-            [void]$w.ExitCode
+            $w = Start-Process -FilePath $py -ArgumentList $fiArgs -WindowStyle Hidden -PassThru
+            if (-not $w.WaitForExit(900000)) {
+                # 15 minutes: stop it and put its file back, so the next two steps do not find the folder dirty
+                Stop-Process -Id $w.Id -Force -ErrorAction SilentlyContinue
+                $t = Start-Process -FilePath $py -ArgumentList ($fiArgs + @("--tidy")) -WindowStyle Hidden -PassThru
+                if (-not $t.WaitForExit(120000)) { Stop-Process -Id $t.Id -Force -ErrorAction SilentlyContinue }
+            }
         }
     }
 } catch {

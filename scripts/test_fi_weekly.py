@@ -122,6 +122,34 @@ MARKET = """국공채 : 지어낸 대외 금리 상승에 따른 약세
 
 그림1. 국고채 금리변동                  (단위 : %)
 """
+CORP = """회사채 : 지어낸 회사채 금리 상승
+
+평가담당자                    KEY POINT
+
+김아무 대리     02) 1234-5679 •  회사채 커브 플래트닝
+
+  I.  회사채 시장동향
+
+    회사채 3년 AA- 등급 스프레드는 전 주 대비 0.7bp 축소된 65.0bp를 기록하였다. 금주 회사채 금리는 지어낸 물가 우려에 전 구간
+
+상승했고, 회사채 스프레드는 단기를 중심으로 강세를 나타냈다.
+
+그림1. 회사채 금리추이                  (단위 : 억 원)
+
+"""
+SWAP_HEAD = """SWAP : CD 91일물 금리 0.03% 상승
+
+평가담당자                    KEY POINT
+
+이아무 과장     02) 1234-5670 •  IRS 금리 상승세, CRS 금리 상승세
+
+  I.  스왑시장 동향
+
+    당일 CD금리는 전 주 대비 상승하였다. IRS 금리는 전반적으로 상승하였고, CRS 금리도 대체로 상승 추세를 보였다.
+
+그림1. 주요 금리 추이 (단위: %)
+"""
+IRS_PAGE, KTB_PAGE, CREDIT_PAGE = 5, 6, 3          # kis_pages()에서 표가 든 쪽의 차례
 
 
 def kis_pages(issue="1212", date="2026-11-13", prev="2026-11-06", irs=IRS, crs=CRS, ktb=KTB, credit=None, extra=()):
@@ -130,7 +158,7 @@ def kis_pages(issue="1212", date="2026-11-13", prev="2026-11-06", irs=IRS, crs=C
     credit = credit if credit is not None else credit_block(f"{d.month}/{d.day}", f"{int(prev[5:7])}/{int(prev[8:])}")
     swap1 = swap_block(2, "KRW IRS Data", "KRW IRS", date, prev, irs) + "\n\n그림5. KRW CRS\n\n" + swap_block(3, "KRW CRS Data", "KRW CRS", date, prev, crs)
     swap2 = swap_block(4, "KTB Data", "URD IRS", date, prev, ktb) + "\n\n그림7. IRS 장단기 스프레드 추이\n"
-    return [cover, EXEC, MARKET, "회사채 : 지어낸 제목\n\n" + credit + "\n\n                18\n", swap1, swap2, *extra]
+    return [cover, EXEC, MARKET, CORP + credit + "\n\n                18\n", SWAP_HEAD, swap1, swap2, *extra]
 
 
 KAP_PAGE = """Fixed Income Weekly
@@ -163,17 +191,56 @@ Summary
 본보고서는 당사 고객을 위해 배포되는 자료로서 당사의 허가없이 제3자에게 배포하는것을 금합니다.
 CONTACT US    대표전화 02. 1234.5678 | 서울시 어딘가
 """
-KAP_PAGE2 = "Fixed Income Weekly\n\n  홍길동   대리  (1234-5678) someone@example.invalid\n"
+KAP_SHORT = """Fixed Income Weekly
+
+  주간 단기 금융시장 동향
+
+  홍길동   대리  (1234-5678) someone@example.invalid
+  김아무   연구원  (2345-6789) other@example.invalid
+
+   ‘지어낸 CP 약세’
+
+   지난 주 단기자금시장은 지어낸 적수 부족으로 시작하였으며 MMF 자금은 전전주 대비 감소하였음.
+
+<그림>  지준  적수
+자료: 한국자산평가
+"""
+KAP_KTB = """Fixed Income Weekly
+
+  주간 국공채 시장동향
+
+  박아무 연구원(1234-5670) p@example.invalid
+
+  '지어낸 제목'
+
+  바
+
+  지난주 국내 채권 시장은 지어낸 물가 지표 상회로 약세를 보였음. 주 후반 지어낸 인사들의
+
+  매파적 발언이 이어지며 약세 흐름을 이어갔음.
+
+  0
+
+  국고 3년 수익률은 전전주 대비 상승하였음.
+
+<주간국채금리변동> (단위 : %, bp)
+"""
 
 
 def kap_pages(issue="26-46", month="November 16"):
-    return [KAP_PAGE.replace("November 16, Vol.26-46", f"{month}, Vol.{issue}"), KAP_PAGE2]
+    return [KAP_PAGE.replace("November 16, Vol.26-46", f"{month}, Vol.{issue}"), KAP_SHORT, KAP_KTB]
 
 
-KIS_GOOD = ("국고 3년물이 한 주 사이 12.5bp 올라 국공채가 약세를 보였다. 지어낸 물가 지표가 예상치를 웃돈 영향이었고, 회사채는 커브가 "
-            "평탄해졌으며 CD 91일물 금리는 0.03% 올랐다.")
-KAP_GOOD = ("지어낸 물가 지표가 예상보다 높게 나오고 매파적 발언이 겹치며 국채 금리가 크게 올라 약세가 이어졌다. 크레딧 시장은 금리가 오른 데 "
-            "따른 수요로 단기물이 강세였고 스프레드가 좁아졌다.")
+KIS_GOOD = {"국채": "국고 3년물이 한 주 사이 12.5bp 올라 국공채가 약세를 보였다. 지어낸 물가 지표가 예상치를 웃돈 영향이었다.",
+            "크레딧": "회사채 금리가 모든 구간에서 올랐지만 단기 구간 스프레드는 좁혀졌다. 은행채도 스프레드가 줄며 강세였다.",
+            "단기자금": None, "해외 금리": None,
+            "스왑": "CD 91일물 금리가 0.03% 올랐고 IRS와 CRS 금리도 함께 상승했다."}
+KAP_GOOD = {"국채": "지어낸 물가 지표가 예상보다 높게 나오고 매파적 발언이 겹치며 국채 금리가 크게 올라 약세가 이어졌다.",
+            "크레딧": "크레딧 시장은 금리가 오른 데 따른 수요로 단기물이 강세였고 스프레드가 좁아졌다.",
+            "단기자금": "연말 차환 부담과 수요 둔화가 겹치며 단기 금리 오름세가 계속됐다. MMF 자금은 줄었다.",
+            "해외 금리": None}
+COPIED = "주 첫 영업일 국내 채권시장은 지어낸 증시 호조에 약세로 출발했고 금리가 올랐다."      # KIS 글과 너무 비슷하다(copy)
+KAP_COPIED = "지난주 국내 채권 시장은 지어낸 물가 지표 상회로 약세를 보였다."                     # KAP 글과 너무 비슷하다(copy)
 
 
 def kis_main(rows=(("37184", "1212", "20261113", "2026.11.16"), ("37144", "1211", "20261106", "2026.11.09"))):
@@ -194,11 +261,19 @@ def kap_json(rows=(("a" * 32, "261116", "26-46", "2026.11.16", "2026-11-16 16:21
 # ---------- 가짜 수신기 · 쪽 읽기 · claude ----------
 
 class Resp:
-    def __init__(self, url, body, status=200, final=None):
-        self.url, self.body, self.status, self.final = url, body, status, final or url
+    """가짜 응답 — read(n)은 이어 읽는다. on_read(번째)가 있으면 조각마다 부른다(느린 응답 흉내)."""
+
+    def __init__(self, url, body, status=200, final=None, on_read=None):
+        self.url, self.body, self.status, self.final, self.at, self.on_read, self.reads = url, body, status, final or url, 0, on_read, 0
 
     def read(self, n=-1):
-        return self.body if n < 0 else self.body[:n]
+        self.reads += 1
+        if self.on_read:
+            self.on_read(self.reads)
+        n = len(self.body) - self.at if n < 0 else n
+        out = self.body[self.at:self.at + n]
+        self.at += len(out)
+        return out
 
     def geturl(self):
         return self.final
@@ -266,36 +341,42 @@ def pages_of(table=None):
 
 
 class Claude:
-    """가짜 claude — 점검 호출에는 짧은 답, 본 호출에는 answer(JSON). 부른 명령 · 표준입력을 적는다."""
+    """가짜 claude — 점검 호출에는 짧은 답, 본 호출에는 answer, 고쳐 쓰기 호출에는 repair(없으면 answer)를 JSON으로. 물은 보고서만 답한다.
+    repair_code = 고쳐 쓰기 호출만의 종료코드. 부른 명령 · 표준입력을 적는다."""
 
-    def __init__(self, answer=None, code=0, tools=(), tool_use=False):
+    def __init__(self, answer=None, code=0, tools=(), tool_use=False, repair=None, repair_code=0):
         self.answer = {"kis": KIS_GOOD, "kap": KAP_GOOD} if answer is None else answer
         self.code, self.tools, self.tool_use, self.calls = code, list(tools), tool_use, []
+        self.repair, self.repair_code = repair, repair_code
 
     def __call__(self, cmd, input=None, cwd=None, env=None, timeout=None, capture_output=None):
         text = input.decode("utf-8")
         self.calls.append(types.SimpleNamespace(cmd=list(cmd), text=text, cwd=cwd, env=dict(env or {}), timeout=timeout,
                                                 empty=os.path.isdir(cwd) and not os.listdir(cwd)))
-        probe = text == L.PROBE
+        probe, fix = text == L.PROBE, "고쳐 쓰기:" in text
         asked = set(re.findall(r"^보고서 (\w+) — ", text, flags=re.M))            # 물은 보고서만 답한다(묻지 않은 열쇠가 있으면 답 전체가 버려진다)
-        ans = '{"ok":true}' if probe else self.answer if isinstance(self.answer, str) else json.dumps(
-            {k: v for k, v in self.answer.items() if k in asked}, ensure_ascii=False)
+        answer = self.repair if fix and self.repair is not None else self.answer
+        ans = '{"ok":true}' if probe else answer if isinstance(answer, str) else json.dumps(
+            {k: v for k, v in answer.items() if k in asked}, ensure_ascii=False)
         init = {"type": "system", "subtype": "init", "tools": self.tools, "mcp_servers": [], "skills": [], "slash_commands": [],
                 "model": "claude-fx-1"}
         blocks = [{"type": "text", "text": ans}] + ([{"type": "tool_use", "id": "t", "name": "Bash", "input": {}}] if self.tool_use else [])
         done = {"type": "result", "subtype": "success", "is_error": False, "result": ans,
                 "usage": {"input_tokens": 100, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}}
         out = "\n".join(json.dumps(e, ensure_ascii=False) for e in (init, {"type": "assistant", "message": {"content": blocks}}, done))
-        return types.SimpleNamespace(returncode=self.code, stdout=out.encode("utf-8"), stderr=b"")
+        return types.SimpleNamespace(returncode=self.repair_code if fix else self.code, stdout=out.encode("utf-8"), stderr=b"")
 
     def main_calls(self):
         return [c for c in self.calls if c.text != L.PROBE]
 
+    def repair_calls(self):
+        return [c for c in self.calls if "고쳐 쓰기:" in c.text]
 
-def make_io(web=None, claude=None, table=None, today=TODAY, clock=None):
+
+def make_io(web=None, claude=None, table=None, today=TODAY, clock=None, ready=True):
     clock = clock or Clock()
     return {"run": claude or Claude(), "open": web or Web(site()), "sleep": clock.sleep, "clock": clock, "today": today,
-            "pages": pages_of(table), "tool": None, "python": sys.executable}
+            "pages": pages_of(table), "ready": lambda: ready, "tool": None, "python": sys.executable}
 
 
 class FakeExe:
@@ -316,11 +397,21 @@ class ContractTest(unittest.TestCase):
         self.assertEqual(F.SOURCES, ("kis", "kap"))
         self.assertEqual([k for k, _ in F.ROWS], ["irs_1y", "irs_3y", "crs_1y", "crs_3y", "ss_1y", "ss_3y", "basis_1y", "basis_3y",
                                                     "aa_minus_3y", "a_minus_3y"])
-        self.assertEqual(F.KEYS["kis"][:8], F.KEYS["kap"])                          # KAP는 숫자 칸이 없다
+        self.assertEqual(F.KEYS["kis"][:9], F.KEYS["kap"])                          # KAP는 숫자 칸이 없다
         self.assertEqual((F.KIS_HOST, F.KAP_HOST), ("www.bond.co.kr", "www.koreaap.com"))
         self.assertTrue(all(u.startswith("https://") for u in (F.KIS_LIST, F.KIS_PDF, F.KAP_LIST, F.KAP_PDF, F.KAP_BOARD)))
-        self.assertEqual((F.DUE_DAYS, F.RETRY_DAYS, F.TRIES, F.SUMMARY_CHARS), (6, 7, 3, 250))
+        self.assertEqual((F.DUE_DAYS, F.RETRY_DAYS, F.TRIES), (6, 7, 3))
+        self.assertEqual((F.TOPIC_MIN, F.TOPIC_TARGET, F.TOPIC_CHARS, F.TOPIC_SENTENCES, F.SUMMARY_MIN_TOPICS, F.TOPIC_NUMS), (20, 150, 230, 3, 2, 3))
+        self.assertEqual(F.TOPICS_OF, {"kis": ("국채", "크레딧", "단기자금", "해외 금리", "스왑"), "kap": ("국채", "크레딧", "단기자금", "해외 금리")})
         self.assertEqual(F.COPY_STEMS, K.TH["copy_stems"] + 1)
+        self.assertEqual(set(F.WHY), set(F.NOTES) - {"model", "none", "text"})       # 고쳐 쓰기의 까닭은 검사 사유마다 하나
+
+    def test_frozen_shape_matches_the_evening_rules_today(self):
+        # 굳힌 꼴은 2026-11-23의 저녁판 규칙과 같다 — 저녁판이 바뀌면 이 테스트가 알린다(굳힌 쪽은 그대로 두고 뜻한 변화인지 본다)
+        self.assertEqual(F._CHARS.pattern, K._CHARS.pattern)
+        self.assertEqual((F._END.pattern, F._DECIMAL.pattern, F._LINKISH.pattern, F._PHONE.pattern),
+                         (K._END.pattern, K._DECIMAL.pattern, K._LINKISH.pattern, K._PHONE.pattern))
+        self.assertEqual(F.HANGUL_MIN, K.TH["fact_hangul_min"])
 
     def test_command_reuses_the_evening_isolation_with_its_own_system_text(self):
         cmd = F._command("claude", None)
@@ -390,14 +481,31 @@ class TableTest(unittest.TestCase):
         self.bad(kis_pages(irs={k: v for k, v in IRS.items() if k != "3Y"}))          # 3년 칸이 없다
         self.bad(kis_pages(irs={**IRS, "1Y": (25.0, 3.0, 2.5)}))                     # 값이 범위 밖
         pages = kis_pages()
-        pages[4] = pages[4].replace("       주간증감     0.1", "       주간증감     0.2", 1)
+        pages[IRS_PAGE] = pages[IRS_PAGE].replace("       주간증감     0.1", "       주간증감     0.2", 1)
         self.bad(pages)                                                               # 주간증감 ≠ 이번 주 − 지난주
         pages = kis_pages()
-        pages[4] = pages[4].replace("연말대비", "연간대비", 1)
+        pages[IRS_PAGE] = pages[IRS_PAGE].replace("연말대비", "연간대비", 1)
         self.bad(pages)                                                               # 모르는 줄
-        self.bad(kis_pages()[:4] + kis_pages()[5:])                                    # KTB 표가 없다(IRS · CRS 쪽이 빠짐)
+        self.bad(kis_pages()[:IRS_PAGE] + kis_pages()[IRS_PAGE + 1:])                  # IRS · CRS 쪽이 빠졌다
         pages = kis_pages()
-        self.bad(pages + [pages[4]])                                                   # 같은 표가 둘 — 어느 것인지 모른다
+        self.bad(pages + [pages[IRS_PAGE]])                                            # 같은 표가 둘 — 어느 것인지 모른다
+
+    def test_january_issues_keep_their_numbers(self):
+        # 1월 첫 호: 지난주가 지난해 12-30이면 날짜 크기로는 지난해 말보다 늦고, 12-31이면 두 날짜 줄이 같다 — 표의 차례로 읽는다
+        for date, prev in (("2027-01-08", "2026-12-30"), ("2027-01-07", "2026-12-31"), ("2027-01-02", "2026-12-26")):
+            with self.subTest(prev=prev):
+                pages = kis_pages(date=date, prev=prev)
+                if prev.endswith("12-31"):                                           # 지난주 = 지난해 말: 두 줄의 값도 같다
+                    same = {k: (v[0], v[1], v[1]) for k, v in IRS.items()}
+                    pages = kis_pages(date=date, prev=prev, irs=same, crs={k: (v[0], v[1], v[1]) for k, v in CRS.items()},
+                                      ktb={k: (v[0], v[1], v[1]) for k, v in KTB.items()})
+                n = F.kis_numbers(pages, date)
+                self.assertEqual((n["date"], n["prev"]), (date, prev))
+        self.bad_on([p.replace("2025-12-31", "2026-12-31") for p in kis_pages()], "2026-11-13")   # 지난해 말 줄이 지난해 것이 아니다
+
+    def bad_on(self, pages, date):
+        with self.assertRaises(F.Bad):
+            F.kis_numbers(pages, date)
 
     def test_credit_checks(self):
         rows = dict(GRADE_ROWS)
@@ -413,65 +521,131 @@ class TableTest(unittest.TestCase):
 # ---------- 요약에 읽힐 글 · 표지 ----------
 
 class TextTest(unittest.TestCase):
-    def test_kis_text_keeps_six_sections_and_the_market_paragraph(self):
-        t = F.kis_text(kis_pages())
-        lines = t.split("\n")
-        self.assertEqual([x.split(":")[0] for x in lines if not x.startswith("- ")],
-                         ["국공채", "금융채", "회사채", "CD/CP", "해외채권", "SWAP", "국공채 시장동향"])
-        self.assertIn("해외채권: 지어낸 물가 우려에 미 국채금리 상승", lines)           # 줄바꿈으로 이어진 제목
-        self.assertIn("- CD : 감소, CD-은행채 스프레드 감소", lines)
-        for gone in ("INDEX", "지수 누적수익률", "가나다라제일차", "ELS", "주가지수", "홍길동", "1234-5678", "KEY POINT", "someone@", "그림1"):
-            self.assertNotIn(gone, t)
-        self.assertIn("[메일]", t)
-        self.assertTrue(lines[-1].startswith("국공채 시장동향: 주 첫 영업일") and "금리가상승했다." in lines[-1])
-        self.assertEqual(F.kis_text(kis_pages()[2:]), "")                              # 요약 쪽이 없으면 묻지 않는다
+    def test_kis_sections_summary_page_and_section_bodies(self):
+        secs = F.sections_of("kis", kis_pages())
+        self.assertEqual([l for l, _ in secs], ["요약 쪽", "국공채", "회사채", "스왑"])          # 없는 절(금융채 · 단기사채 · 해외채권)은 빠진다
+        head = secs[0][1].split("\n")
+        self.assertEqual([x.split(":")[0] for x in head if not x.startswith("- ")], ["국공채", "금융채", "회사채", "CD/CP", "해외채권", "SWAP"])
+        self.assertIn("해외채권: 지어낸 물가 우려에 미 국채금리 상승", head)            # 줄바꿈으로 이어진 제목
+        self.assertIn("- CD : 감소, CD-은행채 스프레드 감소", head)
+        body = dict(secs)
+        self.assertTrue(body["국공채"].startswith("주 첫 영업일") and "금리가상승했다." in body["국공채"] and "12.5bp" in body["국공채"])
+        self.assertTrue(body["국공채"].endswith("문의는 [메일]"))                          # 본문 줄의 전자우편은 가리기만 한다
+        self.assertTrue(body["회사채"].startswith("회사채 3년 AA- 등급 스프레드는") and "표1" not in body["회사채"])
+        self.assertTrue(body["스왑"].startswith("당일 CD금리는"))
+        whole = "\n".join(t for _, t in secs)
+        for gone in ("INDEX", "지수 누적수익률", "가나다라제일차", "ELS", "주가지수", "홍길동", "김아무", "이아무", "1234-56", "KEY POINT",
+                     "평가담당자", "someone@", "그림1", "AAA", "URD"):
+            self.assertNotIn(gone, whole)
+        self.assertEqual(F.sections_of("kis", kis_pages()[2:]), [])                   # 요약 쪽이 없으면 묻지 않는다
 
-    def test_kap_text_is_the_summary_paragraphs_only(self):
-        t = F.kap_text(kap_pages())
-        self.assertEqual(t.split("\n")[0], "지어낸 단기 금리는 연말 차환 부담과 수요 둔화로 오름세를 이어갔음.")
-        self.assertEqual(len(t.split("\n")), 3)
-        for gone in ("수익률곡선", "4.700", "본보고서", "CONTACT", "홍길동", "someone@", "대표전화"):
-            self.assertNotIn(gone, t)
+    def test_kap_sections_drop_author_lines_and_scraps(self):
+        secs = F.sections_of("kap", kap_pages())
+        self.assertEqual([l for l, _ in secs], ["요약 쪽", "단기 금융시장", "국공채"])
+        body = dict(secs)
+        self.assertEqual(body["요약 쪽"].split("\n")[0], "지어낸 단기 금리는 연말 차환 부담과 수요 둔화로 오름세를 이어갔음.")
+        self.assertEqual(len(body["요약 쪽"].split("\n")), 3)
+        self.assertEqual(body["단기 금융시장"], "‘지어낸 CP 약세’ 지난 주 단기자금시장은 지어낸 적수 부족으로 시작하였으며 MMF 자금은 전전주 대비 감소하였음.")
+        self.assertEqual(body["국공채"], "'지어낸 제목' 지난주 국내 채권 시장은 지어낸 물가 지표 상회로 약세를 보였음. 주 후반 지어낸 인사들의"
+                                       "매파적 발언이 이어지며 약세 흐름을 이어갔음. 국고 3년 수익률은 전전주 대비 상승하였음.")   # '바' · '0' 줄은 건너뛴다
+        whole = "\n".join(t for _, t in secs)
+        for gone in ("수익률곡선", "4.700", "본보고서", "CONTACT", "홍길동", "김아무", "박아무", "someone@", "other@", "p@", "1234-5678",
+                     "2345-6789", "대표전화", "<그림>", "자료:"):
+            self.assertNotIn(gone, whole)
         no_caption = kap_pages()[0].replace("▲ 수익률곡선추이와장단기금리등락폭", "")
-        t2 = F.kap_text([no_caption])
+        t2 = F.kap_summary([no_caption])
         self.assertNotIn("4.700", t2)
         self.assertIn("크레딧 스프레드는축소되었음.", t2)
-        self.assertEqual(F.kap_text(["Fixed Income Weekly\n본문만"]), "")
+        self.assertEqual(F.sections_of("kap", ["Fixed Income Weekly\n본문만", KAP_SHORT]), [])
+        dup = F.sections_of("kap", kap_pages() + [KAP_SHORT.replace("지어낸 적수", "다른 적수")])
+        self.assertIn("지어낸 적수", dict(dup)["단기 금융시장"])                             # 같은 절이 둘이면 앞의 것
+
+    def test_section_text_is_cut_at_a_sentence_end(self):
+        long = "Fixed Income Weekly\n주간 국공채 시장동향\n" + "\n".join(["국고채 금리가 지어낸 까닭으로 올랐음." * 3] * 40) + "\n<표>\n"
+        t = dict(F.sections_of("kap", kap_pages()[:1] + [long]))["국공채"]
+        self.assertLessEqual(len(t), F.SECTION_MAX)
+        self.assertTrue(t.endswith("음."))
+        self.assertEqual(F._cut("가" * 1000), "가" * F.SECTION_MAX)                    # 마침표가 없으면 그냥 자른다
+
+    def test_author_rule(self):
+        for line in ("홍길동 대리 (1234-5678) someone@example.invalid", "김아무 연구원(2251-1466) k@example.invalid",
+                     "평가담당자 KEY POINT", "홍길동 과장 02) 1234-5678 • 지어낸 요점"):
+            self.assertTrue(F._author(line), line)
+        prose = "상승했다. 국고 3년물은 지난주 대비 12.5bp 상승했고 국고 10년은 14.0bp 상승 마감했다. 문의는 someone@example.invalid 로 하면 된다고 적었다."
+        self.assertGreater(len(prose), F.AUTHOR_LINE)
+        self.assertFalse(F._author(prose))                                           # 긴 본문 줄은 담당자 줄이 아니다(가리기만 한다)
+        self.assertFalse(F._author("지어낸 단기 금리는 오름세를 이어갔음."))
+        self.assertEqual(F._mask("문의 02) 1234-5678 · (2283-3630) · a@b.co · https://x.example/y"), "문의 [전화] · [전화] · [메일] · [링크]")
 
     def test_cover_must_match_the_list(self):
         F.check_cover("kis", kis_pages(), {"issue": "1212", "date": "2026-11-13"})
         F.check_cover("kap", kap_pages(), {"issue": "26-46", "date": "2026-11-16"})
+        F.check_cover("kap", kap_pages("26-45", "November 09"), {"issue": "26-45", "date": "2026-11-09"})
         for src, pages, item in (("kis", kis_pages(), {"issue": "1213", "date": "2026-11-13"}),
                                  ("kis", kis_pages(), {"issue": "1212", "date": "2026-11-12"}),
-                                 ("kap", kap_pages(), {"issue": "26-45", "date": "2026-11-16"}), ("kap", [], {"issue": "26-46", "date": "2026-11-16"})):
-            self.assertRaises(F.Bad, F.check_cover, src, pages, item)
+                                 ("kis", kis_pages(), {"issue": "12", "date": "2026-11-13"}),          # 호수의 끝만 맞는 것
+                                 ("kis", kis_pages(), {"issue": "212", "date": "2026-11-13"}),
+                                 ("kap", kap_pages(), {"issue": "26-45", "date": "2026-11-16"}),
+                                 ("kap", kap_pages(), {"issue": "26-4", "date": "2026-11-16"}),        # 앞만 맞는 것
+                                 ("kap", kap_pages(), {"issue": "26-46", "date": "2026-11-09"}),       # 표지 날짜가 다르다
+                                 ("kap", [], {"issue": "26-46", "date": "2026-11-16"})):
+            with self.subTest(item=item):
+                self.assertRaises(F.Bad, F.check_cover, src, pages, item)
 
 
 # ---------- 요약 검사 ----------
 
 class SummaryTest(unittest.TestCase):
     def setUp(self):
-        self.kis, self.kap = F.kis_text(kis_pages()), F.kap_text(kap_pages())
+        self.kis = [t for _, t in F.sections_of("kis", kis_pages())]
+        self.kap = [t for _, t in F.sections_of("kap", kap_pages())]
 
-    def test_own_words_pass(self):
-        self.assertIsNone(F.summary_code("kis", KIS_GOOD, self.kis))
-        self.assertIsNone(F.summary_code("kap", KAP_GOOD, self.kap))
+    def test_own_words_pass_topic_by_topic(self):
+        for src, good, texts in (("kis", KIS_GOOD, self.kis), ("kap", KAP_GOOD, self.kap)):
+            items, failed = F.judge_topics(src, good, texts)
+            self.assertEqual(list(items), [t for t, v in good.items() if v])
+            self.assertEqual(failed, {})                                              # null 주제는 걸린 것이 아니다
 
     def test_each_check(self):
-        cases = [("kis", None, "none"), ("kis", "짧다.", "shape"), ("kis", KIS_GOOD + " 셋째 문장이다. 넷째 문장이다.", "shape"),
-                 ("kis", KIS_GOOD.replace("올랐다.", "올랐다"), "shape"), ("kis", "가" * 120 + "다. " + "나" * 140 + "다.", "shape"),
-                 ("kis", KIS_GOOD.replace("국공채가", "국공채가 \"크게\""), "shape"), ("kis", KIS_GOOD + " www.example.com 이다.", "shape"),
+        g = KIS_GOOD["국채"]
+        cases = [("kis", None, "none"), ("kis", "짧다.", "shape"), ("kis", g + " 셋째 문장이다. 넷째 문장이다.", "shape"),
+                 ("kis", g.replace("영향이었다.", "영향이었다"), "shape"), ("kis", "가" * 120 + "다. " + "나" * 110 + "다.", "shape"),
+                 ("kis", g.replace("국공채가", "국공채가 \"크게\""), "shape"), ("kis", g + " www.example.com 이다.", "shape"),
                  ("kis", "국고 3년물이 12.5bp 올랐다. 앞으로 금리는 더 오를 것으로 보인다.", "banned"),
                  ("kis", "국고 3년물이 12.5bp 올라 국공채가 약세였다. 은행채는 매수 우위였다.", "banned"),
-                 ("kis", "주 첫 영업일 국내 채권시장은 지어낸 증시 호조에 약세로 출발했고 금리가 올랐다.", "copy"),
+                 ("kis", COPIED, "copy"),
                  ("kis", "국고 3년물이 한 주 사이 13.5bp 올라 국공채가 약세를 보였다. 회사채는 커브가 평탄해졌다.", "number"),
+                 ("kis", "국고 3년물이 12.5bp, 국고 10년은 14.0bp 올랐고 CD 91일물은 0.03% 올랐다. 스프레드는 0.7bp 줄었다.", "number"),  # 값 숫자 넷
                  ("kis", "국고 3년물이 한 주 사이 12.5bp 올라 국공채가 약세를 보였다. 기준금리는 동결됐다.", "term"),
                  ("kis", "국고 3년물이 한 주 사이 12.5bp 올라 국공채가 약세를 보였다. QQZ 쪽 영향이 컸다.", "name"),
                  ("kap", "국채 금리가 크게 올랐다. CD 91일물은 3.37%로 마감했다는 사실이 적혔다.", "number"),
                  ("kap", "지어낸 물가 지표 상회로 국채 금리가 크게 올랐다. 단기물은 1년 안팎이 강세였다.", "digits")]
         for src, s, want in cases:
             with self.subTest(s=s):
-                self.assertEqual(F.summary_code(src, s, self.kis if src == "kis" else self.kap), want)
+                self.assertEqual(F.topic_code(src, s, self.kis if src == "kis" else self.kap), want)
+
+    def test_terms_from_one_section_are_enough(self):
+        # 절을 서로 다른 채널로 보면 A · B급 낱말이 한 절에만 있을 때 걸린다 — 보고서 하나는 한 출처다
+        s = "회사채 스프레드가 단기를 중심으로 강세를 보이며 좁혀졌다. 회사채 금리는 모든 구간에서 올랐다."
+        self.assertIsNone(F.topic_code("kis", s, self.kis))
+
+    def test_main_code_and_topic_judging(self):
+        self.assertEqual(F.main_code([]), "none")
+        self.assertEqual(F.main_code(["copy", "number", "copy"]), "copy")
+        self.assertEqual(F.main_code(["number", "copy"]), "copy")                      # 같으면 NOTES 차례
+        items, failed = F.judge_topics("kis", {**KIS_GOOD, "국채": COPIED, "해외 금리": "짧다."}, self.kis)
+        self.assertEqual((list(items), failed), (["크레딧", "스왑"], {"국채": "copy", "해외 금리": "shape"}))
+
+    def test_answers_are_read_strictly(self):
+        L_ = L
+        got = F.answers_of(json.dumps({"kis": {"국채": "가", "스왑": None}}), ["kis", "kap"])
+        self.assertEqual(got, {"kis": {"국채": "가", "크레딧": None, "단기자금": None, "해외 금리": None, "스왑": None},
+                               "kap": {"국채": None, "크레딧": None, "단기자금": None, "해외 금리": None}})
+        self.assertEqual(F.answers_of('```json\n{"kap": null}\n```', ["kap"])["kap"]["국채"], None)
+        for bad in ('{"kis": {"국채": 1}}', '{"kis": {"주가": "가"}}', '{"kap": {"스왑": "가"}}', '{"xx": {}}', '[]', 'not json',
+                    '{"kis": "가"}', '{"kis": {"국채": "가", "국채": "나"}}'):
+            with self.subTest(bad=bad), self.assertRaises(L_.Ask):
+                F.answers_of(bad, ["kis", "kap"])
 
     def test_copy_rule_is_the_evening_one_with_six_stems(self):
         text = "가나 다라 마바 사아 자차 카타 파하 거너 더러"
@@ -480,6 +654,23 @@ class SummaryTest(unittest.TestCase):
         self.assertFalse(K.ok_copy(five, [text]))                                    # 저녁판은 다섯 어절에서 걸린다
         self.assertTrue(F.ok_copy(five, [text]))
         self.assertFalse(F.ok_copy(six, [text]))
+
+    def test_prompt_shape(self):
+        asked = [{"key": "kis", "sections": F.sections_of("kis", kis_pages()), "numbers": True},
+                 {"key": "kap", "sections": F.sections_of("kap", kap_pages()), "numbers": False}]
+        p = F.prompt_of(asked, "ab" * 8)
+        body = p.split("<<<자료 abababababababab 시작>>>\n")[1].split("\n<<<자료 abababababababab 끝>>>")[0]
+        lines = body.split("\n")
+        self.assertEqual(lines[0], "보고서 kis — 숫자 씀 — 주제: 국채, 크레딧, 단기자금, 해외 금리, 스왑")
+        self.assertIn("보고서 kap — 숫자 없음 — 주제: 국채, 크레딧, 단기자금, 해외 금리", lines)
+        heads = [x for x in lines if not x.startswith("| ")]
+        self.assertEqual(heads, ["보고서 kis — 숫자 씀 — 주제: 국채, 크레딧, 단기자금, 해외 금리, 스왑", "[요약 쪽]", "[국공채]", "[회사채]", "[스왑]",
+                                 "보고서 kap — 숫자 없음 — 주제: 국채, 크레딧, 단기자금, 해외 금리", "[요약 쪽]", "[단기 금융시장]", "[국공채]"])
+        self.assertNotIn("고쳐 쓰기:", p)
+        fix = F.prompt_of(asked, "cd" * 8, {"kap": {"국채": "copy"}})
+        self.assertIn("고쳐 쓰기:", fix)
+        self.assertIn("- 보고서 kap · 주제 국채: " + F.WHY["copy"], fix)
+        self.assertLess(fix.index("<<<자료 cdcdcdcdcdcdcdcd 끝>>>"), fix.index("고쳐 쓰기:"))     # 걸린 까닭은 자료 경계 밖, 이 스크립트의 글
 
 
 # ---------- 파일의 꼴 ----------
@@ -512,11 +703,25 @@ class ValidateTest(unittest.TestCase):
         self.broken(lambda d: d["reports"][kap].update(url=KAP_URL))                    # KAP는 파일이 아니라 게시판으로
         self.broken(lambda d: d["reports"][kis].update(issue="12a"))
         self.broken(lambda d: d["reports"][kap].update(posted="2026-11-15"))           # 게시가 기준일보다 앞
-        self.broken(lambda d: d["reports"][kis].update(summary="앞으로 금리는 오를 것으로 보인다는 말이 적혔다."))
-        self.broken(lambda d: d["reports"][kap].update(summary="국채 금리가 3bp 올랐고 크레딧은 강세를 이어갔다."))
+        item = lambda t, x: {"topic": t, "text": x}
+        self.broken(lambda d: d["reports"][kis]["summary"][0].update(text="앞으로 금리는 오를 것으로 보인다는 말이 적혔다."))
+        self.broken(lambda d: d["reports"][kap]["summary"][0].update(text="국채 금리가 3bp 올랐고 크레딧은 강세를 이어갔다."))
+        self.broken(lambda d: d["reports"][kis].update(summary="한 덩어리 글은 이제 꼴이 아니다."))
+        self.broken(lambda d: d["reports"][kis].update(summary=d["reports"][kis]["summary"][:1]))      # 주제가 둘보다 적다
+        self.broken(lambda d: d["reports"][kis]["summary"].reverse())                                  # 주제 차례
+        self.broken(lambda d: d["reports"][kis]["summary"].append(dict(d["reports"][kis]["summary"][0])))   # 같은 주제 둘
+        self.broken(lambda d: d["reports"][kap]["summary"].append(item("스왑", "IRS와 CRS 금리가 함께 올랐다고 적었다.")))   # KAP에 없는 주제
+        self.broken(lambda d: d["reports"][kis]["summary"][0].update(topic="주가"))
+        self.broken(lambda d: d["reports"][kis]["summary"][0].update(extra=1))
+        self.broken(lambda d: d["reports"][kis]["summary"][0].update(text="가" * 240 + "다."))
         self.broken(lambda d: d["reports"][kis].update(summary=None))                   # 사유 없는 빈 요약
         self.broken(lambda d: d["reports"][kis].update(summary=None, summary_note="model"))   # 모델 이름이 남았다
+        self.broken(lambda d: d["reports"][kis].update(summary=None, summary_note="copy", model=None, summary_dropped=1))
         self.broken(lambda d: d["reports"][kis].update(summary_note="model"))
+        self.broken(lambda d: d["reports"][kis].update(summary_dropped=-1))
+        self.broken(lambda d: d["reports"][kis].update(summary_dropped=True))
+        self.broken(lambda d: d["reports"][kis].update(summary_dropped=3))                # 남은 주제(5 − 3 실림)보다 많이 뺐다
+        self.broken(lambda d: d["reports"][kis].pop("summary_dropped"))
         self.broken(lambda d: d["reports"][kis].update(numbers=None))
         self.broken(lambda d: d["reports"][kis].update(numbers_note="table"))
         self.broken(lambda d: d["reports"][kis]["numbers"]["rows"].update(irs_1y=[25.0, 1.0]))
@@ -531,6 +736,17 @@ class ValidateTest(unittest.TestCase):
         d = json.loads(F.dump(self.doc))
         d["reports"][0].update(summary=None, summary_note="copy", model=None, numbers=None, numbers_note="table")
         F.validate(d, TODAY)
+        d["reports"][0].update(summary=self.doc["reports"][0]["summary"], summary_note=None, summary_dropped=2, model="m")
+        F.validate(d, TODAY)
+
+    def test_the_ci_check_does_not_lean_on_the_evening_word_list(self):
+        # CI(DataFileTest)는 strict=False — 저녁판 금지 낱말이 나중에 늘어도 올라 있는 파일이 배포를 막지 않는다. 꼴은 그대로 본다
+        d = json.loads(F.dump(self.doc))
+        d["reports"][0]["summary"][0]["text"] = "앞으로 금리는 오를 것으로 보인다는 말이 적혔다."
+        self.assertRaises(F.Bad, F.validate, d, TODAY)
+        F.validate(d, TODAY, strict=False)
+        d["reports"][0]["summary"][0]["text"] = "꼴이 아닌 글"
+        self.assertRaises(F.Bad, F.validate, d, TODAY, strict=False)
 
 
 # ---------- 받기 ----------
@@ -575,22 +791,69 @@ class NetTest(unittest.TestCase):
         n.get("https://www.bond.co.kr/a", 9)
         self.assertEqual(web.timeouts, [10.0])                                         # min(REQ_S, 남은 예산)
 
-    def test_pdf_pages_refuses_non_pdf(self):
+    def test_reads_in_chunks_with_a_deadline(self):
+        clock = Clock()
+        big = b"y" * (F.CHUNK * 3 + 5)
+        n = F.Net(Web({"https://www.bond.co.kr/big": big}), clock.sleep, clock)
+        self.assertEqual(n.get("https://www.bond.co.kr/big", len(big)), big)        # 조각으로 나눠 읽어도 그대로
+        with self.assertRaises(F.Fetch) as e:
+            F.Net(Web({"https://www.bond.co.kr/big": big}), clock.sleep, clock).get("https://www.bond.co.kr/big", len(big) - 1)
+        self.assertEqual(e.exception.code, "format")                                   # 크기 상한
+        slow = Resp("https://www.bond.co.kr/slow", big, on_read=lambda k: setattr(clock, "t", clock.t + 50))   # 조각마다 50초 — 느린 응답
+        n = F.Net(Web({"https://www.bond.co.kr/slow": slow}), clock.sleep, clock)
+        with self.assertRaises(F.Fetch) as e:
+            n.get("https://www.bond.co.kr/slow", len(big))
+        self.assertEqual(e.exception.code, "budget")
+        self.assertLessEqual(slow.reads, 3)                                            # 예산(120초)을 넘긴 뒤 더 읽지 않는다
+
+    def test_pdf_pages_refuses_non_pdf_too_many_pages_and_slow_extraction(self):
         with self.assertRaises(F.Fetch) as e:
             F.pdf_pages(b"<html>")
         self.assertEqual(e.exception.code, "pdf")
+        clock = Clock()
+
+        class Page:
+            def extract_text(self, extraction_mode=None):
+                clock.t += 40
+                return "쪽"
+
+        class Reader:
+            def __init__(self, stream):
+                self.pages = [Page() for _ in range(count[0])]
+        fake = types.ModuleType("pypdf")
+        fake.PdfReader = Reader
+        real = sys.modules.get("pypdf")
+        sys.modules["pypdf"] = fake
+        try:
+            count = [2]
+            self.assertEqual(F.pdf_pages(b"%PDF-x", clock), ["쪽", "쪽"])
+            for n, code in ((F.PAGES_MAX + 1, "pdf"), (5, "pdf")):                   # 쪽이 너무 많다 · 글 뽑기가 PDF_S초를 넘는다
+                count = [n]
+                with self.assertRaises(F.Fetch) as e:
+                    F.pdf_pages(b"%PDF-x", clock)
+                self.assertEqual(e.exception.code, code)
+        finally:
+            if real is None:
+                sys.modules.pop("pypdf", None)
+            else:
+                sys.modules["pypdf"] = real
 
 
 # ---------- 한 번 돌기 ----------
+
+def listed(good, src):
+    """지어낸 답 {주제: 글 | None} → 실릴 꼴 [{topic, text}](주제 차례대로, null은 빠진다)."""
+    return [{"topic": t, "text": good[t]} for t in F.TOPICS_OF[src] if good.get(t)]
+
 
 class UpdateTest(unittest.TestCase):
     def setUp(self):
         self.exe = FakeExe(self).path
 
-    def run_update(self, old=None, off=(), today=TODAY, state=None, web=None, claude=None, table=None, force=False):
+    def run_update(self, old=None, off=(), today=TODAY, state=None, web=None, claude=None, table=None, force=False, ready=True):
         self.web, self.claude = web or Web(site()), claude or Claude()
         self.state = {} if state is None else state
-        io_ = make_io(self.web, self.claude, table, today)
+        io_ = make_io(self.web, self.claude, table, today, ready=ready)
         return F.update(old, set(off), today, io_, self.state, force=force, claude=self.exe)
 
     def test_first_run_fetches_both_and_asks_once(self):
@@ -599,22 +862,24 @@ class UpdateTest(unittest.TestCase):
         kis, kap = doc["reports"]
         self.assertEqual((kis["issue"], kis["date"], kis["posted"], kis["url"]), ("1212", "2026-11-13", "2026-11-16", "https://www.bond.co.kr/post/dawn/37184"))
         self.assertEqual((kap["issue"], kap["date"], kap["url"]), ("26-46", "2026-11-16", F.KAP_BOARD))
-        self.assertEqual((kis["summary"], kap["summary"], kis["model"]), (KIS_GOOD, KAP_GOOD, "claude-fx-1"))
+        self.assertEqual((kis["summary"], kap["summary"], kis["model"]), (listed(KIS_GOOD, "kis"), listed(KAP_GOOD, "kap"), "claude-fx-1"))
+        self.assertEqual((kis["summary_dropped"], kap["summary_dropped"]), (0, 0))
         self.assertEqual(kis["numbers"]["rows"]["irs_1y"], [3.1, 10.0])
-        self.assertEqual(seen, {"kis": "new", "num": "ok", "kap": "new", "requests": 4, "sum": "ok"})
+        self.assertEqual(seen, {"kis": "new", "num": "ok", "kap": "new", "requests": 4, "sum": "ok", "drop": 0, "fix": 0})
         self.assertEqual(self.web.asked, ["https://www.bond.co.kr/", "https://www.bond.co.kr/post/dawn/37184", F.KAP_LIST, KAP_URL])
-        self.assertEqual(len(self.claude.calls), 2)                                    # 점검 한 번 + 본 호출 한 번
+        self.assertEqual(len(self.claude.calls), 2)                                    # 점검 한 번 + 본 호출 한 번(걸린 주제가 없으면 고쳐 쓰기 없음)
         main = self.claude.main_calls()[0]
         self.assertTrue(main.empty)
-        self.assertIn("보고서 kis — 숫자 씀", main.text)
-        self.assertIn("보고서 kap — 숫자 없음", main.text)
+        self.assertIn("보고서 kis — 숫자 씀 — 주제: 국채, 크레딧, 단기자금, 해외 금리, 스왑", main.text)
+        self.assertIn("보고서 kap — 숫자 없음 — 주제: 국채, 크레딧, 단기자금, 해외 금리", main.text)
         marks = re.findall(r"<<<자료 ([0-9a-f]{16}) (시작|끝)>>>", main.text)
         self.assertEqual([m[1] for m in marks], ["시작", "끝"])
         body = main.text.split(f"<<<자료 {marks[0][0]} 시작>>>\n")[1].split(f"\n<<<자료 {marks[0][0]} 끝>>>")[0]
-        self.assertTrue(all(x.startswith(("| ", "보고서 ")) for x in body.split("\n")))
-        for gone in ("홍길동", "1234-5678", "someone@", "글쓴이이름", "가나다라제일차"):
+        self.assertTrue(all(x.startswith(("| ", "보고서 ", "[")) for x in body.split("\n")))
+        for gone in ("홍길동", "김아무", "박아무", "1234-5678", "someone@", "other@", "글쓴이이름", "가나다라제일차"):
             self.assertNotIn(gone, main.text)
-        self.assertEqual(self.state, {"kis": {"issue": "1212", "tries": 0}, "kap": {"issue": "26-46", "tries": 0}})
+        self.assertEqual(self.state, {"kis": {"issue": "1212", "tries": 0, "day": "2026-11-17"},
+                                      "kap": {"issue": "26-46", "tries": 0, "day": "2026-11-17"}})
 
     def test_the_next_days_wait_and_the_next_week_fetches(self):
         doc, _ = self.run_update()
@@ -664,23 +929,83 @@ class UpdateTest(unittest.TestCase):
         self.assertEqual(seen["kis"], "cover")
         self.assertEqual(got["reports"][0], doc["reports"][0])
 
+    def test_a_failed_issue_is_downloaded_once_a_day(self):
+        doc, _ = self.run_update()
+        later, state = datetime.date(2026, 11, 23), {}
+        web = lambda: Web(site(**{"https://www.bond.co.kr/": kis_main((("37300", "1213", "20261120", "2026.11.23"),)),
+                                  "https://www.bond.co.kr/post/dawn/37300": KIS_PDF}))    # 표지가 맞지 않는 새 호
+        _, seen = self.run_update(doc, today=later, web=web(), state=state)
+        self.assertEqual((seen["kis"], state["kis"]), ("cover", {"issue": "1213", "tries": 0, "day": "2026-11-23"}))
+        for _ in range(2):                                                             # 같은 날 23:30 · 다음 실행 — 목록만, PDF는 받지 않는다
+            _, seen = self.run_update(doc, today=later, web=web(), state=state)
+            self.assertEqual(seen["kis"], "later")
+            self.assertNotIn("https://www.bond.co.kr/post/dawn/37300", self.web.asked)
+        _, seen = self.run_update(doc, today=later + datetime.timedelta(days=1), web=web(), state=state)
+        self.assertEqual(seen["kis"], "cover")                                         # 이튿날 한 번 더
+        _, seen = self.run_update(doc, today=later, web=web(), state=state, force=True)
+        self.assertEqual(seen["kis"], "cover")                                         # --force는 하루 한 번을 넘는다
+
+    def test_without_pypdf_nothing_is_fetched(self):
+        doc, seen = self.run_update(ready=False)
+        self.assertEqual((seen["kis"], seen["kap"], seen["requests"], doc["reports"]), ("pypdf", "pypdf", 0, []))
+        self.assertEqual(self.web.asked, [])
+
     def test_a_misread_table_drops_the_numbers_only(self):
         pages = kis_pages()
-        pages[4] = pages[4].replace("주간증감", "주간 증감")
+        pages[IRS_PAGE] = pages[IRS_PAGE].replace("주간증감", "주간 증감")
         doc, seen = self.run_update(table={**PAGES, KIS_PDF: pages})
         kis = doc["reports"][0]
-        self.assertEqual((kis["numbers"], kis["numbers_note"], kis["summary"], seen["num"]), (None, "table", KIS_GOOD, "table"))
+        self.assertEqual((kis["numbers"], kis["numbers_note"], kis["summary"], seen["num"]), (None, "table", listed(KIS_GOOD, "kis"), "table"))
+        F.validate(doc, TODAY)
+
+    def test_numbers_out_of_the_file_range_drop_the_numbers_not_the_run(self):
+        big = {k: v for k, v in CRS.items()}
+        big["1Y"] = (5.95, 2.85, 2.20)                                                 # 주간 310bp — 표는 맞지만 파일의 범위(200bp) 밖
+        doc, seen = self.run_update(table={**PAGES, KIS_PDF: kis_pages(crs=big)})
+        self.assertEqual((doc["reports"][0]["numbers"], doc["reports"][0]["numbers_note"], seen["num"]), (None, "table", "table"))
+        F.validate(doc, TODAY)
+
+    def test_failed_topics_are_written_once_more(self):
+        first = {"kis": {**KIS_GOOD, "국채": COPIED}, "kap": KAP_GOOD}
+        fixed = Claude(answer=first, repair={"kis": {"국채": KIS_GOOD["국채"], "크레딧": "고쳐 쓰기에서 묻지 않은 주제는 버린다고 적었다."}})
+        doc, seen = self.run_update(claude=fixed)
+        self.assertEqual(doc["reports"][0]["summary"], listed(KIS_GOOD, "kis"))       # 묻지 않은 주제(크레딧)의 새 답은 버린다
+        self.assertEqual((seen["fix"], seen["drop"], doc["reports"][0]["summary_dropped"]), (1, 0, 0))
+        rep = fixed.repair_calls()
+        self.assertEqual(len(rep), 1)
+        self.assertIn("- 보고서 kis · 주제 국채: " + F.WHY["copy"], rep[0].text)
+        self.assertNotIn("보고서 kap ·", rep[0].text)
+        self.assertNotIn(COPIED, rep[0].text)                                          # 버린 글은 건네지 않는다
+        self.assertEqual(len(fixed.calls), 3)                                          # 점검 · 본 · 고쳐 쓰기(점검은 한 번)
+        still = Claude(answer=first, repair={"kis": {"국채": COPIED}})
+        doc, seen = self.run_update(claude=still)
+        self.assertEqual((seen["fix"], seen["drop"], doc["reports"][0]["summary_dropped"]), (0, 1, 1))
+        self.assertEqual([x["topic"] for x in doc["reports"][0]["summary"]], ["크레딧", "스왑"])
+        F.validate(doc, TODAY)
+        down = Claude(answer=first, repair_code=1)                                     # 고쳐 쓰기가 실패해도 첫 답의 결과는 그대로
+        doc, seen = self.run_update(claude=down)
+        self.assertEqual((seen["fix"], seen["fix_ask"], seen["sum"], doc["reports"][0]["summary_dropped"]), (0, "exit", "ok", 1))
+
+    def test_too_few_topics_means_no_summary(self):
+        bad = Claude(answer={"kis": KIS_GOOD, "kap": {"국채": KAP_GOOD["국채"], "크레딧": KAP_COPIED, "단기자금": "짧다.", "해외 금리": "짧다."}},
+                     repair={"kap": {"크레딧": KAP_COPIED, "단기자금": "짧다.", "해외 금리": "짧다."}})
+        doc, seen = self.run_update(claude=bad)
+        kap = doc["reports"][1]
+        self.assertEqual((kap["summary"], kap["summary_note"], kap["summary_dropped"], kap["model"]), (None, "shape", 0, None))
+        self.assertEqual((seen["sum"], self.state["kap"]["tries"]), ("ok_shape", 1))
+        doc, seen = self.run_update(claude=Claude(answer={"kis": KIS_GOOD, "kap": {}}))
+        self.assertEqual((doc["reports"][1]["summary_note"], self.state["kap"]["tries"]), ("none", 1))   # 모두 null도 한 번으로 센다
         F.validate(doc, TODAY)
 
     def test_model_failure_keeps_the_entry_without_summary_and_retries(self):
         doc, seen = self.run_update(claude=Claude(code=1))
         self.assertEqual([(r["summary"], r["summary_note"], r["model"]) for r in doc["reports"]], [(None, "model", None)] * 2)
         self.assertEqual((seen["sum"], seen["ask"]), ("model", "exit"))
-        self.assertEqual(self.state, {})                                               # 모델 실패는 셈하지 않는다
+        self.assertEqual([self.state[k]["tries"] for k in ("kis", "kap")], [0, 0])     # 모델 실패는 셈하지 않는다
         F.validate(doc, TODAY)
         again, seen = self.run_update(doc, today=datetime.date(2026, 11, 18))           # 게시 뒤 7일 안 — 다시 받고 다시 묻는다
         self.assertEqual((seen["kis"], seen["kap"], seen["sum"]), ("retry", "retry", "ok"))
-        self.assertEqual(again["reports"][0]["summary"], KIS_GOOD)
+        self.assertEqual(again["reports"][0]["summary"], listed(KIS_GOOD, "kis"))
         _, seen = self.run_update(doc, today=datetime.date(2026, 11, 23))               # 7일이 지나면 다시 묻지 않는다(새 호를 기다린다)
         self.assertEqual((seen["kis"], seen["kap"]), ("same", "same"))
         for claude, code in ((Claude(tools=["Bash"]), "tools"), (Claude(tool_use=True), "tool_use"), (Claude(answer="not json"), "json")):
@@ -688,15 +1013,15 @@ class UpdateTest(unittest.TestCase):
             self.assertEqual((seen["sum"], seen["ask"]), ("model", code))
 
     def test_checked_out_answers_count_up_to_three_tries(self):
-        bad = Claude(answer={"kis": "주 첫 영업일 국내 채권시장은 지어낸 증시 호조에 약세로 출발했고 금리가 올랐다.", "kap": KAP_GOOD})
+        bad = Claude(answer={"kis": {"국채": COPIED}, "kap": KAP_GOOD}, repair={"kis": {"국채": COPIED}})
         doc, seen = self.run_update(claude=bad)
         self.assertEqual((doc["reports"][0]["summary_note"], seen["sum"]), ("copy", "copy_ok"))
-        self.assertEqual(self.state["kis"], {"issue": "1212", "tries": 1})
+        self.assertEqual(self.state["kis"], {"issue": "1212", "tries": 1, "day": "2026-11-17"})
         state = self.state
-        for n in (2, 3):
-            doc, seen = self.run_update(doc, state=state, claude=bad, today=datetime.date(2026, 11, 18))
+        for n, day in ((2, 18), (3, 19)):                                              # 하루 한 번씩 다시
+            doc, seen = self.run_update(doc, state=state, claude=bad, today=datetime.date(2026, 11, day))
             self.assertEqual((seen["kis"], seen["kap"], state["kis"]["tries"]), ("retry", "wait", n))
-        _, seen = self.run_update(doc, state=state, claude=bad, today=datetime.date(2026, 11, 18))
+        _, seen = self.run_update(doc, state=state, claude=bad, today=datetime.date(2026, 11, 20))
         self.assertEqual((seen["kis"], seen["requests"]), ("wait", 0))                 # 세 번 걸렸으면 새 호까지 기다린다
 
     def test_force_and_short_text(self):
@@ -707,6 +1032,7 @@ class UpdateTest(unittest.TestCase):
         doc, seen = self.run_update(table=table)
         self.assertEqual((doc["reports"][1]["summary_note"], seen["sum"]), ("text", "ok"))   # 묻지 않았다
         self.assertNotIn("보고서 kap", self.claude.main_calls()[0].text)
+        self.assertEqual(self.state["kap"]["tries"], 1)                                # 읽힐 글이 없던 것도 한 번
 
 
 # ---------- 게시(가짜 git) ----------
@@ -748,10 +1074,17 @@ def good_tool(**more):
                    "diff": (0, PATH + "\n"), "gh": (0, json.dumps([{"name": "EVENING_ENABLED", "value": "true"}])), **more})
 
 
+def plant_script(repo):
+    """게시 전용 폴더의 main 끝에 이 게시기가 있다(없으면 gone으로 멈춘다)."""
+    os.makedirs(os.path.join(repo, "scripts"), exist_ok=True)
+    open(os.path.join(repo, "scripts", "fi_weekly.py"), "w").close()
+
+
 class PublishTest(unittest.TestCase):
     def setUp(self):
         self.repo = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.repo, True)
+        plant_script(self.repo)
         self.doc, _ = F.update(None, set(), TODAY, make_io(), {}, claude=FakeExe(self).path)
 
     def test_pushes_one_file(self):
@@ -798,9 +1131,28 @@ class PublishTest(unittest.TestCase):
         file = os.path.join(self.repo, *PATH.split("/"))
         t = good_tool(push=[1, 0], rev_parse=lambda c: (0, next(heads)),
                       checkout=lambda c: (os.remove(file), 0)[1])                     # 새 main의 끝으로 — 올리지 못한 파일은 사라진다
-        self.assertEqual(F.publish(self.repo, self.doc, TODAY, t), "pushed")
+        self.assertEqual(F.publish(self.repo, self.doc, TODAY, t, recheck=lambda: set()), "pushed")
         self.assertEqual(t.names().count("push"), 2)
         self.assertEqual(t.names().count("checkout"), 1)
+
+    def retry(self, checkout, recheck=lambda: set(), had=False):
+        """push가 거절되고 main이 움직인 경우 — checkout(새 main의 끝으로)이 폴더를 바꾼다."""
+        file = os.path.join(self.repo, *PATH.split("/"))
+        if had:
+            F._write(self.repo, F.dump(F.empty(datetime.date(2026, 11, 10))))      # main에 옛 파일이 있었다
+        heads = iter(["aaa\naaa\n", "bbb\n"])
+        t = good_tool(status=(0, MOD if had else NEW), push=[1, 0], rev_parse=lambda c: (0, next(heads)),
+                      checkout=lambda c: (checkout(file), 0)[1])
+        with self.assertRaises(F.Stop) as e:
+            F.publish(self.repo, self.doc, TODAY, t, recheck=recheck)
+        self.assertEqual(t.names().count("push"), 1)                                   # 다시 올리지 않는다
+        return e.exception.code
+
+    def test_the_retry_does_not_undo_a_takedown(self):
+        # 그사이 main에서 파일을 지웠다 / 스위치로 내렸다 / 게시기를 지웠다 — 옛 바이트를 새 main에 올리지 않는다
+        self.assertEqual(self.retry(lambda f: os.remove(f), had=True), "moved")
+        self.assertEqual(self.retry(lambda f: os.remove(f), recheck=lambda: {"kap"}), "moved")
+        self.assertEqual(self.retry(lambda f: (os.remove(f), os.remove(os.path.join(self.repo, "scripts", "fi_weekly.py")))), "gone")
 
     def test_switch(self):
         self.assertEqual(F.switch(self.repo, good_tool()), set())
@@ -818,6 +1170,7 @@ class MainTest(unittest.TestCase):
     def setUp(self):
         self.repo = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.repo, True)
+        plant_script(self.repo)
         self.log = os.path.join(self.repo, "..", os.path.basename(self.repo) + ".log")
         self.addCleanup(lambda: os.path.exists(self.log) and os.remove(self.log))
         self.exe = FakeExe(self).path
@@ -853,17 +1206,49 @@ class MainTest(unittest.TestCase):
         code, out = self.main(tool=tool)
         self.assertEqual(code, 0)
         self.assertIn("result=pushed", out)
-        self.assertEqual(tool.names()[:2], ["gh", "status"])                          # 스위치 → sync
-        self.assertTrue(os.path.exists(os.path.join(self.repo, ".work", "fi_weekly", "state.json")))
-        code, out = self.main(tool=self.tool(gh=(1, "")))
+        names = tool.names()
+        self.assertEqual(names[0], "status")                                          # sync가 먼저(잔재를 치운다) → 그다음 스위치
+        self.assertLess(names.index("checkout"), names.index("gh"))
+        state = os.path.join(self.repo, ".work", "fi_weekly", "state.json")
+        self.assertTrue(os.path.exists(state))
+        F._write(self.repo, b"{}")                                                    # 앞 실행이 끊겨 남긴 파일
+        tool = self.tool(gh=(1, ""))
+        code, out = self.main(tool=tool)
         self.assertEqual(code, 2)
         self.assertIn("code=switch", out)
+        self.assertFalse(os.path.exists(os.path.join(self.repo, *PATH.split("/"))))   # 스위치를 못 읽어도 잔재는 치웠다
+        os.remove(state)
         tool = self.tool(blind=1)
         code, out = self.main(tool=tool)
         self.assertEqual(code, 2)
         self.assertIn("code=blind", out)
         self.assertIn(["git", "reset", "--quiet", "--", PATH], tool.calls)            # 멈추면 정리한다(tidy)
         self.assertFalse(os.path.exists(os.path.join(self.repo, *PATH.split("/"))))
+        with open(state, encoding="utf-8") as f:                                     # 멈췄어도 오늘 받은 호를 남긴다 — 같은 날 다시 받지 않게
+            self.assertEqual({k: v["day"] for k, v in json.load(f).items()}, {"kis": "2026-11-17", "kap": "2026-11-17"})
+        web = Web(site())
+        code, out = self.main(tool=self.tool(blind=1), web=web)
+        self.assertIn("kis=later", out)
+        self.assertNotIn("https://www.bond.co.kr/post/dawn/37184", web.asked)
+
+    def test_a_removed_publisher_does_nothing(self):
+        os.remove(os.path.join(self.repo, "scripts", "fi_weekly.py"))                 # main에서 칸 전체를 내렸다(옛 코드가 돈다)
+        web, claude = Web(site()), Claude()
+        code, out = self.main(web=web, claude=claude)
+        self.assertEqual(code, 2)
+        self.assertIn("code=gone", out)
+        self.assertEqual((web.asked, claude.calls), ([], []))
+        self.assertFalse(os.path.exists(os.path.join(self.repo, *PATH.split("/"))))
+
+    def test_tidy_mode_only_puts_the_file_back(self):
+        F._write(self.repo, b"{}")
+        tool, web = self.tool(), Web(site())
+        code, out = self.main(["--tidy"], tool=tool, web=web)
+        self.assertEqual(code, 0)
+        self.assertIn("result=tidy", out)
+        self.assertFalse(os.path.exists(os.path.join(self.repo, *PATH.split("/"))))
+        self.assertEqual(web.asked, [])
+        self.assertNotIn("gh", tool.names())
 
     def test_unexpected_error_logs_the_kind_only(self):
         def boom(raw):
@@ -897,7 +1282,9 @@ class RealGitTest(unittest.TestCase):
             for k, v in (("user.name", "fx"), ("user.email", "fx@example.invalid"), ("core.autocrlf", "false"), ("commit.gpgsign", "false")):
                 self.git(repo, "config", k, v)
         os.makedirs(os.path.join(self.other, "data"))
-        for name, body in (("data/digest_picks.json", "{}"), ("data/people_remarks.json", "{}"), (".gitignore", ".work/\n")):
+        os.makedirs(os.path.join(self.other, "scripts"))
+        for name, body in (("data/digest_picks.json", "{}"), ("data/people_remarks.json", "{}"), (".gitignore", ".work/\n"),
+                           ("scripts/fi_weekly.py", "# 자리\n")):
             with open(os.path.join(self.other, *name.split("/")), "w", encoding="utf-8") as f:
                 f.write(body)
         self.git(self.other, "add", "-A")
@@ -957,6 +1344,18 @@ class RealGitTest(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(self.pc, *PATH.split("/"))))
         F._picks().sync(self.pc, self.tool)                                            # 저녁판 게시는 막히지 않는다
 
+    def test_taking_the_card_down_as_the_readme_says(self):
+        self.assertEqual(self.run_main(), 0)
+        self.git(self.other, "pull", "--quiet", "--rebase", "origin", "main")
+        self.git(self.other, "rm", "--quiet", PATH, "scripts/fi_weekly.py")           # 운영자가 main에서 둘을 함께 지운다
+        self.git(self.other, "commit", "--quiet", "-m", "take down")
+        self.git(self.other, "push", "--quiet", "origin", "HEAD:main")
+        before = self.git(self.other, "rev-parse", "HEAD").strip()
+        self.assertEqual(self.run_main(datetime.datetime(2026, 11, 24, 17, 45, tzinfo=KST)), 2)   # 지우기 전의 코드가 돌아도 다시 올리지 않는다
+        self.git(self.other, "fetch", "--quiet", "origin", "main")
+        self.assertEqual(self.git(self.other, "rev-parse", "origin/main").strip(), before)
+        self.assertEqual(self.status(), "")
+
 
 # ---------- 올라 있는 파일 · 화면 · 문서 ----------
 
@@ -967,7 +1366,7 @@ class DataFileTest(unittest.TestCase):
     def test_published_file_follows_the_contract(self):
         with open(DATA_FILE, "rb") as f:
             raw = f.read()
-        doc = F.validate(json.loads(raw.decode("utf-8")), datetime.date.today())
+        doc = F.validate(json.loads(raw.decode("utf-8")), datetime.date.today(), strict=False)   # 저녁판 낱말 목록에 기대지 않는다
         self.assertEqual(F.dump(doc), raw)
 
 
@@ -993,10 +1392,13 @@ class SiteTest(unittest.TestCase):
         self.assertEqual([tuple(x) for x in re.findall(r'\["(\w+)", "(%|bp)"\]', pick("ROWS"))], list(F.ROWS))
         self.assertEqual(re.findall(r"(\w+): \"", pick("NOTES")), list(F.NOTES))
         self.assertEqual(re.findall(r"(\w+): \"", pick("NUM_NOTES")), list(F.NUM_NOTES))
+        topics = pick("TOPICS")
+        self.assertEqual({k: tuple(re.findall(r'"([^"]+)"', topics[topics.index(k + ":"):].split("]")[0])) for k in F.SOURCES}, F.TOPICS_OF)
+        self.assertIn(f"const TOPIC_CHARS = {F.TOPIC_CHARS}, MIN_TOPICS = {F.SUMMARY_MIN_TOPICS};", js)
         self.assertIn(f'const KAP_BOARD = "{F.KAP_BOARD}";', js)
         self.assertIn(r"const KIS_ITEM = /^https:\/\/www\.bond\.co\.kr\/post\/dawn\/[0-9]{1,9}$/;", js)
         self.assertIn('doc.schema !== "' + F.SCHEMA + '"', js)
-        self.assertIn(f"r.summary.length <= {F.SUMMARY_CHARS}", js)
+        self.assertIn("x.text.length > TOPIC_CHARS", js)
         for tok in ("innerHTML", "outerHTML", "insertAdjacentHTML", "createElement", "fetch(", "eval(", "<img", "src="):
             self.assertNotIn(tok, js)
 
@@ -1016,6 +1418,9 @@ class SiteTest(unittest.TestCase):
         self.assertIn('"--repo-dir"', code)
         self.assertNotIn("$code", code)                                               # 저녁판의 종료코드 · 오류 파일을 건드리지 않는다
         self.assertNotIn("$ErrorFile", code)
+        self.assertIn("$w.WaitForExit(900000)", code)                                 # 15분 — 넘으면 멈추고 --tidy로 정리만
+        self.assertIn('Start-Process -FilePath $py -ArgumentList ($fiArgs + @("--tidy"))', code)
+        self.assertNotIn("-Wait -PassThru", code)
         self.assertTrue(ps.isascii())
 
     def test_only_the_guarded_test_imports_the_module(self):

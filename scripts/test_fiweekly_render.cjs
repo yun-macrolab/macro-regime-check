@@ -27,10 +27,12 @@ function load(opts={}){
 const ROWS={irs_1y:[3.1,10],irs_3y:[3.3025,15.25],crs_1y:[2.9,5],crs_3y:[3,8],ss_1y:[-2,1],ss_3y:[1.25,2.25],
  basis_1y:[-20,-5],basis_3y:[-30.25,-7.25],aa_minus_3y:[65,-0.7],a_minus_3y:[175,1.2]};
 const KIS={src:'kis',issue:'1212',date:'2026-11-13',posted:'2026-11-16',url:'https://www.bond.co.kr/post/dawn/37184',
- summary:'지어낸 요약 첫 문장이다. 둘째 문장이다.',summary_note:null,model:'claude-fx-1',
+ summary:[{topic:'국채',text:'지어낸 국채 요약이다. 둘째 문장이다.'},{topic:'크레딧',text:'지어낸 크레딧 요약이다.'},{topic:'스왑',text:'지어낸 스왑 요약이다.'}],
+ summary_note:null,summary_dropped:0,model:'claude-fx-1',
  numbers:{date:'2026-11-13',prev:'2026-11-06',credit_date:'2026-11-13',credit_prev:'2026-11-06',rows:ROWS},numbers_note:null};
 const KAP={src:'kap',issue:'26-46',date:'2026-11-16',posted:'2026-11-16',url:'https://www.koreaap.com/kor/data01_02.html',
- summary:'지어낸 KAP 요약이다. 둘째 문장이다.',summary_note:null,model:'claude-fx-1'};
+ summary:[{topic:'국채',text:'지어낸 KAP 국채 요약이다.'},{topic:'단기자금',text:'지어낸 KAP 단기자금 요약이다.'}],
+ summary_note:null,summary_dropped:1,model:'claude-fx-1'};
 const doc=(...reports)=>({schema:'fi-weekly/1',asof:'2026-11-17',reports:reports.length?reports:[clone(KIS),clone(KAP)]});
 const clone=x=>JSON.parse(JSON.stringify(x));
 const NOW=Date.parse('2026-11-17T18:00:00+09:00');
@@ -44,7 +46,11 @@ test('both reports with label, AI tag, links and the fixed notes',()=>{
  const reps=cls(slot,'fi-report');
  assert.deepEqual(reps.map(r=>r.kids[0].textContent),['KIS자산평가 · KIS WEEKLY 제1212호','한국자산평가 · Fixed Income Weekly 제26-46호']);
  assert.deepEqual(cls(slot,'fi-ai-tag').map(n=>n.textContent),[api.AI_TAG,api.AI_TAG]);
- assert.ok(text.includes('지어낸 요약 첫 문장이다. 둘째 문장이다.')&&text.includes('지어낸 KAP 요약이다.'));
+ assert.deepEqual(cls(reps[0],'fi-topic').map(n=>[n.kids[0].textContent,n.kids[1].text]),
+  [['국채','지어낸 국채 요약이다. 둘째 문장이다.'],['크레딧','지어낸 크레딧 요약이다.'],['스왑','지어낸 스왑 요약이다.']]);
+ assert.deepEqual(cls(reps[1],'fi-topic').map(n=>n.kids[0].textContent),['국채','단기자금']);
+ assert.ok(!reps[0].textContent.includes('검사에 걸린 주제'));
+ assert.ok(reps[1].textContent.includes('검사에 걸린 주제 1개는 싣지 않았습니다.'));
  assert.deepEqual(walk(slot,n=>n.tag==='a').map(n=>n.attrs.href),[KIS.url,KAP.url]);   // 링크는 둘뿐
  assert.ok(reps[0].kids[1].textContent.startsWith('2026-11-13 기준 · 2026-11-16 게시 · 보고서 PDF'));
  assert.ok(reps[1].kids[1].textContent.startsWith('2026-11-16 게시 · 보고서 게시판'));
@@ -71,7 +77,7 @@ test('the KIS table shows the ten cells as written with signed weekly changes',(
 
 test('missing summary or numbers say why, and stale issues are marked',()=>{
  const {api,slot}=load();
- const k=clone(KIS); k.summary=null; k.summary_note='copy'; k.model=null; k.numbers=null; k.numbers_note='table'; k.posted='2026-10-30'; k.date='2026-10-30';
+ const k=clone(KIS); k.summary=null; k.summary_note='copy'; k.summary_dropped=0; k.model=null; k.numbers=null; k.numbers_note='table'; k.posted='2026-10-30'; k.date='2026-10-30';
  api.render(doc(k,clone(KAP)),NOW);
  const text=slot.textContent;
  assert.ok(text.includes('요약 없음 — 요약이 보고서 문장과 너무 비슷함. 원문을 확인하세요.'));
@@ -79,7 +85,7 @@ test('missing summary or numbers say why, and stale issues are marked',()=>{
  assert.ok(text.includes('최근 호가 아닐 수 있습니다(게시 18일 전)'));
  assert.equal(cls(slot,'fi-ai-tag').length,1);
  for(const [code,label] of Object.entries(api.NOTES)){
-  const x=clone(KAP); x.summary=null; x.summary_note=code; x.model=null;
+  const x=clone(KAP); x.summary=null; x.summary_note=code; x.summary_dropped=0; x.model=null;
   api.render(doc(x),NOW);
   assert.ok(slot.textContent.includes('요약 없음 — '+label),code);
  }
@@ -87,8 +93,12 @@ test('missing summary or numbers say why, and stale issues are marked',()=>{
 
 test('a report that breaks the contract is left out, a bad file draws nothing',()=>{
  const {api,slot}=load();
+ const t=(topic,text)=>({topic,text:text||'지어낸 글이다.'});
  const bads=[{url:'https://evil.example/post/dawn/1'},{url:'https://www.bond.co.kr/post/dawn/1?x'},{issue:'12a'},{date:'2026-13-01'},
-  {posted:'2026-11-01'},{summary:'가'.repeat(251)},{summary:3},{src:'xyz'}];
+  {posted:'2026-11-01'},{summary:'한 덩어리 글이다.'},{summary:3},{src:'xyz'},{summary:[t('국채')]},{summary:[t('크레딧'),t('국채')]},
+  {summary:[t('국채'),t('국채')]},{summary:[t('국채'),t('주가')]},{summary:[t('국채'),t('크레딧','가'.repeat(231))]},
+  {summary:[t('국채'),{topic:'크레딧'}]},{summary:[t('국채'),null]},{summary_dropped:-1},{summary_dropped:1.5},{summary_dropped:undefined},
+  {summary:null,summary_note:'copy',summary_dropped:1}];
  for(const b of bads){
   assert.equal(api.render(doc(Object.assign(clone(KIS),b),clone(KAP)),NOW),true,JSON.stringify(b));
   assert.deepEqual(cls(slot,'fi-report').map(r=>r.kids[0].textContent.split(' · ')[0]),['한국자산평가'],JSON.stringify(b));
@@ -98,6 +108,9 @@ test('a report that breaks the contract is left out, a bad file draws nothing',(
  assert.equal(slot.kids.length,0);
  const kapUrl=clone(KAP); kapUrl.url='https://www.koreaap.com/cm/files/x.pdf';
  assert.equal(api.render(doc(kapUrl),NOW),false);
+ const kapSwap=clone(KAP); kapSwap.summary=[t('국채'),t('스왑')];                         // KAP에는 스왑 주제가 없다
+ assert.equal(api.render(doc(kapSwap),NOW),false);
+ assert.deepEqual(JSON.parse(JSON.stringify(api.TOPICS)),{kis:['국채','크레딧','단기자금','해외 금리','스왑'],kap:['국채','크레딧','단기자금','해외 금리']});
  for(const d of [null,[],{schema:'fi-weekly/2',reports:[KIS]},{schema:'fi-weekly/1',reports:{}},{schema:'fi-weekly/1',reports:[]}])
   assert.equal(api.render(d,NOW),false);
  assert.equal(api.render(doc(clone(KIS),clone(KIS)),NOW),true);                          // 같은 출처는 처음 것 하나만
@@ -109,7 +122,7 @@ test('a report that breaks the contract is left out, a bad file draws nothing',(
 
 test('text from the file is never parsed as markup',()=>{
  const {api,slot}=load();
- const k=clone(KIS); k.summary='<img src=x onerror=alert(1)> 글자 그대로다.';
+ const k=clone(KIS); k.summary[0].text='<img src=x onerror=alert(1)> 글자 그대로다.';
  api.render(doc(k),NOW);
  assert.ok(slot.textContent.includes('<img src=x onerror=alert(1)> 글자 그대로다.'));
  assert.equal(walk(slot,n=>n.tag==='img').length,0);

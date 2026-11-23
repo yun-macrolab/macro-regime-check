@@ -209,6 +209,9 @@ table.ktb td:nth-child(2) { color: var(--amber); font-size: 15px; }
 .fi-report > h3 { margin: 0 0 2px; font-size: 13.5px; }
 .fi-report > p.muted { margin: 0; font-size: 12px; }
 .fi-summary { margin: 8px 0; line-height: 1.65; }
+.fi-summary > p { margin: 0 0 6px; }
+.fi-ai-line { margin: 0 0 4px; }
+.fi-topic > strong { display: inline-block; min-width: 4.6em; margin-right: 6px; color: var(--amber); font-weight: 600; }
 .fi-ai-tag { display: inline-block; margin-right: 6px; padding: 0 6px; background: var(--amber); color: var(--black); font: 600 11.5px/1.6 var(--f-text); white-space: nowrap; }
 .fi-numbers { display: flex; flex-wrap: wrap; gap: 6px 28px; align-items: flex-start; }
 .fi-numbers > p { flex: 1 1 100%; margin: 0; }

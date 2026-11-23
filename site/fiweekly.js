@@ -1,5 +1,6 @@
 /* 평가사 주간 보고서 — data/fi_weekly.json(scripts/fi_weekly.py — 운영자 PC의 저녁 예약 작업이 올린다)을 그린다 (2026-11-23).
-   두 채권 평가사(KIS자산평가 · 한국자산평가)의 최신 주간 보고서 하나씩: AI가 보고서의 요약 쪽을 읽고 쓴 두세 문장과, KIS 보고서에
+   두 채권 평가사(KIS자산평가 · 한국자산평가)의 최신 주간 보고서 하나씩: AI가 보고서의 요약 쪽과 주요 절의 본문을 읽고 주제별(국채 ·
+   크레딧 · 단기자금 · 해외 금리 · 스왑)로 쓴 두세 문장씩과, KIS 보고서에
    적힌 평가사 산출값 열 칸(IRS · CRS · 스왑 스프레드 · 스왑 베이시스 1·3년, AA- · A- 회사채 3년 크레딧 스프레드). 한국자산평가
    보고서의 숫자는 싣지 않는다(표지의 배포 금지 문구). 이 사이트의 규칙 점검에 쓰지 않는다.
    자리: #fiweekly-body — 한국 시장 화면(세 칸 모두)의 지표 아래 절 #fiweekly-wrap. index.html의 applyView가 절을 보이고 숨긴다.
@@ -18,6 +19,9 @@ window.FiWeekly = (() => {
   const SWAP = [["IRS", "irs_1y", "irs_3y"], ["CRS", "crs_1y", "crs_3y"], ["스왑 스프레드 (IRS − 국고)", "ss_1y", "ss_3y"],
     ["스왑 베이시스 (CRS − IRS)", "basis_1y", "basis_3y"]];
   const CREDIT = [["AA-", "aa_minus_3y"], ["A-", "a_minus_3y"]];
+  // 요약의 주제 — scripts/fi_weekly.py의 TOPICS_OF와 같은 차례(테스트가 견준다). 주제 하나는 TOPIC_CHARS자까지, 둘 이상
+  const TOPICS = { kis: ["국채", "크레딧", "단기자금", "해외 금리", "스왑"], kap: ["국채", "크레딧", "단기자금", "해외 금리"] };
+  const TOPIC_CHARS = 230, MIN_TOPICS = 2;
   // 요약이 없는 사유 — scripts/fi_weekly.py의 NOTES와 같은 열쇠(테스트가 견준다)
   const NOTES = { model: "AI 요약을 만들지 못함", none: "AI가 요약하지 않음", shape: "요약이 꼴 검사에 걸림",
     banned: "요약에 쓰지 않는 말이 들어감", copy: "요약이 보고서 문장과 너무 비슷함", number: "요약의 숫자가 보고서와 맞지 않음",
@@ -32,7 +36,9 @@ window.FiWeekly = (() => {
   const DAY = /^\d{4}-\d{2}-\d{2}$/;
   const STALE_DAYS = 14;                       // 게시된 지 이만큼 지난 호는 '최근 호가 아닐 수 있음'
   const ABOUT = [
-    "요약은 AI가 각 보고서의 요약 쪽만 읽고 이 사이트의 말로 쓴 두세 문장입니다. 보고서의 문장이 아니며, 틀릴 수 있으니 원문을 확인하세요.",
+    "요약은 AI가 각 보고서의 요약 쪽과 주요 절(국공채 · 금융채 · 회사채 · 단기자금 · 해외 · 스왑)의 본문을 읽고 이 사이트의 말로 주제마다 " +
+      "두세 문장씩 쓴 것입니다. 보고서의 문장이 아니며, 틀릴 수 있으니 원문을 확인하세요. 검사(전망 · 권유 같은 말, 보고서 문장과 너무 " +
+      "비슷함, 보고서에 없는 숫자 · 이름)에 걸린 주제는 싣지 않습니다.",
     "숫자는 KIS자산평가가 그 호에 적은 평가사 산출값을 옮긴 것이고, 스왑 스프레드(IRS − KIS 산출 국고) · 스왑 베이시스(CRS − IRS)와 " +
       "bp로 적은 전주 대비는 그 값으로 이 사이트가 뺀 것입니다. 최신 호만 싣고 지난 호의 숫자는 남기지 않습니다. 한국자산평가 보고서의 " +
       "숫자는 싣지 않습니다.",
@@ -47,11 +53,24 @@ window.FiWeekly = (() => {
     if (!isObj(n) || n.date !== date || n.credit_date !== date || !day(n.prev) || !day(n.credit_prev) || !isObj(n.rows)) return false;
     return ROWS.every(([k]) => Array.isArray(n.rows[k]) && n.rows[k].length === 2 && n.rows[k].every(num));
   }
+  function usableSummary(r) {
+    if (!Number.isInteger(r.summary_dropped) || r.summary_dropped < 0) return false;
+    if (r.summary === null) return r.summary_dropped === 0;
+    const topics = TOPICS[r.src];
+    if (!Array.isArray(r.summary) || r.summary.length < MIN_TOPICS || r.summary.length > topics.length) return false;
+    let last = -1;
+    for (const x of r.summary) {
+      const at = isObj(x) ? topics.indexOf(x.topic) : -1;
+      if (at <= last || typeof x.text !== "string" || !x.text || x.text.length > TOPIC_CHARS) return false;   // 주제마다 하나 · 차례대로
+      last = at;
+    }
+    return true;
+  }
   function usable(r) {
     if (!isObj(r) || !SOURCES.includes(r.src) || typeof r.issue !== "string" || !ISSUE[r.src].test(r.issue)) return false;
     if (!day(r.date) || !day(r.posted) || r.posted < r.date) return false;
     if (r.src === "kis" ? !(typeof r.url === "string" && KIS_ITEM.test(r.url)) : r.url !== KAP_BOARD) return false;
-    if (r.summary !== null && !(typeof r.summary === "string" && r.summary.length > 0 && r.summary.length <= 250)) return false;
+    if (!usableSummary(r)) return false;
     if (r.src === "kis" && r.numbers !== null && !usableNumbers(r.numbers, r.date)) return false;
     return true;
   }
@@ -93,7 +112,9 @@ window.FiWeekly = (() => {
     const age = ageDays(r.posted, now);
     const head = el("p", { class: "muted" }, (r.src === "kis" ? r.date + " 기준 · " : "") + r.posted + " 게시 · ", link(r));
     const body = r.summary !== null
-      ? el("p", { class: "fi-summary" }, el("span", { class: "fi-ai-tag" }, AI_TAG), r.summary)
+      ? el("div", { class: "fi-summary" }, el("p", { class: "fi-ai-line" }, el("span", { class: "fi-ai-tag" }, AI_TAG)),
+          ...r.summary.map(x => el("p", { class: "fi-topic" }, el("strong", {}, x.topic), x.text)),
+          r.summary_dropped > 0 ? el("p", { class: "ch-note muted" }, "검사에 걸린 주제 " + r.summary_dropped + "개는 싣지 않았습니다.") : null)
       : el("p", { class: "fi-summary muted" }, "요약 없음 — " + (NOTES[r.summary_note] || "까닭을 알 수 없음") + ". 원문을 확인하세요.");
     const out = el("article", { class: "panel fi-report" }, el("h3", {}, house + " · " + title + " 제" + r.issue + "호"), head, body);
     if (Number.isFinite(age) && age > STALE_DAYS) out.append(el("p", { class: "market-warning" }, "최근 호가 아닐 수 있습니다(게시 " + age + "일 전)"));
@@ -113,5 +134,5 @@ window.FiWeekly = (() => {
       el("p", { class: "source-link" }, "자료: KIS자산평가 KIS WEEKLY(bond.co.kr) · 한국자산평가 Fixed Income Weekly(koreaap.com) — 각 사 공개 게시물"));
     return true;
   }
-  return { render, SOURCES, ROWS, NOTES, NUM_NOTES, LABEL, AI_TAG, KAP_BOARD, STALE_DAYS };
+  return { render, SOURCES, ROWS, TOPICS, NOTES, NUM_NOTES, LABEL, AI_TAG, KAP_BOARD, STALE_DAYS };
 })();
