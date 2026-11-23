@@ -109,7 +109,9 @@ NUM_KEYS = ("date", "prev", "credit_date", "credit_prev", "rows")
 # 숫자 칸 — (열쇠, 단위). 값 하나와 전주 대비(bp) 하나씩. 화면의 이름표는 fiweekly.js의 ROWS
 ROWS = (("irs_1y", "%"), ("irs_3y", "%"), ("crs_1y", "%"), ("crs_3y", "%"), ("ss_1y", "bp"), ("ss_3y", "bp"),
         ("basis_1y", "bp"), ("basis_3y", "bp"), ("aa_minus_3y", "bp"), ("a_minus_3y", "bp"))
-NOTES = ("model", "none", "shape", "banned", "copy", "number", "term", "name", "text")   # 요약이 없는 사유
+NOTES = ("model", "none", "shape", "banned", "copy", "number", "term", "name", "digits", "text")   # 요약이 없는 사유
+LEGACY_NOTES = ("digits",)        # 읽기만 — 2026-11-23 한국자산평가 숫자 허용 전의 코드가 남긴 사유(이 코드는 내지 않는다). PC가 새 코드로 한 번
+                                  # 올린 뒤 지운다(그 전에 지우면 옛 코드가 올린 파일을 검사가 받지 않아 아침 검사가 멈춘다)
 NUM_NOTES = ("table",)                                         # 숫자가 없는 사유
 ISSUE_RE = {"kis": re.compile(r"[0-9]{1,5}", re.ASCII), "kap": re.compile(r"[0-9]{2}-[0-9]{1,3}", re.ASCII)}
 KIS_ITEM_RE = re.compile(r"https://www\.bond\.co\.kr/post/dawn/[0-9]{1,9}", re.ASCII)
@@ -129,12 +131,23 @@ _PHONE = re.compile(r"[0-9]{2,4}-[0-9]{3,4}-[0-9]{4}|[0-9]{8,}")
 HANGUL_MIN = 0.6
 _VALUE_UNIT = ("%", "%p", "bp", "달러", "엔", "유로", "위안", "배", "원")
 _VALUE_HEAD = ("조", "억", "원", "천", "백", "만")          # 3천억원 → '천', 5백억원 → '백', 2조 → '조'
+_CHAIN = {"조": ("억", "천", "백", "만"), "억": ("천", "백", "만")}   # 큰 단위부터 이어 쓴 금액의 뒷자리(5조 2,000억원의 '2,000억원')
 
 
 def value_nums(K, s):
     """주제 글의 값 숫자(%, %p, bp, 금액 · 배율) 수 — 만기 · 날짜(3년물 · 13일)는 세지 않는다. 100만달러처럼 '만'을 조사로 읽어
-    단위가 빈 것은 바로 뒤 글자로 본다."""
-    return sum(1 for n in K._nums(s) if n[2] in _VALUE_UNIT or n[2][:1] in _VALUE_HEAD or (n[2] == "" and s[n[5]:n[5] + 1] == "만"))
+    단위가 빈 것은 바로 뒤 글자로 본다. '5조 2,000억원'처럼 큰 단위부터 빈칸만 두고 이어 쓴 금액은 하나로 센다(2026-11-23 — 한국자산평가
+    요약의 금액이 둘로 세어져 셋을 넘었다). 아라비아 숫자만 본다(한글로 쓴 수치는 숫자 대조와 같이 세지 않는다)."""
+    count, prev = 0, None
+    for n in K._nums(s):
+        unit = n[2]
+        if prev is not None and prev[2] in _CHAIN and unit[:1] in _CHAIN[prev[2]] and not s[prev[5]:n[4]].strip():
+            prev = n                                       # 앞 금액의 뒷자리 — 세지 않는다
+            continue
+        if unit in _VALUE_UNIT or unit[:1] in _VALUE_HEAD or (unit == "" and s[n[5]:n[5] + 1] == "만"):
+            count += 1
+        prev = n
+    return count
 POSTED_LAG_DAYS = 14                                           # 게시일 − 기준일의 상한(KIS 금 → 월, KAP는 같은 날)
 MAX_BYTES = 16 * 1024
 LIMITS = {"%": (0.0, 20.0), "bp": (-500.0, 2000.0)}           # 값의 범위(검사 — 이 밖이면 표를 잘못 읽은 것이다)
@@ -881,6 +894,7 @@ def ok_copy(s, texts):
 
 def topic_code(src, s, texts, prompt_texts=None):
     """주제 하나의 간추림을 버릴 사유(먼저 걸린 것 하나) — 실어도 되면 None. texts = 모델에게 읽힌 그 보고서의 글들(요약 쪽 · 절마다).
+    두 보고서 같은 검사다(2026-11-23부터 — src는 부르는 꼴을 judge_topics와 맞춰 둔 것으로, 검사는 보지 않는다).
     낱말 검사는 글들을 한 출처로 본다(저녁판은 채널이 둘 이상이면 A · B급 낱말을 두 채널 이상이 쓴 것만 받는다 — 여기서는 절이 채널이 아니다)."""
     K, _, _ = _evening()
     if s is None:

@@ -55,7 +55,7 @@ test('both reports with label, AI tag, links and the fixed notes',()=>{
  assert.ok(reps[0].kids[1].textContent.startsWith('2026-11-13 기준 · 2026-11-16 게시 · 보고서 PDF'));
  assert.ok(reps[1].kids[1].textContent.startsWith('2026-11-16 게시 · 보고서 게시판'));
  assert.ok(text.includes('한국자산평가는 숫자 표를 싣지 않습니다(요약 문장 속 숫자만).'));
- assert.ok(text.includes('요약 속 숫자는 두 보고서 모두 보고서 글에 적힌 것만, 주제마다 셋까지 씁니다.'));
+ assert.ok(text.includes('요약 속 숫자는 두 보고서 모두 보고서 글에 적힌 것만 쓰고, 값 숫자(%, bp, 금액)는 주제마다 셋까지입니다.'));
  assert.ok(!text.includes('보고서의 숫자는 싣지 않습니다'));
  assert.ok(text.includes('요청이 있으면 바로 내립니다'));
  assert.ok(text.includes('자료: KIS자산평가 KIS WEEKLY(bond.co.kr) · 한국자산평가 Fixed Income Weekly(koreaap.com)'));

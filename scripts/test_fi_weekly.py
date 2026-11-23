@@ -404,7 +404,8 @@ class ContractTest(unittest.TestCase):
         self.assertEqual((F.TOPIC_MIN, F.TOPIC_TARGET, F.TOPIC_CHARS, F.TOPIC_SENTENCES, F.SUMMARY_MIN_TOPICS, F.TOPIC_NUMS), (20, 150, 230, 3, 2, 3))
         self.assertEqual(F.TOPICS_OF, {"kis": ("국채", "크레딧", "단기자금", "해외 금리", "스왑"), "kap": ("국채", "크레딧", "단기자금", "해외 금리")})
         self.assertEqual(F.COPY_STEMS, K.TH["copy_stems"] + 1)
-        self.assertEqual(set(F.WHY), set(F.NOTES) - {"model", "none", "text"})       # 고쳐 쓰기의 까닭은 검사 사유마다 하나
+        self.assertEqual(set(F.WHY), set(F.NOTES) - {"model", "none", "text"} - set(F.LEGACY_NOTES))   # 고쳐 쓰기의 까닭은 검사 사유마다 하나
+        self.assertEqual(F.LEGACY_NOTES, ("digits",))                                  # 읽기만 — 옛 코드가 남긴 사유
 
     def test_frozen_shape_matches_the_evening_rules_today(self):
         # 굳힌 꼴은 2026-11-23의 저녁판 규칙과 같다 — 저녁판이 바뀌면 이 테스트가 알린다(굳힌 쪽은 그대로 두고 뜻한 변화인지 본다)
@@ -648,7 +649,10 @@ class SummaryTest(unittest.TestCase):
         self.assertTrue(K.ok_number(cases[3][0], texts))                               # 넷 모두 글에 있다 — 걸린 것은 셈 때문
         self.assertEqual(F.value_nums(K, cases[3][0]), 4)
         self.assertFalse(hasattr(F, "KAP_NUMERIC"))                                    # 한국자산평가 전용 숫자 금지 검사는 없앴다
-        self.assertNotIn("digits", F.NOTES)
+        amounts = texts + ["은행채 발행액은 5조 2,000억원이었고 상환금액은 6조 3,500억원으로 1조 1,500억원이 순상환되었음."]
+        three = "은행채는 5조 2,000억원이 발행되고 6조 3,500억원이 상환돼 1조 1,500억원이 순상환됐다. 크레딧 스프레드도 좁아졌다."
+        self.assertIsNone(F.topic_code("kap", three, amounts))                         # 이어 쓴 금액은 하나 — 셋이라 지나간다
+        self.assertEqual(F.topic_code("kis", three, amounts), None)                    # KIS도 같은 셈
 
     def test_copying_the_other_report_is_caught(self):
         # 한 물음에 두 보고서가 함께 들어간다 — KIS 주제가 KAP 문장을 옮겨도 걸린다(그 반대도)
@@ -661,7 +665,10 @@ class SummaryTest(unittest.TestCase):
 
     def test_value_numbers(self):
         for text, n in (("국고 3년물이 12.5bp, 10년물이 14.0bp 올랐다.", 2), ("CD 91일물 금리는 0.03% 올랐다.", 1),
-                        ("회사채 3천억원, 은행채 5백억원, 2조원이 들어왔다.", 3), ("100만달러와 80달러, 2.8배였다.", 3), ("13일 3년물이 올랐다.", 0)):
+                        ("회사채 3천억원, 은행채 5백억원, 2조원이 들어왔다.", 3), ("100만달러와 80달러, 2.8배였다.", 3), ("13일 3년물이 올랐다.", 0),
+                        ("5조 2,000억원이었다.", 1), ("발행 5조 2,000억원, 상환 6조 3,500억원, 순상환 1조 1,500억원이었다.", 3),   # 이어 쓴 금액은 하나
+                        ("1조 2억 3천만원이었다.", 1), ("2조, 3천억원이었다.", 2), ("5조와 2,000억원이었다.", 2), ("3년 5조원이었다.", 1),
+                        ("5조 2,000억원과 1.5%였다.", 2)):
             self.assertEqual(F.value_nums(K, text), n, text)
 
     def test_terms_from_one_section_are_enough(self):
@@ -732,6 +739,13 @@ class ValidateTest(unittest.TestCase):
         change(d)
         with self.assertRaises(F.Bad):
             F.validate(d, TODAY)
+
+    def test_legacy_note_is_read_not_made(self):
+        # 숫자를 허용하기 전의 코드가 올린 파일(summary_note "digits")도 검사가 받는다 — 아침 검사 · 이어받기가 멈추지 않게
+        d = json.loads(F.dump(self.doc))
+        d["reports"][1].update(summary=None, summary_note="digits", summary_dropped=0, model=None)
+        F.validate(d, TODAY)
+        self.assertNotIn("digits", F.WHY)                                             # 새 검사는 이 사유를 내지 않는다
 
     def test_kap_summary_may_carry_numbers(self):
         d = json.loads(F.dump(self.doc))
