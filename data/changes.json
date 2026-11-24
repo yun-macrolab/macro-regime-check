@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "generated_at": "2026-11-21T03:16:46+00:00",
+  "generated_at": "2026-11-24T06:08:17+00:00",
   "notice": "날짜별 공개 기록(data/history)끼리 견준 것이다. 예측이 아니고 투자 판단이나 권유가 아니다.",
-  "asof": "2026-11-21",
+  "asof": "2026-11-24",
   "headline": [
     "핵심 신호 1/11 · 1주 전 2/11",
     "1주 사이 바뀐 규칙 1개: 지준과 통화승수(충족→미충족)",
@@ -12,7 +12,7 @@
     {
       "key": "prev",
       "label": "직전 기록",
-      "from": "2026-11-20",
+      "from": "2026-11-21",
       "rules": [],
       "met": {
         "from": 1,
@@ -34,7 +34,7 @@
       },
       "transition": {
         "from": 0,
-        "to": 0
+        "to": 1
       },
       "health": {
         "lost": [],
@@ -46,7 +46,7 @@
     {
       "key": "w1",
       "label": "1주 전",
-      "from": "2026-11-14",
+      "from": "2026-11-17",
       "rules": [
         {
           "key": "reserves_multiplier",
@@ -74,8 +74,8 @@
         "to": "A′"
       },
       "transition": {
-        "from": 1,
-        "to": 0
+        "from": 0,
+        "to": 1
       },
       "health": {
         "lost": [],
@@ -87,7 +87,7 @@
     {
       "key": "w4",
       "label": "4주 전",
-      "from": "2026-10-24",
+      "from": "2026-10-27",
       "rules": [],
       "met": {
         "from": 1,
@@ -109,7 +109,7 @@
       },
       "transition": {
         "from": null,
-        "to": 0
+        "to": 1
       },
       "health": {
         "lost": [],
@@ -119,7 +119,7 @@
       }
     }
   ],
-  "recent_from": "2026-10-23",
+  "recent_from": "2026-10-26",
   "recent": [
     {
       "date": "2026-11-20",
