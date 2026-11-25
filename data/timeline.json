@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-11-24T06:09:21+00:00",
+  "generated_at": "2026-11-25T04:57:42+00:00",
   "notice": "운영자가 공개 기록(macro-notes-automation 저장소의 records/)에 올린 주간 판정을 옮겨, 정해 둔 방법(판단 연표 약속)으로 그 뒤의 미 금리 변화와 나란히 적은 측정 기록이다. 예측이 아니고 투자 판단이나 권유가 아니다.",
   "label": "운영자 주간 판정(공개 기록에서 옮김) — 투자 판단·권유 아님 · 측정 기록",
   "lp_label": "운영자 판단 격자의 칸 이름(운영자 메모) — 예측 아님 · 예측력 검증 안 됨",
@@ -86,31 +86,31 @@
     ]
   },
   "charts": {
-    "date": "2026-11-24",
+    "date": "2026-11-25",
     "window": {
       "from": "2021-11-26",
-      "to": "2026-11-23"
+      "to": "2026-11-24"
     },
     "last": {
-      "dgs10": "2026-11-20",
-      "t10y2y": "2026-11-23"
+      "dgs10": "2026-11-23",
+      "t10y2y": "2026-11-24"
     },
     "baseline": {
       "1": {
-        "dgs10": 1.4,
+        "dgs10": 1.3,
         "t10y2y": -0.3
       },
       "4": {
-        "dgs10": 5.6,
+        "dgs10": 5.5,
         "t10y2y": -0.8
       }
     },
     "baseline_detail": {
       "1": {
         "dgs10": {
-          "n": 259,
+          "n": 260,
           "from": "2021-11-26",
-          "to": "2026-11-13"
+          "to": "2026-11-20"
         },
         "t10y2y": {
           "n": 260,
@@ -120,9 +120,9 @@
       },
       "4": {
         "dgs10": {
-          "n": 256,
+          "n": 257,
           "from": "2021-11-26",
-          "to": "2026-11-13"
+          "to": "2026-11-20"
         },
         "t10y2y": {
           "n": 257,
@@ -239,11 +239,11 @@
       "outcomes": {
         "1": {
           "dur": {
-            "state": "pending",
+            "state": "done",
             "start": "2026-11-13",
-            "end": null,
-            "change_bp": null,
-            "demeaned_bp": null
+            "end": "2026-11-20",
+            "change_bp": -23.0,
+            "demeaned_bp": -24.3
           },
           "cur": {
             "state": "done",
@@ -315,7 +315,7 @@
             "start": "2026-11-06",
             "end": "2026-11-13",
             "change_bp": 29.0,
-            "demeaned_bp": 27.6
+            "demeaned_bp": 27.7
           },
           "cur": {
             "state": "done",
@@ -387,7 +387,7 @@
             "start": "2026-10-30",
             "end": "2026-11-06",
             "change_bp": -8.0,
-            "demeaned_bp": -9.4
+            "demeaned_bp": -9.3
           },
           "cur": {
             "state": "done",
@@ -459,7 +459,7 @@
             "start": "2026-10-30",
             "end": "2026-11-06",
             "change_bp": -8.0,
-            "demeaned_bp": -9.4
+            "demeaned_bp": -9.3
           },
           "cur": {
             "state": "done",
@@ -531,7 +531,7 @@
             "start": "2026-10-09",
             "end": "2026-10-16",
             "change_bp": -15.0,
-            "demeaned_bp": -16.4
+            "demeaned_bp": -16.3
           },
           "cur": {
             "state": "done",
@@ -547,7 +547,7 @@
             "start": "2026-10-09",
             "end": "2026-11-06",
             "change_bp": -38.0,
-            "demeaned_bp": -43.6
+            "demeaned_bp": -43.5
           },
           "cur": {
             "state": "done",
@@ -603,7 +603,7 @@
             "start": "2026-10-09",
             "end": "2026-10-16",
             "change_bp": -15.0,
-            "demeaned_bp": -16.4
+            "demeaned_bp": -16.3
           },
           "cur": {
             "state": "done",
@@ -619,7 +619,7 @@
             "start": "2026-10-09",
             "end": "2026-11-06",
             "change_bp": -38.0,
-            "demeaned_bp": -43.6
+            "demeaned_bp": -43.5
           },
           "cur": {
             "state": "done",
@@ -675,7 +675,7 @@
             "start": "2026-10-09",
             "end": "2026-10-16",
             "change_bp": -15.0,
-            "demeaned_bp": -16.4
+            "demeaned_bp": -16.3
           },
           "cur": {
             "state": "done",
@@ -691,7 +691,7 @@
             "start": "2026-10-09",
             "end": "2026-11-06",
             "change_bp": -38.0,
-            "demeaned_bp": -43.6
+            "demeaned_bp": -43.5
           },
           "cur": {
             "state": "done",
@@ -798,13 +798,13 @@
     {
       "series": "DGS10",
       "url": "https://fred.stlouisfed.org/series/DGS10",
-      "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis [DGS10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DGS10, November 24, 2026.",
+      "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis [DGS10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DGS10, November 25, 2026.",
       "citation_required": false
     },
     {
       "series": "T10Y2Y",
       "url": "https://fred.stlouisfed.org/series/T10Y2Y",
-      "citation": "Federal Reserve Bank of St. Louis, 10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity [T10Y2Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10Y2Y, November 24, 2026.",
+      "citation": "Federal Reserve Bank of St. Louis, 10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity [T10Y2Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10Y2Y, November 25, 2026.",
       "citation_required": true
     }
   ],
