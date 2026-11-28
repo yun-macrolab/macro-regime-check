@@ -23,7 +23,9 @@
   P 감점      직전 판의 꼭 볼 것과 열쇠가 겹치면 p_repeat(C가 p_repeat_waive_c 이상 늘면 면제) · 센 채널의 절반 넘게 전달뿐이면 p_fwd ·
               C급 낱말뿐이고 기타 칸이면 p_c_only_etc. 직전 판은 S.state_base가 고른다(같은 판을 다시 돌아도 '어제'는 그대로).
 게이트(전부 통과해야 후보): sources 원천 gate_sources곳 이상(예외: 채권 1곳 + E gate_bond_alone_e) · grade A·B급 낱말 · score S gate_s
-  이상 · group 채권이나 애널 1곳 이상.
+  이상 · group 채권이나 애널 1곳 이상. score의 숫자 경로(2026-11-28): 채권 원천이 끼고 숫자 칸(원천 두 곳 이상이 같은 A·B급 낱말 곁에
+  직접 쓴 같은 숫자)이 있고 감점이 0이면 S gate_num_s 이상으로 통과한다.
+그림자 기록(shadow): 판마다 원천 글이 든 묶음을 문턱 후보별로 센 숫자만(글·낱말 없이) 판의 funnel.shadow에 남긴다 — 문턱을 고칠 근거.
 고르기: 후보를 점수순(같으면 이른 묶음)으로 must_max건까지, 같은 칸은 cell_max건까지, 통과한 국내 묶음이 있으면 must_domestic_min건은
   국내. 모자라면 그만큼만. 나머지 표(rest) = 원천 rest_sources곳 이상, 또는 채권·애널 원천이 낀 S rest_s 이상, 또는 채권 채널의 글
   (단독 글도 전부). 30줄 상한은 조립 단계가 건다. 개인·속보형이 혼자 쓴 글은 none — 조립 단계가 solo·wire 절의 줄로 쓴다.
@@ -204,13 +206,19 @@ def p_flags(c, c_now, base):
             "etc": grade == "C" and c["cell"]["factor"] == ETC}        # 낱말이 있으면 칸도 있다(계약)
 
 
-def gate_of(c, cov, total, e):
-    """게이트 → ({"pass", "fails"}, 채권 1곳 + 일정 예외로 통과했는가)."""
+def num_path(c, cov, total, p):
+    """숫자 경로 — 채권 원천이 끼고, 숫자 칸이 있고(원천 두 곳 이상이 같은 A·B급 낱말 곁에 같은 숫자를 직접 씀), 감점이 0이고,
+    S가 gate_num_s 이상인가. gate_s 미만일 때만 뜻이 있다."""
+    return bool(cov["bond"] and c["nums"] and not p and total >= TH["gate_num_s"])
+
+
+def gate_of(c, cov, total, e, p=0):
+    """게이트 → ({"pass", "fails"}, 채권 1곳 + 일정 예외로 통과했는가). p = 감점의 크기(숫자 경로는 감점이 0일 때만)."""
     sources = len({m["ch"] for m in c["members"] if m["role"] == "source"})
     few = sources < TH["gate_sources"]
     alone = few and cov["bond"] >= 1 and e >= TH["gate_bond_alone_e"]
     bad = {"sources": few and not alone, "grade": R.best_grade([t["term"] for t in c["terms"]]) not in AB,
-           "score": total < TH["gate_s"], "group": not (cov["bond"] or cov["analyst"])}
+           "score": total < TH["gate_s"] and not num_path(c, cov, total, p), "group": not (cov["bond"] or cov["analyst"])}
     fails = [code for code in S.GATE_CODES if bad[code]]
     return {"pass": not fails, "fails": fails}, alone
 
@@ -245,10 +253,46 @@ def score_cluster(c, ctx):
     p = min(sum(TH[k] for k, on in (("p_repeat", flags["repeat"]), ("p_fwd", flags["fwd"]), ("p_c_only_etc", flags["etc"])) if on),
             TH["p_cap"])
     total = round(s["C"] + s["X"] + s["K"] + s["E"] + s["M"] + s["Y"] - p, 3)
-    gate, alone = gate_of(c, cov, total, e)
+    gate, alone = gate_of(c, cov, total, e, p)
     score = {"total": total, **s, "P": p, "L": None}
     return {**c, "coverage": cov, "score": score, "gate": gate, "why": why_of(c, cov, score, flags, event, alone), "pick": "none",
             "rank": None}
+
+
+# ---------- 그림자 기록 (2026-11-28) ----------
+
+SHADOW_NEAR = (("near_s3", 3.0), ("near_s4", 4.0), ("near_s45", 4.5))      # score 하나만 걸린 묶음 가운데 S가 이 값 이상인 것
+
+
+def shadow(scored):
+    """문턱 후보별 묶음 수 — 숫자만. 바탕은 판의 funnel.clusters와 같은 '원천 글이 든 묶음'이다(점수가 매겨진 뒤, 고르기 뒤).
+      fail_<사유>   그 게이트 조건에 걸린 묶음(한 묶음이 여럿에 걸릴 수 있다) · only_<사유> 그 조건 하나만 걸린 묶음
+      near_s*       score 하나만 걸린 묶음 가운데 S가 3.0 · 4.0 · 4.5 이상인 것(gate_s를 내리면 늘어날 후보의 수)
+      bond2_ab      채권 원천 2곳 이상 + A·B급 낱말 · bond2_ab_num 그 가운데 숫자 칸이 있는 것
+      cross_ab      채권 1곳 이상 + 애널이나 개인 1곳 이상 + A·B급 낱말 · cross_ab_num 그 가운데 숫자 칸이 있는 것
+      num_path      S가 gate_s 미만인데 숫자 경로로 통과한 묶음(후보에 든다)
+      rest_pool     나머지 표에 들 수 있던 묶음(30줄 상한 · 숨김 전) · rest_noterm 그 가운데 사전 낱말이 없는 것"""
+    cs = [c for c in scored if any(m["role"] == "source" for m in c["members"])]
+    out = {f"{k}_{code}": 0 for k in ("fail", "only") for code in S.GATE_CODES}
+    out.update({k: 0 for k, _ in SHADOW_NEAR})
+    out.update(bond2_ab=0, bond2_ab_num=0, cross_ab=0, cross_ab_num=0, num_path=0, rest_pool=0, rest_noterm=0)
+    for c in cs:
+        fails, cov, total = c["gate"]["fails"], c["coverage"], c["score"]["total"]
+        for code in fails:
+            out[f"fail_{code}"] += 1
+        if len(fails) == 1:
+            out[f"only_{fails[0]}"] += 1
+        if fails == ["score"]:
+            for k, v in SHADOW_NEAR:
+                out[k] += total >= v
+        ab = R.best_grade([t["term"] for t in c["terms"]]) in AB
+        for k, on in (("bond2_ab", cov["bond"] >= 2), ("cross_ab", cov["bond"] >= 1 and (cov["analyst"] or cov["personal"]))):
+            out[k] += on and ab
+            out[k + "_num"] += on and ab and bool(c["nums"])
+        out["num_path"] += c["gate"]["pass"] and total < TH["gate_s"]
+        out["rest_pool"] += c["pick"] == "rest"
+        out["rest_noterm"] += c["pick"] == "rest" and not c["terms"]
+    return {k: int(v) for k, v in out.items()}
 
 
 # ---------- 고르기 ----------

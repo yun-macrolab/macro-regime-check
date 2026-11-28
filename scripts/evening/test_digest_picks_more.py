@@ -205,7 +205,7 @@ class LooseTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             K.validate_picks(old)
         self.assertIs(K.validate_picks(old, plain=False), old)
-        for name, d in {"꺾쇠": TK.doc(items=[{**item, "fact": "미국 <b>물가</b>가 올랐다."}]), "너무 김": TK.doc(items=[{**item, "fact": "가" * 141}]),
+        for name, d in {"꺾쇠": TK.doc(items=[{**item, "fact": "미국 <b>물가</b>가 올랐다."}]), "너무 김": TK.doc(items=[{**item, "fact": "가" * (TH["fact_chars"] + 1)}]),
                         "문자열이 아님": TK.doc(items=[{**item, "fact": None}]), "형식": TK.doc(mode="rules")}.items():
             with self.subTest(name), self.assertRaises(ValueError):
                 K.validate_picks(d, plain=False)

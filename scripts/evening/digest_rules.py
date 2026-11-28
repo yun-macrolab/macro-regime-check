@@ -27,6 +27,7 @@
   narrow         좁은 낱말이 곁에 있는 넓은 낱말(WIDE — 연준 · AI · 금리 …)을 뺀다. 같은 말을 두 번 싣지 않게.
   size_of        글의 길이 구간(짧음·보통·김). 글자 수 자체는 남기지 않는다.
   gloss_of · glosses   낱말 풀이(digest_gloss.py — 우리가 쓴 한 줄과 공공 기관의 고정 주소). 공개본에는 그 판에 나온 낱말의 것만.
+  screens_of · comparable   낱말 → 이 사이트의 화면 id(SCREENS), 직전 판과 견줄 대표 낱말인가. 화면이 맞추는 문구는 VIEW_PHRASES.
 """
 import re
 import unicodedata
@@ -79,7 +80,15 @@ TH = {
     # 꼭 볼 것 게이트 — 전부 통과해야 한다: 원천 2곳 이상(예외: 채권 1곳 + E 2.0) · A나 B급 낱말 · S 5.0 이상 · 채권이나 애널 1곳 이상.
     # 통과한 것 가운데 3건까지, 같은 칸은 2건까지, 통과한 국내 묶음이 있으면 1건은 국내. 모자라면 그만큼만 싣는다
     "gate_s": 5.0, "gate_sources": 2, "gate_bond_alone_e": 2.0, "must_max": 3, "cell_max": 2, "must_domestic_min": 1,
-    # 나머지 표 — 원천 2곳 이상, 또는 채권·애널 원천이 낀 S 2.0 이상(채권 단독 글은 전부 여기). 개인·속보형이 혼자 쓴 글은
+    # 숫자 경로(2026-11-28 더함 — gate_s는 그대로): 채권 원천 1곳 이상이 낀 묶음에서 원천 두 곳 이상이 같은 A·B급 낱말 곁에 같은 숫자를
+    # 직접 썼고(묶음의 숫자 칸이 있음) 감점(P)이 0이면 S 문턱을 gate_num_s로 본다. 4.0은 채권 2곳(C 3.0) + B급 낱말(K 1.0)의 점수다 —
+    # 지난 20판(11-02~11-27)에서 채권 2곳 + B급 묶음이 4점대에 멈춰 꼭 볼 것에 못 든 판이 14판이었고(가장 많이 막은 조건: score), 그중
+    # 같은 숫자까지 쓴 묶음이 있던 판은 4판이었다. 같은 숫자는 묶기의 숫자 열쇠와 같은 근거(두 곳이 같은 일을 다뤘다는 표지)다.
+    # 감점이 있으면(직전 판과 같은 주제 · 전달 글 절반 넘음 · 기타 칸 C급뿐) 이 경로를 쓰지 않는다
+    "gate_num_s": 4.0,
+    # 나머지 표 — 원천 2곳 이상, 또는 채권·애널 원천이 낀 S 2.0 이상(채권 단독 글은 전부 여기 — 사전 낱말이 없는 글까지). 30줄을 넘으면
+    # 점수순으로 자르고, 같은 점수에서는 사전 낱말이 있는 줄을 먼저 둔다(2026-11-28 — 지난 판에서 잘린 판의 실린 줄 대부분이 낱말 없는
+    # 채권 글이었다: 11-04는 30줄 가운데 24줄). 개인·속보형이 혼자 쓴 글은
     # 표에 넣지 않고 solo·wire 절에 채널당 5줄까지(첫 두 줄에 A·B급 낱말이 있거나 낱말이 둘 이상인 글 — 숫자는 첫머리의 첫 숫자가
     # 바로 곁의 A·B급 낱말과 짝지어질 때만 붙는다)
     "rest_sources": 2, "rest_s": 2.0, "rest_s_groups": ("bond", "analyst"), "rest_max": 30,
@@ -102,9 +111,12 @@ TH = {
     "size_short": 200, "size_long": 700, "row_head_chars": 200, "member_terms_max": 24, "topics_max": 40,
     "head_flat_bp": 1.0, "rate_min": 0.0, "rate_max": 20.0, "chg_bp_max": 100.0,
     # AI 요약 층(2026-10-09 — PC에서만 돈다: evening_llm.py · digest_picks.py). 규칙판의 숫자가 아니다
-    # 고르기: 꼭 볼 것 전부 + 나머지 중 채권·애널 원천이 llm_rest_sources곳 이상 직접 쓴 항목, 합쳐 llm_items_max개. 항목마다 글 llm_posts_max개,
-    # 글마다 llm_post_chars자. 받기: 채널마다 한 번, llm_requests요청까지. 묻기: llm_timeout_s초(점검 호출은 llm_probe_s초), 출력 llm_out_bytes까지
-    "llm_items_max": 6, "llm_posts_max": 3, "llm_rest_sources": 2, "llm_post_chars": 1500, "llm_requests": 20,
+    # 고르기: 꼭 볼 것 전부 + 나머지 표 가운데 채권·애널 원천 채널의 전달 아닌 글이 llm_rest_sources건 이상 걸린 항목, 점수 순으로 합쳐
+    # llm_items_max개. 항목마다 글 llm_posts_max개, 글마다 llm_post_chars자. 받기: 채널마다 한 번, llm_requests요청까지.
+    # 묻기: llm_timeout_s초(점검 호출은 llm_probe_s초), 출력 llm_out_bytes까지
+    # 2026-11-28 넓힘(E3): 6개 · 원천 2건 이상 → 10개 · 원천 1건 이상. 읽는 글(3건 · 1,500자)과 채널당 한 번 받기는 그대로다 —
+    # 채권·애널 원천 채널은 11곳이라 받기는 많아야 11요청(상한 20은 그대로)
+    "llm_items_max": 10, "llm_posts_max": 3, "llm_rest_sources": 1, "llm_post_chars": 1500, "llm_requests": 20,
     "llm_timeout_s": 180, "llm_probe_s": 90, "llm_out_bytes": 400_000,
     # 읽을거리(가린 뒤)가 llm_read_min자 미만이거나 읽힌 채널이 llm_chans_min곳 미만인 항목은 묻지 않는다 — 간추릴 것이 없으면 글 하나를
     # 통째로 바꿔 쓰게 된다. 맥락 상한(물음 말고 다른 것이 모델에게 실렸는가): 점검 호출의 입력 토큰은 llm_probe_tokens까지, 본 호출은
@@ -115,7 +127,13 @@ TH = {
     # 연속 copy_run자 이상 겹치거나 문장의 글자 copy_gram-gram 가운데 copy_ratio 이상이 한 글에 있으면 베낌. 조사를 뗀 어절이 한 글과
     # copy_stems개 이상 같은 차례로 이어져도, copy_piece자 이상 겹친 토막들이(어느 글의 것이든) 문장의 copy_cover 이상을 덮어도 베낌.
     # 숫자 앞 num_ctx_chars자 안의 꼬리표(예상 · 전월 · 전년 …)는 문장과 글이 같아야 한다. 이어진 숫자가 fact_digits_max자 이상이면 전화번호 같은 것
-    "fact_chars": 140, "fact_min_chars": 10, "fact_sentences": 2, "fact_hangul_min": 0.6, "fact_digits_max": 8,
+    # 2026-11-28(E3): 1~2문장 140자 → 2~3문장 220자(검사는 1~fact_sentences문장을 받는다 — 문장 수의 하한은 안전 검사가 아니라서
+    # 읽을거리가 짧아 한 문장만 쓴 항목을 버리지 않는다). 베낌 · 숫자 기준(copy_* · num_ctx_chars)은 길이와 무관하게 그대로 둔다:
+    # copy_run · copy_stems는 글자 · 어절의 절대 수라 문장이 길어져도 느슨해지지 않고, copy_ratio · copy_cover는 비율이라 길이를 따라간다
+    "fact_chars": 220, "fact_min_chars": 10, "fact_sentences": 3, "fact_hangul_min": 0.6, "fact_digits_max": 8,
+    # 오늘 판 한 단락(overview — 2026-11-28 E3): 실린 항목 문장이 overview_items_min개 이상일 때만 묻는다. overview_sentences_min~
+    # overview_sentences문장, overview_min_chars~overview_chars자. 입력은 실린 문장과 규칙판의 낱말 · 숫자 · 곳 수뿐이다(원문을 더 읽지 않는다)
+    "overview_chars": 300, "overview_min_chars": 60, "overview_sentences": 4, "overview_sentences_min": 2, "overview_items_min": 2,
     "copy_run": 20, "copy_gram": 3, "copy_ratio": 0.6, "copy_stems": 5, "copy_piece": 10, "copy_cover": 0.5,
     "num_ctx_chars": 12, "picks_bytes_max": 20_000,
     # 규칙판 실행을 시작하기(--dispatch): 판 날짜가 평일이고 KST 자정에서 dispatch_from_min분(17:30) 뒤부터, 그 판이 아직 안 올라왔을 때만.
@@ -613,6 +631,51 @@ def gloss_of(term):
 def glosses(terms):
     """낱말들 가운데 풀이가 있는 것 → 풀이 목록. 한 번씩, 사전에 실린 순서로."""
     return [gloss_of(t) for t in sorted({t for t in terms if t in GLOSS}, key=_PLACE.__getitem__)]
+
+
+# ---------- 항목에 붙는 안내 — 관련 화면 · 다가오는 일정 · 직전 판과의 차이 (규칙과 이 사이트의 자료만 — LLM · 바깥 요청 없음) ----------
+
+# 일정은 판 날짜부터 soon_days일 안, 항목마다 soon_max개까지. seen_max = 상태 기록에 두는 '이 판 항목의 제목에 나온 낱말' id 수
+# (꼭 볼 것 3 × 낱말 4 + 나머지 30 × 낱말 3 = 102개가 가장 많은 경우)
+TH.update({"soon_days": 7, "soon_max": 2, "seen_max": 120})
+
+# 낱말 → 이 사이트의 화면. (화면 id — index.html의 것만, 화면에 쓰는 이름, 그 화면의 카드와 이어지는 사전 낱말). 순서는 index.html 메뉴의 순서고
+# 한 낱말은 한 화면에만 둔다. 카드가 없는 낱말(관세 · 한국 CPI · 나라를 안 밝힌 '국채 입찰' · 넓은 낱말 '금리' 등)은 넣지 않는다.
+# 고치면 evening.js의 RULES.screens(이름)와 README '저녁판(시범)'의 표를 같이 고친다. 링크는 낱말이 같다는 것뿐이고 글의 내용과는 무관하다
+SCREENS = (
+    ("rates", "금리·커브", ("FOMC", "연준 의사록", "연준 발언", "연준", "미 국채 금리", "미 국채 커브", "커브", "기간 프리미엄", "미 국채 입찰",
+                         "미 국채 수요")),
+    ("inflation", "물가", ("미 CPI", "미 PCE", "근원물가", "인플레", "기대인플레", "실질금리", "유가")),
+    ("credit", "신용·경기", ("미 고용", "신용 스프레드", "금융여건", "미 산업생산")),
+    ("liquidity", "유동성", ("단기자금", "연준 대차대조표", "양적긴축", "미 재정", "미 국채 발행계획", "달러")),
+    ("korea", "한국 금리·커브", ("국고채 금리", "국고채 커브", "한미 금리차")),
+    ("korea-credit", "한국 신용·단기자금", ("국내 단기자금", "국내 크레딧")),
+    ("korea-flows", "한국 수급·입찰", ("국고채 입찰", "국고채 발행계획", "국고채 바이백", "외국인 국채선물", "통안채")),
+    ("ai", "AI 투자", ("AI", "AI Capex", "설비투자 금액", "Capex 가이던스", "AI 회사채 발행", "빅테크 실적", "데이터센터", "사모신용")),
+)
+SCREEN_IDS = tuple(s for s, _, _ in SCREENS)
+_SCREEN_OF = {t: s for s, _, terms in SCREENS for t in terms}
+
+
+def screens_of(terms):
+    """낱말들과 이어지는 화면 id — 한 번씩, 메뉴 순서로."""
+    hit = {_SCREEN_OF.get(t) for t in terms}
+    return [s for s in SCREEN_IDS if s in hit]
+
+
+def comparable(term):
+    """직전 판과 견줄 수 있는 대표 낱말인가 — A·B급, 또는 넓은 낱말(WIDE — '금리' · '연준' 등)이 아닌 C급. 흔한 넓은 C급 낱말은
+    날마다 서로 다른 묶음의 대표가 되므로 견주지 않는다."""
+    return TERMS[term]["grade"] in ("A", "B") or term not in WIDE
+
+
+# 화면이 자료의 값(날짜 · 낱말 · 채널 수 · 화면 id)으로 맞추는 고정 문구 — 문장은 JSON에 싣지 않는다(evening.js의 RULES.view_phrases와 같다)
+VIEW_PHRASES = {
+    "screens": "관련 화면",
+    "soon": "다가오는 일정: {md} {term}",
+    "since_new": "새로 나옴",
+    "since_prev": "직전 판에도 있음(채널 수 {a}→{b})",
+}
 
 
 def _compile(entries):

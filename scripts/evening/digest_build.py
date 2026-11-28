@@ -28,8 +28,10 @@
               남은 풀이. 풀이·단독 줄을 덜어 낸 판에는 알림 줄(note_slim)이 붙는다.
   더 자세히   (2026-10-08 저녁 — 계약은 digest_schema.py 머리말) 항목마다 함께 나온 낱말과 곳 수(words) · 첫 글~마지막 글과 글 수(span) ·
               링크마다 그 글에만 더 있는 낱말(more) · 그 글의 사전 낱말 수(n_terms) · 길이 구간(size) · 그림(pic), 직전 판에 같은
-              A·B급 대표 낱말이 있었으면 그때의 채널 수(prev). 판 끝에 이 판에 나온 낱말의 풀이(gloss).
+              대표 낱말(A·B급, 또는 넓지 않은 C급)이 있었으면 그때의 채널 수(prev). 판 끝에 이 판에 나온 낱말의 풀이(gloss).
               낱말 목록은 글에 나온 순서가 아니라 곳 수 → 등급 → (넓은 낱말은 뒤) → 가나다 순으로만 나간다.
+  항목의 안내  제목의 낱말과 이어지는 이 사이트의 화면 id(screens — digest_rules.SCREENS) · 같은 낱말의 다가오는 일정(soon —
+              <data>/calendar.json, 판 날짜부터 7일 안) · 대표 낱말이 직전 판 어느 항목의 제목에도 없었다는 표시(new — 상태 기록의 seen).
   0건 연속   꼭 볼 것이 0건인 정상 판이 3판 이어지면 실행을 실패로 끝낸다(종료코드 2 — 빈 판이 조용히 이어지지 않게).
               채권 채널의 새 글이 하나도 없던 날은 세지 않는다.
   채널 바뀜   제목 해시가 다르거나 글 번호가 거꾸로 간 채널(수집이 뺀 채널)이 있으면 판은 내되 종료코드 2.
@@ -53,6 +55,7 @@ import digest_check as C
 import digest_picks as K
 import digest_rules as R
 import digest_schema as S
+import digest_score as SC
 
 TH = S.TH
 EMPTY_STATE = {"schema": S.SCHEMA, "edition": None, "base": None}
@@ -60,7 +63,6 @@ EMPTY_OVERRIDES = {"schema": S.SCHEMA, "withdraw": False, "hide_ids": [], "hide_
 OTHER_CELL = {"factor": "기타", "region": "글로벌"}      # 사전 낱말이 하나도 없는 묶음(채권 채널이 혼자 쓴 글 등)이 가는 칸
 CHANGED = ("title", "rewind")                           # 채널이 다른 곳으로 넘어갔을 수 있다는 수집 코드
 ORDER = ("digest.json", "digest_index.json", "digest_state.json", "digest_status.json")    # 쓰는 순서 — 상태가 마지막
-AB = ("A", "B")
 # 판이 크기 상한을 넘을 때 덜어 내는 순서 — (나머지·단독 줄에만 나온 낱말의 풀이도 싣는가, 채널당 단독 줄 수). 그 뒤에 나머지 표를 줄인다
 SLIM = ((True, None), (False, None), (False, 3), (False, 1), (False, 0))
 
@@ -105,10 +107,37 @@ def _more(m, shown, limit):
             "n_terms": len(m["terms"])}
 
 
-def _item(c, date, members, must, topics):
+def _lookback(scored, base, calendar):
+    """항목에 붙는 안내의 재료 → {seen, events}.
+    seen    직전 판 항목의 제목에 나온 낱말 id. '새로 나옴'은 이것이 있을 때만 말한다 — 직전 판이 수집 부족(read_to가 창의 끝이 아님)이었거나,
+            항목이 없었거나(내린 판), 이 칸이 없던 때의 기록이면 빈 집합이다(모르는 것을 새것이라 하지 않는다)
+    events  일정표(calendar.json)의 (날짜, 낱말) — 날짜가 판 날짜부터 soon_days일 안이고 수집 창이 끝난 뒤의 것. 시각을 모르는 일정은
+            창이 끝난 날의 것을 뺀다(이미 나왔을 수 있다)"""
+    whole = bool(base) and base.get("read_to", base["window"]["to"]) == base["window"]["to"]
+    first = datetime.date.fromisoformat(scored["edition"])
+    last = (first + datetime.timedelta(days=TH["soon_days"])).isoformat()
+    to = S.parse_iso(scored["window"]["to"])
+    events = sorted({(e["date"], e["term"]) for e in (calendar or {}).get("events", [])
+                     if scored["edition"] <= e["date"] <= last and S.parse_iso(f"{e['date']}T{e.get('time') or '00:00'}:00+09:00") > to})
+    return {"seen": frozenset(base.get("seen", ())) if whole else frozenset(), "events": events}
+
+
+def _near(terms, old, near):
+    """항목 하나의 안내 칸 — 없는 것은 칸째 없다. screens 관련 화면 id · soon 제목의 낱말과 같은 낱말의 다가오는 일정(낱말마다 가장
+    이른 것, soon_max개까지) · new 대표 낱말이 직전 판 어느 항목의 제목에도 없었다(old = 직전 판의 같은 대표 낱말 — 있으면 prev가 말한다)."""
+    screens, first = R.screens_of(terms), {}
+    for date, term in near["events"]:
+        if term in terms:
+            first.setdefault(term, date)
+    soon = [{"date": d, "term": t} for d, t in sorted((d, t) for t, d in first.items())[:TH["soon_max"]]]
+    new = bool(terms and not old and near["seen"] and R.comparable(terms[0]) and S.topic_key(terms[0]) not in near["seen"])
+    return {**({"screens": screens} if screens else {}), **({"soon": soon} if soon else {}), **({"new": True} if new else {})}
+
+
+def _item(c, date, members, must, topics, near):
     """묶음 → 공개 항목. id는 보이는 글의 씨앗 글로, 링크는 링크 순서 규칙(S.pick_links)으로. 보이는 원천 글이 없으면 None.
-    topics = 직전 판의 {낱말 id: prev 칸} — 같은 대표 낱말이 있었으면 그때의 채널 수를 붙인다. 대표 낱말이 A·B급일 때만이다:
-    '금리' 같은 흔한 C급 낱말은 날마다 서로 다른 묶음의 대표가 되므로 견줄 것이 못 된다."""
+    topics = 직전 판의 {낱말 id: prev 칸} — 같은 대표 낱말이 있었으면 그때의 채널 수를 붙인다. 견줄 수 있는 낱말(R.comparable)일 때만이다:
+    '금리' 같은 흔한 넓은 C급 낱말은 날마다 서로 다른 묶음의 대표가 되므로 견줄 것이 못 된다. near = _lookback의 것."""
     if not any(m["role"] == "source" for m in members):
         return None
     seed, kind = S.seed_of(members), "" if must else "rest_"
@@ -116,31 +145,32 @@ def _item(c, date, members, must, topics):
     words, shared = _words(members, TH[kind + "words_max"], terms)
     shown, by = set(terms) | shared | {w["term"] for w in words}, {S.post_url(m["ch"], m["id"]): m for m in members}
     links = [{**ln, **_more(by[ln["url"]], shown, TH[kind + "more_max"])} for ln in S.pick_links(members, TH[kind + "links_max"])]
-    ats, old = sorted(m["at"] for m in members), topics.get(S.topic_key(terms[0])) if terms and R.grade_of(terms[0]) in AB else None
+    ats, old = sorted(m["at"] for m in members), topics.get(S.topic_key(terms[0])) if terms and R.comparable(terms[0]) else None
     base = {"id": S.item_id(date, seed["ch"], seed["id"]), "key": c["key"], "cell": dict(c["cell"] or OTHER_CELL), "terms": terms,
             "nums": [dict(n) for n in c["nums"][:TH[kind + "nums_max"]]], "coverage": dict(c["coverage"]), "links": links,
             **({"words": words} if words else {}), "span": {"from": ats[0], "to": ats[-1], "posts": len(members)},
-            **({"prev": dict(old)} if old else {})}
+            **({"prev": dict(old)} if old else {}), **_near(terms, old, near)}
     if must:
         return {**base, "score": dict(c["score"]), "why": list(c["why"][:TH["why_max"]])}
     return {**base, "s": c["score"]["total"]}
 
 
-def _items(clusters, date, roles, hidden, hide_ids, must, topics):
+def _items(clusters, date, roles, hidden, hide_ids, must, topics, near):
     """묶음들 → [(항목, 묶음)]. 숨긴 항목은 빼고, 그 자리를 다른 묶음으로 채우지 않는다."""
     out = []
     for c in clusters:
-        x = _item(c, date, _visible(c, roles, hidden), must, topics)
+        x = _item(c, date, _visible(c, roles, hidden), must, topics, near)
         if x and x["id"] not in hide_ids:
             out.append((x, c))
     return out
 
 
 def _pick(clusters, short):
-    """(꼭 볼 묶음들 순위순, 나머지 묶음들 점수순). 수집 부족이면 꼭 볼 것을 비우고 그 묶음들을 나머지 표로 내린다."""
+    """(꼭 볼 묶음들 순위순, 나머지 묶음들 점수순). 수집 부족이면 꼭 볼 것을 비우고 그 묶음들을 나머지 표로 내린다.
+    같은 점수에서는 사전 낱말이 있는 묶음이 먼저다(2026-11-28) — 30줄 상한에 걸린 날 낱말 없는 채권 글이 애널의 B급 글을 밀어내지 않게."""
     must = sorted((c for c in clusters if c["pick"] == "must"), key=lambda c: c["rank"])
     rest = [c for c in clusters if c["pick"] == "rest"] + (must if short else [])
-    rest.sort(key=lambda c: (-c["score"]["total"], c["first_at"], c["seed"]["ch"], c["seed"]["id"]))
+    rest.sort(key=lambda c: (-c["score"]["total"], not c["terms"], c["first_at"], c["seed"]["ch"], c["seed"]["id"]))
     return ([] if short else must), rest
 
 
@@ -200,14 +230,15 @@ def _tomorrow(rows, window):
 
 # ---------- 판 ----------
 
-def _parts(scored, collect, sources, overrides, base, rows=None):
+def _parts(scored, collect, sources, overrides, base, rows=None, calendar=None):
     """판에 실을 재료 → (재료, {항목 id: 묶음}). base = 직전 판의 기록(어제와 견줄 대표 낱말 id와 채널 수가 있으면 prev로 붙인다).
-    rows = 채널당 단독 줄 수(크기 상한에 걸려 덜어 낼 때만 준다)."""
+    rows = 채널당 단독 줄 수(크기 상한에 걸려 덜어 낼 때만 준다). calendar = 일정표(항목의 '다가오는 일정' — 없으면 붙지 않는다)."""
     roles, hidden, date = C.roles_of(sources), set(overrides["hide_channels"]), scored["edition"]
     topics = {t["key"]: {"date": base["date"], **{g: t[g] for g in R.GROUPS}} for t in (base or {}).get("topics", [])}
     must_c, rest_c = _pick(scored["clusters"], collect["verdict"] == "short")
-    must = _items(must_c, date, roles, hidden, overrides["hide_ids"], True, topics)
-    rest = _items(rest_c, date, roles, hidden, overrides["hide_ids"], False, topics)
+    near = _lookback(scored, base, calendar)
+    must = _items(must_c, date, roles, hidden, overrides["hide_ids"], True, topics, near)
+    rest = _items(rest_c, date, roles, hidden, overrides["hide_ids"], False, topics, near)
     parts = {"must": [x for x, _ in must], "rest": [x for x, _ in rest],
              "wire": _side(scored, collect, roles, hidden, C.SIDES["wire"], rows),
              "solo": _side(scored, collect, roles, hidden, C.SIDES["solo"], rows),
@@ -253,7 +284,8 @@ def _doc(scored, collect, parts, cut, slim=False, wide=True):
     kept = parts["rest"][:len(parts["rest"]) - cut]
     groups = [{"cell": k, "items": [x for x in kept if R.cell_id(**x["cell"]) == k]} for k in R.CELLS]
     funnel = {"posts": scored["stats"]["posts"], "clusters": sum(any(m["role"] == "source" for m in c["members"]) for c in cs),
-              "candidates": sum(c["gate"]["pass"] for c in cs), "must": len(parts["must"]), "truncated": cut}
+              "candidates": sum(c["gate"]["pass"] for c in cs), "must": len(parts["must"]), "truncated": cut,
+              "shadow": SC.shadow(cs)}                                   # 문턱 후보별 묶음 수(숫자만 — 2026-11-28)
     missing = health["channels_total"] - health["channels_ok"]
     d = {"schema": S.SCHEMA, "date": scored["edition"], "mode": "rules", "status": status, "window": dict(scored["window"]),
          "collected_at": scored["collected_at"], "funnel": funnel,
@@ -264,25 +296,31 @@ def _doc(scored, collect, parts, cut, slim=False, wide=True):
     return {**d, "gloss": _gloss(d, wide)}
 
 
+def _seen(d):
+    """이 판 항목의 제목에 나온 낱말 id(해시) — 다음 판의 '새로 나옴'이 읽는다. 낱말 글자는 두지 않는다."""
+    items = d["must"] + [x for g in d["rest"] for x in g["items"]]
+    return sorted({S.topic_key(t) for x in items for t in x["terms"]})[:TH["seen_max"]]
+
+
 def _topics(d):
-    """이 판 항목들의 A·B급 대표 낱말마다 낱말 id(해시)와 그때 센 채널 수 — 같은 낱말의 항목이 여럿이면 가장 많은 곳이 다룬 것.
-    다음 판의 prev가 읽는다. 낱말 글자는 상태 기록에 두지 않는다(사전을 고쳐도 지난 상태가 검사에서 떨어지지 않게)."""
+    """이 판 항목들의 견줄 수 있는 대표 낱말(R.comparable)마다 낱말 id(해시)와 그때 센 채널 수 — 같은 낱말의 항목이 여럿이면 가장 많은 곳이
+    다룬 것. 다음 판의 prev가 읽는다. 낱말 글자는 상태 기록에 두지 않는다(사전을 고쳐도 지난 상태가 검사에서 떨어지지 않게)."""
     best = {}
     for x in d["must"] + [x for g in d["rest"] for x in g["items"]]:
         cov = {g: x["coverage"][g] for g in R.GROUPS}
-        lead = x["terms"][0] if x["terms"] and R.grade_of(x["terms"][0]) in AB else None
+        lead = x["terms"][0] if x["terms"] and R.comparable(x["terms"][0]) else None
         if lead and sum(cov.values()) > sum(best.get(lead, {"none": -1}).values()):
             best[lead] = cov
     return sorted(({"key": S.topic_key(t), **cov} for t, cov in best.items()), key=lambda t: t["key"])[:TH["topics_max"]]
 
 
-def edition(scored, collect, sources, overrides, base=None):
+def edition(scored, collect, sources, overrides, base=None, calendar=None):
     """공개 판 하나 → (판, {항목 id: 묶음}, 검사에서 뺀 것의 수). 크기 상한을 넘으면 읽을거리가 덜 줄어드는 순서로 덜어 낸다:
     나머지·단독 줄에만 나온 낱말의 풀이 → 단독 줄(채널당 3 → 1 → 0줄) → 나머지 표(점수가 낮은 줄부터) → 남은 풀이.
     채권 채널의 글(나머지 표)이 날마다 같은 풀이나 개인 채널의 단독 줄에 밀려 빠지지 않게 한다."""
     fits = lambda d: len(S.dump(d).encode("utf-8")) <= C.EDITION_BYTES
     for level, (wide, rows) in enumerate(SLIM):
-        parts, trace = _parts(scored, collect, sources, overrides, base, rows)
+        parts, trace = _parts(scored, collect, sources, overrides, base, rows, calendar)
         parts, dropped = _guard(parts, sources)
         cut = max(0, len(parts["rest"]) - TH["rest_max"])
         d = _doc(scored, collect, parts, cut, level > 0, wide)
@@ -317,7 +355,8 @@ def _snap(d, trace, collect, base):
     must = [{"id": x["id"], "keys": list(trace[x["id"]]["keys"]), "c": trace[x["id"]]["score"]["C"]} for x in d["must"]]
     before = (base.get("read_to") or base["window"]["to"]) if base else d["window"]["from"]
     return {"date": d["date"], "window": dict(d["window"]), "collected_at": d["collected_at"], "empty_streak": streak,
-            "must": must, "channels": chans, "read_to": before if d["status"] == "short" else d["window"]["to"], "topics": _topics(d)}
+            "must": must, "channels": chans, "read_to": before if d["status"] == "short" else d["window"]["to"], "topics": _topics(d),
+            "seen": _seen(d)}
 
 
 def _trim(snap, handles):
@@ -351,7 +390,7 @@ def _streak_now(state):
     return state["edition"]["empty_streak"] if state["edition"] else 0
 
 
-def assemble(scored, collect, state, index, overrides, sources):
+def assemble(scored, collect, state, index, overrides, sources, calendar=None):
     """검증된 입력 → (종료코드, {파일 이름: 자료}, {dropped, changed, stale}). 입력은 고치지 않는다."""
     same = ("edition", "window", "collected_at")
     if [scored[k] for k in same] != [collect[k] for k in same]:
@@ -363,7 +402,8 @@ def assemble(scored, collect, state, index, overrides, sources):
         status = _status(at, "broken", date, False, collect, index, _streak_now(state))
         return 3, {"digest_status.json": status}, {"dropped": 0, "changed": changed, "stale": stale}
     base = S.state_base(state, date)
-    d, trace, dropped = (_withdrawn(scored), {}, 0) if overrides["withdraw"] else edition(scored, collect, sources, overrides, base)
+    d, trace, dropped = (_withdrawn(scored), {}, 0) if overrides["withdraw"] else \
+        edition(scored, collect, sources, overrides, base, calendar)
     snap = _snap(d, trace, collect, base)
     moved, new_index = S.next_state(state, snap), _index(index, C.index_row(d), at)
     new_state = {**moved, "base": _trim(moved["base"], S.handles_of(sources))}
@@ -379,7 +419,8 @@ def blank(now, state, handles):
     """내리기 전용 → {파일 이름: 자료}. 빈 판, 이 판만 든 목차, 꼭 볼 것의 id를 지운 상태 기록(창과 채널별 글 번호는 남긴다)."""
     d = S.blank_digest(now)
     date, at = d["date"], d["collected_at"]
-    clean = {k: (None if state[k] is None else {**_trim(state[k], handles), "must": [], "topics": []}) for k in ("edition", "base")}
+    clean = {k: (None if state[k] is None else {**_trim(state[k], handles), "must": [], "topics": [], "seen": []})
+             for k in ("edition", "base")}
     index = {"schema": S.SCHEMA, "updated_at": at, "latest": date, "editions": [C.index_row(d)]}
     return {"digest.json": d, f"digest/{date}.json": d, "digest_index.json": index, "digest_state.json": {"schema": S.SCHEMA, **clean},
             "digest_status.json": _status(at, "withdrawn", date, True, None, index, _streak_now(state))}
@@ -441,7 +482,8 @@ def _normal(data, work):
     sources = _read(data, "sources.json")
     scored, collect = _read(work, "scored.json"), _read(work, "collect_status.json")
     state, index = _read(data, "digest_state.json", EMPTY_STATE), _read(data, "digest_index.json", None)
-    code, files, facts = assemble(scored, collect, state, index, _read(data, "digest_overrides.json", EMPTY_OVERRIDES), sources)
+    code, files, facts = assemble(scored, collect, state, index, _read(data, "digest_overrides.json", EMPTY_OVERRIDES), sources,
+                                  _read(data, "calendar.json", None))
     return code, files, sources, facts
 
 

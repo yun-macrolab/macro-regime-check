@@ -26,7 +26,7 @@ import fixtures as F
 from test_evening_site import (C1, C3, C4, C5, C7, NODE, POST, REPO, TAKEDOWN, Screen, blob, calls, draw, draws, flat, fx,
                                outside, posts, rules_block, site)
 
-NEW_ITEM, NEW_LINK = ("words", "span", "prev"), ("more", "size", "pic", "n_terms")
+NEW_ITEM, NEW_LINK = ("words", "span", "prev", "screens", "soon", "new"), ("more", "size", "pic", "n_terms")
 CPI = "미국 소비자물가지수. 노동통계국(BLS)이 매달 내는 대표 물가 지표"       # digest_gloss.py의 풀이 — 우리가 쓴 글이다(채널 글이 아니다)
 
 
@@ -211,9 +211,9 @@ class MoreCardTest(Screen):
 
     def test_previous_edition_is_named_as_the_same_word_not_the_same_story(self):
         """검토(2026-10-08 밤): 대표 낱말 하나가 같다고 '같은 주제 · N곳 늘었습니다'라고 쓰지 않는다."""
-        self.shows(self.frame, "대표 낱말이 직전 판 10-07(수)에도 있었습니다", "그때 채권 2 · 개인 1 → 이번 채권 3 · 애널 2 · 개인 3",
-                   "낱말이 같을 뿐 같은 묶음이 아닐 수 있습니다")
-        self.assertEqual(flat(self.frame["text"]).count(flat("에도 있었습니다")), 1)     # 칸이 있는 항목에만
+        self.shows(self.frame, "직전 판에도 있음(채널 수 3→8)", "직전 판 10-07(수) 채권 2 · 개인 1 → 이번 채권 3 · 애널 2 · 개인 3",
+                   "대표 낱말이 같을 뿐 같은 묶음이 아닐 수 있습니다")
+        self.assertEqual(flat(self.frame["text"]).count(flat("직전 판에도 있음(채널 수")), 1)     # 칸이 있는 항목에만, 한 번만
         self.lacks(self.frame, "나온 주제", "늘었습니다", "줄었습니다", "곳 수는 같습니다")
 
     def test_source_rows_tell_the_posts_apart(self):
@@ -274,9 +274,10 @@ class MoreCardTest(Screen):
         lone["words"] = [{"term": t, "n_ch": 1} for t in ("기준금리", "가계부채")]
         lone["links"][0]["more"] = ["유가"]
         lone["prev"] = {"date": "2026-10-07", "bond": 1, "analyst": 0, "personal": 0}
+        lone.pop("new", None)                                                   # 새로 나옴과 직전 판의 칸은 함께 오지 않는다
         frame = draw(site(digest=d))
         # 한 곳뿐인 글은 그 글의 낱말을 한 줄로 합친다 — '이 글의 다른 낱말'과 '더:'로 갈라 부르지 않는다(검토 2026-10-08 밤)
-        self.shows(frame, "이 글의 낱말: 기준금리 · 가계부채 · 유가", "대표 낱말이 직전 판 10-07(수)에도 있음",
+        self.shows(frame, "이 글의 낱말: 기준금리 · 가계부채 · 유가", "직전 판에도 있음(채널 수 1→1)",
                    "가상 애널 anal4 10-08 07:55 · 짧은 글 · 사전 낱말 4개 · 더: 유가", "가상 개인 pers4 10-08 08:30 · 전달 · 짧은 글")
         self.lacks(frame, "기준금리 1곳", "이 글의 다른 낱말", "가계부채 · 유가 · 더")
         self.assertEqual(flat(frame["text"]).count(flat("더: 유가")), 1)

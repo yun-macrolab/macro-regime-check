@@ -124,7 +124,9 @@ class SamplesTest(unittest.TestCase):
         self.assertEqual([x["id"] for x in d["must"]], ["20261008-fxbond1-501", "20261008-fxbond4-640", "20261008-fxbond2-213"])
         self.assertEqual(d["must"][0]["coverage"], {"bond": 3, "analyst": 2, "personal": 3, "wire": 1})
         self.assertEqual([g["cell"] for g in d["rest"]], ["펀더멘털/글로벌", "통화정책/국내", "수급/국내", "기타"])
-        self.assertEqual(d["funnel"], {"posts": 41, "clusters": 11, "candidates": 3, "must": 3, "truncated": 0})
+        self.assertEqual({k: v for k, v in d["funnel"].items() if k != "shadow"},
+                         {"posts": 41, "clusters": 11, "candidates": 3, "must": 3, "truncated": 0})
+        self.assertEqual(tuple(d["funnel"]["shadow"]), S.SHADOW_KEYS)                  # 그림자 기록(숫자만) — 값은 fixtures.py에 손으로 센 것
         wire = {c["ch"]: c for c in d["wire"]["channels"]}
         self.assertEqual(wire["fxwire1"], {"ch": "fxwire1", "read": 7, "joined": 1, "hit": 6})        # 여섯 줄이 맞았지만
         self.assertEqual(sum(r["ch"] == "fxwire1" for r in d["wire"]["rows"]), R.TH["rows_per_channel"])   # 다섯 줄만 싣는다

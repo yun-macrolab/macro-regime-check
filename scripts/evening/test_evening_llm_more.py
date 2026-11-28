@@ -17,7 +17,7 @@ import digest_rules as R
 import digest_schema as S
 import evening_llm as L
 import fixtures as F
-from test_evening_llm import CPI, GOOD, SHORT_OK, Claude, Net, fx, picked
+from test_evening_llm import CPI, GOOD, MUST_ONLY, SHORT_OK, Claude, Net, fx, picked
 from test_evening_llm_run import NOW, RunCase
 from test_picks_push import MOD, NEW, OFF, Tool, good
 
@@ -28,7 +28,7 @@ REAL = {"llm_read_min": 300}             # 이 파일의 다른 테스트는 짧
 
 def setUpModule():
     global _SHORT
-    _SHORT = mock.patch.dict(R.TH, SHORT_OK)
+    _SHORT = mock.patch.dict(R.TH, {**SHORT_OK, **MUST_ONLY})
     _SHORT.start()
 
 
@@ -195,7 +195,7 @@ class SwitchRunTest(RunCase):
         code, out = self.go(git=git, net=net, now="2026-10-08T21:00:00+09:00")
         self.assertEqual((code, self.doc()["items"], git.count("push")), (0, [], 1))
         self.quiet(git, net)
-        self.assertIn("picked=0 asked=0 posts=0 requests=0 kept=0 dropped=0 result=pushed code=ok", self.logged())
+        self.assertIn("picked=0 asked=0 posts=0 requests=0 kept=0 dropped=0 ov=skip result=pushed code=ok", self.logged())
         code, out = self.go(git=Tool(**good(gh_variable_list=(0, OFF), status=(0, ""))), net=Net(), now="2026-10-08T22:00:00+09:00")
         self.assertEqual(code, 0)                                             # 빈 층이 올라간 뒤에는 할 일이 없다
         self.assertIn("make result=off code=ok", self.logged())
@@ -224,7 +224,7 @@ class ShortRunTest(RunCase):
         with mock.patch.dict(R.TH, {"llm_read_min": 300}):
             code, out = self.go()
             self.assertEqual((code, self.doc()["items"], [c.probe for c in self.claude.calls]), (0, [], [True]))
-            self.assertIn("picked=3 ctx=120 asked=0 posts=0 requests=7 kept=0 dropped=0 result=pushed code=ok", self.logged())
+            self.assertIn("picked=3 ctx=120 asked=0 posts=0 requests=7 kept=0 dropped=0 ov=skip result=pushed code=ok", self.logged())
             code, out = self.go(git=Tool(**good(status=(0, ""))), net=Net(), now="2026-10-08T21:00:00+09:00")
             self.assertEqual((code, [c.probe for c in self.claude.calls]), (0, [True]))
             self.assertIn("requests=7 result=same code=ok", self.logged())

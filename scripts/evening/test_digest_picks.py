@@ -61,7 +61,7 @@ class ShapeTest(unittest.TestCase):
         d = doc()
         self.assertIs(K.validate_picks(d), d)
         self.assertIs(K.validate_picks(d, fx("sources")), d)
-        self.assertEqual(sorted(d), ["basis", "date", "dropped", "items", "made_at", "mode", "model", "schema"])
+        self.assertEqual(sorted(d), ["basis", "date", "dropped", "items", "made_at", "mode", "model", "overview", "schema"])
         self.assertEqual((d["schema"], d["mode"], d["date"], d["made_at"], d["model"]), (1, "ai", F.EDITION, F.COLLECTED, "claude-fx-1"))
         self.assertEqual(d["items"], [{**ASKED[0], "fact": GOOD}])
         self.assertEqual(d["dropped"], {**{c: 0 for c in K.CODES}, "number": 1})
@@ -97,7 +97,7 @@ class ShapeTest(unittest.TestCase):
             "겹친 글": doc(items=[{**item, "src": [["fxbond1", 501], ["fxbond1", 501]]}]),
             "글의 꼴": doc(items=[{**item, "src": [["fxbond1", "501"]]}]), "글 번호 0": doc(items=[{**item, "src": [["fxbond1", 0]]}]),
             "주소를 적은 글": doc(items=[{**item, "src": ["https://t.me/fxbond1/501"]}]),
-            "문장이 없음": doc(items=[{**item, "fact": None}]), "문장이 너무 김": doc(items=[{**item, "fact": "가" * 139 + "다."}]),
+            "문장이 없음": doc(items=[{**item, "fact": None}]), "문장이 너무 김": doc(items=[{**item, "fact": "가" * (TH["fact_chars"] - 1) + "다."}]),
             "권유가 든 문장": doc(items=[{**item, "fact": "국고채 10년물은 지금 매수할 만하다."}]),
             "사유 칸이 다름": doc(dropped={"number": 1}), "개수가 음수": doc(dropped={**doc()["dropped"], "copy": -1}),
             "개수가 물은 것보다 많음": doc(dropped={**doc()["dropped"], "copy": TH["llm_items_max"]}),
@@ -125,7 +125,7 @@ class ShapeTest(unittest.TestCase):
         msg = bad(self, doc(items=[{**item, "fact": F.CANARIES[2] + " 그리고 " + F.CANARIES[0]}], model=F.CANARIES[3]))
         self.assertEqual(F.leaks(msg), [])                                     # 어느 칸이 왜만 — 값은 싣지 않는다
         self.assertLess(len(S.dump(doc()).encode("utf-8")), TH["picks_bytes_max"])
-        self.assertLess(TH["llm_items_max"] * (TH["fact_chars"] * 3 + 200), TH["picks_bytes_max"])         # 꽉 찬 날도 상한 안
+        self.assertLess(TH["llm_items_max"] * (TH["fact_chars"] * 3 + 200) + TH["overview_chars"] * 3 + 40, TH["picks_bytes_max"])   # 꽉 찬 날도 상한 안
 
 
 class PlainTest(unittest.TestCase):
@@ -140,7 +140,7 @@ class PlainTest(unittest.TestCase):
 
     def test_shape(self):
         cases = {
-            "너무 김": "가" * (TH["fact_chars"] - 1) + "다.", "너무 짧음": "올랐다.", "세 문장": "물가가 올랐다. 금리가 올랐다. 주가는 내렸다.",
+            "너무 김": "가" * (TH["fact_chars"] - 1) + "다.", "너무 짧음": "올랐다.", "네 문장": "물가가 올랐다. 금리가 올랐다. 주가는 내렸다. 환율은 그대로였다.",
             "마침표 없음": "미국 9월 소비자물가는 3.1% 올랐다", "평서문이 아님(물음)": "미국 9월 소비자물가는 3.1% 올랐을까?",
             "평서문이 아님(시킴)": "미국 9월 소비자물가를 확인하라.", "메모체": "미 CPI 3.1%, 근원 0.3%. 예상 상회.",
             "줄바꿈": "미국 9월 소비자물가는\n3.1% 올랐다.", "탭": "미국 9월 소비자물가는\t3.1% 올랐다.",
@@ -156,9 +156,10 @@ class PlainTest(unittest.TestCase):
         for name, fact in cases.items():
             with self.subTest(name):
                 self.assertEqual(K.fact_plain(fact), "shape")
-        self.assertIsNone(K.fact_plain("가" * (TH["fact_chars"] - 2) + "다."))                 # 꼭 140자는 된다
-        self.assertEqual(TH["fact_chars"], 140)
-        self.assertEqual(TH["fact_sentences"], 2)
+        self.assertIsNone(K.fact_plain("가" * (TH["fact_chars"] - 2) + "다."))                 # 꼭 220자는 된다
+        self.assertIsNone(K.fact_plain("물가가 올랐다. 금리가 올랐다. 주가는 내렸다."))          # 세 문장까지(2026-11-28 — 전에는 두 문장)
+        self.assertIsNone(K.fact_plain("한은 총재가 가계부채 문제를 다시 꺼냈다."))               # 한 문장도 된다 — 문장 수의 하한은 두지 않는다
+        self.assertEqual((TH["fact_chars"], TH["fact_sentences"], TH["fact_min_chars"]), (220, 3, 10))     # 140자 · 2문장 → 220자 · 3문장
 
     def test_channel_names_are_refused_when_given(self):
         names = K.names_of(fx("sources"))

@@ -22,7 +22,7 @@ import evening_llm as L
 import fixtures as F
 from unittest import mock
 
-from test_evening_llm import AUCTION, CARD, CPI, GOOD, SHORT_OK, Claude, Net, fx, no_net
+from test_evening_llm import AUCTION, CARD, CPI, GOOD, MUST_ONLY, SHORT_OK, Claude, Net, fx, no_net
 from test_picks_push import MOD, NEW, Tool, good, runs
 
 TH = R.TH
@@ -33,7 +33,7 @@ WITH_LINK = "자세한 내용은 canary.invalid/eve 에 있다."
 
 def setUpModule():
     global _SHORT
-    _SHORT = mock.patch.dict(R.TH, SHORT_OK)     # 지어낸 글은 짧다 — 읽을거리 하한은 test_evening_llm_more가 본다
+    _SHORT = mock.patch.dict(R.TH, {**SHORT_OK, **MUST_ONLY})     # 지어낸 글은 짧다 — 읽을거리 하한은 test_evening_llm_more가 본다
     _SHORT.start()
 
 
@@ -100,12 +100,13 @@ class PublishRunTest(RunCase):
         self.assertEqual(self.git.names(), ["gh variable list", "status", "fetch", "checkout", "status", "blind", "rev-parse", "add", "commit",
                                             "rev-list", "diff", "push"])
         self.assertEqual(self.git.calls[8][:5], ["git", "commit", "--quiet", "-m", f"data: {F.EDITION} 저녁판 AI 요약"])
-        self.assertEqual([c.probe for c in self.claude.calls], [True, False])
+        self.assertEqual([(c.probe, c.overview) for c in self.claude.calls], [(True, False), (False, False), (False, True)])   # 점검 · 본 호출 · 한 단락
+        self.assertIsNone(d["overview"])                                     # 가짜 claude는 한 단락을 쓰지 않았다(null) — 실린 것은 OverviewRunTest
         log = self.logged()
         self.assertEqual(len(log.strip().split("\n")), 2)                     # 한 실행 한두 줄
         self.assertRegex(log, r"(?m)^2026-10-08T18:20:00\+09:00 \[evening_llm\] run switch=on dispatch=skip code=ok$")
         self.assertRegex(log, r"(?m)^2026-10-08T18:20:00\+09:00 \[evening_llm\] make edition=2026-10-08 picked=3 ctx=120 asked=3 posts=8 requests=7 "
-                              r"kept=3 dropped=0 result=pushed code=ok$")
+                              r"kept=3 dropped=0 ov=none result=pushed code=ok$")
         self.clean(log, out)
         self.assertFalse(os.path.exists(os.path.join(self.work, "picks_dry")))
 
@@ -115,7 +116,7 @@ class PublishRunTest(RunCase):
         d = self.doc()
         self.assertEqual((code, [x["key"] for x in d["items"]]), (0, [AUCTION]))
         self.assertEqual(d["dropped"], {**{c: 0 for c in K.CODES}, "number": 1, "none": 1})
-        self.assertIn("kept=1 dropped=2 d_number=1 d_none=1 result=pushed code=ok", self.logged())
+        self.assertIn("kept=1 dropped=2 d_number=1 d_none=1 ov=skip result=pushed code=ok", self.logged())
         self.assertNotIn("3.2", self.logged() + out + S.dump(d))
         self.clean(self.logged(), out)
 
@@ -153,7 +154,7 @@ class PublishRunTest(RunCase):
         code, out = self.go(claude=two, git=Tool(**good(status=[(0, ""), (0, MOD)])))
         self.assertEqual((code, len(self.claude.main_calls()), [x["key"] for x in self.doc()["items"]]), (0, 1, [CPI, AUCTION]))
         self.assertNotIn(CARD, two.main_calls()[0].text)
-        self.assertEqual([c.probe for c in self.claude.calls], [True, False])  # 점검 호출은 글을 건네기 앞에 매번
+        self.assertEqual([c.probe for c in self.claude.calls], [True, False, False])  # 점검 호출은 글을 건네기 앞에 매번(끝은 한 단락 — 원문 없음)
 
     def test_nothing_to_ask_writes_an_empty_layer_for_that_edition(self):
         S.write_json(self.picks, K.picks_doc("2026-10-07", "2026-10-07T18:30:00+09:00", "claude-fx-1", [
@@ -163,7 +164,7 @@ class PublishRunTest(RunCase):
         code, out = self.go(git=Tool(**good(status=[(0, ""), (0, MOD)])))
         self.assertEqual((code, self.claude.calls, self.net.calls), (0, [], []))
         self.assertEqual(self.doc(), K.blank_picks(F.EDITION, NOW))
-        self.assertIn("picked=0 asked=0 posts=0 requests=0 kept=0 dropped=0 result=pushed code=ok", self.logged())
+        self.assertIn("picked=0 asked=0 posts=0 requests=0 kept=0 dropped=0 ov=skip result=pushed code=ok", self.logged())
 
 
 class StopTest(RunCase):

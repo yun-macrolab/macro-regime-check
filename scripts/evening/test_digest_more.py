@@ -257,13 +257,16 @@ class EditionTest(unittest.TestCase):
         mine = next(t for t in topics if t["key"] == F.topic_key("미 CPI"))
         self.assertEqual(mine, {"key": F.topic_key("미 CPI"), "bond": 3, "analyst": 2, "personal": 3})
         self.assertEqual(self.files["digest_state.json"]["base"]["topics"], fx("state")["edition"]["topics"])
-        # 대표 낱말이 C급('관세')인 줄은 견주지 않는다 — 흔한 낱말 하나로는 같은 주제라 할 수 없다(검토 2026-10-08 밤)
-        self.assertNotIn(F.topic_key("관세"), [t["key"] for t in topics])
+        # 흔한 넓은 C급 낱말('금리' · '연준')은 견주지 않는다 — 낱말 하나로는 같은 주제라 할 수 없다(검토 2026-10-08 밤). 그 밖의 C급
+        # ('관세')은 2026-11-28부터 견준다
+        self.assertIn(F.topic_key("관세"), [t["key"] for t in topics])
+        self.assertNotIn(F.topic_key("금리"), [t["key"] for t in topics])
+        self.assertEqual([R.comparable(t) for t in ("금통위", "커브", "관세", "금리", "연준", "AI")], [True, True, True, False, False, False])
         state = fx("state")
         state["edition"]["topics"] = sorted(state["edition"]["topics"] + [{"key": F.topic_key("관세"), "bond": 0, "analyst": 0, "personal": 2}],
                                             key=lambda t: t["key"])
         again = assembled(state=state)[1]["digest.json"]
-        self.assertNotIn("prev", item_of(again, "fxpers5-610"))
+        self.assertEqual(item_of(again, "fxpers5-610")["prev"], {"date": "2026-10-07", "bond": 0, "analyst": 0, "personal": 2})
         self.assertIn("prev", again["must"][0])
         first = assembled(state=B.EMPTY_STATE)[1]["digest.json"]                    # 첫 실행 · 새 칸이 없는 지난 상태 → prev 없음
         old = fx("state")
@@ -346,8 +349,9 @@ class ShapeTest(unittest.TestCase):
             "곳 수가 1과 여럿으로 섞임": (edit(good, ["must", 0, "words"], [{"term": "관세", "n_ch": 6}, {"term": "유가", "n_ch": 1}]), "words"),
             "같은 낱말 두 번": (edit(good, ["must", 0, "words"], [{"term": "관세", "n_ch": 6}] * 2), "words"),
             "제목의 낱말을 되풀이": (edit(good, ["must", 0, "words"], [{"term": "미 CPI", "n_ch": 6}]), "words"),
-            "C급 대표 낱말의 직전 판": (edit(good, ["rest", rumor[0], "items", rumor[1], "prev"],
-                                     {"date": "2026-10-07", "bond": 0, "analyst": 0, "personal": 2}), "prev"),
+            "넓은 C급 대표 낱말의 직전 판": (edit(good, ["rest", rumor[0], "items", rumor[1]],
+                                        {**{k: v for k, v in good["rest"][rumor[0]]["items"][rumor[1]].items() if k != "new"},
+                                         "terms": ["금리"], "prev": {"date": "2026-10-07", "bond": 0, "analyst": 0, "personal": 2}}), "prev"),
             "낱말 수가 덧낱말보다 적음": (edit(good, ["must", 1, "links", 0, "n_terms"], 0), "links[0]"),
             "이 판에 없는 낱말의 풀이": (edit(good, ["gloss"], R.glosses([g["term"] for g in good["gloss"]] + ["잭슨홀"])), "gloss"),
             "덧낱말이 항목의 낱말과 겹침": (edit(good, ["must", 0, "links", 0, "more"], ["미 CPI"]), "more"),

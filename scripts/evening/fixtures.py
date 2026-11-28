@@ -252,6 +252,7 @@ def state():
             "collected_at": "2026-10-07T18:04:00+09:00", "empty_streak": 0, "channels": chans,
             "must": [{"id": "20261007-fxbond2-205", "keys": [S.key_of("k", "금통위|국내")], "c": 4.0}],
             "topics": sorted(topics, key=lambda t: t["key"])}        # 그 판 항목들의 대표 낱말 id와 채널 수(어제와 견주기)
+    snap["seen"] = sorted(topic_key(t) for t in ("금통위", "미 CPI"))      # 그 판 항목의 제목에 나온 낱말 id('새로 나옴'의 재료)
     return {"schema": 1, "edition": snap, "base": None}
 
 
@@ -486,11 +487,23 @@ def _more(m, shown, limit):
 
 
 def _prev(terms):
-    """직전 판(state())에 같은 대표 낱말의 항목이 있었으면 그때의 채널 수 — 대표 낱말이 A·B급일 때만."""
+    """직전 판(state())에 같은 대표 낱말의 항목이 있었으면 그때의 채널 수 — 대표 낱말이 A·B급이거나 넓지 않은 C급일 때만."""
     base = state()["edition"]
-    lead = terms[0] if terms and R.grade_of(terms[0]) in ("A", "B") else None
+    lead = _comparable(terms)
     hit = next((t for t in base["topics"] if lead and t["key"] == topic_key(lead)), None)
     return {"prev": {"date": base["date"], **{g: hit[g] for g in R.GROUPS}}} if hit else {}
+
+
+def _comparable(terms):
+    return terms[0] if terms and (R.grade_of(terms[0]) in ("A", "B") or terms[0] not in R.WIDE) else None
+
+
+def _near(terms):
+    """항목의 안내 칸 — 관련 화면 · 새로 나옴(대표 낱말이 직전 판의 seen에 없을 때). 지어낸 일정표에는 이 판 항목의 낱말과 같은 다가오는
+    일정이 없어 soon은 없다."""
+    screens, lead = R.screens_of(terms), _comparable(terms)
+    new = bool(lead and topic_key(lead) not in state()["edition"]["seen"])
+    return {**({"screens": screens} if screens else {}), **({"new": True} if new else {})}
 
 
 def _item(c, must):
@@ -504,7 +517,7 @@ def _item(c, must):
              for ln in S.pick_links(c["members"], None if must else R.TH["rest_links_max"])]
     base = {"id": S.item_id(EDITION, c["seed"]["ch"], c["seed"]["id"]), "key": c["key"], "coverage": c["coverage"],
             "cell": c["cell"] or {"factor": "기타", "region": "글로벌"}, "terms": terms, "links": links,
-            **({"words": words} if words else {}), **_prev(terms),
+            **({"words": words} if words else {}), **_prev(terms), **_near(terms),
             "span": {"from": c["members"][0]["at"], "to": c["members"][-1]["at"], "posts": len(c["members"])}}
     if must:
         return {**base, "nums": c["nums"], "score": c["score"], "why": c["why"]}
@@ -560,7 +573,13 @@ def _edition():
     health = S.coverage_verdict(collect_status()["channels"])
     return {"schema": 1, "date": EDITION, "mode": "rules", "status": "ok", "window": dict(WINDOW), "collected_at": COLLECTED,
             "funnel": {"posts": doc["stats"]["posts"], "clusters": sum(any(m["role"] == "source" for m in c["members"]) for c in cs),
-                       "candidates": sum(c["gate"]["pass"] for c in cs), "must": len(must), "truncated": 0},
+                       "candidates": sum(c["gate"]["pass"] for c in cs), "must": len(must), "truncated": 0,
+                       # 그림자 기록(2026-11-28) — 위 11묶음을 손으로 센 값: score만 걸린 것은 애널2+개인2 3.25 하나,
+                       # 채권 2곳+A·B급은 미 CPI·국고채 입찰(둘 다 숫자 칸), 채권+다른 그룹은 그 둘과 한은 발언
+                       "shadow": {"fail_sources": 6, "fail_grade": 2, "fail_score": 8, "fail_group": 5, "only_sources": 0,
+                                  "only_grade": 0, "only_score": 1, "only_group": 0, "near_s3": 1, "near_s4": 0, "near_s45": 0,
+                                  "bond2_ab": 2, "bond2_ab_num": 2, "cross_ab": 3, "cross_ab_num": 2, "num_path": 0,
+                                  "rest_pool": 4, "rest_noterm": 0}},
             "sources": {"channels_ok": health["channels_ok"], "channels_total": health["channels_total"]},
             "head": head(), "notes": [], "must": must, "rest": [{"cell": k, "items": rest[k]} for k in R.CELLS if k in rest],
             "wire": _side(cs, [(g, "wire") for g in R.GROUPS]), "solo": _side(cs, [("personal", "source")]),
@@ -592,15 +611,16 @@ def state_after():
             for c in sorted((c for c in cs if c["pick"] == "must"), key=lambda c: c["rank"])]
     chans = {c["ch"]: {"last_post": c["last_post"], "last_at": c["last_at"], "fail_streak": c["fail_streak"]}
              for c in collect_status()["channels"]}
-    best, d = {}, digest()                                         # A·B급 대표 낱말마다 가장 많은 곳이 다룬 항목의 채널 수
+    best, d = {}, digest()                                         # 견줄 수 있는 대표 낱말마다 가장 많은 곳이 다룬 항목의 채널 수
     for x in d["must"] + [x for g in d["rest"] for x in g["items"]]:
         cov = {g: x["coverage"][g] for g in R.GROUPS}
-        lead = x["terms"][0] if x["terms"] and R.grade_of(x["terms"][0]) in ("A", "B") else None
+        lead = _comparable(x["terms"])
         if lead and sum(cov.values()) > sum(best.get(lead, {"n": -1}).values()):
             best[lead] = cov
     topics = sorted(({"key": topic_key(t), **cov} for t, cov in best.items()), key=lambda t: t["key"])
     snap = {"date": EDITION, "window": dict(WINDOW), "collected_at": COLLECTED, "empty_streak": 0, "must": must, "channels": chans,
-            "read_to": WINDOW["to"], "topics": topics}             # 정상 판 — 여기까지 제대로 읽었다
+            "read_to": WINDOW["to"], "topics": topics,             # 정상 판 — 여기까지 제대로 읽었다
+            "seen": sorted({topic_key(t) for x in d["must"] + [x for g in d["rest"] for x in g["items"]] for t in x["terms"]})}
     return S.next_state(state(), snap)
 
 

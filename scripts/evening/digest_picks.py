@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """저녁판 AI 요약 층의 계약과 문장 검사 (2026-10-09) — data/digest_picks.json의 형태, 문장 하나를 내보내도 되는가.
 
-규칙판(digest.json)은 Actions가 LLM 없이 내고 그대로다. 이 층은 PC에서만 만든다(evening_llm.py): 판의 항목 몇 개에 "무슨 일인지"를
-한두 문장으로 얹는다. 이 파일에는 수신도 호출도 없다 — 형태와 검사뿐이라 원문이 없는 곳(게시 뒤 · CI · 화면 테스트)에서도 쓴다.
+규칙판(digest.json)은 Actions가 LLM 없이 내고 그대로다. 이 층은 PC에서만 만든다(evening_llm.py): 판의 항목 몇 개(TH llm_items_max)에
+"무슨 일인지"를 두세 문장으로 얹고(2026-11-28 넓힘 — 전에는 6개 · 한두 문장 140자), 실린 문장들을 가로지르는 '오늘 판 한 단락'(overview)을
+판 맨 위에 하나 얹는다. 한 단락도 아래 여섯 검사를 같은 방식으로 통과해야 실린다(길이 · 문장 수만 다르다 — OVERVIEW, overview_code). 이 파일에는 수신도 호출도 없다 — 형태와 검사뿐이라 원문이 없는 곳(게시 뒤 · CI · 화면 테스트)에서도 쓴다.
 형태와 화면이 붙이는 규칙은 digest_schema.py 머리말의 'AI 요약 층'이 기준이다. 숫자는 digest_rules.TH, 낱말은 아래에 있다.
 
 규칙판과 다른 점: 문장(fact)은 닫힌 값이 아니다 — 모델이 쓴 글자다. 그래서 문장마다 아래 검사를 모두 통과해야 실리고, 걸린 문장은
@@ -53,6 +54,7 @@ MODE = "ai"
 CHECKS = ("shape", "banned", "copy", "number", "term", "name")      # 검사하는 순서 — 먼저 걸린 것 하나가 사유가 된다
 CODES = (*CHECKS, "none")
 READ = (("bond", "source"), ("analyst", "source"))                  # 모델에게 읽히는 글의 채널 — 채권 · 애널 원천만
+PICKS_KEYS = ("schema", "date", "made_at", "mode", "model", "basis", "items", "dropped")      # + overview(2026-11-28 — 없어도 읽는다)
 MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\[\]-]{0,63}$")
 
 # ---------- 낱말 (숫자는 digest_rules.TH) ----------
@@ -126,17 +128,24 @@ def names_of(sources):
     return tuple(sorted(out))
 
 
-def ok_form(fact):
+# 문장의 꼴 — (최소 글자, 최대 글자, 최소 문장, 최대 문장)의 TH 이름. 항목 문장(fact)과 오늘 판 한 단락(overview)은 길이만 다르고 검사는 같다
+FACT = ("fact_min_chars", "fact_chars", None, "fact_sentences")
+OVERVIEW = ("overview_min_chars", "overview_chars", "overview_sentences_min", "overview_sentences")
+
+
+def ok_form(fact, size=FACT):
     """형식 — 문자열 · 길이 · 정해 둔 글자. 올라가 있는 파일을 문장 규칙 없이 읽을 때(validate_picks plain=False)도 이것은 본다."""
-    return isinstance(fact, str) and TH["fact_min_chars"] <= len(fact) <= TH["fact_chars"] and bool(_CHARS.fullmatch(fact))
+    return isinstance(fact, str) and TH[size[0]] <= len(fact) <= TH[size[1]] and bool(_CHARS.fullmatch(fact))
 
 
-def ok_shape(fact, names=()):
-    """꼴 — 한국어 평서문 한두 문장, 정해 둔 글자만, 주소 · 전화 · 채널 이름 없음."""
-    if not ok_form(fact) or fact != fact.strip() or "  " in fact:
+def ok_shape(fact, names=(), size=FACT):
+    """꼴 — 한국어 평서문(항목 문장은 1~fact_sentences문장, 한 단락은 overview_sentences_min~overview_sentences문장), 정해 둔 글자만,
+    주소 · 전화 · 채널 이름 없음."""
+    if not ok_form(fact, size) or fact != fact.strip() or "  " in fact:
         return False
     ends = _END.findall(fact)
-    if not fact.endswith("다.") or set(ends) != {"다"} or len(ends) > TH["fact_sentences"] \
+    least = TH[size[2]] if size[2] else 1
+    if not fact.endswith("다.") or set(ends) != {"다"} or not least <= len(ends) <= TH[size[3]] \
             or fact.count(".") != len(ends) + len(_DECIMAL.findall(fact)):
         return False
     letters = [c for c in fact if c.isalpha()]
@@ -189,9 +198,29 @@ def _covered(f, flats):
     return n
 
 
+_SPLIT = re.compile(r"(?<=다)\.(?= |$)")                              # 문장을 맺는 마침표 — 소수점은 아니다
+_TEXT_SPLIT = re.compile(r"[.!?。\n]+(?![0-9])")                      # 원문의 완결 문장 경계(거칠게 — 소수점은 아니다)
+
+
+def _sentences(s):
+    return [x.strip() for x in _SPLIT.split(s) if x.strip()]
+
+
 def ok_copy(fact, texts):
     """베낌이 아니다 — 읽힌 글 하나와 연속 copy_run자 이상 겹치지 않고, 문장의 글자 n-gram이 한 글에 copy_ratio 이상 들어 있지 않고,
-    조사를 뗀 어절 copy_stems개가 한 글과 같은 차례로 이어지지 않고, 여러 글에서 뜯은 긴 토막들이 문장의 copy_cover 이상을 덮지 않는다."""
+    조사를 뗀 어절 copy_stems개가 한 글과 같은 차례로 이어지지 않고, 여러 글에서 뜯은 긴 토막들이 문장의 copy_cover 이상을 덮지 않는다.
+    비율(copy_ratio · copy_cover)은 전체에 더해 문장마다 따로 본다 — 원문의 짧은 완결 문장을 그대로 넣고 다른 문장을 덧붙여 분모를
+    늘리는 희석을 막으려고(2026-11-28 교차 검토). 문장 하나가 원문의 완결 문장과 글자가 같아도(공백 · 문장부호를 빼고) 베낌이다."""
+    parts = _sentences(fact) if isinstance(fact, str) else []
+    if len(parts) > 1 and not all(_ok_copy(p, texts) for p in parts):
+        return False
+    whole = {_flat(x) for t in texts for x in _TEXT_SPLIT.split(R.norm_text(t))} - {""}
+    if any(_flat(p) in whole for p in parts):
+        return False
+    return _ok_copy(fact, texts)
+
+
+def _ok_copy(fact, texts):
     f, run, n, k = _flat(fact), TH["copy_run"], TH["copy_gram"], TH["copy_stems"]
     grams, flats, stems = [f[i:i + n] for i in range(len(f) - n + 1)], [_flat(t) for t in texts], _stems(fact)
     rows = {tuple(stems[i:i + k]) for i in range(len(stems) - k + 1)}
@@ -311,11 +340,11 @@ def ok_name(fact, item, texts):
     return all(known(w) for w in _TOKEN.findall(fact) if len(w) > 1 and w.casefold() not in UNIT_WORDS)
 
 
-def fact_checks(fact, item, texts, names=()):
+def fact_checks(fact, item, texts, names=(), size=FACT):
     """검사마다의 결과 {사유: 통과했는가} — 순서는 CHECKS. 문자열이 아니면 모두 거짓."""
     if not isinstance(fact, str):
         return {c: False for c in CHECKS}
-    return {"shape": ok_shape(fact, names), "banned": ok_banned(fact), "copy": ok_copy(fact, texts), "number": ok_number(fact, texts),
+    return {"shape": ok_shape(fact, names, size), "banned": ok_banned(fact), "copy": ok_copy(fact, texts), "number": ok_number(fact, texts),
             "term": ok_term(fact, item, texts), "name": ok_name(fact, item, texts)}
 
 
@@ -326,9 +355,49 @@ def fact_code(fact, item, texts, names=()):
     return next((c for c, ok in fact_checks(fact, item, texts, names).items() if not ok), None)
 
 
-def fact_plain(fact, names=()):
+def fact_plain(fact, names=(), size=FACT):
     """원문 없이 도는 검사 — 꼴과 금지 낱말. 걸리면 사유, 아니면 None."""
-    return "shape" if not ok_shape(fact, names) else None if ok_banned(fact) else "banned"
+    return "shape" if not ok_shape(fact, names, size) else None if ok_banned(fact) else "banned"
+
+
+# ---------- 오늘 판 한 단락 (overview — 2026-11-28 E3) ----------
+
+def board_lines(item):
+    """규칙판 항목 하나 → 한 단락의 모델에게 건네는 규칙판의 줄들(낱말 · 함께 나온 낱말 · 숫자 · 다룬 곳). 모두 규칙판(digest.json)에
+    이미 공개된 닫힌 값이다 — 채널 글의 글자가 아니다. 한 단락의 숫자 대조는 이 줄과 실린 문장에 있는 숫자만 받는다."""
+    cov = item.get("coverage") or {}
+    rows = ["낱말: " + (" · ".join(item.get("terms") or ()) or "(없음)")]
+    words = [w["term"] for w in item.get("words") or ()]
+    rows += ["함께 나온 낱말: " + " · ".join(words)] if words else []
+    rows += [f"숫자: {n['term']} {n['v']}" for n in item.get("nums") or () if n.get("term") and n.get("v")]
+    got = [f"{R.GROUPS[g]} {cov[g]}곳" for g in R.GROUPS if type(cov.get(g)) is int and cov[g] > 0]
+    return rows + (["다룬 곳: " + " · ".join(got)] if got else [])
+
+
+def overview_input(rows):
+    """rows = [(규칙판 항목, 실린 문장)] → (항목 꼴 {terms, words}, 대조할 글들). 대조할 글은 항목마다 '실린 문장 + 규칙판 줄' 하나다
+    — 한 단락의 숫자 · 이름 · 낱말은 그 안에 있어야 한다(모델은 이것만 봤다)."""
+    terms = [t for x, _ in rows for t in x.get("terms") or ()]
+    words = [w for x, _ in rows for w in x.get("words") or ()]
+    return {"terms": list(dict.fromkeys(terms)), "words": words}, [fact + "\n" + "\n".join(board_lines(x)) for x, fact in rows]
+
+
+def overview_checks(text, rows, texts, names=()):
+    """한 단락의 검사마다의 결과 — 검사 여섯 가지는 항목 문장과 같고 길이 · 문장 수만 다르다(OVERVIEW). 숫자 · 낱말 · 이름은 실린 문장과
+    규칙판 줄(overview_input)에서 찾고, 베낌은 그 항목들에서 모델에게 읽혔던 채널 글(texts)과도 본다 — 한 단락의 모델은 채널 글을 보지
+    않았지만 실린 문장을 거쳐 원문 토막이 길게 이어지지 않게. 실린 문장을 그대로 옮겨도 베낌이다."""
+    item, board = overview_input(rows)
+    out = fact_checks(text, item, board, names, OVERVIEW)
+    if isinstance(text, str):
+        out["copy"] = ok_copy(text, list(texts)) and ok_copy(text, [f for _, f in rows])
+    return out
+
+
+def overview_code(text, rows, texts, names=()):
+    """한 단락을 버릴 사유(먼저 걸린 것 하나) — 실어도 되면 None. 실린 문장이 overview_items_min개 미만이거나 모델이 쓰지 않았으면 none."""
+    if text is None or len(rows) < TH["overview_items_min"]:
+        return "none"
+    return next((c for c, ok in overview_checks(text, rows, texts, names).items() if not ok), None)
 
 
 # ---------- 파일의 형태 ----------
@@ -339,12 +408,13 @@ def basis(date, asked):
     return hashlib.sha256(json.dumps([date, rows], ensure_ascii=True, separators=(",", ":")).encode("ascii")).hexdigest()[:16]
 
 
-def picks_doc(date, at, model, asked, facts, dropped=None):
-    """물은 항목(asked: [{key, id, src}])과 검사를 통과한 문장({key: fact}) → 파일의 자료. 통과하지 못한 항목은 사유별 개수만 남는다."""
+def picks_doc(date, at, model, asked, facts, dropped=None, overview=None):
+    """물은 항목(asked: [{key, id, src}])과 검사를 통과한 문장({key: fact}) → 파일의 자료. 통과하지 못한 항목은 사유별 개수만 남는다.
+    overview = 검사를 통과한 오늘 판 한 단락(없으면 null — 버린 단락은 사유도 파일에 남기지 않고 로그에 코드만)."""
     items = [{"key": a["key"], "id": a["id"], "src": [[ch, n] for ch, n in a["src"]], "fact": facts[a["key"]]}
              for a in asked if a["key"] in facts]
     return {"schema": S.SCHEMA, "date": date, "made_at": at, "mode": MODE, "model": model, "basis": basis(date, asked),
-            "items": items, "dropped": {c: int((dropped or {}).get(c, 0)) for c in CODES}}
+            "items": items, "dropped": {c: int((dropped or {}).get(c, 0)) for c in CODES}, "overview": overview}
 
 
 def blank_picks(date, at):
@@ -384,7 +454,7 @@ def validate_picks(d, sources=None, plain=True):
     """data/digest_picks.json의 자료. sources(sources.json)를 주면 읽힌 글이 채권 · 애널 원천 채널의 것인지, 문장에 채널 이름 · 라벨이
     없는지도 본다. plain=False면 문장은 형식(문자열 · 길이 · 글자)만 본다 — 올라간 뒤에 문장 규칙이 조여져도 읽을 수 있게(CI의 올라간
     파일 테스트가 쓴다 — 요약 층이 규칙판의 문이 되지 않게). 틀리면 ValueError — 어느 칸이 왜만(값은 싣지 않는다)."""
-    _keys(d, "picks", ("schema", "date", "made_at", "mode", "model", "basis", "items", "dropped"))
+    _keys(d, "picks", PICKS_KEYS + (("overview",) if type(d) is dict and "overview" in d else ()))   # overview 없는 파일(11-28 앞)도 읽는다
     S._is(S.SCHEMA)(d["schema"], "picks.schema")
     S._is(MODE)(d["mode"], "picks.mode")
     S._date(d["date"], "picks.date")
@@ -403,6 +473,12 @@ def validate_picks(d, sources=None, plain=True):
         S._int(0, TH["llm_items_max"])(d["dropped"][c], f"picks.dropped.{c}")
     if len(d["items"]) + sum(d["dropped"].values()) > TH["llm_items_max"]:
         S._fail("picks.dropped", "실린 것과 버린 것이 물을 수 있는 수보다 많음")
+    text = d.get("overview")
+    if text is not None:
+        if len(d["items"]) < TH["overview_items_min"]:
+            S._fail("picks.overview", "실린 항목 문장이 모자란데 한 단락이 있음")
+        if fact_plain(text, names, OVERVIEW) if plain else not ok_form(text, OVERVIEW):
+            S._fail("picks.overview", "한 단락이 꼴이나 금지 낱말 검사에 걸림")
     if len(S.dump(d).encode("utf-8")) > TH["picks_bytes_max"]:
         S._fail("picks", "크기 상한을 넘음")
     return d
@@ -431,6 +507,21 @@ def same_basis(picks, date, asked):
 
 
 # ---------- 화면이 문장을 붙이는 규칙 ----------
+
+def attach_overview(digest, picks, sources=None, hold=None):
+    """판과 요약 층 → 오늘 판 한 단락 | None. 실린 항목 문장이 모두 이 판에 붙을 때만(attach가 모든 열쇠를 돌려주고, 숨긴 항목 · 채널에
+    걸린 것이 없을 때) — 한 단락은 항목들을 가로지르므로 한 항목이라도 빠지면 그 항목의 내용이 단락에 남을 수 있다.
+    hold = digest_overrides의 자료(주지 않으면 숨김 없음). 화면(site/evening.js의 overviewOf)이 지키는 규칙의 파이썬 판이다."""
+    got = attach(digest, picks, sources)
+    text = picks.get("overview") if got else None
+    if not text or set(got) != {p["key"] for p in picks["items"]}:
+        return None
+    hold = hold or {"withdraw": False, "hide_ids": [], "hide_channels": []}
+    if hold["withdraw"] or any(x["id"] in hold["hide_ids"] for x in items_of(digest) if x["key"] in got) \
+            or any(ch in hold["hide_channels"] for p in picks["items"] for ch, _ in p["src"]):
+        return None
+    return text
+
 
 def items_of(digest):
     return list(digest.get("must", [])) + [x for g in digest.get("rest", []) for x in g["items"]]

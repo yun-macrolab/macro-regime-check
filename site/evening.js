@@ -16,6 +16,8 @@
      길이 구간  RULES.sizes에 있는 이름일 때만
      AI 요약    닫힌 값이 아닌 하나뿐인 칸 — data/digest_picks.json의 문장(AI가 채권·애널 원천 채널의 글을 읽고 쓴 것, 2026-10-09). 최신 판 화면이고
                판 날짜 · 항목의 key · 읽힌 글(그 항목의 걸린 링크)이 맞을 때만, 꼴을 한 번 더 보고(fact) 'AI 요약' 표시와 함께 — picksOf() · aiOf()
+               판 맨 위의 '오늘 판 한 단락'(overview, 2026-11-28)도 같은 파일의 문장이다 — 실린 항목 문장이 모두 이 화면에 그려졌을 때만,
+               꼴을 한 번 더 보고(overviewText) 같은 표시와 함께 — overviewOf() · overviewNote()
    2026-10-08 저녁에 더한 칸(함께 나온 낱말 · 첫 글~마지막 글 · 직전 판 · 덧낱말 · 낱말 수 · 길이 · 붙은 것 · 풀이)은 모두 없어도 되는 칸이다 —
    있을 때만 그리고, 없으면 그 칸만 빼고 그린다. 낱말 목록은 자료의 순서 그대로 둔다(화면이 다시 섞지 않는다).
    글자는 전부 el()의 텍스트 노드로 넣는다. 바깥 요청은 없다(자료는 data/ 아래 JSON뿐).
@@ -48,7 +50,13 @@ window.Evening = (() => {
     "src": {"korea": "국고채 입찰 일정", "calendar": "일정표"},
     "run_kst": "17:41", "late_kst": "22:41", "edition_shift_h": 6, "show_editions": 10, "keep_days": 35,
     "min_bond_ok": 3, "min_total_ok": 16, "rows_per_channel": 5, "wire_query": "금리",
-    "fact_min_chars": 10, "fact_chars": 140, "llm_items_max": 6, "llm_posts_max": 3,
+    "fact_min_chars": 10, "fact_chars": 220, "llm_items_max": 10, "llm_posts_max": 3,
+    "overview_min_chars": 60, "overview_chars": 300, "overview_items_min": 2,
+    "soon_max": 2,
+    "screens": {"rates": "금리·커브", "inflation": "물가", "credit": "신용·경기", "liquidity": "유동성", "korea": "한국 금리·커브",
+      "korea-credit": "한국 신용·단기자금", "korea-flows": "한국 수급·입찰", "ai": "AI 투자"},
+    "view_phrases": {"screens": "관련 화면", "soon": "다가오는 일정: {md} {term}", "since_new": "새로 나옴",
+      "since_prev": "직전 판에도 있음(채널 수 {a}→{b})"},
     "sizes": {"짧음": "짧은 글", "보통": "보통 길이", "김": "긴 글"}, "size_short": 200, "size_long": 700,
     "official_domains": ["stlouisfed.org", "newyorkfed.org", "kansascityfed.org", "chicagofed.org", "treasury.gov", "treasurydirect.gov",
       "bea.gov", "eia.gov", "boj.or.jp", "mof.go.jp", "stat.go.jp", "europa.eu", "imf.org", "bok.or.kr", "mods.go.kr", "mofe.go.kr",
@@ -89,7 +97,9 @@ window.Evening = (() => {
       "다만 속보형·개인 채널이 혼자 쓴 글의 숫자는 한 곳만 쓴 숫자입니다(낱말 바로 곁의 숫자 하나). " +
       "무슨 내용인지는 링크를 눌러 원문에서 읽어 주세요.",
     `'AI 요약' 표시가 붙은 문장은 채널의 글이 아니라 AI(Claude)가 쓴 것입니다. 채권·애널 그룹 원천 채널의 글을 항목마다 ${RULES.llm_posts_max}건까지 읽고 ` +
-      "자기 말로 한두 문장을 씁니다(개인·속보형 채널의 글과 전달 글은 읽히지 않습니다). 원문과 길게 겹치지 않는지, 숫자와 단위가 원문에 있는지, 정해 둔 권유·전망 표현이 없는지 같은 " +
+      `자기 말로 두세 문장을 씁니다(꼭 볼 것과 나머지 표를 합쳐 ${RULES.llm_items_max}개 항목까지 · 개인·속보형 채널의 글과 전달 글은 읽히지 않습니다). ` +
+      "판 맨 위의 '오늘 판 한 단락'은 AI가 이렇게 실린 문장과 규칙판의 낱말·숫자만 보고 쓴 것입니다(채널 글을 더 읽지 않습니다). " +
+      "원문과 길게 겹치지 않는지, 숫자와 단위가 원문에 있는지, 정해 둔 권유·전망 표현이 없는지 같은 " +
       "자동 검사를 통과한 문장만 싣습니다(짧은 어구는 원문과 겹칠 수 있습니다). 그래도 뜻이 틀릴 수 있습니다 — 원문에서 확인해 주세요. 요약은 운영자의 PC에서 따로 만들어 " +
       "올리므로 문장이 없는 날과 항목이 있습니다. 텔레그램 약관은 플랫폼에서 얻은 자료를 AI에 쓰는 것을 제한합니다 — 채널 운영자가 요청하면 그 채널을 내립니다(아래 '삭제·정정 요청').",
     "낱말 풀이는 채널의 글이 아니라 이 사이트가 직접 쓴 한 줄입니다. 낱말의 뜻만 적고(그 글의 내용이 아닙니다) 시세·전망·평가는 담지 않습니다. " +
@@ -98,7 +108,10 @@ window.Evening = (() => {
       "어느 것도 채널 글이 가리킨 주소가 아닙니다.",
     "고르는 일은 LLM 없이 규칙이 합니다(AI는 규칙이 고른 항목에 요약 문장만 붙입니다). 규칙은 몇 곳이 함께 다뤘는지를 셀 뿐이고 금리의 방향이나 강도, 매매 판단을 내지 않습니다. " +
       "낱말과 숫자만으로는 글의 뜻을 잘못 짚을 수 있습니다.",
-    "이 화면은 아침 점검표의 규칙 판정과 무관한 참고 자료입니다. 시범 운영 중이라 낱말 사전과 점수 기준은 바뀔 수 있습니다."
+    "이 화면은 아침 점검표의 규칙 판정과 무관한 참고 자료입니다. 시범 운영 중이라 낱말 사전과 점수 기준은 바뀔 수 있습니다.",
+    "'관련 화면'은 항목 제목의 낱말을 정해 둔 표에서 찾아 이 사이트의 화면으로 잇는 것이고, 그 글이 그 화면의 숫자를 다뤘다는 뜻이 아닙니다. " +
+      "일정 표시는 제목의 낱말과 같은 낱말이 판 날짜부터 7일 안의 일정표에 있을 때 붙습니다. '새로 나옴'과 채널 수(n→m) 표시는 대표 낱말만 " +
+      "앞선 판과 견준 것이고(속보형 채널은 세지 않습니다), 흔한 넓은 낱말에는 붙지 않습니다."
   ];
   const TAKEDOWN = "https://github.com/yun-macrolab/macro-regime-check/issues/new?template=takedown.md";
   // 판이 늦거나 실행이 실패했을 때 무엇을 하면 되는지 — 읽는 사람이 곧 운영자다(바깥 링크는 늘리지 않고 글로만 적는다)
@@ -125,6 +138,7 @@ window.Evening = (() => {
   const NOT_LABEL = /[<>@\\\p{Cc}\p{Cf}\p{Zl}\p{Zp}]|https?:/u;
   const OFFICIAL_RE = /^https:\/\/((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,})\/[A-Za-z0-9._~\/?&=%-]*$/;
   const FACT_RE = new RegExp(`^[가-힣A-Za-z0-9 .,·%()~/+:&-]{${RULES.fact_min_chars},${RULES.fact_chars}}$`);
+  const OVERVIEW_RE = new RegExp(`^[가-힣A-Za-z0-9 .,·%()~/+:&-]{${RULES.overview_min_chars},${RULES.overview_chars}}$`);
   const LINKISH = /https?:|www\.|[A-Za-z0-9-]+\.[A-Za-z]{2,}/i;
   const marks = rows => new Set(rows.join("").match(/.{8}/g));              // 지문 8자씩 이어 붙여 둔 것 → 집합
   const MARKS = marks([...RULES.gloss_marks, ...RULES.legacy_gloss_marks]), TERMS = marks(RULES.term_marks);
@@ -143,6 +157,8 @@ window.Evening = (() => {
   const hhmm = (v, fallback) => (typeof v === "string" && HHMM_RE.test(v) ? v : fallback);
   // AI 요약 문장은 닫힌 값이 아니다 — 꼴을 한 번 더 본다(digest_picks.ok_shape의 앞부분): 길이 · 정해 둔 글자만(제어 문자 · 꺾쇠 · @ · 줄바꿈 없음) · 주소 꼴 없음 · '…다.'로 맺음
   const fact = v => (typeof v === "string" && FACT_RE.test(v) && !LINKISH.test(v) && v === v.trim() && v.endsWith("다.") ? v : null);
+  // 오늘 판 한 단락(2026-11-28)도 같은 꼴 — 길이만 다르다
+  const overviewText = v => (typeof v === "string" && OVERVIEW_RE.test(v) && !LINKISH.test(v) && v === v.trim() && v.endsWith("다.") ? v : null);
   // 숫자 + 허용 단위. 보기 좋게 정수부에 쉼표만 넣는다("4732계약" → "4,732계약")
   const num = v => (typeof v === "string" && NUM_RE.test(v)
     ? v.replace(/^(-?)(\d+)/, (_, sign, n) => sign + n.replace(/\B(?=(\d{3})+$)/g, ",")) : null);
@@ -313,7 +329,7 @@ window.Evening = (() => {
       ids: new Set(ok ? ov.hide_ids : []), chans: new Set(ok ? ov.hide_channels : []) };
     // gloss = 이 판의 풀이, used = 화면에 실제로 나간 사전 낱말(풀이 절은 이 낱말의 것만 싣는다 — 숨긴 항목의 낱말은 빠진다), ai = 그려진 요약 문장 수
     return { dir, hide, group: names(m.sources, "groups"), role: names(m.sources, "roles"), gloss: glossary(d), used: new Set(),
-      picks: picksOf(m), ai: 0, label: ch => (dir && dir.has(ch) ? dir.get(ch).label : ch) };
+      picks: picksOf(m), overview: overviewOf(m), aiKeys: new Set(), ai: 0, label: ch => (dir && dir.has(ch) ? dir.get(ch).label : ch) };
   }
   // AI 요약 층 → {항목의 key: {fact, src} | null}. 최신 판 화면이고 파일의 판 날짜가 보는 판과 같을 때만(digest_schema.py 머리말 'AI 요약 층' — 파이썬 판은
   // digest_picks.attach. 내린 판은 항목을 그리지 않아 붙일 자리가 없다). 물을 수 있는 수보다 많이 든 파일은 통째로 믿지 않는다. 문장마다 key ·
@@ -327,6 +343,9 @@ window.Evening = (() => {
       got.set(x.key, !got.has(x.key) && read(x.src) && fact(x.fact) ? { fact: x.fact, src: x.src } : null);
     return got;
   }
+  // 오늘 판 한 단락(2026-11-28) → 글자 | null — 실린 문장이 overview_items_min개 이상이고 하나도 빠지지 않은 파일일 때만(그릴 때 overviewNote가 한 번 더 본다)
+  const overviewOf = (m, got = picksOf(m), n = list(isObj(m.picks) ? m.picks.items : null).length) =>
+    (n >= RULES.overview_items_min && n === got.size && [...got.values()].every(Boolean) ? overviewText(m.picks.overview) : null);
   // 새 창으로 여는 바깥 링크는 여기서만 만든다 — 연 쪽 창을 건드리지 못하고, 어디서 왔는지 넘기지 않는다
   function out(href, text, name) {
     const a = el("a", { href, target: "_blank", rel: "noopener noreferrer" }, text);
@@ -431,9 +450,16 @@ window.Evening = (() => {
       el("div", { class: "eve-bar" }, el("h2", {}, `저녁판 ${d.date}(${dow(d.date)})`),
         el("span", { class: "eve-badges" }, el("span", { class: "eve-badge eve-pilot" }, "시범"),
           el("span", { class: "eve-badge" }, ctx.ai ? "규칙 선별 + AI 요약" : "규칙 선별 · 문장 없음"))),
-      el("div", { class: "eve-head-body" },
+      el("div", { class: "eve-head-body" }, ctx.hide.all ? null : overviewNote(ctx),
         el("p", {}, "수집 ", when(d.collected_at) || "시각 없음", " (KST) · 수집 창 ", when(w.from) || "?", " ~ ", when(w.to) || "?"),
         ...open));
+  }
+  // 오늘 판 한 단락 — 실린 항목 문장이 모두 이 화면에 그려졌을 때만(숨긴 항목 · 채널, 다시 계산해 빠진 항목의 내용이 남지 않게 — digest_picks.attach_overview)
+  function overviewNote(ctx) {
+    if (!ctx.overview || ![...ctx.picks.keys()].every(k => ctx.aiKeys.has(k))) return null;
+    return el("p", { class: "eve-ai eve-overview" }, el("span", { class: "eve-ai-tag" }, "AI 요약"), " ",
+      el("strong", {}, "오늘 판 한 단락"), " ", el("small", {}, "틀릴 수 있습니다 — 각 항목의 원문에서 확인하세요"), " ",
+      el("span", { class: "eve-ai-text eve-ov-text" }, ctx.overview), " ", el("small", {}, "아래 항목의 AI 요약 문장과 규칙판의 낱말·숫자만 보고 씀"));
   }
   const codeText = code => (own(RULES.codes, code) ? RULES.codes[code] : "실패");
   // 이번 판에서 읽지 못한 채널 — 상태 파일이 이 판의 것일 때만
@@ -512,7 +538,25 @@ window.Evening = (() => {
   // 직전 판에 같은 대표 낱말이 있었을 때 — 그때와 이번의 채널 수(속보형은 뺀다). 같은 묶음이라는 뜻이 아니라 늘었다·줄었다고는 쓰지 않는다
   function prevOf(ctx, x) {
     const p = x.prev, c = x.coverage, text = o => coverText(ctx, { ...o, wire: 0 }) || "0곳";
-    return isObj(p) && isObj(c) && realDate(p.date) ? { date: p.date, then: text(p), now: text(c) } : null;
+    const total = o => Object.keys(RULES.groups).reduce((n, g) => n + (count(o[g]) || 0), 0);
+    return isObj(p) && isObj(c) && realDate(p.date)
+      ? { date: p.date, then: text(p), now: text(c), mark: fill(RULES.view_phrases.since_prev, { a: total(p), b: total(c) }) } : null;
+  }
+  // 항목의 안내 — 직전 판 표시(mark) · 다가오는 일정 · 관련 화면. 문장은 자료에서 받지 않고 정해 둔 틀에 날짜 · 사전 낱말 · 수를 끼운다.
+  // 화면 id는 RULES.screens의 것만, 일정의 낱말은 이 항목 제목의 낱말일 때만
+  const fill = (text, values) => text.replace(/\{(\w+)\}/g, (_, k) => values[k]);
+  function nearOf(x, terms, prev) {
+    const soon = list(x.soon).filter(s => isObj(s) && realDate(s.date) && terms.includes(s.term)).slice(0, RULES.soon_max)
+      .map(s => fill(RULES.view_phrases.soon, { md: s.date.slice(5), term: s.term }));
+    const screens = [...new Set(list(x.screens))].filter(id => own(RULES.screens, id));
+    return { mark: prev ? prev.mark : x.new === true && terms.length ? RULES.view_phrases.since_new : null, soon, screens };
+  }
+  // 안내 한 줄 — 표시와 일정은 꼬리표 칩, 관련 화면은 같은 페이지의 해시 링크뿐. mark를 다른 자리에서 이미 적었으면 뺀다. 없으면 null
+  function nearLine(near, name, marked) {
+    const chips = [marked ? null : near.mark, ...near.soon].filter(Boolean).map(t => el("span", { class: "eve-tag" }, t));
+    const links = near.screens.map(id => el("a", { href: "#" + id }, RULES.screens[id]));
+    const parts = [...chips, links.length ? el("small", {}, RULES.view_phrases.screens) : null, ...links].filter(Boolean);
+    return parts.length ? el(name, { class: "eve-near" }, ...parts.flatMap(n => [n, " "])) : null;
   }
   // 꼭 볼 것·나머지 항목에서 화면에 쓸 것만 추린다. id가 이상하거나, 숨긴 항목이거나, 걸 수 있는 링크가 하나도 없으면 null.
   // 새 칸(words · span · prev · 링크의 more · size · pic)은 있으면 쓰고, 없거나 깨졌으면 그 칸만 비운다
@@ -528,8 +572,9 @@ window.Evening = (() => {
     all.forEach(t => ctx.used.add(t));
     // head = 제목의 낱말: 대표 낱말(첫머리의 것), 없으면 본문에서 걸린 낱말 둘(body)
     const body = !terms.length, head = body ? all.slice(0, 2) : terms;
+    const prev = quiet(() => prevOf(ctx, x));
     return { raw: x, links, terms, nums, words, all, head, body, cell: cellName(x.cell), cover: coverText(ctx, x.coverage),
-      span: spanOf(x.span), prev: quiet(() => prevOf(ctx, x)), ai: quiet(() => aiOf(ctx, x, links)) };
+      span: spanOf(x.span), prev, near: nearOf(x, terms, prev), ai: quiet(() => aiOf(ctx, x, links)) };
   }
   // 이 항목에 붙일 요약 {fact, n(읽힌 글 수)} — key가 같고, 읽힌 글이 모두 이 항목의 걸린 링크 가운데 채권·애널 원천 채널의 전달 아닌 글일 때만
   // (숨긴 채널 · 목록에 없는 채널의 글로 쓴 문장은 빠진다). 출처 목록을 못 읽었으면 붙이지 않는다 — 어느 채널의 글인지 견줄 수 없다
@@ -543,6 +588,7 @@ window.Evening = (() => {
   function aiNote(ctx, it, row) {
     if (!it.ai) return null;
     ctx.ai += 1;
+    ctx.aiKeys.add(it.raw.key);
     return el(row ? "span" : "p", { class: row ? "eve-ai eve-ai-row" : "eve-ai" }, el("span", { class: "eve-ai-tag" }, "AI 요약"), " ",
       el("small", {}, "틀릴 수 있습니다 — 원문에서 확인하세요"), " ", el("span", { class: "eve-ai-text" }, it.ai.fact), " ",
       el("small", {}, `채권·애널 채널 글 ${it.ai.n}건을 읽고 씀`));
@@ -628,8 +674,9 @@ window.Evening = (() => {
       el("div", { class: "eve-item-head" }, el("span", { class: "eve-rank", "aria-hidden": "true" }, String(rank)), cellTag(it.cell)),
       el("div", { class: "eve-cols" }, el("div", {},
         el("h3", { class: "eve-terms" }, ...termNodes(it)), quiet(() => lede(ctx, it)), aiNote(ctx, it), defLine(ctx, it.terms[0]),
-        p ? el("p", { class: "eve-prev" }, `대표 낱말이 직전 판 ${md(p.date)}에도 있었습니다 — 그때 ${p.then} → 이번 ${p.now} `,
-          el("small", {}, "(낱말이 같을 뿐 같은 묶음이 아닐 수 있습니다)")) : null,
+        p ? el("p", { class: "eve-prev" }, el("strong", {}, p.mark), ` 직전 판 ${md(p.date)} ${p.then} → 이번 ${p.now} `,
+          el("small", {}, "(대표 낱말이 같을 뿐 같은 묶음이 아닐 수 있습니다)")) : null,
+        nearLine(it.near, "p", !!p),
         it.nums.length ? el("ul", { class: "eve-nums", "aria-label": "두 곳 이상이 똑같이 쓴 숫자" }, ...it.nums.map(n => el("li", {},
           n.lead ? el("span", {}, n.lead + " · ") : null, el("strong", {}, n.v), n.n ? el("small", {}, ` ${n.n}곳`) : null))) : null),
       el("div", {}, capt("원문 링크", [some, rich ? "길이·낱말 수를 보고 고르세요" : null].filter(Boolean).join(" — ")),
@@ -692,8 +739,8 @@ window.Evening = (() => {
       it.cover ? el("span", { class: "eve-meta" }, it.cover) : null,
       Number.isFinite(s) ? el("span", { class: "eve-meta" }, `점수 ${Math.round(s * 100) / 100}`) : null,
       sp && sp.posts > 1 ? el("span", { class: "eve-meta" }, `글 ${sp.posts}건 · ${sp.text}`) : null,
-      it.prev ? el("span", { class: "eve-meta" }, `대표 낱말이 직전 판 ${md(it.prev.date)}에도 있음`) : null,
-      wordsNote(it), aiNote(ctx, it, true), el("span", { class: "eve-row-links" }, ...it.links.map(l => rowLink(l, lone(it), it.head))));
+      wordsNote(it), nearLine(it.near, "span"), aiNote(ctx, it, true),
+      el("span", { class: "eve-row-links" }, ...it.links.map(l => rowLink(l, lone(it), it.head))));
   }
   function restSection(ctx, d) {
     const groups = restGroups(ctx, d).map(g => ({ ...g, items: g.items.filter(it => !bondAlone(it)) })).filter(g => g.items.length);
@@ -710,8 +757,7 @@ window.Evening = (() => {
   function bondRow(ctx, it) {
     const l = it.links[0], name = `${ctx.label(l.ch)} 원문${l.st ? " " + l.st.text : ""}`;
     return el("li", {}, l.at, el("span", { class: "eve-main" }, cellTag(it.cell), " ", ...termNodes(it), ...tagNodes(l)),
-      it.prev ? el("span", { class: "eve-meta" }, `대표 낱말이 직전 판 ${md(it.prev.date)}에도 있음`) : null, wordsNote(it),
-      source(ctx, l.ch, l.url, "원문", name));
+      wordsNote(it), nearLine(it.near, "span"), source(ctx, l.ch, l.url, "원문", name));
   }
   // 사전 낱말이 하나도 없는 글만 한데 접는다(첫머리에 없어도 본문에 있으면 '본문 낱말'로 보여 준다)
   function bondSection(ctx, d) {
@@ -796,5 +842,5 @@ window.Evening = (() => {
       el("h3", {}, "채널 목록"), part(() => channelList(ctx, status)));
   }
 
-  return { setView, _: { editionOf, dueEdition, judge, num, word, term, label, phraseCode, official, fingerprint, fact } };
+  return { setView, _: { editionOf, dueEdition, judge, num, word, term, label, phraseCode, official, fingerprint, fact, overviewText } };
 })();

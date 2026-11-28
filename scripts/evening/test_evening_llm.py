@@ -28,6 +28,11 @@ import fixtures as F
 TH = R.TH
 BASE = "https://t.me/s/"
 SHORT_OK = {"llm_read_min": 0}       # 지어낸 글은 60자 안팎이다 — 읽을거리 하한은 test_evening_llm_more가 따로 본다
+# 2026-11-28(E3)부터 나머지 표의 원천 1건 항목도 고른다(llm_rest_sources 1) — 지어낸 판에서는 나머지 표의 세 항목이 더 들어온다.
+# 받기 · 묻기 · 검사 테스트는 꼭 볼 것 세 건으로 보려고 모듈 동안 2로 둔다. 넓힌 고르기 그대로는 WIDE로 되돌려 본다(SelectTest · WideTest)
+MUST_ONLY, WIDE = {"llm_rest_sources": 2}, {"llm_rest_sources": 1}
+REAL_TH = dict(R.TH)                 # 모듈을 들일 때의 값 — 어느 setUpModule도 아직 TH를 바꾸지 않았다
+REST3 = ["u:b38066401781", "g:b0a08e581981", "g:0fc3329b4893"]      # 지어낸 판의 나머지 표에서 원천 글이 있는 세 항목(점수 순)
 _FX = {}
 CPI, AUCTION, CARD = "f:e7b13565420b", "n:f4afc845c5b8", "t:dc5468f7dee6"      # 지어낸 판의 꼭 볼 것 세 건의 열쇠
 GOOD = {CPI: "미국 9월 소비자물가는 전년 대비 3.1% 올라 예상을 웃돌았다. 근원 지수는 전월 대비 0.3% 상승했다.",
@@ -36,7 +41,7 @@ GOOD = {CPI: "미국 9월 소비자물가는 전년 대비 3.1% 올라 예상을
 
 def setUpModule():
     global _SHORT
-    _SHORT = mock.patch.dict(R.TH, SHORT_OK)
+    _SHORT = mock.patch.dict(R.TH, {**SHORT_OK, **MUST_ONLY})
     _SHORT.start()
 
 
@@ -98,7 +103,8 @@ class Claude:
     answer = {key: 문장 | None}(JSON으로 내보낸다) 또는 글자 그대로. 점검 호출에는 늘 짧은 답을 낸다."""
 
     def __init__(self, answer=None, tools=(), mcp=(), skills=(), commands=(), tool_use=False, code=0, error=None, events=None,
-                 drop=(), result=None, bad_from=0, tokens=120, main_tokens=None, plugins=None):
+                 drop=(), result=None, bad_from=0, tokens=120, main_tokens=None, plugins=None, overview=None):
+        self.overview = overview                  # 오늘 판 한 단락 물음(OVERVIEW_RULES)에 낼 답 — 문장 | None(JSON으로) 또는 글자 그대로
         self.tokens, self.main_tokens, self.plugins = tokens, main_tokens, plugins
         self.answer, self.tool_use, self.code, self.error, self.events = answer, tool_use, code, error, events
         self.lists = {"tools": list(tools), "mcp_servers": list(mcp), "skills": list(skills), "slash_commands": list(commands)}
@@ -107,11 +113,14 @@ class Claude:
     def __call__(self, cmd, input=None, cwd=None, env=None, timeout=None, capture_output=None):
         text = (input or b"").decode("utf-8")
         self.calls.append(types.SimpleNamespace(cmd=list(cmd), text=text, cwd=cwd, env=dict(env or {}), timeout=timeout,
-                                                empty=os.path.isdir(cwd) and not os.listdir(cwd), probe=text == L.PROBE))
+                                                empty=os.path.isdir(cwd) and not os.listdir(cwd), probe=text == L.PROBE, overview=text.startswith(L.OVERVIEW_RULES[:40])))
         if self.error:
             raise self.error
         probe = text == L.PROBE
         answer = '{"ok":true}' if probe else self.answer if isinstance(self.answer, str) else json.dumps(self.answer, ensure_ascii=False)
+        if not probe and text.startswith(L.OVERVIEW_RULES[:40]):
+            ov = self.overview
+            answer = ov if isinstance(ov, str) and ov.startswith("{") else json.dumps({"overview": ov}, ensure_ascii=False)
         lists = self.lists if len(self.calls) > self.bad_from else {k: [] for k in self.lists}
         init = {"type": "system", "subtype": "init", "cwd": cwd, **lists, "model": "claude-fx-1", "apiKeySource": "none"}
         init = {k: v for k, v in {**init, **({} if self.plugins is None else {"plugins": self.plugins})}.items() if k not in self.drop}
@@ -124,7 +133,10 @@ class Claude:
         return types.SimpleNamespace(returncode=self.code, stdout=out.encode("utf-8"), stderr=b"")
 
     def main_calls(self):
-        return [c for c in self.calls if not c.probe]
+        return [c for c in self.calls if not c.probe and not c.overview]
+
+    def overview_calls(self):
+        return [c for c in self.calls if c.overview]
 
 
 DONE = {"type": "result", "subtype": "success", "is_error": False, "result": "{}",
@@ -132,10 +144,33 @@ DONE = {"type": "result", "subtype": "success", "is_error": False, "result": "{}
 
 
 class SelectTest(unittest.TestCase):
-    """고르기 — 꼭 볼 것 전부 + 나머지 중 채권 · 애널 원천이 둘 이상 직접 쓴 항목, 합쳐 6개. 읽을 글은 채권 · 애널 원천의 전달 아닌 글 3개까지."""
+    """고르기 — 꼭 볼 것 전부 + 나머지 표 가운데 채권 · 애널 원천의 전달 아닌 글이 하나라도 걸린 항목, 점수 순으로 합쳐 10개(2026-11-28 넓힘 —
+    전에는 원천 2건 이상 · 6개). 읽을 글은 채권 · 애널 원천의 전달 아닌 글 3개까지(그대로)."""
+
+    def setUp(self):
+        wide = mock.patch.dict(R.TH, WIDE)
+        wide.start()
+        self.addCleanup(wide.stop)
+
+    def test_the_widened_limits(self):
+        self.assertEqual((REAL_TH["llm_items_max"], REAL_TH["llm_posts_max"], REAL_TH["llm_rest_sources"], REAL_TH["llm_post_chars"]),
+                         (10, 3, 1, 1500))
+        self.assertEqual(REAL_TH["llm_requests"], 20)                       # 채널마다 한 번 — 채권 · 애널 원천은 지금 11곳
+        self.assertEqual(TH["llm_rest_sources"], REAL_TH["llm_rest_sources"])
+        with mock.patch.dict(R.TH, MUST_ONLY):
+            self.assertEqual([x["key"] for x in picked()], [CPI, AUCTION, CARD])     # 전의 규칙이면 지어낸 판에서는 꼭 볼 것 셋뿐
+
+    def test_fixture_edition_now_brings_the_rest_items_with_a_source_post(self):
+        got = picked()
+        self.assertEqual([x["key"] for x in got], [CPI, AUCTION, CARD, *REST3])
+        self.assertEqual([x["src"] for x in got[3:]], [[("fxanal4", 905)], [("fxbond1", 502)], [("fxbond3", 89)]])
+        net = Net()
+        L.read_posts(got, fx("sources"), L.live(net.open, net.sleep, net.clock))
+        self.assertEqual(len(net.calls), 8)                                   # 여전히 채널마다 한 번 — 새로 읽는 채널은 fxanal4 하나
+        self.assertIn(f"{BASE}fxbond1?before=503", net.calls)
 
     def test_must_items_and_their_bond_and_analyst_posts(self):
-        got = picked()
+        got = picked()[:3]
         self.assertEqual([x["key"] for x in got], [CPI, AUCTION, CARD])
         self.assertEqual([x["src"] for x in got], [[("fxbond1", 501), ("fxbond2", 212), ("fxbond3", 88)],
                                                    [("fxbond4", 640), ("fxbond5", 333), ("fxanal3", 58)],
@@ -144,7 +179,8 @@ class SelectTest(unittest.TestCase):
         self.assertEqual(got[0]["id"], d["must"][0]["id"])
         self.assertEqual((got[0]["terms"], got[0]["words"]), (d["must"][0]["terms"], d["must"][0]["words"]))
         self.assertEqual(got[0]["ats"], [ln["at"] for ln in d["must"][0]["links"][:3]])
-        self.assertEqual((TH["llm_items_max"], TH["llm_posts_max"], TH["llm_rest_sources"]), (6, 3, 2))
+        with mock.patch.dict(R.TH, MUST_ONLY):
+            self.assertEqual([x["key"] for x in picked()], [CPI, AUCTION, CARD])
 
     def test_personal_wire_and_forwarded_posts_are_never_read(self):
         d, src = fx("digest"), fx("sources")
@@ -156,7 +192,7 @@ class SelectTest(unittest.TestCase):
         self.assertEqual(L.select(d, src)[0]["src"], [("fxbond1", 501), ("fxbond3", 88), ("fxanal2", 77)])
         for ln in d["must"][2]["links"]:                                      # 읽을 글이 없는 항목은 요약하지 않는다
             ln["fwd"] = True
-        self.assertEqual([x["key"] for x in L.select(d, src)], [CPI, AUCTION])
+        self.assertEqual([x["key"] for x in L.select(d, src)], [CPI, AUCTION, *REST3])
         src["channels"] = [{**c, "role": "wire"} if c["handle"] == "fxbond4" else c for c in src["channels"]]
         self.assertEqual(L.select(d, src)[1]["src"], [("fxbond5", 333), ("fxanal3", 58)])           # 속보형이 된 채널
 
@@ -165,30 +201,35 @@ class SelectTest(unittest.TestCase):
         return {"id": f"20261008-{chans[0]}-{9000 + n}", "key": f"k:{n:012x}", "cell": {"factor": "기타", "region": "글로벌"},
                 "terms": ["관세"], "nums": [], "s": s, "coverage": {"bond": 1, "analyst": 1, "personal": 0, "wire": 0}, "links": links}
 
-    def test_rest_items_need_two_direct_bond_or_analyst_sources(self):
+    def test_rest_items_need_one_direct_bond_or_analyst_source(self):
         d, src = fx("digest"), fx("sources")
-        self.assertEqual(len(L.select(d, src)), 3)                            # 지어낸 판의 나머지 표에는 그런 항목이 없다
         two, one, mixed = self.rest_item(1, 3.0), self.rest_item(2, 4.5, ("fxbond2",)), self.rest_item(3, 4.0, ("fxanal2", "fxpers1"))
-        fwd = self.rest_item(4, 4.2)
+        fwd, lone, wire = self.rest_item(4, 4.2), self.rest_item(5, 5.0, ("fxpers1", "fxpers2")), self.rest_item(6, 4.8, ("fxbond1",))
         fwd["links"][1]["fwd"] = True
-        d["rest"] = [{"cell": "기타", "items": [two, one, mixed, fwd]}]
-        self.assertEqual([x["key"] for x in L.select(d, src)], [CPI, AUCTION, CARD, two["key"]])
+        wire["links"][0]["fwd"] = True                                       # 원천 글이 전달 글뿐 — 읽을 글이 없다
+        d["rest"] = [{"cell": "기타", "items": [two, one, mixed, fwd, lone, wire]}]
+        self.assertEqual([x["key"] for x in L.select(d, src)], [CPI, AUCTION, CARD, one["key"], fwd["key"], mixed["key"], two["key"]])
+        self.assertEqual(L.select(d, src)[5]["src"], [("fxanal2", 9003)])     # 개인 채널의 글은 읽히지 않는다
+        with mock.patch.dict(R.TH, MUST_ONLY):                                # 전의 규칙(원천 2건 이상)이면 two만
+            self.assertEqual([x["key"] for x in L.select(d, src)], [CPI, AUCTION, CARD, two["key"]])
 
-    def test_six_at_most_and_the_rest_by_score(self):
+    def test_ten_at_most_and_the_rest_by_score(self):
         d, src = fx("digest"), fx("sources")
-        d["rest"] = [{"cell": "기타", "items": [self.rest_item(n, s) for n, s in ((1, 2.5), (2, 4.0), (3, 3.0), (4, 3.5), (5, 2.0))]}]
+        scores = ((1, 2.5), (2, 4.0), (3, 3.0), (4, 3.5), (5, 2.0), (6, 1.0), (7, 4.4), (8, 1.5), (9, 3.9))
+        d["rest"] = [{"cell": "기타", "items": [self.rest_item(n, s, ("fxbond1",) if n % 2 else ("fxbond1", "fxanal1")) for n, s in scores]}]
         got = L.select(d, src)
-        self.assertEqual([x["key"] for x in got], [CPI, AUCTION, CARD, "k:000000000002", "k:000000000004", "k:000000000003"])
+        self.assertEqual(len(got), TH["llm_items_max"])
+        self.assertEqual([x["key"][-1] for x in got[3:]], ["7", "2", "9", "4", "3", "1", "5"])        # 점수 순, 10개에서 끊는다
         self.assertTrue(all(len(x["src"]) <= TH["llm_posts_max"] for x in got))
         d["must"] = []                                                        # 수집 부족인 날 — 나머지 표에서만
-        self.assertEqual([x["key"][-1] for x in L.select({**d, "status": "short"}, src)], ["2", "4", "3", "1", "5"])
+        self.assertEqual([x["key"][-1] for x in L.select({**d, "status": "short"}, src)], ["7", "2", "9", "4", "3", "1", "5", "8", "6"])
 
     def test_withdrawn_and_hidden(self):
         d, src = fx("digest"), fx("sources")
         self.assertEqual(L.select({**d, "status": "withdrawn"}, src), [])
         self.assertEqual(L.select(d, src, F.overrides(withdraw=True)), [])
         got = L.select(d, src, F.overrides(hide_ids=[d["must"][1]["id"]], hide_channels=["fxbond1"]))
-        self.assertEqual([x["key"] for x in got], [CPI, CARD])
+        self.assertEqual([x["key"] for x in got], [CPI, CARD, REST3[0], REST3[2]])      # fxbond1 글 하나뿐이던 항목도 빠진다
         self.assertEqual(got[0]["src"], [("fxbond2", 212), ("fxbond3", 88), ("fxanal2", 77)])
 
 

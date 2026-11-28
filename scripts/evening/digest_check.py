@@ -339,7 +339,7 @@ def _cross(docs, raws):
     if any(n not in docs for n in (*S.PUBLIC_FILES, day)):
         return []                                      # 형식에서 이미 걸린 파일이 있다
     d, idx, ed = docs["digest.json"], docs["digest_index.json"], docs["digest_state.json"]["edition"]
-    out = _prev_found(d, docs["digest_state.json"]["base"])
+    out = _prev_found(d, docs["digest_state.json"]["base"]) + _new_found(d, docs["digest_state.json"]["base"])
     if raws[day] != raws["digest.json"] or d["date"] != st["edition"]:
         out.append(_f(day, "$", "cross"))
     if next((e for e in idx["editions"] if e["date"] == d["date"]), None) != index_row(d):
@@ -359,6 +359,16 @@ def _prev_found(d, base):
     rows += [(f"$.rest[{gi}].items[{i}]", x) for gi, g in enumerate(d["rest"]) for i, x in enumerate(g["items"])]
     return [_f("digest.json", where + ".prev", "cross") for where, x in rows
             if "prev" in x and known.get(S.topic_key(x["terms"][0])) != x["prev"]]
+
+
+def _new_found(d, base):
+    """'새로 나옴'(new) 표시가 상태 기록의 직전 판과 맞는가 — 직전 판이 제대로 읽힌 판이고 seen이 있으며, 대표 낱말의 id가 거기에 없다."""
+    whole = bool(base) and base.get("read_to", base["window"]["to"]) == base["window"]["to"]
+    seen = set(base.get("seen", ())) if whole else set()
+    rows = [(f"$.must[{i}]", x) for i, x in enumerate(d["must"])]
+    rows += [(f"$.rest[{gi}].items[{i}]", x) for gi, g in enumerate(d["rest"]) for i, x in enumerate(g["items"])]
+    return [_f("digest.json", where + ".new", "cross") for where, x in rows
+            if "new" in x and (not seen or S.topic_key(x["terms"][0]) in seen)]
 
 
 def _health(st, d, groups):

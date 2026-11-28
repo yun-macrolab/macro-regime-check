@@ -509,7 +509,7 @@ jobs:
           for r in $REASONS; do
             case "$r" in
               short) bad "수집 부족 — 채권 3곳 미만 또는 전체 16곳 미만만 읽혔다. 꼭 볼 것을 비운 판이 나갔다. 채널별 숫자는 data/digest_status.json. 못 읽은 글은 다음 판이 다시 읽는다 — 오늘 판을 채우려면 오늘 안에 수동 실행으로 다시 돌린다" ;;
-              empty_streak) note "꼭 볼 것 0건이 3판 연속 — $out. 게이트 숫자(digest_rules.py)나 묶기가 맞는지, 아래 채널 경고가 함께 있으면 그 채널부터 확인" ;;
+              empty_streak) note "꼭 볼 것 0건이 3판 연속 — $out. 아래 채널 경고가 함께 있으면 그 채널부터 확인. 아니면 판의 funnel.shadow(문턱 후보별 묶음 수 — near_s4 · bond2_ab 등)로 어느 게이트 조건이 막았는지 보고 게이트 숫자(digest_rules.py)를 정한다" ;;
               broken) bad "미리보기 형식이 바뀐 것으로 보인다(본문 비율이 절반 아래) — 판을 내지 않았다. 페이지는 직전 판을 보여 준다" ;;
               title) note "채널 제목 해시가 목록과 다르다(${CHANGED:-채널 이름 없음}) — $out. 제목만 바뀐 것이면 collect 로그의 title_sha= 값을 data/sources.json에 옮긴다. 다른 채널로 넘어갔으면 목록에서 뺀다" ;;
               rewind) note "글 번호가 거꾸로 갔다(${CHANGED:-채널 이름 없음}) — 이름이 다른 채널로 넘어갔을 수 있다. 스스로 풀리지 않는다. 채널을 확인한 뒤 한 판 동안 목록에서 빼거나 off로 두었다가 되돌리면 새로 읽는다" ;;

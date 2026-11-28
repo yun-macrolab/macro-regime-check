@@ -86,7 +86,8 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
       id = item_id(판 날짜, 씨앗 글) — 순위가 아니라 seed_of(가장 이른 원천 글). 링크는 pick_links가 고른다
       칸의 뜻     status   short = 수집 부족(must를 비운다) · withdrawn = 내림(모든 절이 빈다, blank_digest)
                   funnel   posts 창 안에서 읽은 글(숨긴 채널의 글은 빼고) · clusters 원천 글이 든 묶음 ·
-                           candidates 게이트를 모두 통과한 묶음 · must 실린 수 · truncated 나머지 표에서 30줄 상한으로 잘린 줄
+                           candidates 게이트를 모두 통과한 묶음 · must 실린 수 · truncated 나머지 표에서 30줄 상한으로 잘린 줄 ·
+                           shadow?(2026-11-28~) 문턱 후보별 묶음 수(SHADOW_KEYS — 숫자만, 화면은 읽지 않는다. 뜻은 digest_score.shadow)
                   head     fits = 자료일의 마감이 창 안(rate_fits). kr10이 안 맞으면 dir을, kr10·kr3 중 하나라도 안 맞으면 curve를
                            비운다. basis는 kr10 기준(당일 종가·전일 종가). top_terms = 가장 많이 다뤄진 주제(원인이 아니다)
                   coverage 그 묶음에서 점수에 센 채널 수(그룹별) + 속보형 채널 수
@@ -127,7 +128,7 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
       span   {from, to, posts} 그 묶음의 보이는 글 가운데 첫 글·마지막 글의 시각(ISO)과 글 수(속보형·주제 한정 채널의 글, 전달 글도
                               센다 — 그래서 coverage의 채널들이 '쓴' 시각 범위가 아니라 '묶인 글'의 범위다. 화면도 그렇게 적는다)
       prev   {date, bond, analyst, personal}  직전 판(date)에 같은 대표 낱말(terms[0])을 단 항목이 있었으면 그때 센 채널 수.
-                              대표 낱말이 A·B급일 때만 붙는다(흔한 C급 낱말은 날마다 다른 묶음의 대표가 된다). 같은 낱말일 뿐
+                              대표 낱말이 R.comparable(A·B급, 넓지 않은 C급)일 때만 붙는다(흔한 넓은 낱말은 날마다 다른 묶음의 대표가 된다). 같은 낱말일 뿐
                               같은 묶음이라는 뜻이 아니다 — 화면은 "대표 낱말이 직전 판에도 있었습니다"라고만 쓴다
       links[] 에 더해   more [낱말]  이 글에만 더 있는 낱말 — 그 링크의 글에서 걸렸지만 항목의 terms · words에 없고 두 곳 이상이
                               함께 쓴 낱말도 아닌 것(must 4개 · rest 2개까지, 등급 → (넓은 낱말은 뒤) → 가나다). 비면 칸이 없다
@@ -147,7 +148,7 @@ CLI 계약 — 모두 scripts/evening/ 아래, 표준 라이브러리만, 저장
                         비운다. 검사는 풀이마다 그 낱말의 것(R.gloss_of)과 글자까지 같은지 · 겹치지 않는지 · 순서 · 그 낱말이 이 판에
                         나왔는지를 본다('빠짐없이'는 묻지 않는다 — 크기 때문에 덜어 낸 판이 떨어지지 않게)
     notes에 더해        "크기 상한에 맞추려고 낱말 풀이나 단독 줄을 줄였습니다"(note_slim) — 풀이·단독 줄을 덜어 낸 판에 붙는다
-    digest_state.json의 판 기록   topics [{key, bond, analyst, personal}] — 이 판 항목들의 A·B급 대표 낱말마다 낱말 id
+    digest_state.json의 판 기록   topics [{key, bond, analyst, personal}] — 이 판 항목들의 견줄 수 있는 대표 낱말(R.comparable)마다 낱말 id
                         (key_of("k", "w|낱말")의 해시)와 그때 센 채널 수. 다음 판의 prev가 이것을 읽는다(낱말 글자는 두지 않는다 —
                         사전을 고쳐도 상태가 안 깨진다)
   <work> 안: post에 pic(그림·영상·파일이 붙음 — 본문이 있어도 참)이 붙고, 묶음의 글에 size · pic · head(첫 두 줄 안의 낱말)가 붙는다.
@@ -166,11 +167,17 @@ AI 요약 층 — 2026-10-09 (규칙판 위에 얹는 한두 문장. 규칙판�
   문장 규칙을 조이거나 채널을 끈 뒤에 요약 층이 규칙판의 문이 되지 않게 — 그런 문장은 화면이 다시 가리고 다음 PC 실행이 다시 만든다.
     data/digest_picks.json   가장 최근 한 판의 것만 둔다(통째로 덮어쓴다). 판을 내리면(digest_build --blank) 빈 것으로 바뀐다
       {schema 1, date(판 날짜), made_at(ISO), mode "ai", model(모델 이름 | null), basis(무엇을 물었는가의 지문 — 해시 16자리),
-       items[≤ TH llm_items_max {key, id, src, fact}], dropped{shape, banned, copy, number, term, name, none → 개수}}
+       items[≤ TH llm_items_max {key, id, src, fact}], dropped{shape, banned, copy, number, term, name, none → 개수},
+       overview(오늘 판 한 단락 | null — 2026-11-28 더함. 이 칸이 없는 파일도 읽는다)}
       key    그 판 항목의 key(묶음의 대표 열쇠) 그대로          id   만들 때 그 항목의 id(참고용 — 잇는 데 쓰지 않는다)
       src    [[채널, 글 번호], …] 1~TH llm_posts_max개 — 모델에게 읽힌 글. 그 항목 links 가운데 채권 · 애널 원천 채널의 전달 아닌 글만
              (개인 · 속보형 · 전달 글은 읽히지 않는다), 판의 links 순서
-      fact   한국어 평서문 1~2문장, TH fact_chars자 이하. 검사를 통과한 것만 — 통과하지 못한 항목은 items에 없고 dropped에 개수만
+      fact   한국어 평서문 1~TH fact_sentences문장(모델에게는 2~3문장을 시킨다), TH fact_chars자 이하(2026-11-28: 2문장 · 140자 → 3문장 ·
+             220자). 검사를 통과한 것만 — 통과하지 못한 항목은 items에 없고 dropped에 개수만
+      overview  판 맨 위의 한 단락 — TH overview_sentences_min~overview_sentences문장, overview_min_chars~overview_chars자. 실린 fact가
+             TH overview_items_min개 이상일 때만 묻고, 모델에게는 실린 fact와 규칙판의 닫힌 값(낱말 · 숫자 · 곳 수)만 건넨다(채널 글 없음).
+             fact와 같은 여섯 검사(digest_picks.overview_code)를 통과해야 실리고, 걸리면 null(사유는 PC 로그의 코드만). 화면은 실린 fact가
+             모두 그 화면에 붙었을 때만 그린다(digest_picks.attach_overview · site/evening.js의 overviewOf · overviewNote)
       dropped  문장이 빠진 사유별 개수(꼴 · 금지 낱말 · 베낌 · 숫자 · 낱말 · 이름 · 모델이 쓰지 않음). 문장이 하나도 안 남아도 파일은 쓴다
                (items가 빈다 — 전날 문장이 남지 않게)
     화면이 문장을 붙이는 규칙 (digest_picks.attach가 같은 규칙의 파이썬 판이다 — 하나라도 어긋나면 그 문장은 붙이지 않는다)
@@ -182,6 +189,20 @@ AI 요약 층 — 2026-10-09 (규칙판 위에 얹는 한두 문장. 규칙판�
       화면(site/evening.js의 picksOf · aiOf)은 attach보다 좁게 본다 — 닫는 쪽으로만 다르다: 4)의 링크는 화면이 실제로 건 링크(목록에 있고
       숨기지 않은 채널)이고 채권 · 애널 원천 채널의 전달 아닌 글이어야 한다. 출처 목록을 못 읽었으면 붙이지 않는다. key가 겹친 문장은 둘 다,
       항목이 llm_items_max개를 넘는 파일은 통째로 뺀다. 열어 둔 화면이 요약 층을 다시 읽지 못하면 가진 것을 두지 않고 비운다
+
+항목에 붙는 안내 — 2026-11-28에 더한 '없어도 되는 칸' (규칙과 이 사이트의 자료만. LLM · 바깥 요청 없음. schema는 1 그대로)
+  must · rest 항목
+    screens [화면 id]      제목의 낱말(terms)과 이어지는 이 사이트의 화면(digest_rules.SCREENS) — id만(R.SCREEN_IDS: index.html의 화면 id),
+                           겹치지 않게 메뉴 순서. 이어지는 낱말이 없으면 칸이 없다
+    soon    [{date, term}]  제목의 낱말과 같은 낱말의 일정(calendar.json) — 판 날짜부터 TH soon_days일 안이고 수집 창이 끝난 뒤의 것
+                           (시각을 모르는 일정은 창이 끝난 날의 것을 뺀다). 낱말마다 가장 이른 것 하나, soon_max개까지, (날짜, 낱말) 순
+    new     true           대표 낱말(terms[0])이 직전 판 어느 항목의 제목에도 없었다 — 대표 낱말이 견줄 수 있는 것(R.comparable)이고 직전
+                           판의 기록에 seen이 있고 그 판이 수집 부족이 아니었을 때만. prev와 함께 오지 않는다
+    prev                   (위 '더 자세히') 대표 낱말의 조건이 A·B급에서 R.comparable(넓지 않은 C급까지)로 넓어졌다
+  digest_state.json의 판 기록   seen [낱말 id] — 이 판 항목의 제목에 나온 낱말의 id(글자순, TH seen_max개까지). topics에는 R.comparable인
+                           대표 낱말이 모두 든다
+  화면은 문장을 자료에서 받지 않고 R.VIEW_PHRASES의 틀에 날짜(MM-DD) · 사전 낱말 · 채널 수를 끼워 만든다. 화면 링크는 같은 페이지의
+  해시("#" + 화면 id)뿐이다
 """
 import datetime
 import re
@@ -202,6 +223,9 @@ REASONS = ("ok", "short", "broken", "empty_streak", "withdrawn", "error")
 CH_CODES = ("ok", "fetch", "no_preview", "empty", "title", "rewind", "budget")
 #           읽음 · 수신 실패 · 미리보기 주소가 아님 · 글을 못 읽음 · 제목 해시가 다름 · 글 번호·시각이 거꾸로 · 요청 예산 초과
 GATE_CODES = ("sources", "grade", "score", "group")    # 원천 2곳 미만 · A·B급 낱말 없음 · S 미달 · 채권·애널 없음
+# 그림자 기록(2026-11-28) — 판의 funnel.shadow 칸 이름(값은 모두 묶음 수). 뜻은 digest_score.shadow 머리말
+SHADOW_KEYS = (*(f"{k}_{c}" for k in ("fail", "only") for c in GATE_CODES), "near_s3", "near_s4", "near_s45",
+               "bond2_ab", "bond2_ab_num", "cross_ab", "cross_ab_num", "num_path", "rest_pool", "rest_noterm")
 PICKS = ("must", "rest", "none")
 # 쌓여 있는 기록(목차의 줄 · 상태의 꼭 볼 것)의 상한 — TH가 아니라 넉넉한 고정값이다. 한도 숫자(must_max · rest_max · c_cap)를
 # 낮춘 날 지난 기록이 형식 검사에 걸려 실행이 날마다 멈추지 않게
@@ -288,12 +312,18 @@ def _item_more(n):
             "prev": _obj({"date": _date, **{g: _int(0, 99) for g in R.GROUPS}})}
 
 
+def _item_near():
+    """항목에 붙는 안내(없어도 되는 칸) — 관련 화면 id(허용 목록 R.SCREEN_IDS) · 다가오는 일정(날짜와 사전 낱말) · 새로 나옴 표시."""
+    return {"screens": _arr(_enum(*R.SCREEN_IDS), TH["terms_max"], 1),
+            "soon": _arr(_obj({"date": _date, "term": _term}), TH["soon_max"], 1), "new": _is(True)}
+
+
 _must = _obj({**_ITEM, "terms": _arr(_term, TH["terms_max"], 1), "nums": _arr(_numrow, TH["nums_max"]), "score": _score,
               "why": _arr(_phrase, TH["why_max"]), "links": _arr(_obj(_LINK, _link_more(TH["more_max"])), TH["links_max"], 1)},
-             _item_more(TH["words_max"]))
+             {**_item_more(TH["words_max"]), **_item_near()})
 _rest_item = _obj({**_ITEM, "terms": _arr(_term, TH["rest_terms_max"]), "nums": _arr(_numrow, TH["rest_nums_max"]),
                    "s": _num(-10, TH["s_max"]), "links": _arr(_obj(_LINK, _link_more(TH["rest_more_max"])), TH["rest_links_max"], 1)},
-                  _item_more(TH["rest_words_max"]))
+                  {**_item_more(TH["rest_words_max"]), **_item_near()})
 _side = _obj({"channels": _arr(_obj({"ch": _handle, "read": _count, "joined": _count, "hit": _count}), 50),
               "rows": _arr(_obj({"ch": _handle, "term": _term, "result": _null(_result), "v": _null(_numv), "at": _iso, "url": _url},
                                 _link_more(TH["row_more_max"])), 250)})
@@ -312,7 +342,8 @@ def _gloss_url(v, path):
 _gloss = _arr(_obj({"term": _term, "text": _gloss_text, "url": _null(_gloss_url)}), len(R.GLOSS))
 _digest = _obj({
     "schema": _one, "date": _date, "mode": _enum("rules"), "status": _enum(*STATUSES), "window": _window, "collected_at": _iso,
-    "funnel": _obj({k: _count for k in ("posts", "clusters", "candidates", "must", "truncated")}),
+    "funnel": _obj({k: _count for k in ("posts", "clusters", "candidates", "must", "truncated")},
+                   {"shadow": _obj({k: _count for k in SHADOW_KEYS})}),
     "sources": _obj({"channels_ok": _int(0, 100), "channels_total": _int(0, 100)}),
     "head": _head, "notes": _arr(_phrase, 7), "must": _arr(_must, TH["must_max"]),
     "rest": _arr(_obj({"cell": _enum(*R.CELLS), "items": _arr(_rest_item, TH["rest_max"], 1)}), len(R.CELLS)),
@@ -325,7 +356,8 @@ _index = _obj({"schema": _one, "updated_at": _iso, "latest": _null(_date), "edit
 _snap = _obj({"date": _date, "window": _window, "collected_at": _iso, "empty_streak": _streak,
               "must": _arr(_obj({"id": _itemid, "keys": _arr(_key, 60, 1), "c": _num(0, KEPT_C)}), KEPT_MUST),
               "channels": _map(_obj({"last_post": _null(_postid), "last_at": _null(_iso), "fail_streak": _streak}), 100)},
-             {"read_to": _iso, "topics": _arr(_obj({"key": _key, **{g: _int(0, 99) for g in R.GROUPS}}), TH["topics_max"])})
+             {"read_to": _iso, "topics": _arr(_obj({"key": _key, **{g: _int(0, 99) for g in R.GROUPS}}), TH["topics_max"]),
+              "seen": _arr(_key, TH["seen_max"])})
 _state = _obj({"schema": _one, "edition": _null(_snap), "base": _null(_snap)})
 _status = _obj({"schema": _one, "checked_at": _iso, "ok": _bool, "reason": _enum(*REASONS), "edition": _null(_date), "published": _bool,
                 "last_success": _null(_obj({"date": _date, "at": _iso})), "empty_streak": _streak,
@@ -548,7 +580,7 @@ def _check_links(item, path, date, span, roles):
 def _check_more(item, path, date, span):
     """더 자세히 칸 — 낱말 목록의 순서(곳 수 ↓ → 등급 → (넓은 낱말은 뒤) → 가나다, 글에 나온 순서가 아니다) · 함께 나온 낱말이 항목의 낱말을 되풀이하지
     않는가 · 덧낱말이 항목의 낱말과 겹치지 않는가 · 첫 글~마지막 글이 창 안이고 링크의 시각을 품는가 · 직전 판의 날짜가 이 판보다
-    앞이고 대표 낱말이 A·B급인가."""
+    앞이고 대표 낱말이 견줄 수 있는 것(R.comparable)인가."""
     words = item.get("words", [])
     counts = {w["term"]: w["n_ch"] for w in words}
     if [(w["term"], w["n_ch"]) for w in words] != R.by_count(counts) or len(counts) != len(words) or set(counts) & set(item["terms"]) \
@@ -567,8 +599,25 @@ def _check_more(item, path, date, span):
         _inside(sp["to"], span, f"{path}.span.to")
         if sp["from"] > sp["to"] or any(not sp["from"] <= x["at"] <= sp["to"] for x in item["links"]) or sp["posts"] < len(item["links"]):
             _fail(f"{path}.span", "첫 글·마지막 글의 시각이 뒤집혔거나 링크의 글을 품지 않음")
-    if item.get("prev") and not (item["terms"] and R.grade_of(item["terms"][0]) in ("A", "B") and item["prev"]["date"] < date):
-        _fail(f"{path}.prev", "직전 판의 날짜가 이 판보다 앞이 아니거나 대표 낱말이 없거나 A·B급이 아님")
+    if item.get("prev") and not (item["terms"] and R.comparable(item["terms"][0]) and item["prev"]["date"] < date):
+        _fail(f"{path}.prev", "직전 판의 날짜가 이 판보다 앞이 아니거나 대표 낱말이 없거나 견줄 수 없는 낱말(넓은 C급)임")
+    _check_near(item, path, date)
+
+
+def _check_near(item, path, date):
+    """항목의 안내 칸 — 화면 id는 겹치지 않게 메뉴 순서로(어느 낱말의 것인지는 보지 않는다 — 표를 고쳐도 지난 판이 떨어지지 않게) ·
+    다가오는 일정은 항목의 낱말이고 판 날짜부터 soon_days일 안, (날짜, 낱말) 순에 낱말마다 하나 · 새로 나옴은 직전 판의 칸(prev)과 함께
+    오지 않고 대표 낱말이 견줄 수 있는 것일 때만."""
+    screens = item.get("screens", [])
+    if screens != [s for s in R.SCREEN_IDS if s in screens]:
+        _fail(f"{path}.screens", "화면 id가 겹치거나 메뉴 순서가 아님")
+    soon = [(x["date"], x["term"]) for x in item.get("soon", [])]
+    last = (datetime.date.fromisoformat(date) + datetime.timedelta(days=TH["soon_days"])).isoformat()
+    if soon != sorted(soon) or len({t for _, t in soon}) != len(soon) \
+            or any(not (date <= d <= last and t in item["terms"]) for d, t in soon):
+        _fail(f"{path}.soon", "일정이 항목의 낱말이 아니거나 판 날짜부터 정해 둔 날 안이 아니거나 순서·겹침이 규칙과 다름")
+    if "new" in item and ("prev" in item or not (item["terms"] and R.comparable(item["terms"][0]))):
+        _fail(f"{path}.new", "새로 나옴은 직전 판의 칸이 없고 대표 낱말이 견줄 수 있는 것일 때만")
 
 
 def _check_side(side, path, span, roles, want):
@@ -601,6 +650,11 @@ def _check_shape(d):
     if f["must"] != len(d["must"]) or not f["posts"] >= f["clusters"] >= f["candidates"] >= f["must"] \
             or len(items) - len(d["must"]) > TH["rest_max"]:
         _fail("digest.funnel", "개수가 판의 내용과 맞지 않음(글 ≥ 묶음 ≥ 후보 ≥ 꼭 볼 것, must = 실린 수, 나머지 30줄까지)")
+    sh = f.get("shadow")
+    if sh is not None and (max(sh.values()) > f["clusters"] or sh["num_path"] > f["candidates"] or sh["rest_noterm"] > sh["rest_pool"]
+                           or not sh["near_s3"] >= sh["near_s4"] >= sh["near_s45"] or sh["bond2_ab_num"] > sh["bond2_ab"]
+                           or sh["cross_ab_num"] > sh["cross_ab"] or any(sh[f"only_{c}"] > sh[f"fail_{c}"] for c in GATE_CODES)):
+        _fail("digest.funnel.shadow", "그림자 기록의 개수가 서로 맞지 않음(묶음 수 이하, 후보 이하, 부분 ≤ 전체)")
     if d["sources"]["channels_ok"] > d["sources"]["channels_total"]:
         _fail("digest.sources", "읽은 채널이 전체보다 많음")
     empty = not (items or d["wire"]["rows"] or d["solo"]["rows"] or d["context"] or d["tomorrow"])
@@ -661,6 +715,8 @@ def validate_state(d):
             _fail(f"state.{name}.read_to", "제대로 읽은 곳이 창의 끝보다 뒤")
         if s and [t["key"] for t in s.get("topics", [])] != sorted({t["key"] for t in s.get("topics", [])}):
             _fail(f"state.{name}.topics", "대표 낱말 id가 겹치거나 글자순이 아님")
+        if s and s.get("seen", []) != sorted(set(s.get("seen", []))):
+            _fail(f"state.{name}.seen", "낱말 id가 겹치거나 글자순이 아님")
     return d
 
 

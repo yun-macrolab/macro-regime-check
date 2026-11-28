@@ -154,6 +154,8 @@ def build(case="ok", day=None, now=None, ai=False):
     base = datetime.date.fromisoformat(F.EDITION)
     docs = {"sources.json": _fx("sources"), "calendar.json": _fx("calendar")}
     d, st, ov = _variant(case)
+    if d["must"]:                                     # '다가오는 일정' 칩도 눈으로 보게 — 맨 앞 카드에 지어낸 일정 하나(판 날짜 6일 뒤)
+        d["must"][0]["soon"] = [{"date": _move(F.EDITION, 6), "term": d["must"][0]["terms"][0]}]
     if case == "empty":
         return _checked({**docs, "digest_overrides.json": ov})
     first = back(today, 2) if case == "late" else back(today) if case == "failed" else today      # 화면에 뜨는 맨 앞 판

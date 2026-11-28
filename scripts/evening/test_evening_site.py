@@ -201,10 +201,11 @@ class SourceTest(unittest.TestCase):
         code = code_only(JS)
         self.assertEqual(code.count("_blank"), 1)
         self.assertEqual(code.count('{ href, target: "_blank", rel: "noopener noreferrer" }'), 1)
-        inner = re.findall(r"href:\s*(.{0,60})", code)                        # 그 밖의 링크는 화면 안의 #evening뿐
+        inner = re.findall(r"href:\s*(.{0,60})", code)        # 그 밖의 링크는 화면 안의 #evening과 관련 화면("#" + 정해 둔 화면 id)뿐
         self.assertTrue(inner)
         for expr in inner:
-            self.assertIn('"#evening', expr)
+            self.assertTrue('"#evening' in expr or expr.startswith('"#" + id }, RULES.screens[id]'), expr)
+        self.assertIn("filter(id => own(RULES.screens, id))", code)            # 화면 id는 정해 둔 것만 링크가 된다
 
     def test_rules_block_matches_the_rules(self):
         rules, th = rules_block(), R.TH
@@ -264,10 +265,13 @@ class SourceTest(unittest.TestCase):
         self.assertLess(PAGE.index('<script src="evening.js">'), PAGE.index("applyView();"))
 
     def test_file_sizes_stay_small(self):
-        self.assertLessEqual(JS.count("\n"), 800)
+        # 800줄 → 860줄 · 68KB → 74KB(2026-11-28, E2+E3 합침): E2의 항목 안내(관련 화면 · 다가오는 일정 · 직전 판 표시)와 그 안내 문단(+50줄 · +4KB),
+        # E3의 오늘 판 한 단락(overview)을 붙이는 규칙 · 2차 가드 · 그리기와 넓힌 범위(10개 · 두세 문장 · 한 단락) 안내 문장(+20줄 · +3KB)이 함께 들어왔다
+        # — 합친 실제 크기 846줄 · 72.8KB에 조금 여유를 둔 값
+        self.assertLessEqual(JS.count("\n"), 860)
         # 60KB → 64KB(2026-10-08 밤): 지문 표 둘(풀이 138개 · 사전 낱말 168개, 합쳐 2.6KB)이 들어왔다 — 화면이 낱말·풀이를 사전과 견주려면 필요하다
         # 64KB → 68KB(2026-10-09): AI 요약 층을 붙이는 규칙 · 문장의 2차 가드와, 그 방식을 사실대로 적은 안내 문단(한글 1.5KB)이 들어왔다
-        self.assertLess(len(JS.encode("utf-8")), 68_000)
+        self.assertLess(len(JS.encode("utf-8")), 74_000)
 
     @unittest.skipUnless(NODE, "node가 없다")
     def test_node_accepts_the_syntax(self):
@@ -402,7 +406,8 @@ class EditionTest(Screen):
         self.assertEqual({CHANNEL.match(a["href"]).group(1) for a in outs if CHANNEL.match(a["href"])}, handles)
         for a in self.frame["links"]:
             if a not in outs:
-                self.assertRegex(a["href"], r"^#evening(?:/\d{4}-\d{2}-\d{2})?$")
+                screens = "|".join(map(re.escape, R.SCREEN_IDS))              # 그 밖은 같은 페이지의 화면(지난 판 · 관련 화면)
+                self.assertRegex(a["href"], rf"^#(?:evening(?:/\d{{4}}-\d{{2}}-\d{{2}})?|{screens})$")
                 self.assertIsNone(a["target"])
 
     def test_source_note_says_how_and_where_to_ask(self):

@@ -38,7 +38,7 @@ F1, F2 = F.PICK_FACTS
 MADE = "빅테크 두 곳이 같은 날 회사채 12조원을 발행했다."                     # 지어낸 문장(나머지 줄에 붙여 볼 것)
 WARN = "틀릴 수 있습니다 — 원문에서 확인하세요"
 ON, OFF = "규칙 선별 + AI 요약", "규칙 선별 · 문장 없음"
-BAD_FACTS = ["가" * 139 + "다.", "짧은 글이다.", "마침표 없이 끝난 지어낸 문장", "자세한 내용은 https://example.org/a 에 있다.",
+BAD_FACTS = ["가" * (R.TH["fact_chars"] - 1) + "다.", "짧은 글이다.", "마침표 없이 끝난 지어낸 문장", "자세한 내용은 https://example.org/a 에 있다.",
              "자세한 내용은 www.example.org 에 있다.", "자세한 내용은 example.org 에 있다.", "문의는 @someone 에게 하면 된다.",
              "줄이\n바뀐 지어낸 문장이다.", "탭이\t들어간 지어낸 문장이다.", "보이지 않는​ 글자가 든 문장이다.", "<b>굵게</b> 쓴 지어낸 문장이다.",
              '따옴표가 "든" 지어낸 문장이다.', "#해시태그 가 든 지어낸 문장이다.", " 앞에 공백이 있는 지어낸 문장이다.",
@@ -70,7 +70,7 @@ def layer(x, fact, src):
 class AiRulesTest(unittest.TestCase):
     def test_numbers_and_patterns_match_the_rules(self):
         rules = rules_block()
-        for key in ("fact_chars", "fact_min_chars", "llm_items_max", "llm_posts_max"):
+        for key in ("fact_chars", "fact_min_chars", "llm_items_max", "llm_posts_max", "overview_chars", "overview_min_chars", "overview_items_min"):
             self.assertEqual(rules[key], R.TH[key], key)
         self.assertIn(K._CHARS.pattern[1:-2] + "{", JS)                         # 문장에 올 수 있는 글자 — digest_picks와 같은 모둠
         self.assertIn("/" + K._LINKISH.pattern + "/i", JS)                      # 주소 꼴
@@ -296,7 +296,7 @@ class AiNoticeTest(Screen):
     def test_source_note_says_what_the_ai_reads_and_writes(self):
         for frame in (self.base, self.frame):                                   # 문장이 없는 날에도 방식은 적어 둔다
             self.shows(frame, "고르는 일은 LLM 없이 규칙이 합니다", "AI(Claude)가 쓴 것입니다", "채권·애널 그룹 원천 채널의 글을 항목마다 3건까지 읽고",
-                       "자기 말로 한두 문장", "개인·속보형 채널의 글과 전달 글은 읽히지 않습니다", "원문과 길게 겹치지 않는지", "숫자와 단위가 원문에 있는지",
+                       "자기 말로 두세 문장", "합쳐 10개 항목까지", "채널 글을 더 읽지 않습니다", "개인·속보형 채널의 글과 전달 글은 읽히지 않습니다", "원문과 길게 겹치지 않는지", "숫자와 단위가 원문에 있는지",
                        "정해 둔 권유·전망 표현이 없는지 같은 자동 검사를 통과한 문장만 싣습니다", "짧은 어구는 원문과 겹칠 수 있습니다",
                        "뜻이 틀릴 수 있습니다", "같은 판을 다시 계산할 수 있어", "AI 요약에 쓸 글이 있는 채널은 운영자 PC가 따로 읽고, 그날 밤과 이튿날 아침에 다시 읽기도 합니다",
                        "문장이 없는 날과 항목이 있습니다", "텔레그램 약관은 플랫폼에서 얻은 자료를 AI에 쓰는 것을 제한합니다",
