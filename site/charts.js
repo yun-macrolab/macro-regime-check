@@ -7,7 +7,8 @@
 // 툴팁은 보조 — 모든 값은 "표로 보기"에도 있다. 키보드: 그래프에 초점 → ←/→ 이동, Home/End, Esc 닫기.
 (function () {
   const NS = "http://www.w3.org/2000/svg";
-  const PAD = { top: 10, right: 68, bottom: 22, left: 40 };   // right: 끝 값 글자 자리, bottom: 연도 눈금
+  const PAD = { top: 10, right: 68, bottom: 22, left: 40 };   // right: 끝 값 글자 자리(한글 등이 섞이면 draw가 넓힌다), bottom: 연도 눈금
+  const PLAIN = /^[\x20-\x7e]*$/;                                // 라틴·숫자·기호(ASCII)만인 글자
   const SERIES = ["var(--ch-1)", "var(--ch-2)", "var(--ch-3)"];  // 분류색은 이 순서로만(돌려 쓰지 않는다)
   const BANDS = ["var(--ch-band-1)", "var(--ch-band-2)"];        // 아래 띠(기간 표시) — 많아야 둘, 선 색과 겹치지 않는다
   const BAND_ROW = 9;                                             // 띠 한 줄의 높이(6) + 사이(3)
@@ -34,6 +35,19 @@
     return (Number(s) === 0 ? s.replace("-", "") : s) + unit;        // -0.001 → "0.00"(음의 0 표시 안 함)
   }
   const short = (v, unit) => String(+v.toFixed(2)) + unit;               // 임계값 글자: 10%, -0.25%p, 0%
+  // 끝 값 글자의 폭. ASCII만이면 한 글자 7px(고정폭 글꼴). 한글 단위처럼 그 밖의 글자가 섞이면 브라우저에서 잰 폭,
+  // 잴 수 없으면(node 가짜 DOM · 잰 값이 0) ASCII 7px · 그 밖의 글자 13px로 어림한다
+  function textWidth(host, cls, label) {
+    if (PLAIN.test(label)) return label.length * 7;
+    const probe = svg("text", { class: cls }, label);
+    if (typeof probe.getComputedTextLength === "function") {
+      host.append(probe);
+      const w = probe.getComputedTextLength();
+      probe.remove();
+      if (w > 0) return Math.ceil(w);
+    }
+    return [...label].reduce((w, c) => w + (PLAIN.test(c) ? 7 : 13), 0);
+  }
 
   // 자료 검증 — 형식이 어긋난 점·선은 버린다. 남은 선이 없으면 그래프를 만들지 않는다
   function parse(spec) {
@@ -109,10 +123,20 @@
     const width = Math.max(240, Math.floor(st.plot.clientWidth || 600)), height = st.height;
     const { lo, hi, t0, t1 } = st.dom;
     const nb = st.bands.length;
-    const L = PAD.left, R = width - PAD.right, T = PAD.top, B = height - PAD.bottom - (nb ? nb * BAND_ROW + 3 : 0);
+    const el = st.svg;
+    // 끝 값(참고 선은 뒤로) — 오른쪽 여백을 정하려면 글자 폭부터 잰다
+    const ends = st.lines.map(l => ({ l, p: lastValid(l.pts) })).filter(e => e.p)
+      .sort((a, b) => (a.l.role === "ref") - (b.l.role === "ref"));
+    for (const e of ends) {
+      e.ref = e.l.role === "ref" ? " ref" : "";
+      e.label = st.fmt(e.p[1]);
+      e.w = textWidth(el, "ch-end" + e.ref, e.label);
+    }
+    // ASCII만이면 PAD.right 그대로. 그 밖의 글자가 섞인 끝 값은 상자가 다 들어가게(글자 폭 + 상자 앞 5 + 안쪽 8 + 테두리 1)
+    const right = Math.max(PAD.right, ...ends.filter(e => !PLAIN.test(e.label)).map(e => e.w + 14));
+    const L = PAD.left, R = width - right, T = PAD.top, B = height - PAD.bottom - (nb ? nb * BAND_ROW + 3 : 0);
     const X = t => L + (t - t0) / (t1 - t0) * (R - L), Y = v => T + (hi - v) / (hi - lo) * (B - T);
     st.X = X; st.Y = Y; st.L = L; st.R = R; st.T = T; st.B = B; st.width = width;
-    const el = st.svg;
     el.replaceChildren();
     el.setAttribute("viewBox", `0 0 ${width} ${height}`);
     el.setAttribute("width", width);
@@ -176,22 +200,20 @@
       path.style.stroke = l.color;
       el.append(path);
     }
-    // 끝 점 + 끝 값(오른쪽 여백). 글자가 겹치면 참고 선부터 생략 — 범례·툴팁·표가 대신한다
-    const placed = [];
-    const ends = st.lines.map(l => ({ l, p: lastValid(l.pts) })).filter(e => e.p)
-      .sort((a, b) => (a.l.role === "ref") - (b.l.role === "ref"));
+    // 끝 점 + 끝 값(오른쪽 여백). 상자가 17px 안으로 겹치면 아래 것을 밀어 둘 다 보이게 하고,
+    // 밀린 상자의 가운데가 그래프 아래 경계(B)를 넘으면 위로 되민다
+    const stack = ends.map(e => { e.y = Y(e.p[1]); return e; }).sort((a, b) => a.y - b.y);
+    let floor = -Infinity, ceil = B;
+    for (const e of stack) floor = e.y = Math.max(e.y, floor + 17);
+    for (let i = stack.length - 1; i >= 0; i--) ceil = (stack[i].y = Math.min(stack[i].y, ceil)) - 17;
     for (const e of ends) {
       const dot = svg("circle", { class: "ch-dot", cx: X(e.p[0]), cy: Y(e.p[1]), r: 4 });
       dot.style.fill = e.l.color;
       el.append(dot);
-      const y = Y(e.p[1]);
-      if (placed.some(py => Math.abs(py - y) < 17)) continue;
-      placed.push(y);
       // 최근 값 — 선 색으로 칠한 상자에 검은 글자(단말기 방식). 참고 선은 테두리만
-      const label = st.fmt(e.p[1]), ref = e.l.role === "ref" ? " ref" : "";
-      const box = svg("rect", { class: "ch-end-box" + ref, x: R + 5, y: y - 8, width: label.length * 7 + 8, height: 16 });
+      const box = svg("rect", { class: "ch-end-box" + e.ref, x: R + 5, y: e.y - 8, width: e.w + 8, height: 16 });
       box.style.fill = e.l.color;
-      el.append(box, svg("text", { class: "ch-end" + ref, x: R + 9, y: y + 4 }, label));
+      el.append(box, svg("text", { class: "ch-end" + e.ref, x: R + 9, y: e.y + 4 }, e.label));
     }
 
     if (Number.isFinite(th)) {                           // 임계값 글자는 선 위에(바탕색 테두리로 선을 가린다)

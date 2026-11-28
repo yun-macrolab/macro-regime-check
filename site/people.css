@@ -54,6 +54,7 @@ a.brand { text-decoration: none; }
 .cmd label { color: var(--amber); font: 600 14px var(--f-mono); }
 .cmd input { flex: 1; min-width: 0; padding: 3px 0; border: 0; outline: 0; background: transparent; color: var(--amber); font: 500 14px var(--f-mono); caret-color: var(--amber); }
 .cmd input::placeholder { color: #a3814a; }
+#q:focus-visible { outline: 2px solid var(--key); outline-offset: 1px; }
 .cmd button { flex: none; padding: 2px 10px; background: var(--go); color: #000; font: 600 12px var(--f-text); box-shadow: inset 0 -2px 0 rgba(0,0,0,.3); }
 .cmd-msg { color: var(--key); font: 500 12px var(--f-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
 .cmd-msg:empty { display: none; }
@@ -160,7 +161,7 @@ html[data-motion="off"] .tape-run + .tape-run { display: none; }
 .pips .up { color: var(--hawk); } .pips .down { color: var(--dove); } .pips .text { color: var(--gold); }
 .pips .none { color: #4d4d4d; font-weight: 400; }
 .lamps { display: inline-flex; gap: 2px; }
-.lamp { display: inline-block; padding: 0 3px; font: 600 10px/1.55 var(--f-mono); color: #6b6b6b; box-shadow: inset 0 0 0 1px #333; }
+.lamp { display: inline-block; padding: 0 3px; font: 600 10px/1.55 var(--f-mono); color: var(--dim); box-shadow: inset 0 0 0 1px #333; }
 .lamp.on { color: #000; background: var(--amber); box-shadow: none; }
 .rail-foot { padding: 6px 10px 8px; border-top: 1px solid var(--rule); font-size: 11.5px; line-height: 1.6; color: var(--dim); }
 .rail-foot .pips { font-size: 11px; }
@@ -408,7 +409,7 @@ html[data-motion="on"] .file.flash .file-head { animation: flash .7s ease-out; }
 .bar.k-company { background: #2a1a05; border-color: var(--amber); } .bar.k-company b { background: var(--amber); }
 .bar.k-school { background: #1a1a1a; border-color: var(--ink-2); } .bar.k-school b { background: var(--ink-2); }
 .bar.k-academia { background: repeating-linear-gradient(135deg, #1a1a1a 0 5px, #121212 5px 10px); border-color: #9d978a; } .bar.k-academia b { background: #9d978a; }
-.bar.k-other { background: #121212; border-color: #6a6a6a; border-style: dashed; } .bar.k-other b { background: #6a6a6a; }
+.bar.k-other { background: #121212; border-color: #6a6a6a; border-style: dashed; } .bar.k-other b { background: var(--dim); }
 .bar.now-bar { box-shadow: inset -3px 0 0 var(--key); }
 .ribbon-unk { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: 12.5px; color: var(--dim); }
 .kinds { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12px; color: var(--dim); }
@@ -688,6 +689,13 @@ table.ledger { width: 100%; min-width: 330px; border-collapse: collapse; table-l
   .cmd { grid-column: 1 / -1; order: 3; }
   .head-right { justify-self: end; gap: 8px; }
   .cmd input { font-size: 16px; }   /* 아이폰이 누를 때 화면을 확대하지 않게 */
+  /* 기능 키만 가로로 밀고 오른쪽 끝을 흐려 더 있음을 알린다 — 흐림이 움직임·단축키 버튼에는 걸리지 않게 미는 칸을 키 줄에서 기능 키로 옮긴다.
+     위·왼쪽 여백은 초점 테두리가 잘리지 않을 자리, 오른쪽 여백은 마지막 키가 흐림 밖까지 나올 자리 */
+  .keyrow { overflow: visible; }
+  .fkeys { flex: 1 1 0; min-width: 0; overflow-x: auto; scrollbar-width: none; margin: -4px 0 -4px -4px; padding: 4px 28px 4px 4px; scroll-padding-right: 28px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+  .fkeys::-webkit-scrollbar { display: none; }
+  .toggles { position: static; padding-left: 0; box-shadow: none; }
 }
 @media (max-width: 640px) {
   .head-right { font-size: 12px; }
@@ -759,6 +767,8 @@ table.ledger { width: 100%; min-width: 330px; border-collapse: collapse; table-l
   .rm-row { font-size: 13px; }
   .rm { padding: 8px 10px 9px; }
   .rm .rm-quote { font-size: 15px; }
+  .hubs .hp button, .hubs2 button { min-height: 32px; }   /* 환승역의 이름 단추 — 손가락으로 누를 높이 */
+  .hubs2 li { align-items: center; }
 }
 @media (max-width: 380px) {
   table.ledger { min-width: 300px; }

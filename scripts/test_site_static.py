@@ -266,6 +266,7 @@ class PageTest(unittest.TestCase):
 
     def test_readme_states_the_pages_grace(self):
         # 배너·수신 표시가 예약 실행을 기다리는 시간(GRACE_MS)과 README가 적은 시간이 같다 — 5시간에서 6시간 30분으로 늘릴 때(2026-11-10)
+        # 9시간(2026-11-28): 예약 실행이 6~7.9시간 늦어 거짓 지연 배너가 두 번 떴다(8시간은 여유가 6분뿐)
         grace = re.search(r"^const RUN_UTC = \{[^}]*\}, GRACE_MS = ([\d.]+) \* 36e5;$", self.page, re.M)
         self.assertIsNotNone(grace)
         stated = re.findall(r"(\d+)시간(?: (\d+)분)?까지 (?:허용합니다|기다립니다)", read("README.md"))

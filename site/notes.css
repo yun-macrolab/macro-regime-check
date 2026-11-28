@@ -132,6 +132,19 @@
   .nd-notes { margin: 0; }
   .nd-sign { font-size: 16px; }
   .nd-tag { font-size: 14.5px; }
+
+  /* 휴대폰에서 누르고 읽기(2026-11-28) — 작은 글은 12px 이상, 접는 줄과 링크 줄은 높이 32px 이상. 본문(.note)은 그대로 */
+  .note-meta, .note-facts dt, .note-facts small, .note-fig .notices { font-size: 12px; line-height: 1.6; }
+  .note-cap-no { font-size: 12px; }
+  .note-body .note-table td::before { font-size: 12px; line-height: 1.6; }   /* 아래 600px 블록보다 세게(.note-body를 붙인다) */
+  .nd-tag { font-size: 16px; }                                       /* 그림이 150/200으로 줄어 화면에서는 12px */
+  .note-fig details.ch-table summary { padding: 7px 0; line-height: 1.6; }
+  .note-card h3 a { display: block; padding: 5px 0; }
+  .note-summary { margin-top: 3px; }
+  .note-back { margin-bottom: 4px; }
+  .note-back a, .note-end > a:not(.note-btn) { display: inline-flex; align-items: center; min-height: 32px; }
+  .note-facts a, .note-fixed a { display: inline-block; padding: 6px 0; line-height: 20px; }
+  .note-toc button, .note-end .note-btn { min-height: 32px; }
 }
 @media (max-width: 600px) {
   .note { font-size: 15px; }

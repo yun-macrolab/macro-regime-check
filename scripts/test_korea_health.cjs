@@ -201,19 +201,28 @@ test('issuance panel: chart values use the same one-decimal percent as the panel
  assert.equal(r.chartOpts.length,1);
  assert.equal(r.chartOpts[0].format(25.8),'25.8%');assert.equal(r.chartOpts[0].format(26),'26.0%');
  // 실제 charts.js: format을 주면 끝 값·읽기 글이 그 꼴, 주지 않으면 전과 같은 소수 두 자리
- const draw=format=>{
+ const draw=(format,lines)=>{
   const mk=tag=>{const e=new El(tag);e.addEventListener=()=>{};e.clientWidth=600;e.classList={add(){},remove(){}};return e;};
   const doc={createElement:mk,createElementNS:(ns,t)=>mk(t),documentElement:{dataset:{motion:'off'}}};
   const sc={document:doc,requestAnimationFrame:f=>f(),addEventListener(){}};sc.window=sc;const w=sc;vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../site/charts.js'),'utf8'),sc);
-  const spec={key:'k',title:'t',unit:'%',zero:true,threshold:null,years:1,lines:[{key:'a',label:'a',role:'series',points:[['2030-04-01',26.7],['2030-05-01',25.8]],series:[]}]};
+  const spec={key:'k',title:'t',unit:'%',zero:true,threshold:null,years:1,lines:lines||[{key:'a',label:'a',role:'series',points:[['2030-04-01',26.7],['2030-05-01',25.8]],series:[]}]};
   const fig=w.MacroCharts.lineChart(spec,format?{height:170,format}:{height:170});
   const svgEl=walk(fig,n=>n.tag==='svg')[0];
-  return [svgEl.attrs['aria-label'],walk(svgEl,n=>n.attrs.class==='ch-end').map(n=>n.textContent)];
+  return [svgEl.attrs['aria-label'],walk(svgEl,n=>n.attrs.class==='ch-end').map(n=>n.textContent),svgEl];
  };
  let [aria,ends]=draw(r.chartOpts[0].format);
  assert.ok(aria.includes('a 25.8%(2030-05-01)'),aria);assert.deepEqual(ends,['25.8%']);
  [aria,ends]=draw(null);
  assert.ok(aria.includes('a 25.80%(2030-05-01)'),aria);assert.deepEqual(ends,['25.80%']);
+ // 한글 단위: 끝 값 상자 폭 ≥ 어림 폭(ASCII 7px · 한글 13px)이고 그림(600) 안에 든다. 끝 값이 가까운 두 선은 둘 다 있고,
+ // 상자는 겹치지 않으며 아래 경계(170−22) 아래로 밀리지 않는다
+ const line=(key,last)=>({key,label:key,role:'series',points:[['2030-04-01',20000],['2030-05-01',last]]});
+ const [,both,drawn]=draw(v=>'+'+v.toLocaleString('en-US')+'계약',[line('a',14958),line('b',14900)]);
+ assert.deepEqual(both,['+14,958계약','+14,900계약']);
+ const boxes=walk(drawn,n=>n.attrs.class==='ch-end-box').map(n=>({x:Number(n.attrs.x),y:Number(n.attrs.y),w:Number(n.attrs.width)}));
+ assert.equal(boxes.length,2);
+ assert.ok(boxes.every(b=>b.w>=7*7+2*13+8&&b.x+b.w<=600&&b.y+8<=148),JSON.stringify(boxes));
+ assert.ok(Math.abs(boxes[0].y-boxes[1].y)>=17-1e-9,JSON.stringify(boxes));
 });
 const MONTHS='월별 경쟁입찰 계획·장기물 비중·매입 계획';
 test('issuance panel: month table, newest first, with 당초 and buyback plan',()=>{
@@ -394,12 +403,12 @@ test('lastScheduledRun follows the daily.yml cron: weekdays at RUN_UTC, GRACE_MS
  const got=vm.runInNewContext(head[0]+'\n'+page.slice(start,end+2)+'\n({RUN_UTC,GRACE_MS,lastScheduledRun});',{});
  const cron=fs.readFileSync(path.join(__dirname,'../.github/workflows/daily.yml'),'utf8').match(/cron: "(\d+) (\d+) \* \* 1-5"/);
  assert.ok(cron,'daily.yml cron');
- assert.deepEqual([got.RUN_UTC.minute,got.RUN_UTC.hour],[+cron[1],+cron[2]]);assert.equal(got.GRACE_MS,6.5*36e5);
+ assert.deepEqual([got.RUN_UTC.minute,got.RUN_UTC.hour],[+cron[1],+cron[2]]);assert.equal(got.GRACE_MS,9*36e5);   // 2026-11-28: 6~7.9시간 늦은 실행의 거짓 배너
  const run=t=>got.lastScheduledRun(new Date(t)).toISOString();
- for(const [now,want] of [['2026-10-08T05:00:00Z','2026-10-07T22:17:00.000Z'],['2026-10-11T03:00:00Z','2026-10-09T22:17:00.000Z'],   // 일요일 → 금요일 차례
+ for(const [now,want] of [['2026-10-08T08:00:00Z','2026-10-07T22:17:00.000Z'],['2026-10-11T03:00:00Z','2026-10-09T22:17:00.000Z'],   // 일요일 → 금요일 차례
    ['2026-11-07T12:00:00Z','2026-11-06T22:17:00.000Z'],['2026-11-09T03:00:00Z','2026-11-06T22:17:00.000Z'],
    ['2026-11-03T03:20:00Z','2026-10-30T22:17:00.000Z'],   // 5시간 14분 늦은 날(2026-11-03) — 5시간이면 여기서 이미 월요일 차례를 기다렸다
-   ['2026-11-10T04:46:00Z','2026-11-06T22:17:00.000Z'],['2026-11-10T04:48:00Z','2026-11-09T22:17:00.000Z']])   // 차례 뒤 6시간 30분을 넘긴 때부터 그 차례
+   ['2026-11-10T07:16:00Z','2026-11-06T22:17:00.000Z'],['2026-11-10T07:18:00Z','2026-11-09T22:17:00.000Z']])   // 차례 뒤 9시간을 넘긴 때부터 그 차례
   assert.equal(run(now),want,now);
  const {data,run:st}=fixture();data.checked_at='2026-10-10T01:00:00Z';st.started_at='2026-10-10T00:59:00Z';st.checked_at='2026-10-10T01:01:00Z';
  const sunday=Date.parse('2026-10-11T03:00:00Z');

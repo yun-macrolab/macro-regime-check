@@ -5,6 +5,14 @@
 #           예약·수동 실행은 가지의 '지금' 끝을 받아 그 커밋을 update에 넘긴다(evening.yml의 check와 같다 — 같은 그룹의 앞 실행을
 #           기다린 사이 main이 움직였을 수 있다. 실행이 걸린 때의 커밋에서 시작하면 기다리던 수동 실행이 앞 실행의 봇 커밋과
 #           data/status.json에서 rebase 충돌을 낸다 — 2026-11-10 점검 shell-06).
+#           저장소의 data/를 읽는 실자료 테스트(test_ledger_build·test_timeline_build의 RealDataTest)는 여기서 건너뛴다
+#           (잡 환경 MRC_SKIP_REAL_DATA=1 — 개수는 그대로, 'skipped'로 센다). 봇의 자료 커밋 하나가 다음 예약 실행의 문을 막지 않게
+#           (2026-11-20 push 2건이 RealDataTest에서 멈췄다). 같은 테스트는 update의 봇 커밋 뒤에 '경고만'으로 돈다. 로컬·PC 훅은 변수가
+#           없으니 지금처럼 돈다.
+#           예약 실행만: 오늘 판이 이미 main에 있으면(data/status.json이 ok이고, data_date가 오늘(UTC — regime_check가 쓰는 날짜)이며,
+#           last_success가 지금 이전의 마지막 예약 시각(UTC 월~금 22:17 — site/index.html의 lastScheduledRun과 같은 규칙, 여유 시간 0)
+#           뒤) update·배포를 건너뛰고 ::notice::만 남긴다(PC의 수동 실행이 먼저 낸 판을 몇 시간 늦은 예약 실행이 다시 내지 않게).
+#           수동·push 실행은 건너뛰지 않는다. 파일을 못 읽거나 칸이 모자라면 건너뛰지 않는다(지금처럼 돈다).
 #   update  예약·수동 실행에서만. 수집·공개본 생성은 실패해도 멈추지 않고(continue-on-error) 상태 파일에 실패를 남긴다
 #           → 페이지는 직전 공개본 + 실패 배너를 보여 준다. 새 산출물까지 다시 검사한 뒤에만 커밋한다.
 #           그래프 자료(charts.json)는 공개본 뒤에 만든다. 실패하면 직전 그래프가 남고 페이지가 그 기준일을 알린다
@@ -29,6 +37,7 @@
 #           AI 투자 참고 자료(ai_invest.json — FRED 공개 통계, 재배포 제한 지수는 상관·회귀 계수만)도 같은 원칙이다: 칸마다 따로,
 #           못 받은 칸은 직전 값을 '받지 못함'과 함께 남기고 경고 줄을 찍는다. 알림에 넣지 않는다.
 #           유가·에너지 참고 자료(oil.json — FRED 공개 통계, 물가 묶음의 참고 카드와 한국 시장의 두 줄)도 같은 원칙이다.
+#           달러·기대인플레이션·성장·금융 여건 참고 자료(macro.json — FRED 공개 통계 11개, 2026-11-28 더함)도 같은 원칙이다.
 #           2026-10-30 더한 참고 자료 다섯과 2026-11-03 더한 연준 재무상태표도 같은 원칙이다(칸마다 따로, 못 받으면 직전 값을
 #           '받지 못함'과 함께, 알림 없음):
 #             SEC 공시 조달(sec.json — SEC EDGAR XBRL, 연락처는 비밀 SEC_USER_AGENT에서만, 그 단계에만 넘긴다)
@@ -59,11 +68,18 @@
 #           그대로면 다시 쓰지 않는다.
 #           한국 시장 자료(korea.json)는 시작·종료 기록(korea_status.py → korea-status.json) 사이에서 받는다. 일부 묶음이라도
 #           실패하면 알림(alert)에 넣는다.
-#   deploy  data/·site/만 Pages로. 스크립트·원자료(.work/)는 배포하지 않는다.
-#           push 실행은 배포 직전에 main의 끝을 다시 받아, 그사이 main이 그 커밋보다 앞서 나갔으면 배포를 건너뛴다(2026-11-04 검토
+#           봇 커밋의 push가 밀리면(pull --rebase와 push 사이에 main에 새 커밋 — non-fast-forward) 5초 쉬고 한 번만 다시 rebase·push한다.
+#           rebase로 main의 새 커밋을 받은 때는(처음·재시도 모두) push 전에 최종 트리로 공개 전 검사를 다시 돌고, 걸리면 push하지 않는다.
+#           봇 커밋 뒤에 실자료 테스트를 '경고만'으로 돈다(check에서 뺀 것 — 실패하면 ::warning::, 실행은 그대로).
+#   pages_build  data/·site/만 조립해 Pages 아티팩트로 올린다. 스크립트·원자료(.work/)는 배포하지 않는다. 권한은 읽기뿐.
+#           push 실행은 조립 직전에 main의 끝을 다시 받아, 그사이 main이 그 커밋보다 앞서 나갔으면 올리기·배포를 건너뛴다(2026-11-04 검토
 #           push-4) — 같은 그룹에서 기다리던 push 실행이 예약 실행이 방금 배포한 봇 커밋(아침 자료) 뒤에 옛 커밋을 다시 배포하지 않게.
 #           더 새 커밋은 그것을 올린 실행이 배포한다(PC의 push는 제 push 실행, 봇 커밋은 그 예약 실행). 끝을 받지 못하면 그대로 배포한다.
-#   alert   수집·생성·그래프·국고채 참고 자료·한국 시장 자료가 실패한 날은 마지막에 실행을 실패로 끝내 GitHub 알림 메일을 받는다.
+#   deploy  pages_build가 올린 아티팩트를 배포만 한다(Pages·OIDC 권한과 github-pages 환경은 이 잡에만). 올리기와 배포를 다른 잡으로
+#           나눈 것은 같은 잡에서 올린 0.3~0.5초 뒤 배포가 아티팩트 목록을 비어 있게 읽어 실패했기 때문이다(2026-11-24·25 세 번 —
+#           actions/deploy-pages#451과 같은 꼴). 첫 배포가 실패하면 30초 쉬고 한 번만 다시 배포하고, 그것도 실패하면 잡이 실패한다.
+#   alert   수집·생성·그래프·국고채 참고 자료·한국 시장 자료가 실패한 날, 그리고 Pages 올리기·배포가 실패한 날(push 실행 포함 — 사이트는
+#           직전 판으로 남는다)은 마지막에 실행을 실패로 끝내 GitHub 알림 메일을 받는다.
 #
 # 원자료 캐시(actions/cache)는 쓰지 않는다 — 재배포가 제한된 시리즈(S&P·ICE·Moody's) 원값이 러너 밖에 남지 않게.
 # 캐시가 없으면 FRED가 일부 시리즈만 실패한 날 그 값은 비고(2개까지 허용), 3개 이상이면 그날은 기록하지 않는다.
@@ -91,6 +107,9 @@ jobs:
     timeout-minutes: 10
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
+      skip: ${{ steps.dup.outputs.skip }}
+    env:
+      MRC_SKIP_REAL_DATA: "1"   # 실자료 테스트는 문에서 뺀다(머리말 check) — update의 봇 커밋 뒤에 경고만으로 돈다
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -108,6 +127,31 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
+      # 예약 실행만: 오늘 판이 이미 main에 있으면 update·배포를 건너뛴다(머리말 check). 애매하면 skip=false — 지금처럼 돈다
+      - name: 오늘 판이 이미 main에 있는지(예약 실행만)
+        id: dup
+        if: github.event_name == 'schedule'
+        run: |
+          python - <<'PY'
+          import datetime, json, os
+          now = datetime.datetime.now(datetime.timezone.utc)
+          slot = now.replace(hour=22, minute=17, second=0, microsecond=0)      # site/index.html lastScheduledRun(여유 시간 0)
+          while slot > now or slot.weekday() >= 5:
+              slot -= datetime.timedelta(days=1)
+          skip = False
+          try:
+              with open("data/status.json", encoding="utf-8") as f:
+                  st = json.load(f)
+              last = datetime.datetime.fromisoformat(st["last_success"])
+              skip = (st["ok"] is True and st["data_date"] == now.date().isoformat()
+                      and last.tzinfo is not None and last >= slot)
+          except Exception:
+              skip = False
+          if skip:
+              print(f"::notice::오늘 판({now.date().isoformat()})이 이미 main에 있다(마지막 성공이 예약 시각 {slot.isoformat()} 뒤) — 수집·배포를 건너뛴다")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"skip={'true' if skip else 'false'}\n")
+          PY
       - name: PDF 읽기 의존성 설치
         run: python -m pip install -r requirements.txt
       - name: 공개 전 검사
@@ -120,6 +164,7 @@ jobs:
           node --test scripts/test_korea_health.cjs
           node --test scripts/test_notes_render.cjs
           node --test scripts/test_oil_render.cjs
+          node --test scripts/test_macro_render.cjs
           node --test scripts/test_ai_invest_render.cjs
           node --test scripts/test_tp_render.cjs
           node --test scripts/test_liquidity_render.cjs
@@ -137,10 +182,10 @@ jobs:
 
   update:
     needs: check
-    # main에서만 — 다른 브랜치에서 수동 실행하면 그 브랜치 커밋이 main으로 밀려 올라간다
-    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    # main에서만(다른 브랜치 커밋이 main에 밀려 오르지 않게). skip: 머리말 check
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && needs.check.outputs.skip != 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 38        # 참고 자료 단계 제한의 합(기록 장부 1 + 국고채 2 + 수급 2 + TIC 2 + AI 2 + SEC 2 + 신용 2 + 지준 2 + 연준 재무상태표 2 + 기간 프리미엄 2 + CDS 2 + 국채–OIS 2 + 유가 2 + 판단 격자 2 + 판단 연표 2 + 한국 4 = 33분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다(2026-11-18 기록 장부 1분을 더한 데 이어 같은 날 판단 격자 2분을 더하며 32분에서 34분, 2026-11-19 판단 연표 2분을 더하며 36분, 같은 날 재무부 TIC 2분을 더하며 38분 — 수집·생성 몫 5분이 남는다)
+    timeout-minutes: 42        # 참고 자료 단계 제한의 합(기록 장부 1 + 국고채 2 + 수급 2 + TIC 2 + AI 2 + SEC 2 + 신용 2 + 지준 2 + 연준 재무상태표 2 + 기간 프리미엄 2 + CDS 2 + 국채–OIS 2 + 유가 2 + 달러·기대인플레이션·성장·금융 여건 2 + 판단 격자 2 + 판단 연표 2 + 한국 4 + 실자료 테스트 2 = 37분)과 수집 — 넘치면 상태·커밋·배포가 다 빠진다(2026-11-18 기록 장부 1분을 더한 데 이어 같은 날 판단 격자 2분을 더하며 32분에서 34분, 2026-11-19 판단 연표 2분을 더하며 36분, 같은 날 재무부 TIC 2분을 더하며 38분, 2026-11-28 봇 커밋 뒤 실자료 테스트(경고만) 2분과 달러·기대인플레이션·성장·금융 여건 2분을 더하며 42분 — 수집·생성 몫 5분이 남는다)
     permissions:
       contents: write   # 봇이 data/를 커밋한다
     outputs:
@@ -266,6 +311,13 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
         run: python scripts/oil_fetch.py
+      # 참고 자료 — 달러·기대인플레이션·성장·금융 여건(FRED 공개 통계 11개, 요청 11회, 전체 60초 상한 — 시카고 연은 넷이 목록 끝).
+      # 규칙 판정에 쓰지 않고, 실패해도 알림 없음
+      - name: 달러·기대인플레이션·성장·금융 여건 참고 자료 받기
+        id: macro
+        continue-on-error: true
+        timeout-minutes: 2
+        run: python scripts/macro_fetch.py
       # 참고 자료 — 판단 격자 L × P(FRED 공개 통계 13개, 수집·판정이 .work/fred/에 오늘 받아 둔 것은 다시 받지 않음 · 전체 45초 상한,
       # 요청마다 min(15초, 남은 시간)). 전부 아니면 쓰지 않음 — 하나라도 못 받으면 직전 lp.json이 남는다. 실패해도 알림 없음
       - name: 판단 격자 L × P 참고 자료 받기
@@ -314,7 +366,20 @@ jobs:
         run: python scripts/check_blind.py
       - name: 봇 커밋
         id: commit
+        env:
+          BLIND_PATTERNS: ${{ secrets.BLIND_PATTERNS }}   # rebase 뒤 공개 전 검사용 — 앞 '공개 전 검사(새 산출물 포함)'와 같은 값
         run: |
+          # rebase로 main의 새 커밋을 받았으면(HEAD가 바뀜) push 전에 최종 트리로 공개 전 검사를 다시 돈다 — 걸리면 push하지 않고
+          # 단계가 실패한다(bash -e). 새 커밋이 없으면(HEAD 그대로) 위 공개 전 검사가 본 트리 그대로라 다시 돌지 않는다
+          pull_checked() {
+            before="$(git rev-parse HEAD)"
+            git pull --quiet --rebase origin main
+            if [ "$(git rev-parse HEAD)" != "$before" ]; then
+              echo "rebase로 main의 새 커밋을 받았다 — 최종 트리로 공개 전 검사를 다시 돈다"
+              git fetch --quiet origin '+refs/notes/*:refs/notes/*'
+              python scripts/check_blind.py
+            fi
+          }
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data
@@ -322,16 +387,35 @@ jobs:
             echo "변경 없음"
           else
             git commit --quiet -m "data: $(date -u +%F) 자동 갱신"
-            # 실행 중 main에 들어온 커밋(PC의 발언·AI 요약 push 같은)이 있으면 그 위에 얹는다. 그 커밋은 위 공개 전 검사가 본 것이
-            # 아니다 — 올린 쪽의 push 전 검사(훅 · people_push · picks_push)를 거쳤고, 그 push로 시작한 실행이 같은 그룹에서 이 실행 뒤에 제 check로
-            # 다시 검사한다. 그 실행은 main이 앞서 나갔으니 배포를 건너뛰고(deploy의 'main이 앞서 나갔는지'), 그 커밋은 이 실행의 배포로 나간다
-            git pull --quiet --rebase origin main
-            git push --quiet origin HEAD:main
+            # 실행 중 main에 들어온 커밋(PC의 발언·AI 요약 push 같은)이 있으면 그 위에 얹는다. rebase로 딸려 온 커밋은 위 공개 전 검사가
+            # 본 것이 아니므로, 얹은 뒤의 최종 트리로 공개 전 검사를 다시 통과해야 push한다(pull_checked — 처음과 재시도 모두). 그 커밋을
+            # 올린 push 실행은 같은 그룹에서 이 실행 뒤에 제 check로 또 검사하고, main이 앞서 나갔으니 배포를 건너뛴다(pages_build의 'main이
+            # 앞서 나갔는지') — 그 커밋은 이 실행의 배포로 나간다
+            pull_checked
+            # pull과 push 사이에 main에 새 커밋이 들어와 밀리면(non-fast-forward) 한 번만 다시 얹어 올린다. 그래도 안 되면 단계가 실패한다
+            if ! git push --quiet origin HEAD:main; then
+              echo "::warning::봇 커밋 push가 밀렸다 — 5초 뒤 한 번 더 rebase해 올린다"
+              sleep 5
+              pull_checked
+              git push --quiet origin HEAD:main
+            fi
           fi
           echo "publish=true" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"   # deploy가 배포할 커밋 — 위에서 검사한 봇 커밋(rebase로 딸려 온 커밋은 위 주석)
+      # check에서 뺀 실자료 테스트(저장소의 data/를 읽는 것) — 봇 커밋까지 마친 새 산출물로 돈다. 경고만: 실패해도 커밋·배포는 그대로
+      - name: 실자료 테스트(경고만)
+        id: realdata
+        if: steps.commit.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 2
+        working-directory: scripts
+        run: |
+          if ! python -m unittest test_ledger_build.RealDataTest test_timeline_build.RealDataTest; then
+            echo "::warning::실자료 테스트 실패(경고만 — 커밋·배포는 그대로) — 새 data/가 테스트의 기대와 어긋난다. update 잡의 이 단계 로그를 보고 다음 push 전에 고친다(push 실행의 check는 이 테스트를 건너뛴다)"
+            exit 1
+          fi
 
-  deploy:
+  pages_build:
     needs: [check, update]
     if: >-
       always() && needs.check.result == 'success' &&
@@ -340,18 +424,16 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      newer: ${{ steps.tip.outputs.newer }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # 예약·수동 실행은 봇이 방금 올린 커밋(rebase로 딸려 온 커밋은 봇 커밋 단계의 주석), push는 check가 검사한 그 커밋
           ref: ${{ needs.update.outputs.sha || github.sha }}
-      # push 실행만: main이 이 커밋보다 앞서 나갔으면(기다리는 사이 예약 실행의 봇 커밋 · 다른 push) 아래 배포 셋을 건너뛴다.
-      # 예약 · 수동 실행은 이 단계를 건너뛰어 지금처럼 배포한다. main의 끝을 받지 못하면 경고만 남기고 그대로 배포한다
+      # push 실행만: main이 이 커밋보다 앞서 나갔으면(기다리는 사이 예약 실행의 봇 커밋 · 다른 push) 아래 조립·올리기와 deploy 잡을
+      # 건너뛴다(newer를 잡 출력으로 넘긴다). 예약 · 수동 실행은 이 단계를 건너뛰어 지금처럼 배포한다. main의 끝을 받지 못하면 경고만
+      # 남기고 그대로 배포한다
       - name: main이 앞서 나갔는지(push 실행만)
         id: tip
         if: github.event_name == 'push'
@@ -373,32 +455,64 @@ jobs:
           mkdir -p _site/data
           cp -r site/. _site/
           if [ -d data ]; then cp -r data/. _site/data/; fi
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-        if: steps.tip.outputs.newer != 'true'
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         if: steps.tip.outputs.newer != 'true'
         with:
           path: _site
+
+  # 배포만 — 올리기(pages_build)와 다른 잡이라 아티팩트 목록이 반영된 뒤에 돈다(머리말 deploy). 제한 재시도 한 번
+  deploy:
+    needs: [pages_build]
+    if: always() && needs.pages_build.result == 'success' && needs.pages_build.outputs.newer != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - id: deployment
-        if: steps.tip.outputs.newer != 'true'
+        continue-on-error: true
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: 배포 실패 — 30초 뒤 한 번 더
+        if: steps.deployment.outcome == 'failure'
+        run: |
+          echo "::warning::첫 배포가 실패했다 — 30초 쉬고 한 번만 다시 배포한다"
+          sleep 30
+      - id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   alert:
-    needs: [update, deploy]
+    needs: [update, pages_build, deploy]
     if: >-
-      always() && needs.update.result == 'success' &&
-      (needs.update.outputs.ok != 'true' || needs.update.outputs.charts == 'failure' ||
-       needs.update.outputs.ktb == 'failure' || needs.update.outputs.korea == 'failure')
+      always() &&
+      (needs.pages_build.result == 'failure' || needs.deploy.result == 'failure' ||
+       (needs.update.result == 'success' &&
+        (needs.update.outputs.ok != 'true' || needs.update.outputs.charts == 'failure' ||
+         needs.update.outputs.ktb == 'failure' || needs.update.outputs.korea == 'failure')))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: 갱신 실패 알림
         env:
+          UPDATE: ${{ needs.update.result }}
           OK: ${{ needs.update.outputs.ok }}
           CHARTS: ${{ needs.update.outputs.charts }}
           KTB: ${{ needs.update.outputs.ktb }}
           KOREA: ${{ needs.update.outputs.korea }}
+          BUILD: ${{ needs.pages_build.result }}
+          DEPLOY: ${{ needs.deploy.result }}
         run: |
+          if [ "$BUILD" = "failure" ] || [ "$DEPLOY" = "failure" ]; then
+            echo "::error::Pages 배포 실패(올리기 $BUILD · 배포 $DEPLOY, 재시도 포함) — 사이트는 직전 판을 보여 준다. main의 자료는 그대로이니 이 워크플로를 수동 실행하거나 다음 push가 다시 배포한다. 원인은 pages_build·deploy 잡의 로그"
+          fi
+          if [ "$UPDATE" != "success" ]; then
+            exit 1                  # push 실행 등 update가 돌지 않은 실행 — 아래 갱신 칸은 비어 있다(배포 실패만 알린다)
+          fi
           if [ "$KOREA" = "failure" ]; then
             echo "::error::한국 시장 자료 일부 수신 실패 — korea.json의 항목별 상태와 마지막 성공일 확인"
           fi

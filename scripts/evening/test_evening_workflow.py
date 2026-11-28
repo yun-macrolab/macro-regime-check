@@ -16,6 +16,9 @@ PIN = re.compile(r"^[\w.-]+/[\w.-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$")
 PATHS = ["scripts/evening/**", "site/evening.*", "data/sources.json", "data/calendar.json", ".github/workflows/evening.yml"]
 COLLECT_CRON, WATCH_CRON = "41 8 * * 1-5", "41 13 * * 1-5"
 ON = "vars.EVENING_ENABLED == 'true'"            # 켜는 스위치 — 변수가 없으면 꺼져 있다
+# 알림: 수집이 알린 날 · 이어서 안 읽힌 채널이 있는 날(경고만) · Pages 올리기·배포가 실패한 날
+ALERT_IF = ("always() && (needs.collect.outputs.alert == 'true' || needs.collect.outputs.stale != '' || "
+            "needs.publish.result == 'failure' || needs.pages_build.result == 'failure' || needs.deploy.result == 'failure')")
 
 
 def read(*parts):
@@ -88,7 +91,7 @@ class WorkflowCase(unittest.TestCase):
 
 class TriggerTest(WorkflowCase):
     def test_jobs(self):
-        self.assertEqual(list(self.jobs), ["check", "collect", "publish", "takedown", "watch", "deploy", "alert"])
+        self.assertEqual(list(self.jobs), ["check", "collect", "publish", "takedown", "watch", "pages_build", "deploy", "alert"])
         self.assertIn("\nname: evening\n", self.text)
 
     def test_two_schedules_on_weekdays(self):
@@ -152,7 +155,8 @@ class PermissionTest(WorkflowCase):
         got = {name: permissions(job) for name, job in self.jobs.items()}
         self.assertEqual(got, {"check": None, "collect": {"contents": "read"}, "publish": {"contents": "write"},
                                "takedown": {"contents": "write"}, "watch": {"contents": "read"},
-                               "deploy": {"contents": "read", "pages": "write", "id-token": "write"}, "alert": None})
+                               "pages_build": {"contents": "read"},                          # 올리기는 읽기뿐 — Pages·OIDC는 배포 잡에만
+                               "deploy": {"pages": "write", "id-token": "write"}, "alert": None})
         for name, job in self.jobs.items():
             self.assertEqual("git push" in job, name in ("publish", "takedown"), name)
             self.assertEqual("git commit" in job, name in ("publish", "takedown"), name)
@@ -163,18 +167,35 @@ class PermissionTest(WorkflowCase):
             self.assertIn("git push --quiet origin HEAD:main", self.jobs[name])
         self.assertIn(ON, condition(self.jobs["publish"]))
         self.assertNotIn("EVENING_ENABLED", condition(self.jobs["takedown"]))          # 꺼 둔 동안에도 내릴 수 있어야 한다
+        # rebase로 main의 새 커밋을 받았으면(처음·재시도 모두) push 전에 최종 트리로 공개 전 검사를 다시 돈다 — 아침의 봇 커밋도 같다
+        morning = code(jobs(self.daily)["update"])
+        for name, job in (("publish", self.jobs["publish"]), ("takedown", self.jobs["takedown"]), ("daily update", morning)):
+            step = job[job.index("- name: 봇 커밋"):]
+            step = step.split("\n      - ", 1)[0]                                      # 봇 커밋 단계만(다음 단계 앞까지)
+            self.assertRegex(step, r"id: commit\n\s+env:\n\s+BLIND_PATTERNS: \$\{\{ secrets\.BLIND_PATTERNS \}\}", name)
+            func = step[step.index("pull_checked() {"):step.index("\n          }\n")]
+            at = [func.index(x) for x in ('before="$(git rev-parse HEAD)"', "git pull --quiet --rebase origin main",
+                                           'if [ "$(git rev-parse HEAD)" != "$before" ]; then',
+                                           "git fetch --quiet origin '+refs/notes/*:refs/notes/*'", "python scripts/check_blind.py")]
+            self.assertEqual(at, sorted(at), name)                                     # 새 커밋을 받았을 때만, push 전에
+            rest = step.replace(func, "")
+            self.assertNotIn("git pull", rest, name)                                   # 검사 없이 rebase하는 길이 없다
+            calls = [line.split("#")[0].strip() for line in rest.split("\n") if line.strip().startswith("pull_checked")]
+            self.assertEqual(calls, ["pull_checked", "pull_checked"], name)            # 처음 한 번 + 밀렸을 때 한 번
+            self.assertLess(rest.index("pull_checked"), rest.index("git push --quiet origin HEAD:main"), name)
 
     def test_nothing_runs_on_schedule_until_it_is_switched_on(self):
         """저장소 변수 EVENING_ENABLED가 true일 때만 예약 수집 · 게시 · 감시가 돈다 — 변수를 안 넣은 저장소(main에 막 합친 날)는 꺼져 있다.
         꺼 둔 동안에는 수집 요청도, 아티팩트도, 실패 메일도 없다(게시만 끄면 판이 아티팩트로 남는다)."""
         collect = condition(self.jobs["collect"])
-        self.assertIn(f"(github.event_name == 'schedule' && github.event.schedule == '{COLLECT_CRON}' && {ON})", collect)
+        self.assertIn(f"(github.event_name == 'schedule' && github.event.schedule == '{COLLECT_CRON}' && {ON} && "
+                      "needs.check.outputs.skip != 'true')", collect)                    # 오늘 판이 이미 있으면 예약 수집은 건너뛴다
         self.assertIn("(github.event_name == 'workflow_dispatch' && inputs.takedown != true)", collect)     # 수동 실행은 시험용으로 남긴다
         self.assertEqual(collect.count("EVENING_ENABLED"), 1)
         for name in ("publish", "watch"):
             self.assertIn(ON, condition(self.jobs[name]), name)
         self.assertNotIn("!= 'false'", code(self.text))                                 # '꺼 두지 않았으면 켜짐'은 어디에도 없다
-        self.assertEqual(condition(self.jobs["alert"]), "always() && needs.collect.outputs.alert == 'true'")   # 수집이 안 돌면 알림도 없다
+        self.assertEqual(condition(self.jobs["alert"]), ALERT_IF)      # 수집이 안 돌면 수집 알림도 없다(배포 실패는 감시·내리기의 배포도 알린다)
 
     def test_takedown_from_another_branch_fails_instead_of_doing_nothing(self):
         check = self.jobs["check"]
@@ -210,7 +231,7 @@ class BoundaryTest(WorkflowCase):
         for word in ("secrets.", "BLIND_PATTERNS", "contents: write", "check_blind", "id-token", "pages:"):
             self.assertNotIn(word, job, word)
         self.assertIn("persist-credentials: false", job)
-        self.assertNotIn("${{ secrets", self.jobs["watch"] + self.jobs["alert"] + self.jobs["deploy"])
+        self.assertNotIn("${{ secrets", self.jobs["watch"] + self.jobs["alert"] + self.jobs["pages_build"] + self.jobs["deploy"])
 
     def test_only_the_public_folder_becomes_an_artifact(self):
         job = self.jobs["collect"]
@@ -235,7 +256,7 @@ class BoundaryTest(WorkflowCase):
                  "python scripts/check_blind.py", "git add data", "git commit", "git push"]
         at = [job.index(x) for x in order]
         self.assertEqual(at, sorted(at))
-        self.assertNotIn(".work", "".join(self.jobs[n] for n in ("takedown", "watch", "deploy", "alert", "check")))
+        self.assertNotIn(".work", "".join(self.jobs[n] for n in ("takedown", "watch", "pages_build", "deploy", "alert", "check")))
 
     def test_takedown_does_not_lean_on_the_evening_tests(self):
         job, check = self.jobs["takedown"], self.jobs["check"]
@@ -267,22 +288,45 @@ class BoundaryTest(WorkflowCase):
         self.assertIn(ON, condition(job))
 
     def test_deploy_is_the_mornings_deploy(self):
+        # 올리기(pages_build)와 배포(deploy)는 다른 잡이다 — 같은 잡에서 올린 직후의 배포가 아티팩트를 못 찾았다(actions/deploy-pages#451)
+        build, morning_build = self.jobs["pages_build"], code(jobs(self.daily)["pages_build"])
         job, morning = self.jobs["deploy"], code(jobs(self.daily)["deploy"])
-        self.assertIn("needs: [check, publish, takedown, watch]", job)
+        self.assertIn("needs: [check, publish, takedown, watch]", build)
         for out in ("needs.publish.outputs.publish == 'true'", "needs.takedown.outputs.publish == 'true'",
                     "needs.watch.outputs.redeploy == 'true'", "always()", "needs.check.result == 'success'"):
-            self.assertIn(out, condition(job))
-        gate = [b for b in run_blocks(morning) if "FETCH_HEAD" in b]            # 아침 push 실행만 보는 'main이 앞서 나갔는지' 단계
+            self.assertIn(out, condition(build))
+        gate = [b for b in run_blocks(morning_build) if "FETCH_HEAD" in b]      # 아침 push 실행만 보는 'main이 앞서 나갔는지' 단계
         self.assertEqual(len(gate), 1)                                          # (저녁에는 push로 배포하는 길이 없다 — 2026-11-04 push-4)
-        self.assertEqual(run_blocks(job), [b for b in run_blocks(morning) if b not in gate])   # site/ + data/만 조립한다
+        self.assertEqual(run_blocks(build), [b for b in run_blocks(morning_build) if b not in gate])   # site/ + data/만 조립한다
+        self.assertEqual(uses(build), uses(morning_build))
+        self.assertEqual(permissions(build), permissions(morning_build))
+        self.assertIn("needs: [pages_build]", job)
+        self.assertIn("needs.pages_build.result == 'success'", condition(job))
+        self.assertEqual(run_blocks(job), run_blocks(morning))                  # 배포 실패면 30초 쉬고 한 번만 다시
         self.assertEqual(uses(job), uses(morning))
         self.assertEqual(permissions(job), permissions(morning))
+        self.assertRegex(job, r"- id: deployment\n\s+continue-on-error: true\n\s+uses: actions/deploy-pages@")
+        self.assertRegex(job, r"- id: deployment_retry\n\s+if: steps\.deployment\.outcome == 'failure'\n\s+uses: actions/deploy-pages@")
+        self.assertNotIn("upload-pages-artifact", job)
+        self.assertNotIn("deploy-pages", build)
 
     def test_alert_ends_the_run_as_failed(self):
         job = self.jobs["alert"]
-        self.assertEqual(condition(job), "always() && needs.collect.outputs.alert == 'true'")
-        self.assertIn("needs: [collect, publish, deploy]", job)               # 게시·배포를 마친 뒤에 실패로 끝낸다
+        self.assertEqual(condition(job), ALERT_IF)
+        self.assertIn("needs: [collect, publish, pages_build, deploy]", job)  # 게시·배포를 마친 뒤에 끝낸다
         self.assertRegex(run_blocks(job)[0], r"exit 1\s*$")
+        # 판을 못 냈거나 반쯤 낸 것 · 배포 실패만 실행을 실패로(bad) — 판은 나간 날의 정보성 사유는 경고만(note, exit 0). 사유는 모두 적는다
+        self.assertRegex(run_blocks(job)[0], r'if \[ "\$fail" = 0 \]; then\n\s+exit 0')
+        self.assertIn("for r in $REASONS; do", job)
+        for reason, how in (("short", "bad"), ("broken", "bad"), ("empty_streak", "note"), ("title", "note"), ("rewind", "note"),
+                            ("channel", "note")):
+            self.assertIn(f"            {reason}) {how} ", job, reason)
+        self.assertIn("GITHUB_STEP_SUMMARY", job)
+        # 게시가 실패하면 오류(사이트는 직전 판), '판은 나갔다'는 게시 잡이 성공한 때만
+        self.assertIn("PUBLISH: ${{ needs.publish.result }}", job)
+        self.assertRegex(job, r'if \[ "\$PUBLISH" = "failure" \]; then\n\s+bad "판을 게시하지 못했다[^"]*사이트는 직전 판')
+        self.assertRegex(job, r'if \[ "\$PUBLISH" = "success" \]; then\n\s+out="판은 나갔다"')
+        self.assertEqual(job.count("판은 나갔다"), 1)                                   # 경고 문구는 $out으로만
         for reason in ("short", "empty_streak", "broken", "channel"):
             self.assertIn(f"            {reason}) ", job)
         for hint in ("title_sha=", "한 판 동안 목록에서", "오늘 안에 수동 실행"):          # 무엇을 하면 풀리는지 알림에 적는다

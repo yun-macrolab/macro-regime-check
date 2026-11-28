@@ -5,3 +5,5 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 python scripts/check_blind.py || { echo "push 중단: 공개 전 검사를 통과하지 못했다" >&2; exit 1; }
 # 화면 폴더 검사 — 같은 출처에 놓이는 파일의 낱말 · 확장자(node · 네트워크 불필요)
 python scripts/test_site_origin.py || { echo "push 중단: 화면 폴더 검사를 통과하지 못했다" >&2; exit 1; }
+# 화면 안전망 — 훅에는 CI 환경 변수가 없어, node가 없는 PC는 구문 검사를 건너뛰고(skip) 지나간다
+python scripts/test_page_parse.py || { echo "push 중단: 화면 안전망 검사(index.html 안 스크립트 구문 · node 테스트 목록)를 통과하지 못했다" >&2; exit 1; }

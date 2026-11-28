@@ -179,6 +179,9 @@ window.ReadingNotes = (() => {
     if ("ResizeObserver" in window) new ResizeObserver(redraw).observe(box);
     else { requestAnimationFrame(redraw); window.addEventListener("resize", redraw); }
   }
+  // 끝 값 글자의 어림 폭 — charts.js의 어림과 같다(ASCII 7px · 한글 같은 그 밖의 글자 13px)
+  const PLAIN = /^[\x20-\x7e]*$/;
+  const textWidth = s => [...s].reduce((w, c) => w + (PLAIN.test(c) ? 7 : 13), 0);
   function drawLines(svg, lines, unit, X, Y, R) {
     const ends = [];
     for (const l of lines) {
@@ -192,14 +195,16 @@ window.ReadingNotes = (() => {
     }
     let floor = -Infinity;                                     // 끝 값 상자가 겹치면 아래로 밀어 둘 다 보이게
     for (const e of ends.sort((a, b) => a.y - b.y)) {
-      const y = Math.max(e.y, floor + 18), box = svgEl("rect", { class: "ch-end-box", x: R + 5, y: y - 8, width: e.label.length * 7 + 8, height: 16 });
+      const y = Math.max(e.y, floor + 18), box = svgEl("rect", { class: "ch-end-box", x: R + 5, y: y - 8, width: textWidth(e.label) + 8, height: 16 });
       box.style.fill = e.color;
       svg.append(box, svgEl("text", { class: "ch-end", x: R + 9, y: y + 4 }, e.label));
       floor = y;
     }
   }
   function drawYears(svg, lines, unit, width) {
-    const H = 240, L = 40, R = Math.max(L + 80, width - 66), T = 10, B = H - 22, all = lines.flatMap(l => l.pts);
+    // 오른쪽 여백(끝 값 자리)은 66. ASCII 밖의 글자가 섞인 끝 값은 상자가 다 들어가게 넓힌다(charts.js와 같은 방식)
+    const wide = lines.map(l => fix(l.pts.at(-1)[1], unit)).filter(s => !PLAIN.test(s)).map(s => textWidth(s) + 14);
+    const H = 240, L = 40, R = Math.max(L + 80, width - Math.max(66, ...wide)), T = 10, B = H - 22, all = lines.flatMap(l => l.pts);
     const y0 = Math.min(...all.map(p => p[0])), y1 = Math.max(...all.map(p => p[0]));
     const low = Math.min(0, ...all.map(p => p[1])), high = Math.max(0, ...all.map(p => p[1])), pad = (high - low || 1) * 0.08;
     const lo = low - pad, hi = high + pad;

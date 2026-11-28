@@ -369,6 +369,7 @@ class AttachTest(unittest.TestCase):
         self.assertEqual(K.attach(d, doc()), {ASKED[0]["key"]: GOOD})
 
 
+@unittest.skipIf(os.environ.get("MRC_SKIP_REAL_DATA") == "1", "실자료 테스트 — CI 문(check)에서는 건너뛰고 봇 커밋 뒤에 경고만으로 돈다")
 class PublishedFileTest(unittest.TestCase):
     def test_the_file_in_data_is_a_valid_layer_when_present(self):
         """PC가 올린 data/digest_picks.json — CI에서는 형식 · 다시 쓴 바이트 · 심어 둔 글자만 본다. 문장의 꼴 · 금지 낱말 · 읽힌 글의 채널은

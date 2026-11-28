@@ -509,6 +509,7 @@ def channels_in(doc, key=None):
     return {m.group("ch")} if m else {doc} if key == "ch" and isinstance(doc, str) else set()
 
 
+@unittest.skipIf(os.environ.get("MRC_SKIP_REAL_DATA") == "1", "실자료 테스트 — CI 문(check)에서는 건너뛰고 봇 커밋 뒤에 경고만으로 돈다")
 class PublishedTest(unittest.TestCase):
     """이미 나간 판과 상태 기록을 새 코드가 그대로 읽는가 — data/의 공개 산출물만 본다.
     무엇이 올라가 있는지는 적어 두지 않는다: 판은 날마다 바뀌고 keep_days가 지나면 지워지며, 판을 못 낸 날에는 상태만 나가고,

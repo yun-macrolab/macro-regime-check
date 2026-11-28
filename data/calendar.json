@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "updated": "2026-10-29",
+ "updated": "2026-11-28",
  "events": [
   {"date": "2026-10-22", "term": "금통위", "tier": "A"},
   {"date": "2026-10-27", "time": "08:00", "term": "한국 GDP", "tier": "A"},
@@ -14,6 +14,34 @@
   {"date": "2026-12-09", "time": "08:00", "term": "한국 GDP", "tier": "A"},
   {"date": "2026-12-10", "time": "04:00", "term": "FOMC", "tier": "A"},
   {"date": "2026-12-23", "time": "22:30", "term": "미 PCE", "tier": "A"},
-  {"date": "2026-12-31", "time": "08:00", "term": "한국 CPI", "tier": "A"}
+  {"date": "2026-12-31", "time": "08:00", "term": "한국 CPI", "tier": "A"},
+  {"date": "2027-01-14", "term": "금통위", "tier": "A"},
+  {"date": "2027-01-28", "time": "04:00", "term": "FOMC", "tier": "A"},
+  {"date": "2027-01-28", "time": "22:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2027-02-03", "time": "22:30", "term": "미 국채 발행계획", "tier": "A"},
+  {"date": "2027-02-25", "term": "금통위", "tier": "A"},
+  {"date": "2027-02-25", "time": "22:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2027-03-18", "time": "03:00", "term": "FOMC", "tier": "A"},
+  {"date": "2027-03-31", "time": "21:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2027-04-09", "term": "금통위", "tier": "A"},
+  {"date": "2027-04-29", "time": "03:00", "term": "FOMC", "tier": "A"},
+  {"date": "2027-04-29", "time": "21:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2027-05-27", "term": "금통위", "tier": "A"},
+  {"date": "2027-05-27", "time": "21:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2027-06-10", "time": "03:00", "term": "FOMC", "tier": "A"},
+  {"date": "2027-06-25", "time": "21:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2027-07-15", "term": "금통위", "tier": "A"},
+  {"date": "2027-07-29", "time": "03:00", "term": "FOMC", "tier": "A"},
+  {"date": "2027-07-29", "time": "21:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2027-08-25", "time": "21:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2027-08-26", "term": "금통위", "tier": "A"},
+  {"date": "2027-09-16", "time": "03:00", "term": "FOMC", "tier": "A"},
+  {"date": "2027-09-30", "time": "21:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2027-10-15", "term": "금통위", "tier": "A"},
+  {"date": "2027-10-28", "time": "21:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2027-11-18", "time": "04:00", "term": "FOMC", "tier": "A"},
+  {"date": "2027-11-24", "time": "22:30", "term": "미 PCE", "tier": "A"},
+  {"date": "2027-11-25", "term": "금통위", "tier": "A"},
+  {"date": "2027-12-22", "time": "22:30", "term": "미 PCE", "tier": "A"}
  ]
 }

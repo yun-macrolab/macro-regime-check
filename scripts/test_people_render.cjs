@@ -142,7 +142,7 @@ test('page strip shows the latest ten with the fixed label, newest first', async
   assert.equal(caveat.parent.kids[caveat.parent.kids.indexOf(caveat) + 1], strip);
   const text = strip.textContent;
   assert.match(text, /^최근 발언 — 기준선 대비\(자동 분류\)/);
-  assert.match(text, /2026-11-04 기준 · 14건 · 보류 2/);
+  assert.match(text, /내용 바뀐 날 2026-11-04 · 14건 · 보류 2/);
   assert.match(text, new RegExp('자동 분류 — ' + LABEL + '기준선\\(사람마다 기준일 · 확인함/초안\\)' + TAIL));
   assert.doesNotMatch(text, /운영 규칙/);
   const rows = byClass(strip, 'rm-row');
@@ -260,7 +260,7 @@ test('bad items are skipped, good ones stay', async () => {
   const good = [remark('warsh', '2026-10-20'), remark('cook', '2026-10-20'), remark('warsh', '2026-10-20')];   // 셋째는 겹침 — 빠진다
   const t = boot(file([...bad, ...good]));
   await settle();
-  assert.match(t.strip().textContent, /2026-11-04 기준 · 2건 · 보류 2/);
+  assert.match(t.strip().textContent, /내용 바뀐 날 2026-11-04 · 2건 · 보류 2/);
   assert.equal(byClass(t.strip(), 'rm-row').length, 2);
   assert.equal(byClass(t.sec(), 'rm').length, 1);
 });

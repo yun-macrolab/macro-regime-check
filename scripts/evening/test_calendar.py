@@ -8,6 +8,7 @@
   - 날짜·시각은 KST. 미국 발표는 현지 시각(미 동부)을 같이 적고, zoneinfo로 바꾼 값이 적어 둔 KST와 같은지 본다
     (서머타임이 2026-11-01에 끝나 그 뒤로는 한 시간 늦다). 시각이 없는 줄은 출처가 날짜만 밝힌 것이다.
   - 아직 없는 것: 미 CPI · 미 고용 — 2026-10-08에 bls.gov가 자동 요청을 막아(403) 읽지 못했다. 읽으면 SRC에 bls를 보탠다.
+  - 2027년분(2026-11-28 수집·확인, 출처는 SRC의 *_2027): 한국 CPI · 한국 GDP는 공표 일정이 아직 나오지 않아 넣지 않았다.
 """
 import datetime
 import os
@@ -20,7 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import digest_schema as S
 
-CHECKED = "2026-10-29"                           # 마지막으로 출처를 읽은 날 = calendar.json의 updated(재무부 줄. 나머지는 2026-10-08)
+CHECKED = "2026-11-28"                           # 마지막으로 출처를 읽은 날 = calendar.json의 updated(2027년분. 2026년 줄은 10-08, 재무부 줄은 10-29)
 OFFICIAL = ("federalreserve.gov", "bls.gov", "bea.gov", "treasury.gov", "bok.or.kr", "kostat.go.kr", "mods.go.kr")
 SRC = {
     "fed": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",       # 회의 날짜. 성명 14:00(미 동부)은 같은 곳의 행사 달력
@@ -30,8 +31,13 @@ SRC = {
     "bok_mpc": "https://www.bok.or.kr/portal/singl/crncyPolicyDrcMtg/listYear.do?mtgSe=A&menuNo=200755",     # 통화정책방향 결정회의
     "bok_stat": "https://www.bok.or.kr/portal/stats/statsPublictSchdul/listCldr.do?menuNo=200775",           # 통계공표일정
     "mods": "https://mods.go.kr/newsPln.es?mid=a10305000000",                       # 국가데이터처 보도계획(kostat.go.kr이 이리로 넘어온다)
+    # 2027년분(2026-11-28 확인). FOMC는 잠정 일정(2026-11-12 개정 보도자료) — 10-26~27 전략 회의는 결정이 없어 넣지 않는다
+    "fed_2027": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261112a.htm",
+    "bea_2027": "https://www.bea.gov/news/schedule/next-year",
+    "treasury_2027": "https://home.treasury.gov/policy-issues/financing-the-government/quarterly-refunding/most-recent-quarterly-refunding-documents",
+    "bok_mpc_2027": "https://www.bok.or.kr/portal/bbs/B0000502/view.do?menuNo=200690&nttId=11066075",
 }
-US = ("fed", "bea", "bls", "treasury")                       # 현지 시각이 미 동부인 출처
+US = ("fed", "bea", "bls", "treasury", "fed_2027", "bea_2027", "treasury_2027")        # 현지 시각이 미 동부인 출처
 # (KST 날짜, KST 시각 또는 None, 사전 낱말, 출처, 미 동부 현지 시각 또는 None) — 시각순
 LEDGER = (
     ("2026-10-22", None, "금통위", "bok_mpc", None),
@@ -47,6 +53,34 @@ LEDGER = (
     ("2026-12-10", "04:00", "FOMC", "fed", "2026-12-09 14:00"),          # 12월 8~9일 회의 — 직전 회의에서 확정되기 전까지는 잠정
     ("2026-12-23", "22:30", "미 PCE", "bea", "2026-12-23 08:30"),        # 11월분
     ("2026-12-31", "08:00", "한국 CPI", "mods", None),                    # 12월 및 연간 소비자물가동향
+    ("2027-01-14", None, "금통위", "bok_mpc_2027", None),
+    ("2027-01-28", "04:00", "FOMC", "fed_2027", "2027-01-27 14:00"),     # 1월 26~27일 회의
+    ("2027-01-28", "22:30", "미 PCE", "bea_2027", "2027-01-28 08:30"),
+    ("2027-02-03", "22:30", "미 국채 발행계획", "treasury_2027", "2027-02-03 08:30"),   # 분기 리펀딩
+    ("2027-02-25", None, "금통위", "bok_mpc_2027", None),
+    ("2027-02-25", "22:30", "미 PCE", "bea_2027", "2027-02-25 08:30"),
+    ("2027-03-18", "03:00", "FOMC", "fed_2027", "2027-03-17 14:00"),     # 서머타임이 03-14에 시작해 03:00
+    ("2027-03-31", "21:30", "미 PCE", "bea_2027", "2027-03-31 08:30"),
+    ("2027-04-09", None, "금통위", "bok_mpc_2027", None),
+    ("2027-04-29", "03:00", "FOMC", "fed_2027", "2027-04-28 14:00"),
+    ("2027-04-29", "21:30", "미 PCE", "bea_2027", "2027-04-29 08:30"),
+    ("2027-05-27", None, "금통위", "bok_mpc_2027", None),
+    ("2027-05-27", "21:30", "미 PCE", "bea_2027", "2027-05-27 08:30"),
+    ("2027-06-10", "03:00", "FOMC", "fed_2027", "2027-06-09 14:00"),
+    ("2027-06-25", "21:30", "미 PCE", "bea_2027", "2027-06-25 08:30"),
+    ("2027-07-15", None, "금통위", "bok_mpc_2027", None),
+    ("2027-07-29", "03:00", "FOMC", "fed_2027", "2027-07-28 14:00"),
+    ("2027-07-29", "21:30", "미 PCE", "bea_2027", "2027-07-29 08:30"),
+    ("2027-08-25", "21:30", "미 PCE", "bea_2027", "2027-08-25 08:30"),
+    ("2027-08-26", None, "금통위", "bok_mpc_2027", None),
+    ("2027-09-16", "03:00", "FOMC", "fed_2027", "2027-09-15 14:00"),
+    ("2027-09-30", "21:30", "미 PCE", "bea_2027", "2027-09-30 08:30"),
+    ("2027-10-15", None, "금통위", "bok_mpc_2027", None),
+    ("2027-10-28", "21:30", "미 PCE", "bea_2027", "2027-10-28 08:30"),
+    ("2027-11-18", "04:00", "FOMC", "fed_2027", "2027-11-17 14:00"),     # 서머타임이 11-07에 끝나 04:00
+    ("2027-11-24", "22:30", "미 PCE", "bea_2027", "2027-11-24 08:30"),
+    ("2027-11-25", None, "금통위", "bok_mpc_2027", None),
+    ("2027-12-22", "22:30", "미 PCE", "bea_2027", "2027-12-22 08:30"),
 )
 
 try:

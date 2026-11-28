@@ -173,6 +173,31 @@
   .eve-rows li { gap: 1px 10px; padding: 5px 8px; }
   .eve-main { flex-basis: 100%; }
   .eve-chans { grid-template-columns: minmax(0, 1fr); }
+
+  /* 휴대폰에서 읽기(2026-11-28) — 문장·낱말·줄 목록은 14px 이상, 꼬리·이름표는 12px 이상(크기를 안 적은 small은 12px보다 작아져 함께 적는다) */
+  .eve-alerts .banner, .eve-info, .eve-head-body, .eve-note, .eve-quiet, .eve-words li, .eve-links, .eve-rows li, .eve-row-links,
+  .eve-side h3, .eve-side-ch > p, .eve-about, .eve-about h3, .eve-defs dt { font-size: 14px; }
+  .eve-lede, .eve-def, .eve-defs dd, .eve-prev, .eve-nums li, .eve-score p { font-size: 14px; line-height: 1.6; }
+  .eve-v, .eve-v strong, .eve-side .eve-main strong { font-size: 14px; }
+  .eve-ai { line-height: 1.6; }
+  .eve-ai-row .eve-ai-text { font-size: 14px; }
+  .eve-badge, .eve-head-body small, .eve-rate small, .eve-dir small, .eve-editions a small, .eve-ai-tag, .eve-ai small, .eve-cap small,
+  .eve-n, .eve-nums small, .eve-why li, .eve-links time, .eve-rows time, .eve-tag, .eve-score dt, .eve-src small, .eve-side-ch > p small,
+  .eve-fold > summary small, .eve-chans small { font-size: 12px; }
+
+  /* 누르는 곳은 높이 32px 이상 — 원문·출처·참고·채널 링크는 칩 꼴, 접는 줄은 위아래 여백 */
+  .eve-links li > a, .eve-rows li > a, .eve-src > a, .eve-main > a, .eve-chans li > a { display: inline-flex; align-items: center;
+    max-width: 100%; min-height: 32px; padding: 4px 10px; background: var(--bar); border: 1px solid var(--rule); line-height: 1.6; text-decoration: none; }
+  .eve-def a, .eve-defs a, .eve-alerts a, .eve-about p a { display: inline-block; padding: 5px 10px; background: var(--bar);
+    border: 1px solid var(--rule); line-height: 20px; text-decoration: none; }
+  .eve-editions a { padding: 5px 10px; line-height: 20px; }
+  .eve-rows li { row-gap: 4px; }
+  .eve-row-links { gap: 4px 12px; }
+  .eve-chans { row-gap: 6px; }
+  .eve-score, .eve-gloss { margin-top: 6px; padding-top: 0; }
+  .eve-score summary, .eve-gloss summary { padding: 6px 0; font-size: 13px; line-height: 1.6; }
+  .eve-fold > summary { padding: 6px 10px; font-size: 14px; }
+  .eve-about > summary { padding: 6px 0; font-size: 14px; }
 }
 /* 강제 색(Windows 고대비) — 배경색으로만 하던 구분을 테두리로. 실제 고대비 화면에서는 확인하지 못했다 */
 @media (forced-colors: active) {

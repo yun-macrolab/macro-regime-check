@@ -1458,6 +1458,7 @@ class DocsTest(unittest.TestCase):
 
 
 # ── 저장소의 실제 자료 ─────────────────────────────────────────────────────────────────────────────────────────
+@unittest.skipIf(os.environ.get("MRC_SKIP_REAL_DATA") == "1", "실자료 테스트 — CI 문(check)에서는 건너뛰고 봇 커밋 뒤에 경고만으로 돈다")
 class RealDataTest(unittest.TestCase):
     DATA = os.path.join(REPO, "data")
 

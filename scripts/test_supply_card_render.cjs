@@ -472,8 +472,8 @@ test('real charts.js: TIC end labels use the same integer bn as the totals line'
  assert.deepEqual(tags(part(slot.kids[0],1),'figcaption').map(f=>f.textContent),['해외 보유 미 국채 — 전체와 해외 공적','나라별 보유','한국 보유']);
  // 주간 그래프의 끝 값도 줄과 같은 꼴(2,565bn — 천 단위 쉼표)
  assert.deepEqual(walk(part(slot.kids[0],0),n=>n.attrs.class==='ch-end').map(n=>n.textContent),['433bn','2,565bn']);
- // 나라 그래프 — 일본(1,063)과 영국(986)의 끝 값 글자는 겹쳐 영국 것이 빠진다(charts.js 규칙) → 아래 한 줄이 대신한다
- assert.deepEqual(walk(svgs[1],n=>n.attrs.class==='ch-end').map(n=>n.textContent),['1,063bn','564bn']);
+ // 나라 그래프 — 일본(1,063)과 영국(986)의 끝 값 상자는 겹치므로 영국 것을 아래로 밀어 둘 다 보인다(charts.js 규칙). 아래 한 줄에도 있다
+ assert.deepEqual(walk(svgs[1],n=>n.attrs.class==='ch-end').map(n=>n.textContent),['1,063bn','986bn','564bn']);
  assert.ok(cls(part(slot.kids[0],1),'tic-ends')[0].textContent.includes('영국 986bn'));
 });
 

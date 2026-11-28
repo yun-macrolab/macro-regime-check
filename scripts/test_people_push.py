@@ -923,11 +923,14 @@ class RosterRemovalTest(unittest.TestCase):
 
 # ---------- 아침 워크플로의 배포 문 ----------
 
-def deploy_job():
-    """daily.yml의 deploy 잡 글 — (잡 글, 단계 목록[각 단계의 글])."""
+def deploy_job(name="pages_build"):
+    """daily.yml의 Pages 잡 글 — (잡 글, 단계 목록[각 단계의 글]). pages_build(조립·올리기 + 'main이 앞서 나갔는지')와
+    deploy(배포만)는 다른 잡이다 — 같은 잡에서 올린 직후의 배포가 아티팩트를 못 찾았다(actions/deploy-pages#451)."""
     with open(os.path.join(REPO, ".github", "workflows", "daily.yml"), encoding="utf-8") as f:
         wf = f.read()
-    job = wf[wf.index("\n  deploy:\n"):wf.index("\n  alert:\n")]
+    end = {"pages_build": "\n  deploy:\n", "deploy": "\n  alert:\n"}[name]
+    job = wf[wf.index(f"\n  {name}:\n"):wf.index(end)]
+    job = "\n".join(line for line in job.split("\n") if not line.startswith("  #"))        # 다음 잡 머리의 주석 줄은 뗀다
     steps = re.split(r"\n(?=      - )", job[job.index("    steps:\n") + len("    steps:\n"):])
     return job, [s for s in steps if s.strip()]
 
@@ -949,13 +952,19 @@ class DeployGateTest(unittest.TestCase):
         names = [("checkout" if "actions/checkout@" in s else "tip" if "id: tip" in s else "assemble" if "사이트 조립" in s
                   else "configure" if "configure-pages@" in s else "upload" if "upload-pages-artifact@" in s
                   else "deploy" if "deploy-pages@" in s else "?") for s in steps]
-        self.assertEqual(names, ["checkout", "tip", "assemble", "configure", "upload", "deploy"])
+        self.assertEqual(names, ["checkout", "tip", "assemble", "upload"])
         tip = steps[1]
         self.assertIn("        if: github.event_name == 'push'", tip.split("\n"))              # 예약 · 수동 실행은 이 단계를 건너뛴다 → 그대로 배포
         for s in steps[3:]:
             self.assertIn("        if: steps.tip.outputs.newer != 'true'", s.split("\n"))       # 건너뛴 단계의 출력은 비어 있다 → != 'true'
         for s in steps[:3]:
             self.assertNotIn("steps.tip.outputs", s)
+        self.assertIn("      newer: ${{ steps.tip.outputs.newer }}", job.split("\n"))       # 배포 잡이 같은 판단을 받는다
+        dep, dsteps = deploy_job("deploy")
+        self.assertIn("    needs: [pages_build]", dep.split("\n"))
+        self.assertIn("needs.pages_build.outputs.newer != 'true'", dep)                       # 앞서 나갔으면 배포 잡도 건너뛴다
+        self.assertEqual([("configure" if "configure-pages@" in s else "deploy" if "deploy-pages@" in s else "wait")
+                          for s in dsteps], ["configure", "deploy", "wait", "deploy"])         # 실패하면 30초 쉬고 한 번만 다시
         self.assertIn("ref: ${{ needs.update.outputs.sha || github.sha }}", steps[0])  # 배포하는 것은 여전히 검사를 거친 그 커밋
         self.assertIn("always() && needs.check.result == 'success' &&", job)
         self.assertIn("(github.event_name == 'push' || needs.update.outputs.publish == 'true')", job)

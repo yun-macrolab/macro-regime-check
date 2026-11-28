@@ -9,6 +9,14 @@
 #   check     모든 실행에서 먼저. 공개 전 검사(check_blind)와 저녁 테스트가 통과해야 뒤로 간다. 저녁 테스트는 여기서만 돈다
 #             (scripts/evening/에는 __init__.py가 없어 아침의 "discover -s scripts"가 줍지 않는다 — 저녁 코드가 아침 갱신을 막지 않게).
 #             예약·수동 실행은 가지의 '지금' 끝을 받아 그 커밋을 뒤 잡들에 넘긴다(같은 그룹의 앞 실행을 기다린 사이 main이 움직였을 수 있다).
+#             저장소의 data/를 읽는 실자료 테스트(test_digest_more.PublishedTest · test_digest_picks.PublishedFileTest)는 여기서 건너뛴다
+#             (잡 환경 MRC_SKIP_REAL_DATA=1 — 개수는 그대로, 'skipped'로 센다). 봇의 판 커밋 하나가 다음 예약 수집·감시의 문을 막지 않게
+#             (2026-10-09 예약 2건이 PublishedTest에서 멈췄다). 같은 테스트는 publish의 봇 커밋 뒤에 '경고만'으로 돈다. 로컬·PC 훅은 변수가
+#             없으니 지금처럼 돈다.
+#             17:41 예약 수집만: 오늘 판이 이미 main에 있으면(data/digest_status.json의 edition이 지금의 판 날짜(digest_schema.edition_date —
+#             KST, 6시간 당김)이고 published가 true이며 사유가 ok·empty_streak) 수집·게시를 건너뛰고 ::notice::만 남긴다(PC의 수동 실행이 먼저
+#             낸 판을 몇 시간 늦은 예약 실행이 다시 읽지 않게). 수동 실행은 건너뛰지 않는다. 수집 부족(short)·내림(withdrawn)·판 없음이거나
+#             파일을 못 읽으면 건너뛰지 않는다(지금처럼 돈다).
 #   켜는 스위치  저장소 변수 EVENING_ENABLED가 true일 때만 예약 수집 · 게시 · 감시가 돈다. 변수가 없으면 꺼져 있다 — main에 합친 것만으로는
 #             채널을 읽지도, 판을 올리지도, 실패 메일을 보내지도 않는다.
 #             꺼 둔 동안에도 수동 실행(게시·아티팩트 없는 시험 수집)과 내리기는 된다.
@@ -20,6 +28,9 @@
 #             단계가 실패한 날은 판 없이 '실행 실패' 상태만 넘긴다.
 #   publish   쓰기 권한이 있고 채널 글을 읽지 않는다. 아티팩트를 받아 원문 없이 다시 검사하고(digest_check --strict), 저녁판 파일만 data/로
 #             옮긴 뒤 새 산출물까지 공개 전 검사를 거쳐 봇이 커밋한다. main에서만, 켜 둔 때만.
+#             push가 밀리면(non-fast-forward) 5초 쉬고 한 번만 다시 rebase·push한다(내리기도 같다). rebase로 main의 새 커밋을 받은 때는
+#             (처음·재시도 모두) push 전에 최종 트리로 공개 전 검사를 다시 돌고, 걸리면 push하지 않는다(내리기도 같다).
+#             봇 커밋 뒤에 실자료 테스트를 경고만으로 돈다.
 #   takedown  수동 실행에서 takedown을 켰을 때만. 수집하지 않고 저녁 자료를 빈 판으로 바꿔 커밋한다(지난 판 파일·목차도 지운다).
 #             저녁 테스트에 기대지 않는다(check가 그 단계를 건너뛴다) — 테스트가 깨진 날에도 내릴 수 있게. 공개 전 검사는 거친다.
 #             빈 판조차 못 만드는 날(저녁 코드가 깨진 날)에는 저녁판 파일을 지운다 — 화면은 '판 없음'을 보여 준다.
@@ -28,13 +39,22 @@
 #   watch     22:41 예약에서만. 수집하지 않는다(텔레그램 요청 0회). main의 data/digest_status.json이 나왔어야 할 판(22:41이 지난
 #             마지막 평일의 판 — 화면의 규칙. 감시가 이튿날 아침에 늦게 돌아도 전날 판)인지, 공개 페이지의 것과 같은지만 본다.
 #             main에는 있는데 페이지가 옛것이면 배포만 다시 하고, main에도 없으면 실행을 실패로 끝낸다.
-#   deploy    data/·site/만 Pages로(daily.yml의 deploy와 같은 조립). 봇의 push는 다른 워크플로를 깨우지 않으므로 여기서 직접 배포한다.
-#   alert     수집 부족 · 꼭 볼 것 0건 연속 · 미리보기 형식 바뀜 · 채널 바뀜 · 단계 실패인 날은 게시·배포를 마친 뒤 실행을 실패로 끝내
-#             GitHub 알림 메일을 받는다.
+#   pages_build · deploy  data/·site/만 Pages로(daily.yml의 pages_build · deploy와 같은 조립·배포). 봇의 push는 다른 워크플로를 깨우지
+#             않으므로 여기서 직접 배포한다. 올리기(pages_build, 읽기 권한뿐)와 배포(deploy, Pages·OIDC 권한)를 다른 잡으로 나눈다 — 같은
+#             잡에서 올린 직후의 배포가 아티팩트를 못 찾아 실패했다(daily.yml 머리말 deploy). 배포는 실패하면 30초 뒤 한 번만 다시 한다.
+#   alert     게시·배포를 마친 뒤에 돈다. 사유를 하나로 덮지 않고 모두 적는다(collect의 '알림 사유 모으기' — 상태 파일 하나에서).
+#             판을 못 냈거나 반쯤 낸 날(수집 부족 short · 미리보기 형식 바뀜 broken · 단계 실패 error)과 게시 잡(publish) 실패 · Pages
+#             올리기·배포 실패(사이트는 직전 판)는 ::error::로 실행을 실패로 끝내 GitHub 알림 메일을 받는다. 경고 문구의 '판은 나갔다'는
+#             게시 잡이 성공한 때만 쓴다.
+#             판은 정상으로 나간 날의 정보성 사유(꼭 볼 것 0건 연속 empty_streak · 채널 제목 바뀜 title · 글 번호 거꾸로 rewind · 채널이
+#             fail_streak_alert판(digest_rules.py, 지금 3) 넘게 이어서 안 읽힘)는 ::warning::과 실행 요약 한 단락만 남기고 실행은 성공이다
+#             (메일이 오지 않는다 — 실행 요약의 경고로 본다). 이어서 안 읽힌 채널은 이름과 판 수를 싣는다(채권 채널이 아니어도).
 #
 # 아침(daily.yml)과 같은 concurrency 그룹을 쓴다 — 두 워크플로가 동시에 커밋·배포하지 않게. 같은 그룹에서 기다리는 실행은 하나뿐이라
 # 새 실행이 오면 먼저 기다리던 실행이 취소될 수 있다. 그 빈자리와, 기다리던 push 실행이 main의 끝을 받지 못해 옛 커밋을 그대로
-# 배포해 저녁판이 사라지는 경우를 22:41 감시가 잡는다(끝을 받으면 그 실행은 배포를 건너뛴다 — daily.yml의 deploy).
+# 배포해 저녁판이 사라지는 경우를 22:41 감시가 잡는다(끝을 받으면 그 실행은 배포를 건너뛴다 — daily.yml의 pages_build).
+# (그룹을 워크플로별로 나누는 안은 2026-11-28 W01에서 설계만 했다 — 나누면 두 워크플로의 배포 순서가 풀려, 먼저 검사한 옛 커밋이
+# 나중에 배포돼 새 판을 덮을 수 있다. 배포 잡 안에서 main의 끝을 다시 보는 단계가 함께 들어가야 한다.)
 # 액션은 커밋 SHA로 고정한다(태그가 옮겨져도 코드가 바뀌지 않게). 올릴 때는 SHA와 주석의 버전을 함께 바꾼다.
 # 셸에 넣는 값은 env로 넘긴다 — run 안에는 Actions 표현식(달러 + 겹중괄호)을 쓰지 않는다.
 
@@ -74,6 +94,9 @@ jobs:
     timeout-minutes: 10
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
+      skip: ${{ steps.dup.outputs.skip }}
+    env:
+      MRC_SKIP_REAL_DATA: "1"   # 실자료 테스트는 문에서 뺀다(머리말 check) — publish의 봇 커밋 뒤에 경고만으로 돈다
     steps:
       # 다른 가지에서 내리기를 누르면 내리기 잡이 건너뛰어져 '성공'으로 보인다 — 아무것도 안 내린 채 조용히 끝나지 않게 여기서 멈춘다
       - name: 내리기는 main에서만
@@ -95,6 +118,30 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
+      # 17:41 예약 수집만: 오늘 판이 이미 main에 있으면 수집·게시를 건너뛴다(머리말 check). 판 날짜는 저녁 코드의 edition_date 그대로.
+      # 애매하면(파일을 못 읽음 · 판의 저녁 밖 · 다른 날짜 · 사유가 ok·empty_streak가 아님) skip=false — 지금처럼 돈다
+      - name: 오늘 판이 이미 main에 있는지(예약 수집만)
+        id: dup
+        if: github.event_name == 'schedule' && github.event.schedule == '41 8 * * 1-5'
+        run: |
+          python - <<'PY'
+          import datetime, os, sys
+          sys.path.insert(0, os.path.join("scripts", "evening"))
+          skip, edition = False, None
+          try:
+              import digest_schema as S
+              now = datetime.datetime.now(S.KST)
+              st = S.validate_status(S.read_json(os.path.join("data", "digest_status.json")))
+              edition = S.edition_date(now)
+              skip = (S.in_evening(now) and st["edition"] == edition and st["published"] is True
+                      and st["reason"] in ("ok", "empty_streak"))
+          except Exception:
+              skip = False
+          if skip:
+              print(f"::notice::오늘 판({edition})이 이미 main에 있다 — 예약 수집·게시를 건너뛴다")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"skip={'true' if skip else 'false'}\n")
+          PY
       - name: 공개 전 검사
         env:
           BLIND_PATTERNS: ${{ secrets.BLIND_PATTERNS }}
@@ -105,9 +152,11 @@ jobs:
 
   collect:
     needs: check
-    # 예약 수집은 켜 둔 때만 — 꺼 둔 동안에는 채널을 읽지 않는다. 수동 실행은 게시 없는 시험 수집으로 남긴다
+    # 예약 수집은 켜 둔 때만 — 꺼 둔 동안에는 채널을 읽지 않는다. 오늘 판이 이미 main에 있으면 건너뛴다(check의 skip).
+    # 수동 실행은 게시 없는 시험 수집으로 남긴다
     if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '41 8 * * 1-5' && vars.EVENING_ENABLED == 'true') ||
+      (github.event_name == 'schedule' && github.event.schedule == '41 8 * * 1-5' && vars.EVENING_ENABLED == 'true' &&
+       needs.check.outputs.skip != 'true') ||
       (github.event_name == 'workflow_dispatch' && inputs.takedown != true)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -118,6 +167,9 @@ jobs:
       alert: ${{ steps.run.outputs.alert }}
       reason: ${{ steps.run.outputs.reason }}
       stage: ${{ steps.run.outputs.stage }}
+      reasons: ${{ steps.why.outputs.reasons }}
+      changed: ${{ steps.why.outputs.changed }}
+      stale: ${{ steps.why.outputs.stale }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -135,6 +187,32 @@ jobs:
         run: >-
           python scripts/evening/evening_run.py pipeline
           --work .work/evening --out _evening --data data --github-output "$GITHUB_OUTPUT" --event "$GITHUB_EVENT_NAME"
+      # 알림이 사유를 하나로 덮지 않게(2026-11-13~23 jk_bond가 제목 바뀜으로 10판 안 읽혔는데 사유는 empty_streak만 찍혔다) — 게시할
+      # 상태 파일(_evening/digest_status.json, 공개되는 것)에서 사유를 모두 모은다. 내보내는 것은 정해 둔 낱말 · 출처 목록에 있는 채널
+      # 이름(공개 data/sources.json의 handle) · 판 수뿐이다. 문턱은 조립과 같은 digest_rules.TH["fail_streak_alert"](지금 3)
+      #   reasons  short · broken · empty_streak · error · withdrawn 가운데 상태의 사유 + 채널 바뀜이 있으면 title · rewind
+      #   changed  제목 바뀜·글 번호 거꾸로인 채널(채널:코드)   stale  문턱 넘게 이어서 안 읽힌 채널(채널:판 수 — 채권 채널이 아니어도)
+      # 상태 파일이 없거나(판도 실패 상태도 못 만든 날) 못 읽으면 셋 다 비고, alert는 collect의 reason 하나로 알린다
+      - name: 알림 사유 모으기
+        id: why
+        if: always() && steps.run.outcome != 'skipped'
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import os, sys
+          sys.path.insert(0, os.path.join("scripts", "evening"))
+          import digest_rules as R
+          import digest_schema as S
+          st = S.validate_status(S.read_json(os.path.join("_evening", "digest_status.json")))
+          known = {c["handle"] for c in S.validate_sources(S.read_json(os.path.join("data", "sources.json")))["channels"]}
+          chans = [c for c in st["channels"] if c["ch"] in known]
+          changed = [f"{c['ch']}:{c['code']}" for c in chans if c["code"] in ("title", "rewind")]
+          stale = [f"{c['ch']}:{c['fail_streak']}" for c in chans if c["fail_streak"] >= R.TH["fail_streak_alert"]]
+          reasons = [] if st["reason"] == "ok" else [st["reason"]]
+          reasons += sorted({c.split(":")[1] for c in changed})
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"reasons={' '.join(reasons)}\nchanged={' '.join(changed)}\nstale={' '.join(stale)}\n")
+          PY
       # 게시할 때만 올린다(공개 저장소의 아티팩트는 로그인한 누구나 받는다) — 저녁판 파일 이름만 골라서, 하루만 둔다
       - name: 공개 JSON만 아티팩트로
         if: steps.run.outputs.publish == 'true' && vars.EVENING_ENABLED == 'true' && github.ref == 'refs/heads/main'
@@ -187,7 +265,20 @@ jobs:
         run: python scripts/check_blind.py
       - name: 봇 커밋
         id: commit
+        env:
+          BLIND_PATTERNS: ${{ secrets.BLIND_PATTERNS }}   # rebase 뒤 공개 전 검사용 — 앞 '공개 전 검사(새 산출물 포함)'와 같은 값
         run: |
+          # rebase로 main의 새 커밋을 받았으면(HEAD가 바뀜) push 전에 최종 트리로 공개 전 검사를 다시 돈다 — 걸리면 push하지 않고
+          # 단계가 실패한다(bash -e). 새 커밋이 없으면(HEAD 그대로) 위 공개 전 검사가 본 트리 그대로라 다시 돌지 않는다
+          pull_checked() {
+            before="$(git rev-parse HEAD)"
+            git pull --quiet --rebase origin main
+            if [ "$(git rev-parse HEAD)" != "$before" ]; then
+              echo "rebase로 main의 새 커밋을 받았다 — 최종 트리로 공개 전 검사를 다시 돈다"
+              git fetch --quiet origin '+refs/notes/*:refs/notes/*'
+              python scripts/check_blind.py
+            fi
+          }
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data
@@ -195,14 +286,33 @@ jobs:
             echo "변경 없음"
           else
             git commit --quiet -m "data: $(python -c 'import json; print(json.load(open("data/digest_status.json"))["edition"])') 저녁판 자동 갱신"
-            # 실행 중 main에 들어온 커밋(PC의 발언·AI 요약 push 같은)이 있으면 그 위에 얹는다. 그 커밋은 위 공개 전 검사가 본 것이
-            # 아니다 — 올린 쪽의 push 전 검사(훅 · people_push · picks_push)를 거쳤고, 그 push로 시작한 daily.yml 실행이 같은 그룹에서 이 실행 뒤에
-            # 제 check로 다시 검사한다. 그 실행은 main이 앞서 나갔으니 배포를 건너뛰고, 그 커밋은 이 실행의 배포로 나간다
-            git pull --quiet --rebase origin main
-            git push --quiet origin HEAD:main
+            # 실행 중 main에 들어온 커밋(PC의 발언·AI 요약 push 같은)이 있으면 그 위에 얹는다. rebase로 딸려 온 커밋은 위 공개 전 검사가
+            # 본 것이 아니므로, 얹은 뒤의 최종 트리로 공개 전 검사를 다시 통과해야 push한다(pull_checked — 처음과 재시도 모두). 그 커밋을
+            # 올린 push로 시작한 daily.yml 실행은 같은 그룹에서 이 실행 뒤에 제 check로 또 검사하고, main이 앞서 나갔으니 배포를 건너뛴다 —
+            # 그 커밋은 이 실행의 배포로 나간다
+            pull_checked
+            # pull과 push 사이에 main에 새 커밋이 들어와 밀리면(non-fast-forward) 한 번만 다시 얹어 올린다. 그래도 안 되면 단계가 실패한다
+            if ! git push --quiet origin HEAD:main; then
+              echo "::warning::봇 커밋 push가 밀렸다 — 5초 뒤 한 번 더 rebase해 올린다"
+              sleep 5
+              pull_checked
+              git push --quiet origin HEAD:main
+            fi
           fi
           echo "publish=true" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"   # deploy가 배포할 커밋 — 위에서 검사한 봇 커밋(rebase로 딸려 온 커밋은 위 주석)
+      # check에서 뺀 실자료 테스트(저장소의 data/를 읽는 것) — 방금 올린 판까지 든 data/로 돈다. 경고만: 실패해도 커밋·배포는 그대로
+      - name: 실자료 테스트(경고만)
+        id: realdata
+        if: steps.commit.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 2
+        working-directory: scripts/evening
+        run: |
+          if ! python -m unittest test_digest_more.PublishedTest test_digest_picks.PublishedFileTest; then
+            echo "::warning::실자료 테스트 실패(경고만 — 커밋·배포는 그대로) — 새 data/가 테스트의 기대와 어긋난다. publish 잡의 이 단계 로그를 보고 다음 push 전에 고친다(check는 이 테스트를 건너뛴다)"
+            exit 1
+          fi
 
   takedown:
     needs: check
@@ -243,7 +353,20 @@ jobs:
         run: python scripts/check_blind.py
       - name: 봇 커밋
         id: commit
+        env:
+          BLIND_PATTERNS: ${{ secrets.BLIND_PATTERNS }}   # rebase 뒤 공개 전 검사용 — 앞 '공개 전 검사(새 산출물 포함)'와 같은 값
         run: |
+          # rebase로 main의 새 커밋을 받았으면(HEAD가 바뀜) push 전에 최종 트리로 공개 전 검사를 다시 돈다 — 걸리면 push하지 않고
+          # 단계가 실패한다(bash -e). 새 커밋이 없으면(HEAD 그대로) 위 공개 전 검사가 본 트리 그대로라 다시 돌지 않는다
+          pull_checked() {
+            before="$(git rev-parse HEAD)"
+            git pull --quiet --rebase origin main
+            if [ "$(git rev-parse HEAD)" != "$before" ]; then
+              echo "rebase로 main의 새 커밋을 받았다 — 최종 트리로 공개 전 검사를 다시 돈다"
+              git fetch --quiet origin '+refs/notes/*:refs/notes/*'
+              python scripts/check_blind.py
+            fi
+          }
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data
@@ -251,8 +374,13 @@ jobs:
             echo "변경 없음"
           else
             git commit --quiet -m "data: $(date -u +%F) 저녁판 내림"
-            git pull --quiet --rebase origin main   # 실행 중 main에 들어온 커밋도 얹는다 — 게시 잡의 같은 줄 주석
-            git push --quiet origin HEAD:main
+            pull_checked   # 실행 중 main에 들어온 커밋도 얹고, 받았으면 최종 트리로 다시 검사한다 — 게시 잡의 같은 줄 주석
+            if ! git push --quiet origin HEAD:main; then   # 밀리면 한 번만 다시 — 게시 잡과 같다
+              echo "::warning::봇 커밋 push가 밀렸다 — 5초 뒤 한 번 더 rebase해 올린다"
+              sleep 5
+              pull_checked
+              git push --quiet origin HEAD:main
+            fi
           fi
           echo "publish=true" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
@@ -285,7 +413,7 @@ jobs:
           --page-url "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
           --github-output "$GITHUB_OUTPUT"
 
-  deploy:
+  pages_build:
     needs: [check, publish, takedown, watch]
     if: >-
       always() && needs.check.result == 'success' &&
@@ -295,11 +423,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -310,29 +433,98 @@ jobs:
           mkdir -p _site/data
           cp -r site/. _site/
           if [ -d data ]; then cp -r data/. _site/data/; fi
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
+
+  # 배포만 — daily.yml의 deploy와 같다(올리기와 다른 잡, 제한 재시도 한 번). 저녁에는 'main이 앞서 나갔는지' 단계가 없다(push로 배포하지 않는다)
+  deploy:
+    needs: [pages_build]
+    if: always() && needs.pages_build.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: 배포 실패 — 30초 뒤 한 번 더
+        if: steps.deployment.outcome == 'failure'
+        run: |
+          echo "::warning::첫 배포가 실패했다 — 30초 쉬고 한 번만 다시 배포한다"
+          sleep 30
+      - id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   alert:
-    needs: [collect, publish, deploy]
-    if: always() && needs.collect.outputs.alert == 'true'
+    needs: [collect, publish, pages_build, deploy]
+    # 수집이 알린 날 · 이어서 안 읽힌 채널이 있는 날(경고만) · 게시가 실패한 날 · Pages 올리기·배포가 실패한 날
+    if: >-
+      always() &&
+      (needs.collect.outputs.alert == 'true' || needs.collect.outputs.stale != '' || needs.publish.result == 'failure' ||
+       needs.pages_build.result == 'failure' || needs.deploy.result == 'failure')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: 저녁판 실패 알림
+      - name: 저녁판 알림
         env:
+          ALERT: ${{ needs.collect.outputs.alert }}
           REASON: ${{ needs.collect.outputs.reason }}
+          REASONS: ${{ needs.collect.outputs.reasons }}
+          CHANGED: ${{ needs.collect.outputs.changed }}
+          STALE: ${{ needs.collect.outputs.stale }}
           STAGE: ${{ needs.collect.outputs.stage }}
+          PUBLISH: ${{ needs.publish.result }}
+          BUILD: ${{ needs.pages_build.result }}
+          DEPLOY: ${{ needs.deploy.result }}
         run: |
-          case "$REASON" in
-            short) echo "::error::수집 부족 — 채권 3곳 미만 또는 전체 16곳 미만만 읽혔다. 꼭 볼 것을 비운 판이 나갔다. 채널별 숫자는 data/digest_status.json. 못 읽은 글은 다음 판이 다시 읽는다 — 오늘 판을 채우려면 오늘 안에 수동 실행으로 다시 돌린다" ;;
-            empty_streak) echo "::error::꼭 볼 것 0건이 3판 연속 — 판은 나갔다. 게이트 숫자(digest_rules.py)나 묶기가 맞는지 확인" ;;
-            broken) echo "::error::미리보기 형식이 바뀐 것으로 보인다(본문 비율이 절반 아래) — 판을 내지 않았다. 페이지는 직전 판을 보여 준다" ;;
-            channel) echo "::error::채널 확인 필요 — data/digest_status.json의 code와 fail_streak를 본다. title: 제목 해시가 목록과 다르다. 제목만 바뀐 것이면 collect 로그의 title_sha= 값을 data/sources.json에 옮긴다. rewind: 글 번호가 거꾸로 갔다(이름이 다른 채널로 넘어갔을 수 있다) — 스스로 풀리지 않는다. 채널을 확인한 뒤 한 판 동안 목록에서 빼거나 off로 두었다가 되돌리면 새로 읽는다. 그 밖: 채권 채널이 3판 이어서 안 읽혔다 — 미리보기가 꺼졌으면 목록에서 뺀다" ;;
-            *) echo "::error::저녁판 실행 실패(단계: $STAGE) — 페이지는 직전 판과 실패 표시를 보여 준다. 원인은 collect 잡의 로그" ;;
-          esac
+          # 사유를 모두 적는다. 판을 못 냈거나 반쯤 낸 것 · 게시 실패 · 배포 실패는 ::error::(실행 실패 — 메일), 정보성 사유는
+          # ::warning::(실행 성공). 둘 다 실행 요약에 한 단락씩 남긴다
+          fail=0
+          bad() { echo "::error::$1"; printf -- '- 오류: %s\n' "$1" >> "$GITHUB_STEP_SUMMARY"; fail=1; }
+          note() { echo "::warning::$1"; printf -- '- 경고: %s\n' "$1" >> "$GITHUB_STEP_SUMMARY"; }
+          echo "### 저녁판 알림" >> "$GITHUB_STEP_SUMMARY"
+          # '판은 나갔다'는 게시 잡이 성공한 때만 쓴다(게시가 안 돌았거나 실패했으면 단정하지 않는다)
+          if [ "$PUBLISH" = "success" ]; then
+            out="판은 나갔다"
+          else
+            out="이 실행에서 판 게시는 확인되지 않았다(게시 $PUBLISH)"
+          fi
+          if [ "$PUBLISH" = "failure" ]; then
+            bad "판을 게시하지 못했다(publish 잡 실패 — 다시 검사·data/로 옮기기·공개 전 검사·봇 커밋 가운데 하나) — 사이트는 직전 판을 보여 준다. 원인은 publish 잡의 로그. 고친 뒤 오늘 안에 수동 실행으로 다시 낸다"
+          fi
+          if [ "$ALERT" = "true" ] && [ -z "$REASONS" ]; then
+            REASONS="$REASON"       # 상태 파일에서 사유를 못 모은 날 — collect의 사유 하나로
+          fi
+          if [ "$ALERT" != "true" ]; then
+            REASONS=""              # 알리지 않은 판 — 이어서 안 읽힌 채널(아래)과 배포만 본다
+          fi
+          for r in $REASONS; do
+            case "$r" in
+              short) bad "수집 부족 — 채권 3곳 미만 또는 전체 16곳 미만만 읽혔다. 꼭 볼 것을 비운 판이 나갔다. 채널별 숫자는 data/digest_status.json. 못 읽은 글은 다음 판이 다시 읽는다 — 오늘 판을 채우려면 오늘 안에 수동 실행으로 다시 돌린다" ;;
+              empty_streak) note "꼭 볼 것 0건이 3판 연속 — $out. 게이트 숫자(digest_rules.py)나 묶기가 맞는지, 아래 채널 경고가 함께 있으면 그 채널부터 확인" ;;
+              broken) bad "미리보기 형식이 바뀐 것으로 보인다(본문 비율이 절반 아래) — 판을 내지 않았다. 페이지는 직전 판을 보여 준다" ;;
+              title) note "채널 제목 해시가 목록과 다르다(${CHANGED:-채널 이름 없음}) — $out. 제목만 바뀐 것이면 collect 로그의 title_sha= 값을 data/sources.json에 옮긴다. 다른 채널로 넘어갔으면 목록에서 뺀다" ;;
+              rewind) note "글 번호가 거꾸로 갔다(${CHANGED:-채널 이름 없음}) — 이름이 다른 채널로 넘어갔을 수 있다. 스스로 풀리지 않는다. 채널을 확인한 뒤 한 판 동안 목록에서 빼거나 off로 두었다가 되돌리면 새로 읽는다" ;;
+              channel) note "채널 확인 필요 — data/digest_status.json의 code와 fail_streak를 본다. title: 제목만 바뀐 것이면 collect 로그의 title_sha= 값을 data/sources.json에 옮긴다. rewind: 한 판 동안 목록에서 빼거나 off로 두었다가 되돌린다. 그 밖: 채권 채널이 3판 이어서 안 읽혔다 — 미리보기가 꺼졌으면 목록에서 뺀다" ;;
+              withdrawn|ok) ;;
+              *) bad "저녁판 실행 실패(단계: $STAGE) — 페이지는 직전 판과 실패 표시를 보여 준다. 원인은 collect 잡의 로그" ;;
+            esac
+          done
+          if [ -n "$STALE" ]; then
+            note "이어서 안 읽힌 채널(채널:판 수, 3판 이상 — digest_rules.py fail_streak_alert): $STALE — code는 data/digest_status.json. 미리보기가 꺼졌으면 목록에서 빼고, 제목이 바뀌었으면 title_sha=를 옮긴다"
+          fi
+          if [ "$BUILD" = "failure" ] || [ "$DEPLOY" = "failure" ]; then
+            bad "Pages 배포 실패(올리기 $BUILD · 배포 $DEPLOY, 재시도 포함) — 사이트는 직전 판을 보여 준다. main에는 판이 있으니 22:41 감시가 다시 배포하거나 수동 실행으로 다시 낸다. 원인은 pages_build·deploy 잡의 로그"
+          fi
+          if [ "$fail" = 0 ]; then
+            exit 0                  # 경고만 — 실행은 성공(메일 없음)
+          fi
           exit 1
