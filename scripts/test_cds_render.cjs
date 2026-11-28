@@ -59,6 +59,7 @@ test('card draws both rows in order with tables, label and the fixed source line
 test('a missing file draws nothing',()=>{
  const {api,ids}=load();
  for(const d of [null,undefined,{},{items:null},'x',[1]])assert.equal(api.render(d),false);
+ for(const schema of [2,'1',undefined])assert.equal(api.render({...data(),schema}),false);   // schema 2인 자료는 그리지 않는다
  assert.equal(ids['cds-slot'].kids.length,0);
 });
 

@@ -153,7 +153,7 @@ window.MacroCards = (() => {
 
   // 자료 파일 전체 → 카드 넷. 카드마다 따로: 자리가 없거나 그린 칸이 하나도 없으면 그 카드만 두지 않는다. 하나라도 그렸으면 true
   function render(d) {
-    if (!isObj(d) || !isObj(d.items)) return false;
+    if (!isObj(d) || d.schema !== 1 || !isObj(d.items)) return false;
     let any = false;
     for (const name of Object.keys(CARDS)) {
       try {

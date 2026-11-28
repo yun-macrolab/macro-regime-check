@@ -173,9 +173,9 @@ window.OilEnergy = (() => {
     return shown.length > 0;
   }
 
-  // 자료 파일 전체 → 두 곳. 카드에 그린 칸이 하나도 없으면 카드를 두지 않고 false
+  // 자료 파일 전체 → 두 곳. 카드에 그린 칸이 하나도 없으면 카드를 두지 않고 false. schema가 1이 아니면 한국 줄도 그리지 않는다
   function render(d) {
-    if (!isObj(d) || !isObj(d.items)) return false;
+    if (!isObj(d) || d.schema !== 1 || !isObj(d.items)) return false;
     const items = d.items;
     try { korea(items); } catch (e) { /* 한국 줄이 깨져도 카드는 그린다 */ }
     const slot = document.getElementById("oil-slot");

@@ -129,6 +129,8 @@ main > section, main > .page-header, main > .bridge { margin-bottom: 22px; }
 .spark path { fill: none; stroke: var(--ch-1); stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
 .monitor tr.met .spark path { stroke: var(--amber); }
 .monitor tr.met th a { color: var(--amber); }
+/* 추이가 없는 줄의 글 — 좁은 추이 열 안에서 접는다(표가 넓어지지 않게) */
+.monitor .no-spark { display: block; white-space: normal; font-size: 10.5px; line-height: 1.35; color: var(--dim); }
 .tag { display: inline-block; min-width: 62px; padding: 0 7px; text-align: center; font: 600 11.5px/1.7 var(--f-text); color: var(--dim); box-shadow: inset 0 0 0 1px #3a3a3a; white-space: nowrap; }
 .tag.met { background: var(--amber); color: #000; box-shadow: none; }
 .tag.unknown { box-shadow: none; border: 1px dashed #666; }
@@ -144,6 +146,16 @@ main > section, main > .page-header, main > .bridge { margin-bottom: 22px; }
   border: 1px solid var(--rule); background: var(--panel); }
 .status strong { color: var(--amber); font: 500 13px var(--f-mono); }
 #notice { margin: 0 0 14px; font-size: 12px; }
+/* 첫 화면 안내(#intro, 2026-11-28) — 접는 칸. 누르는 줄과 버튼은 어느 폭에서도 높이 32px 이상 */
+.intro { margin: 0 0 14px; border: 1px solid var(--rule); background: var(--panel); }
+.intro > summary { min-height: 32px; padding: 6px 10px; cursor: pointer; font-size: 13px; line-height: 1.55; color: var(--ink); }
+.intro p { margin: 6px 10px 0; font-size: 12.5px; line-height: 1.7; }
+.intro strong { color: var(--amber); font-weight: 600; }
+.intro .intro-words { padding-top: 6px; border-top: 1px dashed var(--rule); color: var(--dim); }
+.intro button { min-height: 32px; margin: 8px 10px 10px; padding: 4px 12px; cursor: pointer; background: var(--black); color: var(--key);
+  border: 1px solid var(--rule); font: 500 12.5px var(--f-text); }
+/* 버튼 옆 '용어 사전 보기'(다른 화면으로 가는 링크) — 버튼과 같은 줄, 390px에서도 한 줄(둘을 합쳐 약 290px) */
+.intro .intro-gloss { display: inline-block; min-height: 32px; line-height: 32px; margin: 8px 10px 10px 0; font-size: 12.5px; white-space: nowrap; color: var(--key); }
 
 /* ── 주요 지표 ── */
 .snapshot { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
@@ -633,4 +645,21 @@ main[data-view="evening"] .update-label, main[data-view="notes"] .update-label {
   figure.ch.ch-fresh .ch-line { stroke-dasharray: none; stroke-dashoffset: 0; animation: none; }
   .term-head { position: static; }
   .tape { display: none; }
+}
+
+/* ── 용어 사전(site/glossary.js) — 데스크톱 두 칸, 720px 아래 한 칸. 낱말과 뜻은 한 칸 안에서 위아래로(항목마다 dt 다음 dd).
+   아래의 720px 질의는 위의 휴대폰 블록보다 뒤에 둔다(test_site_static은 처음 나오는 720px 블록을 읽는다) ── */
+#glossary-wrap > h2 { padding: 4px 10px; background: var(--bar); border-left: 3px solid var(--amber); font-size: 14px; color: var(--amber); }
+dl.glossary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; column-gap: 12px; margin: 10px 0; }
+dl.glossary dt { padding: 8px 12px 2px; border: 1px solid var(--rule); border-bottom: 0;
+  background: var(--panel); color: var(--key); font-weight: 600; font-size: 13.5px; }
+dl.glossary dd { margin: 0 0 10px; padding: 0 12px 10px; border: 1px solid var(--rule); border-top: 0; background: var(--panel); font-size: 13px; }
+dl.glossary dt:focus-visible { outline: 2px solid var(--key); outline-offset: -2px; }
+.glossary-see { display: block; margin-top: 4px; font-size: 12px; color: var(--dim); }
+/* 한 항목의 낱말과 뜻이 같은 열에 위아래로 서게 — 네 칸(dt dd dt dd)마다 왼쪽 두 칸과 오른쪽 두 칸 */
+dl.glossary > :nth-child(4n+1), dl.glossary > :nth-child(4n+2) { grid-column: 1; }
+dl.glossary > :nth-child(4n+3), dl.glossary > :nth-child(4n) { grid-column: 2; }
+@media (max-width: 720px) {
+  dl.glossary { grid-template-columns: minmax(0, 1fr); }
+  dl.glossary > :nth-child(n) { grid-column: 1; }
 }

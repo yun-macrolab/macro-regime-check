@@ -1107,7 +1107,8 @@ function paintStrip() {
   const ok = remarks.state === "ok", list = ok ? remarks.list.slice(0, RM.strip) : [];
   const head = el("div", { class: "rm-strip-h" }, el("h2", { id: "h-rm-strip", text: "최근 발언 — 기준선 대비(자동 분류)" }),
     ok ? el("span", { class: "rm-count", title: "보류 = 내보내지 않은 발언(화자 확인 대기 · 사람이 내린 것). 노트북에서 평일 저녁에 다시 확인하고, 내용이 같으면 날짜는 그대로입니다.",
-      text: `내용 바뀐 날 ${remarks.asof} · ${remarks.list.length}건 · 보류 ${remarks.held}` }) : null);
+      text: `내용 바뀐 날 ${remarks.asof} · ${remarks.list.length}건 · 보류 ${remarks.held}`
+        + (Date.parse(todayKST()) - Date.parse(remarks.asof) > 14 * 864e5 ? " · 14일 넘게 새 발언 없음" : "") }) : null);
   const body = remarks.state === "wait" ? rmNone("자동 발언 기록을 읽는 중…") : !list.length ? rmNone("자동 발언 기록 없음")
     : el("ol", { class: "rm-rows" }, ...list.map(r => el("li", { class: "rm-row" }, el("time", { text: r.said_on }), rmWho(byKey[r.who]),
       el("span", { class: "rm-venue", text: r.venue }), rmHearsay(r), vsChip(r.vs_base), r.topic ? el("span", { class: "rm-topic", text: r.topic }) : null,

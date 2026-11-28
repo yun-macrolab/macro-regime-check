@@ -110,12 +110,15 @@ class ShellTest(unittest.TestCase):
         self.assertIn('DATA.review !== "approved"', read("people.js"))
 
     def test_only_fonts_are_loaded_from_outside(self):
-        # 싣는 것(link href · src · css url( · @import)은 같은 폴더의 파일 · 페이지 안 조각(#) · 글꼴 두 곳뿐
+        # 싣는 것(link href · src · css url( · @import)은 같은 폴더의 파일 · 페이지 안 조각(#) · 글꼴 두 곳 · 빈 아이콘(data:,)뿐
         css = re.sub(r"/\*.*?\*/", "", read("people.css"), flags=re.S)
         self.assertNotIn("@import", css)
         for target in re.findall(r"url\(\s*['\"]?([^'\")\s]*)", css):
             self.assertTrue(target.startswith("#"), target)
-        loads = re.findall(r'<link\b[^>]*\bhref="([^"]*)"', self.page) + re.findall(r'\bsrc="([^"]*)"', self.page)
+        icon = '<link rel="icon" href="data:,">'                      # /favicon.ico를 찾지 않게 하는 빈 아이콘 — 요청 0회
+        self.assertEqual(self.page.count(icon), 1)
+        page = self.page.replace(icon, "")
+        loads = re.findall(r'<link\b[^>]*\bhref="([^"]*)"', page) + re.findall(r'\bsrc="([^"]*)"', page)
         for u in loads:
             host = re.match(r"(?:https:)?//([^/]+)", u)
             ok = (host and host.group(1) in ("fonts.googleapis.com", "fonts.gstatic.com")) or re.fullmatch(r"[\w.-]+", u)
@@ -125,6 +128,8 @@ class ShellTest(unittest.TestCase):
         for part in ("default-src 'none'", "script-src 'self'", "font-src https://fonts.gstatic.com", "connect-src 'self'",
                      "object-src 'none'", "base-uri 'none'", "trusted-types 'none'", "require-trusted-types-for 'script'"):
             self.assertIn(part, csp.group(1))
+        # 그림은 같은 출처와 data:(빈 아이콘 — 없으면 CSP가 그 아이콘을 막는다)뿐
+        self.assertEqual(re.findall(r"img-src ([^;]+)", csp.group(1)), ["'self' data:"])
         # 읽기(fetch)는 같은 출처의 자동 분류 발언 파일 하나뿐 — connect-src에 바깥 주소가 없다(2026-11-04 'none' → 'self')
         self.assertEqual(re.findall(r"connect-src ([^;]+)", csp.group(1)), ["'self'"])
 

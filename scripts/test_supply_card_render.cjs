@@ -319,7 +319,8 @@ test('an unknown country shows its English name; data text never becomes markup'
 
 test('supply only: the monthly part is one "자료 없음", the weekly part draws as before',()=>{
  const bad=[null,undefined,'x',[1],{},tic({month:'2026-9'}),tic({month:'2026-13'}),tic({notices:[]}),tic({notices:['',7]}),
-  tic({totals:null}),tic({totals:{grand:{level_bn:'9241'}}}),tic({month:null})];
+  tic({totals:null}),tic({totals:{grand:{level_bn:'9241'}}}),tic({month:null}),
+  tic({schema:2}),tic({schema:'1'}),tic({schema:undefined})];                    // schema 2인 자료는 그리지 않는다
  for(const t of bad){
   const {api,slot,calls}=load();
   assert.equal(api.render(supply(),t),true,JSON.stringify(t)?.slice(0,60));
@@ -333,7 +334,7 @@ test('supply only: the monthly part is one "자료 없음", the weekly part draw
 
 test('tic only: the weekly part is one "자료 없음", the monthly part draws in full without the custody pair',()=>{
  const broken={schema:1,dealer:{...side('dealer'),notices:[]},custody:{...side('custody'),date:'x'}};
- for(const s of [null,undefined,'x',7,{},broken]){
+ for(const s of [null,undefined,'x',7,{},broken,{...supply(),schema:2},{...supply(),schema:'1'}]){   // schema 2인 자료는 그리지 않는다
   const {api,slot,calls}=load();
   assert.equal(api.render(s,tic()),true,String(s));
   const w=part(slot.kids[0],0);
@@ -347,7 +348,8 @@ test('tic only: the weekly part is one "자료 없음", the monthly part draws i
 
 test('both unusable: false and the slot stays empty; no slot is false too',()=>{
  const broken={dealer:{...side('dealer'),notices:[]},custody:{...side('custody'),line:''}};
- for(const [s,t] of [[null,null],[undefined,undefined],[{},{}],[broken,tic({notices:[]})],['x',tic({month:'2026-09-01'})]]){
+ for(const [s,t] of [[null,null],[undefined,undefined],[{},{}],[broken,tic({notices:[]})],['x',tic({month:'2026-09-01'})],
+  [{...supply(),schema:2},tic({schema:2})]]){                                      // schema 2인 자료는 그리지 않는다
   const {api,slot,calls}=load();
   assert.equal(api.render(s,t),false);
   assert.equal(slot.kids.length,0);

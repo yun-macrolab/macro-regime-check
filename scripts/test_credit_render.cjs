@@ -125,6 +125,7 @@ test('the definition sits right after the stage row and stays when the stage row
 test('a missing file draws nothing',()=>{
  const {api,ids}=load();
  for(const d of [null,undefined,{},{items:null},'x'])assert.equal(api.render(d,secFile()),false);
+ for(const schema of [2,'1',undefined])assert.equal(api.render({...data(),schema},secFile()),false);   // schema 2인 자료는 그리지 않는다
  assert.equal(ids['credit-slot'].kids.length,0);
 });
 
@@ -165,6 +166,11 @@ test('the SEC row prefers sec.json and falls back to the copy in credit.json',()
   t=load();t.api.render(data(),s);
   sec=secRow(t.ids['credit-slot']);
   assert.ok(sec.textContent.includes('credit 쪽 SEC 줄'),JSON.stringify(s));
+ }
+ for(const schema of [2,'1',undefined]){                                                 // schema 2인 sec.json은 쓰지 않는다 — 없을 때와 같다
+  t=load();assert.equal(t.api.render(data(),{...secFile(),schema}),true);
+  assert.ok(secRow(t.ids['credit-slot']).textContent.includes('credit 쪽 SEC 줄'));
+  assert.equal(rowsOf(t.ids['credit-slot']).length,8);                                  // 흐름·잔액 줄도 두지 않는다
  }
 });
 

@@ -633,7 +633,8 @@ def validate_digest(d, sources=None):
         if URL_RE.match(x["url"]).group("ch") != x["ch"] or (roles is not None and (roles.get(x["ch"]) or ("", ""))[1] != "context"):
             _fail(f"digest.context[{i}]", "주소의 채널이 ch와 다르거나 참고 채널이 아님")
     gloss = d.get("gloss", [])
-    if gloss != R.glosses(x["term"] for x in gloss) or not {x["term"] for x in gloss} <= shown_terms(d):
+    now = [{**x, "text": R.GLOSS[x["term"]][0]} if x["text"] == R.LEGACY_GLOSS.get(x["term"]) else x for x in gloss]    # 지난 판의 옛 풀이
+    if now != R.glosses(x["term"] for x in gloss) or not {x["term"] for x in gloss} <= shown_terms(d):
         _fail("digest.gloss", "풀이가 그 낱말의 것이 아니거나 겹치거나 사전에 실린 순서가 아니거나 이 판에 나오지 않은 낱말의 것임")
     if len(dump(d).encode("utf-8")) > TH["bytes_max"]:
         _fail("digest", "판이 크기 상한을 넘음")

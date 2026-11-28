@@ -10,7 +10,8 @@
      원문 링크  https://t.me/<채널>/<글 번호> 꼴이고, 주소의 채널이 그 줄의 채널과 같고, sources.json 목록에 있는 채널일 때만
      출처 라벨  sources.json(사람이 쓰는 파일)의 라벨, 이상하면 채널 이름
      낱말 풀이  문장이 들어갈 수 있는 유일한 칸이라 꼴이 아니라 지문으로 거른다 — (낱말 · 풀이)의 지문이 RULES.gloss_marks에 있을 때만
-               (digest_gloss.py에 우리가 쓴 풀이의 지문이다. 풀이를 고치면 지문도 고친다 — test_evening_site_more.py가 견준다)
+               (digest_gloss.py에 우리가 쓴 풀이의 지문이다. 풀이를 고치면 지문도 고친다 — test_evening_site_more.py가 견준다.
+               지난 판에 실린 옛 풀이는 legacy_gloss_marks — digest_gloss.py의 LEGACY_GLOSS)
      공식 자료  https이고 도메인이 RULES.official_domains(공공 기관)에 들거나 그 하위일 때만 링크로(FRED · FRASER는 '시계열' · '문서 모음')
      길이 구간  RULES.sizes에 있는 이름일 때만
      AI 요약    닫힌 값이 아닌 하나뿐인 칸 — data/digest_picks.json의 문장(AI가 채권·애널 원천 채널의 글을 읽고 쓴 것, 2026-10-09). 최신 판 화면이고
@@ -55,13 +56,14 @@ window.Evening = (() => {
     "gloss_marks": [
       "02335a85024d516002fbe06d04f43f11074e541c08505a380b031b180d88bf0b0f4cf94e1127cdcb1392068414089ce91929b0d21ae5052f1c5233101ddbf5811de0fe4a",
       "1e5796951f2c5d501f840f0322f6b78023d330f9240b83fe245ec54724b90918253ab802274b3b95301ac5013488a569351fce7a35ec3ad33663b709368fbbd3374a1304",
-      "381cab413bc1954b3c23f4023cb776053cce6c833e5c3b083fd8808a3ff2f3424230f2674514818b47ad64cf47d55de3481337c4495ec4f45202987c52e86a6d534f1a5a",
-      "5499baa055722ce6558ad6c5560359075a002be25ab0a95b5f0ec8f76358e8e2643dc5916637d34a68219ef3683985956a0758406adb68316f4188006f9e9b5670920c2c",
-      "7139adf8730405f973c192bd74c2b60d74f6f1db7cad19e07db717487e6bf27e7ef4c94e805abfd282ed9b7386bd530587cc476a8ccaf2a08d0ce41291e4eb0d940147a2",
-      "9473c7659902759d9d8347349ee3ed3f9eeb80aba28abb19a680cf11a95261f2a96456c6ac9493e9ad236461ade4c51cae09fa3baf0b80c0b1ea320fb2627821b3652f83",
+      "381cab4139e510033bc1954b3c23f4023cb776053cce6c833e5c3b083fd8808a3ff2f3424230f2674514818b47ad64cf47d55de3481337c4495ec4f45202987c52e86a6d",
+      "534f1a5a5499baa055722ce6558ad6c5560359075a002be25ab0a95b5f0ec8f76358e8e2643dc5916637d34a68219ef3683985956a0758406adb68316f4188006f9e9b56",
+      "70920c2c7139adf8730405f973c192bd74c2b60d74f6f1db7cad19e07db717487e6bf27e7ef4c94e805abfd282ed9b7386bd530587cc476a8ccaf2a08d0ce41291e4eb0d",
+      "940147a29473c7659902759d9d8347349ee3ed3f9eeb80aba28abb19a95261f2a96456c6ac9493e9ad236461ade4c51cae09fa3baf0b80c0b1ea320fb2627821b3652f83",
       "b9271cd1b9e0124abeb7fae4bec66283c2d32f89c509a4f5c989b734ca01b103cc39f081cc45350dcf6a13badec502c9e02356c3e4cd2ad1e56d9913e7f58c76eac67dfc",
       "ebc0feb9ecb0482aed01c1b9ef2a6ccbf03120dcf0a5aad3f0e9aab7f2d0e2eff44f86aaf599196bf5e63cb4f6a4245cf70a2f3ef8446983f917165cf9eb7baefacdb875",
       "fed0e4afff0335f3ffb8c9cb"],
+    "legacy_gloss_marks": ["a680cf11"],
     "term_marks": [
       "00a5d847019bec5001e257a702496fb0037c155c03d704bd0586a1930808efde08eb63cf08f2bb8c098195230a2b42650a7c20610b284c610bbdd76d0c658bb70d53308e",
       "0e92660210f52ee7117dc855135f365a148c686f1491977d1515962f15bd1f4716224b55178fa32017a6b26c1b6bee7a1c1914f61db817821dd5526b1e42bf64201a83ad",
@@ -125,7 +127,7 @@ window.Evening = (() => {
   const FACT_RE = new RegExp(`^[가-힣A-Za-z0-9 .,·%()~/+:&-]{${RULES.fact_min_chars},${RULES.fact_chars}}$`);
   const LINKISH = /https?:|www\.|[A-Za-z0-9-]+\.[A-Za-z]{2,}/i;
   const marks = rows => new Set(rows.join("").match(/.{8}/g));              // 지문 8자씩 이어 붙여 둔 것 → 집합
-  const MARKS = marks(RULES.gloss_marks), TERMS = marks(RULES.term_marks);
+  const MARKS = marks([...RULES.gloss_marks, ...RULES.legacy_gloss_marks]), TERMS = marks(RULES.term_marks);
   const PHRASE_RES = Object.entries(P).map(([code, text]) =>
     [code, new RegExp("^" + text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("\\{n\\}", "[1-9]\\d{0,2}") + "$")]);
 

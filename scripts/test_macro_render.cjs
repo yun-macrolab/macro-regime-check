@@ -128,6 +128,7 @@ test('missing slots or a missing file leave the page alone',()=>{
  assert.equal(load().api.render({items:[]}),false);
  const empty=load();
  assert.equal(empty.api.render({items:{}}),false);
+ for(const schema of [2,'1',undefined])assert.equal(empty.api.render({...data(),schema}),false);   // schema 2인 자료는 그리지 않는다
  for(const s of SLOTS)assert.equal(empty.ids[s].kids.length,0);
 });
 

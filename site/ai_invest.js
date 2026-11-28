@@ -82,7 +82,7 @@ window.AiInvest = (() => {
 
   // 자료 파일 전체 → 화면 두 곳(첫 화면 요약 · 'AI 투자' 화면). 그린 칸이 하나도 없으면 false
   function render(d) {
-    if (!isObj(d) || !isObj(d.items)) return false;
+    if (!isObj(d) || d.schema !== 1 || !isObj(d.items)) return false;
     const items = d.items;
     if (!TEASER.some(k => usable(items[k], k))) return false;
     document.getElementById("ai-head").textContent = ABOUT;

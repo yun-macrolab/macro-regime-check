@@ -171,11 +171,12 @@ window.CreditCard = (() => {
       citeLines(items));
   }
 
-  // credit.json(d)과 sec.json(sec) → 카드 하나. 그린 칸이 하나도 없으면 카드를 두지 않고 false
+  // credit.json(d)과 sec.json(sec) → 카드 하나. 그린 칸이 하나도 없으면 카드를 두지 않고 false.
+  // schema가 1이 아닌 파일은 쓰지 않는다 — sec.json만 그러면 sec.json이 없을 때와 같다
   function render(d, sec) {
-    if (!isObj(d) || !isObj(d.items)) return false;
+    if (!isObj(d) || d.schema !== 1 || !isObj(d.items)) return false;
     const items = Object.assign({}, d.items);
-    const secItems = isObj(sec) && isObj(sec.items) ? sec.items : {};
+    const secItems = isObj(sec) && sec.schema === 1 && isObj(sec.items) ? sec.items : {};
     const f = secItems.funding;
     if (usable(f, "funding")) items.sec = Object.assign({}, f, { key: "sec" });
     for (const k of SEC_ROWS) {      // 조달 흐름·잔액은 sec.json에서만 — 그 칸이 없으면 줄을 두지 않는다

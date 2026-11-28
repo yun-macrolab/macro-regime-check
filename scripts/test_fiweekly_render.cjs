@@ -75,6 +75,9 @@ test('the KIS table shows the ten cells as written with signed weekly changes',(
  assert.deepEqual(credit,[['AA-','65.0bp전주 -0.7bp'],['A-','175.0bp전주 +1.2bp']]);
  assert.ok(slot.textContent.includes('평가사 산출값 — KIS자산평가 KIS WEEKLY 제1212호, 2026-11-13 기준. 전주 대비는 2026-11-06(크레딧 2026-11-06)과의 차'));
  assert.deepEqual(Array.from(api.ROWS,r=>r[0]),Object.keys(ROWS));            // 다른 realm의 배열은 Array.from으로
+ const zero=clone(KIS); zero.numbers.rows.ss_1y=[-0.001,-0.004];             // 반올림해 0이면 값과 전주 변화에 부호가 없다
+ api.render(doc(zero),NOW);
+ assert.equal(walk(slot,n=>n.tag==='tr')[3].kids[1].textContent,'0.0bp전주 0.0bp');
 });
 
 test('missing summary or numbers say why, and stale issues are marked',()=>{

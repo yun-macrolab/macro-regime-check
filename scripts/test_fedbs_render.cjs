@@ -162,6 +162,7 @@ test('the guide carries the definitions, policy facts and the measurement record
 test('a missing file draws nothing',()=>{
  const {api,ids}=load();
  for(const d of [null,undefined,{},{items:null},{items:[]},'x'])assert.equal(api.render(d),false);
+ for(const schema of [2,'1',undefined])assert.equal(api.render({...data(),schema}),false);   // schema 2인 자료는 그리지 않는다
  assert.equal(ids['fedbs-slot'].kids.length,0);
 });
 

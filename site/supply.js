@@ -315,7 +315,10 @@ window.SupplyCard = (() => {
   }
   // 두 자료 파일을 #supply-slot에. 한쪽만 쓸 수 있으면 다른 쪽은 '자료 없음', 둘 다 없으면 카드를 두지 않고 false.
   // 한 부분을 그리다 깨지면 그 부분만 '자료 없음'(다른 부분은 그대로)
+  // schema가 1이 아닌 파일은 없는 것과 같다 — 그쪽만 '자료 없음', 두 파일 모두 그러면 카드를 두지 않는다
   function render(supply, tic) {
+    if (!isObj(supply) || supply.schema !== 1) supply = null;
+    if (!isObj(tic) || tic.schema !== 1) tic = null;
     const slot = document.getElementById("supply-slot");
     if (!slot) return false;
     const w = weeklyOk(supply), m = ticOk(tic);

@@ -135,6 +135,15 @@ class GlossaryTest(unittest.TestCase):
 
     def test_the_file_passes_every_check(self):
         self.assertEqual(problems(self.text, self.index), [])
+        # 항목으로 내려갈 때는 html의 scroll-padding-top 하나만 — dt에 scroll-margin-top을 겹치면 휴대폰에서 한참 아래에 선다
+        css = read(os.path.join(REPO, "site", "dashboard.css"))
+        rules = [r for r in re.findall(r"([^{}]+)\{([^{}]*)\}", css) if "glossary" in r[0]]
+        self.assertTrue(rules)
+        self.assertEqual([sel.strip() for sel, body in rules if "scroll-margin" in body], [])
+        # 첫 화면 안내에서 사전으로 가는 링크 하나(국면 버튼과 같은 줄)
+        self.assertIn('<button type="button" id="intro-regime">국면 참고 설명 보기</button>'
+                      '<a class="intro-gloss" href="#glossary">용어 사전 보기</a>', self.index)
+        self.assertIn("&& q.length >= 2) {", self.index)
 
     def test_every_line_is_read(self):
         rows, bad = entries(self.text)

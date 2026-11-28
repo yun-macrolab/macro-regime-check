@@ -171,6 +171,7 @@ test('guide explains the definitions',()=>{
 test('a missing file or slot draws nothing',()=>{
  const {api,ids}=load();
  for(const d of [null,undefined,{},{items:null},{items:[]},'x'])assert.equal(api.render(d),false);
+ for(const schema of [2,'1',undefined])assert.equal(api.render({...data(),schema}),false);   // schema 2인 자료는 그리지 않는다
  assert.equal(ids['tp-slot'].kids.length,0);
  const t=load({noSlot:true});assert.equal(t.api.render(data()),false);
 });

@@ -43,7 +43,7 @@ _MODS = "https://mods.go.kr/index.es?sid=a1"
 # 낱말 → (풀이, 공식 주소 또는 None)
 GLOSS = {
     # --- 통화정책 / 글로벌
-    "FOMC": ("연준의 금리 결정 회의. 한 해 8번 열리고 결정문과 의장 회견이 나온다", _FRED + "DFEDTARU"),
+    "FOMC": ("연준의 금리 결정 회의. 보통 한 해 여덟 번 안팎 열리고 결정문과 의장 회견이 나온다", _FRED + "DFEDTARU"),
     "연준 의사록": ("FOMC 의사록. 회의 3주 뒤에 나오는 논의 기록으로 위원들의 견해 분포를 본다",
               _FRASER + "federal-open-market-committee-meeting-minutes-transcripts-documents-677"),
     "연준 발언": ("연준 의장·이사·지역 연은 총재의 공개 발언. 회의 전 묵언 기간에는 삼간다", None),
@@ -192,3 +192,7 @@ GLOSS = {
     "공매도": ("주식을 빌려서 판 뒤 나중에 사서 갚는 거래", None),
 }
 BLANK = ()                  # A·B급인데 확신이 없어 풀이를 비워 둔 낱말(지금은 없다)
+# 지난 판에 실려 있어 아직 받아야 하는 옛 풀이 {낱말: 풀이} — 새 판에는 쓰지 않는다(gloss_of는 GLOSS만 본다). FOMC는 2026-11-28까지
+# '한 해 8번'이었다(2027년은 결정 회의 7번 + 정책 전략 회의 1번). 옛 풀이가 실린 판이 목차에서 모두 빠지면(keep_days, 2027-01 중순께면
+# 넉넉하다) evening.js의 legacy_gloss_marks와 함께 지운다
+LEGACY_GLOSS = {"FOMC": "연준의 금리 결정 회의. 한 해 8번 열리고 결정문과 의장 회견이 나온다"}

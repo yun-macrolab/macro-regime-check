@@ -593,7 +593,8 @@ def narrow(terms, among=()):
 
 SIZES = ("짧음", "보통", "김")             # 글 길이 구간: size_short자 미만 · 그 사이 · size_long자 이상(norm_text로 센 글자 수)
 GLOSS, OFFICIAL_DOMAINS = _gloss.GLOSS, _gloss.OFFICIAL_DOMAINS      # 낱말 → (우리가 쓴 한 줄 풀이, 공식 주소 또는 None)
-GLOSS_TEXTS = frozenset(text for text, _ in GLOSS.values())
+LEGACY_GLOSS = _gloss.LEGACY_GLOSS                  # 지난 판의 옛 풀이 — 검사는 받고, 새 판에는 쓰지 않는다
+GLOSS_TEXTS = frozenset(text for text, _ in GLOSS.values()) | frozenset(LEGACY_GLOSS.values())
 OFFICIAL_URLS = frozenset(url for _, url in GLOSS.values() if url)
 
 

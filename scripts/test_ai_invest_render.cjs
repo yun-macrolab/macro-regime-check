@@ -169,6 +169,8 @@ test('nothing is drawn without a usable teaser item or a file',()=>{
  for(const d0 of [null,undefined,{},{items:null},'x']){const {api,ids}=load();assert.equal(api.render(d0),false);assert.equal(ids['ai-body'].kids.length,0);}
  const {api,ids}=load();const d=data();for(const k of api.TEASER)d.items[k].notices=[];
  assert.equal(api.render(d),false);assert.equal(ids['ai-body'].kids.length,0);
+ for(const schema of [2,'1',undefined])assert.equal(api.render({...data(),schema}),false);   // schema 2인 자료는 그리지 않는다
+ assert.equal(ids['ai-body'].kids.length+ids['ai-head'].kids.length+ids['ai-teaser-values'].kids.length,0);
 });
 
 const UNL=(fs.readFileSync(path.join(__dirname,'ai_invest_fetch.py'),'utf8').match(/^UNLABELED = "([^"]+)"/m)||[])[1];

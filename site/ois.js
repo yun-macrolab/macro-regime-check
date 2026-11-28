@@ -122,7 +122,7 @@ window.OisCard = (() => {
 
   // 자료 파일 전체 → 카드. 그릴 칸이 하나도 없거나 자리가 없으면 카드를 두지 않고 false
   function render(d) {
-    if (!isObj(d) || !isObj(d.items)) return false;
+    if (!isObj(d) || d.schema !== 1 || !isObj(d.items)) return false;
     const slot = document.getElementById("ois-slot");
     if (!slot || !CARD.some(k => usable(d.items[k], k))) return false;
     slot.replaceChildren(card(d));

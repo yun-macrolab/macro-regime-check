@@ -153,6 +153,12 @@ test('page strip shows the latest ten with the fixed label, newest first', async
   assert.deepEqual(rows.slice(0, 2).map(r => byClass(r, 'rm-who')[0].textContent), [name('cook'), name('warsh')]);   // 같은 날은 사람 순
   assert.match(rows[0].textContent, /투표.*▲ 평소보다 매파.*10월 결정/);
   assert.match(rows[1].textContent, /“rates find the cracks”/);
+  // 내용 바뀐 날이 오늘(브라우저 시계의 KST 날짜)보다 14일 넘게 지났을 때만 띠의 셈 끝에 덧붙인다
+  for (const [now, more] of [['2026-11-18T23:59:00+09:00', ''], ['2026-11-19T00:00:00+09:00', ' · 14일 넘게 새 발언 없음']]) {
+    const at = boot(file(MANY), '', null, Date.parse(now));
+    await settle();
+    assert.equal(byClass(at.strip(), 'rm-count')[0].textContent, '내용 바뀐 날 2026-11-04 · 14건 · 보류 2' + more, now);
+  }
 });
 
 test('a name in the strip opens that person file', async () => {

@@ -505,6 +505,13 @@ test('the command line goes to the ledger on its exact words only',()=>{
  for(const q of ['기록','장부','기록 장부','평가 약속','연표','판단 연표','ledger','LEDGER',' 기록 ']){sc.location.hash='';assert.equal(go(q),true,q);assert.equal(sc.location.hash,'ledger',q);}
  for(const q of ['led','기','기록 보기','장']){sc.location.hash='x';go(q);assert.notEqual(sc.location.hash,'ledger',q);}
  sc.location.hash='';go('a');assert.equal(sc.location.hash,'all');                              // 'ai'와 같이 앞부분 검색에 끼지 않는다
+ // 용어 사전 찾기는 두 글자 이상일 때만 — 한 글자는 사전으로 가지 않는다(화면 이름 찾기는 그대로)
+ const asked=[],gs={location:{hash:''},window:{Glossary:{find:q=>{asked.push(q);return ['tga'];}}}};
+ const go2=vm.runInNewContext(PAGE.slice(i,j)+'\ngo',gs);
+ gs.location.hash='x';assert.equal(go2('기'),false);assert.equal(gs.location.hash,'x');
+ for(const q of ['용','g']){gs.location.hash='x';assert.equal(go2(q),true,q);assert.equal(gs.location.hash,'glossary',q);}  // 화면 낱말 '용어'·'glossary'의 앞부분
+ gs.location.hash='x';assert.equal(go2('tg'),true);assert.equal(gs.location.hash,'glossary');
+ assert.deepEqual(asked,['tg']);                                                                  // 한 글자로는 Glossary.find를 부르지 않는다
  assert.ok(PAGE.includes('<a href="#ledger" data-view="ledger">기록 장부<span>평가 약속 · 연표</span></a>'));
 });
 

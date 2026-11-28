@@ -65,6 +65,22 @@ window.LiquidityCard = (() => {
     const since = typeof it.failed_since === "string" && DAY.test(it.failed_since) ? ` (${it.failed_since}부터)` : "";
     return el("p", { class: "oil-late" }, "이번 갱신의 값을 싣지 못해 직전에 받은 값을 싣습니다" + since);
   }
+  // 규칙 하한 대비 칸의 달러 차는 연준 재무상태표 카드(#fedbs-slot)도 싣는 같은 값이다. 그쪽은 소수 첫째 자리, 이 자료 파일의 숫자 줄은
+  // 정수라 '+5bn'과 '+4.6bn'으로 달라 보였다(2026-11-28 점검) — 화면에서 줄 끝의 '≈ …bn'만 values.gap_bn으로 첫째 자리까지 다시 적는다.
+  // 줄 끝의 꼴이 다르거나 그 정수가 values.gap_bn의 반올림이 아니면 자료의 줄 그대로 둔다
+  const GAP = /≈ ([+-]?\d{1,3}(?:,\d{3})*)bn$/;
+  function bn1(v) {                  // 파이썬 f"{v:+,.1f}"와 같게(딱 절반인 x.25는 짝수 쪽으로), 0.0이면 부호 없이
+    let a = Math.abs(v);
+    if ((a * 4) % 4 === 1) a -= 0.05;
+    const s = a.toFixed(1);
+    return (Number(s) === 0 ? "" : v < 0 ? "-" : "+") + s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+  function numberLine(it, key) {
+    const v = key === "rule" && isObj(it.values) ? it.values.gap_bn : null;
+    const m = Number.isFinite(v) ? GAP.exec(it.line) : null;
+    if (!m || Math.abs(Number(m[1].replace(/,/g, "")) - v) > 0.5) return it.line;
+    return `${it.line.slice(0, m.index)}≈ ${bn1(v)}bn`;
+  }
   function row(it, key) {
     if (it === undefined && OPTIONAL.includes(key)) return null;          // 그 칸이 없던 때의 자료 파일
     const name = isObj(it) && typeof it.name === "string" && it.name ? it.name : key;
@@ -72,7 +88,7 @@ window.LiquidityCard = (() => {
       return el("div", { class: "oil-row liq-row" }, el("p", { class: "oil-name" }, el("strong", {}, name), " — ", missing(it)));
     return el("div", { class: "oil-row liq-row" },
       el("p", { class: "oil-name" }, el("strong", {}, name), " ", el("small", {}, it.date)),
-      el("p", { class: "oil-num" }, it.line),
+      el("p", { class: "oil-num" }, numberLine(it, key)),
       ...texts(it.extra).map(t => el("p", { class: "muted" }, t)),
       stale(it));
   }
@@ -131,7 +147,7 @@ window.LiquidityCard = (() => {
 
   // 자료 파일 전체 → 카드. 그린 칸이 하나도 없으면 카드를 두지 않고 false
   function render(d) {
-    if (!isObj(d) || !isObj(d.items)) return false;
+    if (!isObj(d) || d.schema !== 1 || !isObj(d.items)) return false;
     const slot = document.getElementById("liquidity-slot");
     if (!slot || !CARD.some(k => usable(d.items[k], k))) return false;
     slot.replaceChildren(card(d));

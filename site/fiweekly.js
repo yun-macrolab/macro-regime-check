@@ -76,14 +76,15 @@ window.FiWeekly = (() => {
     if (r.src === "kis" && r.numbers !== null && !usableNumbers(r.numbers, r.date)) return false;
     return true;
   }
+  const nonZero = s => /[1-9]/.test(s);       // 반올림한 글이 0('0.0' · '0.00')이면 부호를 붙이지 않는다
   function signed(v, digits) {
     const s = Math.abs(v).toLocaleString("ko-KR", { minimumFractionDigits: 1, maximumFractionDigits: digits });
-    return (v > 0 ? "+" : v < 0 ? "-" : "") + s;
+    return (!nonZero(s) ? "" : v > 0 ? "+" : "-") + s;
   }
   function value(v, unit) {
     const s = Math.abs(v).toLocaleString("ko-KR", unit === "%" ? { minimumFractionDigits: 2, maximumFractionDigits: 4 }
       : { minimumFractionDigits: 1, maximumFractionDigits: 2 });
-    return (v < 0 ? "-" : "") + s + unit;
+    return (v < 0 && nonZero(s) ? "-" : "") + s + unit;
   }
   function cell(rows, key) {
     const [v, d] = rows[key], unit = ROWS.find(r => r[0] === key)[1];

@@ -1,5 +1,6 @@
 // 유가·에너지 참고(site/oil.js) — 아주 작은 가짜 DOM 위에서 render()를 돌려 글을 본다. 숫자는 지어낸 것이다.
-// 맨 끝 하나는 index.html applyView의 묶음 숨김 — 이 카드와 다른 참고 카드 자리가 '규칙 상태' 거르기에 휩쓸리지 않는지.
+// 맨 끝 둘은 index.html을 잘라 돌린다 — applyView의 묶음 숨김(이 카드와 다른 참고 카드 자리가 '규칙 상태' 거르기에 휩쓸리지 않는지)과,
+// public.json이 없거나 깨진 날에도 참고 카드 자리가 생기고 카드가 그려지는지.
 // 실행: node --test scripts/test_oil_render.cjs
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
@@ -120,7 +121,9 @@ test('guide explains the added lines',()=>{
 test('a missing file draws nothing',()=>{
  const {api,ids}=load();
  for(const d of [null,undefined,{},{items:null},'x'])assert.equal(api.render(d),false);
+ for(const schema of [2,'1',undefined])assert.equal(api.render({...data(),schema}),false);   // schema 2인 자료는 그리지 않는다 — 한국 줄도
  assert.equal(ids['oil-slot'].kids.length,0);
+ assert.equal(ids['korea-oil'].kids.length,0);
  assert.equal(ids['korea-oil'].hidden,true);
 });
 
@@ -307,4 +310,74 @@ test('reference slots stay on their topic screen whatever the rule-status filter
  assert.deepEqual(seen('rates','met',[]),{rates:'-',inflation:'-',liquidity:'-',other:'-'});         // 빈 자리(자료 없음)는 묶음을 붙잡지 않는다
  assert.deepEqual(seen('ai','all'),{rates:'-',inflation:'-',liquidity:'-',other:'-'});              // 다른 화면에서는 늘 숨는다
  assert.deepEqual(seen('rates','all'),{rates:'rules',inflation:'-',liquidity:'-',other:'-'});
+});
+
+test('reference cards still draw when public.json fails or is broken (index.html refSlots · renderRefOnly)',async()=>{
+ // 참고 카드 자리는 전엔 renderPublic 안에서만 생겨, public.json이 실패하면 자기 자료가 있는 카드까지 사라졌다. 화면의 GROUPS ·
+ // 자리 도우미 · renderPublic · 자료를 받은 뒤의 그리기 줄 · applyView의 묶음 숨김을 잘라, 가짜 DOM 위에서 진짜 카드 스크립트와 돌린다
+ const page=fs.readFileSync(path.join(__dirname,'../site/index.html'),'utf8');
+ const cut=(start,end)=>{const i=page.indexOf(start),j=page.indexOf(end,i);assert.ok(i>=0&&j>i,'index.html에서 '+start+' … '+end+'를 찾지 못함');return page.slice(i,j);};
+ const groups=cut('const GROUPS = [','\nconst LEARN = {');
+ const draws=cut('function notReceived(h)','\ntick();\napplyView();');
+ const isObj=cut('  const isObj = x =>','\n  const lamp');
+ const body=cut('  drawn = false;\n  try { if (isObj(pub)','  try { if (isObj(cr) && window.CreditCard)');
+ const hide=cut('  let shown = 0;\n','  document.getElementById("rule-count")');
+ class Node extends El{
+  get childElementCount(){return this.kids.filter(k=>k instanceof El).length;}
+  get dataset(){return {group:this.attrs['data-group']};}
+  querySelectorAll(sel){return cls(this,sel.slice(1));}
+  querySelector(sel){return this.querySelectorAll(sel)[0]||null;}
+ }
+ const ok=value=>({status:'fulfilled',value}),no={status:'rejected'};
+ const refData=(keys)=>({schema:1,items:Object.fromEntries(keys.map(k=>[k,item(k)]))});
+ const SLOTS={rates:['tp-slot','ois-slot','supply-slot'],inflation:['oil-slot','expinf-slot'],credit:['growth-slot','fincond-slot'],
+  liquidity:['dollar-slot','liquidity-slot','fedbs-slot']};
+ const LINE='규칙 판정 자료를 받지 못했습니다 — 참고 카드는 따로 받습니다.';
+ async function boot(pub){
+  const fixed=Object.fromEntries(['rules','korea-oil','notice','health-summary','health','warnings','attribution'].map(id=>[id,new Node('div')]));
+  const rules=fixed.rules,banners=[];
+  const document={getElementById:id=>fixed[id]||walk(rules,n=>n.attrs.id===id)[0]||null,
+   querySelectorAll:sel=>sel.startsWith('.')?cls(rules,sel.slice(1)):[]};
+  const el=(tag,attrs,...kids)=>{const n=new Node(tag);for(const [k,v] of Object.entries(attrs||{}))n.setAttribute(k,v);for(const c of kids)if(c!==null&&c!==undefined)n.append(c);return n;};
+  const sc=vm.createContext({window:{},document,el,link:(text)=>text,showBanner:t=>banners.push(t),tick:()=>{},supplyCardDone:()=>{}});
+  for(const f of ['oil.js','tp.js','liquidity.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../site',f),'utf8'),sc);
+  const run=vm.runInContext(groups+'\nlet publicData=null,publicOk=true;const available={};\n'+draws+
+   '\n(async function(pub,oil,tp,liq){const no={status:"rejected"},kt=no,ai=no,ois=no,sp=no,tic=no,fbs=no,charts=null,macroJob=Promise.resolve([no]);\n'+
+   isObj+'\nlet drawn;\n'+body+'\nreturn {publicData,publicOk};})',sc);
+  const state=await run(pub,ok(data()),ok(refData(['weekly','models'])),ok(refData(['reserves','rule','fiscal'])));
+  const show=(view,filter)=>{vm.runInContext('(function(activeView,ruleState){'+hide+'})',sc)(view,filter);
+   return cls(rules,'rule-group').filter(s=>!s.hidden).map(s=>s.attrs['data-group']);};
+  return {rules,state,banners,document,show};
+ }
+ // 못 받음 · 객체가 아닌 내용 · rules 배열이 없는 객체 · 규칙 묶음을 만들다 깨지는 꼴
+ for(const pub of [no,ok(null),ok('x'),ok({}),ok({rules:5}),ok({rules:[null]})]){
+  const w=await boot(pub),sections=cls(w.rules,'rule-group');
+  assert.deepEqual(sections.map(s=>s.attrs['data-group']),Object.keys(SLOTS));
+  for(const s of sections){
+   const g=s.attrs['data-group'];
+   assert.deepEqual(cls(s,'oil-slot').map(n=>n.attrs.id),SLOTS[g]);                       // 자리 차례는 평소와 같다
+   assert.deepEqual(cls(s,'empty-state').map(n=>n.textContent),[LINE]);
+   assert.equal(cls(s,'group-heading').length,1);
+   assert.equal(cls(s,'rule-grid').length,0);
+  }
+  for(const id of ['tp-slot','oil-slot','liquidity-slot'])assert.equal(w.document.getElementById(id).childElementCount,1,id);
+  assert.equal(w.state.publicData,null);                                                   // 규칙 수 줄·빈 규칙 안내가 틀린 말을 하지 않게
+  assert.equal(w.state.publicOk,false);
+  assert.equal(w.banners.length,1);
+  for(const filter of ['all','met'])assert.deepEqual(w.show('all',filter),['rates','inflation','liquidity'],filter);   // 카드가 없는 묶음은 숨는다
+  assert.deepEqual(w.show('liquidity','all'),['liquidity']);
+  assert.deepEqual(w.show('credit','all'),[]);
+ }
+ // 평소 — 같은 자리, 안내 줄 없음
+ const fine=await boot(ok({rules:[]}));
+ assert.deepEqual(cls(fine.rules,'oil-slot').map(n=>n.attrs.id),Object.values(SLOTS).flat());
+ assert.equal(cls(fine.rules,'empty-state').length,0);
+ assert.equal(fine.document.getElementById('tp-slot').childElementCount,1);
+ assert.equal(fine.banners.length,0);
+ // 규칙 묶음을 그린 뒤에 깨진 날은 그 묶음을 덮지 않는다
+ const late=await boot(ok({rules:[],warnings:5}));
+ assert.equal(late.banners.length,1);
+ assert.equal(cls(late.rules,'empty-state').length,0);
+ assert.equal(cls(late.rules,'rule-grid').length,5);
+ assert.equal(late.document.getElementById('liquidity-slot').childElementCount,1);
 });

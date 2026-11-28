@@ -16,6 +16,7 @@ import glob
 import os
 import sys
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -96,6 +97,20 @@ class MoreRulesTest(unittest.TestCase):
         self.assertEqual("".join(rules_block()["gloss_marks"]), "".join(gloss_marks()),
                          "\n풀이(digest_gloss.py)가 바뀌었다 — evening.js의 RULES에 아래를 붙여 넣는다:\n" + marks_block("gloss_marks", gloss_marks()))
         self.assertEqual(len(set(gloss_marks())), len(R.GLOSS))                # 지문이 겹치지 않는다
+        old = sorted(mark(term + "\n" + text) for term, text in R.LEGACY_GLOSS.items())
+        self.assertEqual("".join(rules_block()["legacy_gloss_marks"]), "".join(old))    # 지난 판의 옛 풀이도 화면이 그린다
+        self.assertFalse(set(old) & set(gloss_marks()))
+        for term, text in R.LEGACY_GLOSS.items():                              # 검사는 옛 풀이를 받되, 새 판에는 지금 풀이만 싣는다
+            self.assertIn(text, R.GLOSS_TEXTS)
+            self.assertNotEqual(R.gloss_of(term)["text"], text)
+        d, old = fx("digest"), "지어낸 옛 풀이"                            # 예시 판의 낱말에 옛 풀이가 있었다고 친다
+        first, second = d["gloss"][:2]
+        with mock.patch.dict(R.LEGACY_GLOSS, {first["term"]: old}), mock.patch.object(R, "GLOSS_TEXTS", R.GLOSS_TEXTS | {old}):
+            first["text"] = old
+            self.assertEqual(S.validate_digest(copy.deepcopy(d)), d)           # 옛 풀이가 실린 판도 제 낱말의 것이면 받는다
+            second["text"] = old
+            with self.assertRaisesRegex(ValueError, "digest.gloss"):           # 다른 낱말에 붙은 옛 풀이는 받지 않는다
+                S.validate_digest(d)
 
     def test_term_marks_are_those_of_the_dictionary(self):
         self.assertEqual("".join(rules_block()["term_marks"]), "".join(term_marks()),

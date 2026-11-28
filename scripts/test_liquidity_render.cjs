@@ -69,6 +69,15 @@ test('each row shows its date, number line and explanation lines',()=>{
  assert.ok(r.textContent.includes('rule 이름 2026-10-28'));
  assert.equal(cls(r,'oil-num')[0].textContent,'rule 숫자 줄 -12bn');
  assert.ok(r.textContent.includes('첫 줄')&&r.textContent.includes('둘째 줄'));
+ // 규칙 하한 대비 칸만 줄 끝의 달러 차를 연준 재무상태표 카드처럼 소수 첫째 자리로 다시 적는다(값은 values.gap_bn)
+ const shown=(line,gap_bn,key='rule')=>{const e=data();Object.assign(e.items[key],{line,values:{gap_bn}});api.render(e);
+  return cls(cls(ids['liquidity-slot'],'liq-row')[KEYS.indexOf(key)],'oil-num')[0].textContent;};
+ for(const [int,v,out] of [['+5',4.6123,'+4.6'],['-11',-11.3913,'-11.4'],['+1,234',1234.46,'+1,234.5'],['0',0.0312,'0.0'],
+   ['0',-0.04,'0.0'],['+4',4.25,'+4.2'],['-5',-4.75,'-4.8'],['+12',12,'+12.0']])
+  assert.equal(shown(`하한 대비 +0.01%p ≈ ${int}bn`,v),`하한 대비 +0.01%p ≈ ${out}bn`,String(v));
+ for(const [line,v] of [['대비 ≈ +5bn',undefined],['대비 ≈ +5bn','4.6'],['대비 ≈ +5bn',NaN],['대비 ≈ +5bn',11.4],['대비 ≈ +4.6bn',4.6],
+   ['대비 ≈ +5bn · 덧붙임',4.6]])assert.equal(shown(line,v),line,String(v));          // 꼴이나 값이 어긋나면 자료의 줄 그대로
+ assert.equal(shown('대비 ≈ +5bn',4.6,'fiscal'),'대비 ≈ +5bn');
 });
 
 test('the guide carries the fixed definitions and the measurement record',()=>{
@@ -86,6 +95,7 @@ test('the guide carries the fixed definitions and the measurement record',()=>{
 test('a missing file draws nothing',()=>{
  const {api,ids}=load();
  for(const d of [null,undefined,{},{items:null},{items:[]},'x'])assert.equal(api.render(d),false);
+ for(const schema of [2,'1',undefined])assert.equal(api.render({...data(),schema}),false);   // schema 2인 자료는 그리지 않는다
  assert.equal(ids['liquidity-slot'].kids.length,0);
 });
 
