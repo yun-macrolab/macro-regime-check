@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "date": "2026-11-27",
-  "generated_at": "2026-11-27T04:19:04+00:00",
+  "date": "2026-11-28",
+  "generated_at": "2026-11-28T03:58:53+00:00",
   "notice": "공개 통계에 사전에 정한 규칙을 적용한 결과다. 투자 판단이나 권유가 아니다.",
   "attribution": [
     "Source: FRED®, Federal Reserve Bank of St. Louis (https://fred.stlouisfed.org/).",
@@ -15,8 +15,8 @@
   ],
   "summary": {
     "total": 13,
-    "met": 1,
-    "not_met": 12,
+    "met": 2,
+    "not_met": 11,
     "unknown": 0
   },
   "rules": [
@@ -36,7 +36,7 @@
           ],
           "derived": false,
           "computed": true,
-          "value": 11.318,
+          "value": 11.27,
           "asof": "2026-10-01"
         },
         {
@@ -60,7 +60,7 @@
       "rule": "전년비(재분류로 보이는 주간 +40십억달러 이상 증가 계단 제외)가 10% 미만이면 충족",
       "status": "not_met",
       "scenario": "A, D",
-      "reading": "NDFI 대출 YoY +19.4%(계단 제외), 총대출의 15.0% → 두 자릿수 유지 = A 진행",
+      "reading": "NDFI 대출 YoY +19.1%(계단 제외), 총대출의 15.0% → 두 자릿수 유지 = A 진행",
       "observations": [
         {
           "label": "NDFI 대출 전년비(계단 제외)",
@@ -70,8 +70,8 @@
           ],
           "derived": false,
           "computed": true,
-          "value": 19.427,
-          "asof": "2026-11-11"
+          "value": 19.088,
+          "asof": "2026-11-18"
         },
         {
           "label": "총대출 중 비중",
@@ -82,8 +82,8 @@
           ],
           "derived": false,
           "computed": true,
-          "value": 14.984,
-          "asof": "2026-11-11"
+          "value": 14.982,
+          "asof": "2026-11-18"
         }
       ],
       "restricted_series": [],
@@ -140,7 +140,7 @@
       ],
       "notices": [
         "Baa−10년 스프레드의 12개월 저점 대비와 1990년 이후 분위는 macro-regime-check가 FRED의 BAA10Y로 계산한 값입니다. Moody's가 발표한 값이 아닙니다.",
-        "Federal Reserve Bank of St. Louis, Moody's Seasoned Baa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity [BAA10Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAA10Y, November 27, 2026.",
+        "Federal Reserve Bank of St. Louis, Moody's Seasoned Baa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity [BAA10Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAA10Y, November 28, 2026.",
         "©2017, Moody's Corporation, Moody's Investors Service, Inc., Moody's Analytics, Inc. and/or their licensors and affiliates (collectively, \"Moody's\"). All rights reserved. Moody's ratings and other information (\"Moody's Information\") are proprietary to Moody's and/or its licensors and are protected by copyright and other intellectual property laws. Moody's Information is licensed to Client by Moody's. MOODY'S INFORMATION MAY NOT BE COPIED OR OTHERWISE REPRODUCED, REPACKAGED, FURTHER TRANSMITTED, TRANSFERRED, DISSEMINATED, REDISTRIBUTED OR RESOLD, OR STORED FOR SUBSEQUENT USE FOR ANY SUCH PURPOSE, IN WHOLE OR IN PART, IN ANY FORM OR MANNER OR BY ANY MEANS WHATSOEVER, BY ANY PERSON WITHOUT MOODY'S PRIOR WRITTEN CONSENT."
       ]
     },
@@ -150,7 +150,7 @@
       "rule": "S&P500 일간 수익률과 미 10년 금리 일간 변화의 60영업일 상관이 126영업일 이상 계속 양(+)이면 충족",
       "status": "not_met",
       "scenario": "B",
-      "reading": "ρ60 +0.19, 양(+) 12영업일째(126일 미만)",
+      "reading": "ρ60 +0.19, 양(+) 13영업일째(126일 미만)",
       "observations": [
         {
           "label": "60영업일 상관",
@@ -161,8 +161,8 @@
           ],
           "derived": true,
           "computed": true,
-          "value": 0.191,
-          "asof": "2026-11-24"
+          "value": 0.194,
+          "asof": "2026-11-25"
         },
         {
           "label": "같은 부호 연속",
@@ -173,8 +173,8 @@
           ],
           "derived": true,
           "computed": true,
-          "value": 12,
-          "asof": "2026-11-24"
+          "value": 13,
+          "asof": "2026-11-25"
         }
       ],
       "restricted_series": [],
@@ -186,7 +186,7 @@
       "rule": "10년−2년 금리차가 0보다 작으면 충족",
       "status": "not_met",
       "scenario": "D",
-      "reading": "2s10s +0.24%p → 정상(역전 없음)",
+      "reading": "2s10s +0.25%p → 정상(역전 없음)",
       "observations": [
         {
           "label": "10년−2년",
@@ -196,8 +196,8 @@
           ],
           "derived": false,
           "computed": false,
-          "value": 0.24,
-          "asof": "2026-11-25"
+          "value": 0.25,
+          "asof": "2026-11-27"
         }
       ],
       "restricted_series": [],
@@ -209,7 +209,7 @@
       "rule": "10년 실질금리가 2% 미만이고 10년 BEI가 3개월 전보다 높으면 충족",
       "status": "not_met",
       "scenario": "C",
-      "reading": "10년 실질 2.79% · BEI 2.12%(3개월 -0.20) → 실질 2% 위 = C 반증",
+      "reading": "10년 실질 2.73% · BEI 2.15%(3개월 -0.16) → 실질 2% 위 = C 반증",
       "observations": [
         {
           "label": "10년 실질금리",
@@ -219,8 +219,8 @@
           ],
           "derived": false,
           "computed": false,
-          "value": 2.79,
-          "asof": "2026-11-24"
+          "value": 2.73,
+          "asof": "2026-11-25"
         },
         {
           "label": "10년 BEI",
@@ -230,8 +230,8 @@
           ],
           "derived": false,
           "computed": false,
-          "value": 2.12,
-          "asof": "2026-11-25"
+          "value": 2.15,
+          "asof": "2026-11-27"
         },
         {
           "label": "BEI 3개월 변화",
@@ -241,8 +241,8 @@
           ],
           "derived": false,
           "computed": true,
-          "value": -0.2,
-          "asof": "2026-11-25"
+          "value": -0.16,
+          "asof": "2026-11-27"
         }
       ],
       "restricted_series": [],
@@ -322,7 +322,7 @@
       "rule": "SOFR이 3개월 전보다 0.25%p 이상 높아지면 충족",
       "status": "met",
       "scenario": "A, D",
-      "reading": "SOFR 3.94% (3개월 +0.28) → 재상승 = 2021 빈티지 이자보상 재악화·PIK 증가",
+      "reading": "SOFR 3.95% (3개월 +0.31) → 재상승 = 2021 빈티지 이자보상 재악화·PIK 증가",
       "observations": [
         {
           "label": "SOFR",
@@ -332,8 +332,8 @@
           ],
           "derived": false,
           "computed": false,
-          "value": 3.94,
-          "asof": "2026-11-24"
+          "value": 3.95,
+          "asof": "2026-11-25"
         },
         {
           "label": "3개월 변화",
@@ -343,8 +343,8 @@
           ],
           "derived": false,
           "computed": true,
-          "value": 0.28,
-          "asof": "2026-11-24"
+          "value": 0.31,
+          "asof": "2026-11-25"
         }
       ],
       "restricted_series": [],
@@ -361,9 +361,9 @@
       "key": "reserves_multiplier",
       "title": "지준과 통화승수",
       "rule": "지준/명목GDP가 9% 미만이거나, 3개월 새 0.3%p 이상 늘고 근원 PCE 전년비가 2%를 넘으면 충족",
-      "status": "not_met",
+      "status": "met",
       "scenario": "A, C",
-      "reading": "승수 4.31 · 지준/명목GDP 9.01% (3개월 +0.13%p) → 9% 이상 유지(B 산술)",
+      "reading": "승수 4.31 · 지준/명목GDP 8.97% (3개월 +0.12%p) → 9% 미만 = 대차대조표 임대료 상승(A)",
       "observations": [
         {
           "label": "지준/명목GDP",
@@ -374,8 +374,8 @@
           ],
           "derived": false,
           "computed": true,
-          "value": 9.014,
-          "asof": "2026-11-18"
+          "value": 8.966,
+          "asof": "2026-11-25"
         },
         {
           "label": "3개월 변화",
@@ -386,8 +386,8 @@
           ],
           "derived": false,
           "computed": true,
-          "value": 0.134,
-          "asof": "2026-11-18"
+          "value": 0.117,
+          "asof": "2026-11-25"
         },
         {
           "label": "통화승수(M2/본원통화)",
@@ -521,10 +521,10 @@
   ],
   "regime": {
     "notice": "시나리오 이름표(A~D)·해석 구절·국면 참고값은 운영자가 개인 월간 점검에 적어 둔 메모를 옮긴 참고다 — 예측이 아니라 그날 규칙을 잰 측정 기록이다. 이름표와 구절의 예측력은 검증하지 않았고, 규칙의 충족 여부는 규칙 문장만으로 정해진다. 투자 판단이나 권유가 아니다.",
-    "headline": "핵심 신호 1/11 발동, 판정불가 0 · 중립 규칙 0/2 충족",
+    "headline": "핵심 신호 2/11 발동, 판정불가 0 · 중립 규칙 0/2 충족",
     "core": {
       "total": 11,
-      "met": 1,
+      "met": 2,
       "unknown": 0
     },
     "neutral": {
@@ -536,11 +536,11 @@
       "candidate": "A′",
       "candidate_note": "사분면 판정",
       "sp_13w": "하락",
-      "sp_asof": "2026-11-24",
-      "y10_13w_bp": 27.0,
-      "y10_asof": "2026-11-24",
-      "rho60": 0.191,
-      "rho60_run_days": 12,
+      "sp_asof": "2026-11-25",
+      "y10_13w_bp": 19.0,
+      "y10_asof": "2026-11-25",
+      "rho60": 0.194,
+      "rho60_run_days": 13,
       "rho60_alert": false,
       "core_cpi_lt3": null,
       "core_cpi_yoy": null,
@@ -551,8 +551,8 @@
         "auto_on": 1
       },
       "lines": [
-        "국면 후보 A′ (사분면 판정) · S&P 500 13주 하락 · 미 10년 13주 +27bp",
-        "ρ60 +0.19 (12일 연속)",
+        "국면 후보 A′ (사분면 판정) · S&P 500 13주 하락 · 미 10년 13주 +19bp",
+        "ρ60 +0.19 (13일 연속)",
         "근원 CPI<3% ? (근원 CPI —% · 근원 PCE 3.26% — D1/D2 갈림은 근원 PCE 기준)",
         "전환 경계 자동 트리거 1/2 (t2 ON · t4 OFF; t1·t3 수동, 넷 중 둘 이상이면 ON)"
       ]
@@ -633,7 +633,7 @@
         "computed": false,
         "value": 1.419,
         "asof": "2026-07-01",
-        "citation": "Federal Reserve Bank of St. Louis, Velocity of M2 Money Stock [M2V], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/M2V, November 27, 2026."
+        "citation": "Federal Reserve Bank of St. Louis, Velocity of M2 Money Stock [M2V], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/M2V, November 28, 2026."
       },
       {
         "label": "NDFI 대출 잔액",
@@ -642,8 +642,8 @@
           "LNFACBW027SBOG"
         ],
         "computed": false,
-        "value": 2137.409,
-        "asof": "2026-11-11"
+        "value": 2137.573,
+        "asof": "2026-11-18"
       },
       {
         "label": "명목GDP(연율)",
@@ -712,12 +712,12 @@
       "owner": "FRB",
       "url": "https://fred.stlouisfed.org/series/M2SL",
       "last": "2026-10-01",
-      "age_days": 57,
+      "age_days": 58,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "Board of Governors of the Federal Reserve System (US), M2 [M2SL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/M2SL, November 27, 2026."
+      "citation": "Board of Governors of the Federal Reserve System (US), M2 [M2SL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/M2SL, November 28, 2026."
     },
     {
       "series": "BOGMBASE",
@@ -725,12 +725,12 @@
       "owner": "FRB",
       "url": "https://fred.stlouisfed.org/series/BOGMBASE",
       "last": "2026-10-01",
-      "age_days": 57,
+      "age_days": 58,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "Board of Governors of the Federal Reserve System (US), Monetary Base: Total [BOGMBASE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BOGMBASE, November 27, 2026."
+      "citation": "Board of Governors of the Federal Reserve System (US), Monetary Base: Total [BOGMBASE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BOGMBASE, November 28, 2026."
     },
     {
       "series": "M2V",
@@ -738,25 +738,25 @@
       "owner": "FRB St. Louis",
       "url": "https://fred.stlouisfed.org/series/M2V",
       "last": "2026-07-01",
-      "age_days": 149,
+      "age_days": 150,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": true,
-      "citation": "Federal Reserve Bank of St. Louis, Velocity of M2 Money Stock [M2V], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/M2V, November 27, 2026."
+      "citation": "Federal Reserve Bank of St. Louis, Velocity of M2 Money Stock [M2V], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/M2V, November 28, 2026."
     },
     {
       "series": "WRESBAL",
       "label": "지준 잔액",
       "owner": "FRB",
       "url": "https://fred.stlouisfed.org/series/WRESBAL",
-      "last": "2026-11-18",
-      "age_days": 9,
+      "last": "2026-11-25",
+      "age_days": 3,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "Board of Governors of the Federal Reserve System (US), Liabilities and Capital: Other Factors Draining Reserve Balances: Reserve Balances with Federal Reserve Banks: Week Average [WRESBAL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/WRESBAL, November 27, 2026."
+      "citation": "Board of Governors of the Federal Reserve System (US), Liabilities and Capital: Other Factors Draining Reserve Balances: Reserve Balances with Federal Reserve Banks: Week Average [WRESBAL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/WRESBAL, November 28, 2026."
     },
     {
       "series": "GDP",
@@ -764,38 +764,38 @@
       "owner": "BEA",
       "url": "https://fred.stlouisfed.org/series/GDP",
       "last": "2026-07-01",
-      "age_days": 149,
+      "age_days": 150,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "U.S. Bureau of Economic Analysis, Gross Domestic Product [GDP], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/GDP, November 27, 2026."
+      "citation": "U.S. Bureau of Economic Analysis, Gross Domestic Product [GDP], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/GDP, November 28, 2026."
     },
     {
       "series": "LNFACBW027SBOG",
       "label": "은행의 비은행금융(NDFI) 대출",
       "owner": "FRB",
       "url": "https://fred.stlouisfed.org/series/LNFACBW027SBOG",
-      "last": "2026-11-11",
-      "age_days": 16,
+      "last": "2026-11-18",
+      "age_days": 10,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "Board of Governors of the Federal Reserve System (US), Other Loans and Leases: All Other Loans and Leases: Loans to Nondepository Financial Institutions, All Commercial Banks [LNFACBW027SBOG], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/LNFACBW027SBOG, November 27, 2026."
+      "citation": "Board of Governors of the Federal Reserve System (US), Other Loans and Leases: All Other Loans and Leases: Loans to Nondepository Financial Institutions, All Commercial Banks [LNFACBW027SBOG], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/LNFACBW027SBOG, November 28, 2026."
     },
     {
       "series": "TOTLL",
       "label": "은행 총대출",
       "owner": "FRB",
       "url": "https://fred.stlouisfed.org/series/TOTLL",
-      "last": "2026-11-11",
-      "age_days": 16,
+      "last": "2026-11-18",
+      "age_days": 10,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "Board of Governors of the Federal Reserve System (US), Loans and Leases in Bank Credit, All Commercial Banks [TOTLL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/TOTLL, November 27, 2026."
+      "citation": "Board of Governors of the Federal Reserve System (US), Loans and Leases in Bank Credit, All Commercial Banks [TOTLL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/TOTLL, November 28, 2026."
     },
     {
       "series": "BUSLOANS",
@@ -803,12 +803,12 @@
       "owner": "FRB",
       "url": "https://fred.stlouisfed.org/series/BUSLOANS",
       "last": "2026-10-01",
-      "age_days": 57,
+      "age_days": 58,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "Board of Governors of the Federal Reserve System (US), Commercial and Industrial Loans, All Commercial Banks [BUSLOANS], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BUSLOANS, November 27, 2026."
+      "citation": "Board of Governors of the Federal Reserve System (US), Commercial and Industrial Loans, All Commercial Banks [BUSLOANS], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BUSLOANS, November 28, 2026."
     },
     {
       "series": "THREEFYTP10",
@@ -816,12 +816,12 @@
       "owner": "FRB (Kim-Wright)",
       "url": "https://fred.stlouisfed.org/series/THREEFYTP10",
       "last": "2026-11-20",
-      "age_days": 7,
+      "age_days": 8,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "Board of Governors of the Federal Reserve System (US), Term Premium on a 10 Year Zero Coupon Bond [THREEFYTP10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/THREEFYTP10, November 27, 2026."
+      "citation": "Board of Governors of the Federal Reserve System (US), Term Premium on a 10 Year Zero Coupon Bond [THREEFYTP10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/THREEFYTP10, November 28, 2026."
     },
     {
       "series": "BAA10Y",
@@ -829,103 +829,103 @@
       "owner": "Moody's",
       "url": "https://fred.stlouisfed.org/series/BAA10Y",
       "last": "2026-11-24",
-      "age_days": 3,
+      "age_days": 4,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": true,
-      "citation": "Federal Reserve Bank of St. Louis, Moody's Seasoned Baa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity [BAA10Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAA10Y, November 27, 2026."
+      "citation": "Federal Reserve Bank of St. Louis, Moody's Seasoned Baa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity [BAA10Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAA10Y, November 28, 2026."
     },
     {
       "series": "BAMLH0A0HYM2",
       "label": "HY OAS",
       "owner": "ICE Data Indices",
       "url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2",
-      "last": "2026-11-24",
-      "age_days": 3,
+      "last": "2026-11-26",
+      "age_days": 2,
       "fetched": "net",
       "stale": false,
       "display": "status_only",
       "citation_required": false,
-      "citation": "Ice Data Indices, LLC, ICE BofA US High Yield Index Option-Adjusted Spread [BAMLH0A0HYM2], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAMLH0A0HYM2, November 27, 2026."
+      "citation": "Ice Data Indices, LLC, ICE BofA US High Yield Index Option-Adjusted Spread [BAMLH0A0HYM2], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAMLH0A0HYM2, November 28, 2026."
     },
     {
       "series": "BAMLC0A0CM",
       "label": "IG OAS",
       "owner": "ICE Data Indices",
       "url": "https://fred.stlouisfed.org/series/BAMLC0A0CM",
-      "last": "2026-11-24",
-      "age_days": 3,
+      "last": "2026-11-26",
+      "age_days": 2,
       "fetched": "net",
       "stale": false,
       "display": "status_only",
       "citation_required": false,
-      "citation": "Ice Data Indices, LLC, ICE BofA US Corporate Index Option-Adjusted Spread [BAMLC0A0CM], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAMLC0A0CM, November 27, 2026."
+      "citation": "Ice Data Indices, LLC, ICE BofA US Corporate Index Option-Adjusted Spread [BAMLC0A0CM], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/BAMLC0A0CM, November 28, 2026."
     },
     {
       "series": "SP500",
       "label": "S&P500",
       "owner": "S&P Dow Jones Indices",
       "url": "https://fred.stlouisfed.org/series/SP500",
-      "last": "2026-11-24",
+      "last": "2026-11-25",
       "age_days": 3,
       "fetched": "net",
       "stale": false,
       "display": "status_only",
       "citation_required": false,
-      "citation": "S&P Dow Jones Indices LLC, S&P 500 [SP500], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/SP500, November 27, 2026."
+      "citation": "S&P Dow Jones Indices LLC, S&P 500 [SP500], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/SP500, November 28, 2026."
     },
     {
       "series": "DGS10",
       "label": "미 10년",
       "owner": "FRB",
       "url": "https://fred.stlouisfed.org/series/DGS10",
-      "last": "2026-11-24",
+      "last": "2026-11-25",
       "age_days": 3,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis [DGS10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DGS10, November 27, 2026."
+      "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis [DGS10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DGS10, November 28, 2026."
     },
     {
       "series": "T10Y2Y",
       "label": "10년−2년",
       "owner": "FRB St. Louis",
       "url": "https://fred.stlouisfed.org/series/T10Y2Y",
-      "last": "2026-11-25",
-      "age_days": 2,
+      "last": "2026-11-27",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": true,
-      "citation": "Federal Reserve Bank of St. Louis, 10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity [T10Y2Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10Y2Y, November 27, 2026."
+      "citation": "Federal Reserve Bank of St. Louis, 10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity [T10Y2Y], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10Y2Y, November 28, 2026."
     },
     {
       "series": "DFII10",
       "label": "10년 실질",
       "owner": "FRB",
       "url": "https://fred.stlouisfed.org/series/DFII10",
-      "last": "2026-11-24",
+      "last": "2026-11-25",
       "age_days": 3,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed [DFII10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DFII10, November 27, 2026."
+      "citation": "Board of Governors of the Federal Reserve System (US), Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed [DFII10], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DFII10, November 28, 2026."
     },
     {
       "series": "T10YIE",
       "label": "10년 BEI",
       "owner": "FRB St. Louis",
       "url": "https://fred.stlouisfed.org/series/T10YIE",
-      "last": "2026-11-25",
-      "age_days": 2,
+      "last": "2026-11-27",
+      "age_days": 1,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": true,
-      "citation": "Federal Reserve Bank of St. Louis, 10-Year Breakeven Inflation Rate [T10YIE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10YIE, November 27, 2026."
+      "citation": "Federal Reserve Bank of St. Louis, 10-Year Breakeven Inflation Rate [T10YIE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/T10YIE, November 28, 2026."
     },
     {
       "series": "PCEPILFE",
@@ -933,12 +933,12 @@
       "owner": "BEA",
       "url": "https://fred.stlouisfed.org/series/PCEPILFE",
       "last": "2026-10-01",
-      "age_days": 57,
+      "age_days": 58,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "U.S. Bureau of Economic Analysis, Personal Consumption Expenditures Excluding Food and Energy (Chain-Type Price Index) [PCEPILFE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/PCEPILFE, November 27, 2026."
+      "citation": "U.S. Bureau of Economic Analysis, Personal Consumption Expenditures Excluding Food and Energy (Chain-Type Price Index) [PCEPILFE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/PCEPILFE, November 28, 2026."
     },
     {
       "series": "CPILFESL",
@@ -946,25 +946,25 @@
       "owner": "BLS",
       "url": "https://fred.stlouisfed.org/series/CPILFESL",
       "last": "2026-10-01",
-      "age_days": 57,
+      "age_days": 58,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "U.S. Bureau of Labor Statistics, Consumer Price Index for All Urban Consumers: All Items Less Food and Energy in U.S. City Average [CPILFESL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/CPILFESL, November 27, 2026."
+      "citation": "U.S. Bureau of Labor Statistics, Consumer Price Index for All Urban Consumers: All Items Less Food and Energy in U.S. City Average [CPILFESL], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/CPILFESL, November 28, 2026."
     },
     {
       "series": "SOFR",
       "label": "SOFR",
       "owner": "FRBNY",
       "url": "https://fred.stlouisfed.org/series/SOFR",
-      "last": "2026-11-24",
+      "last": "2026-11-25",
       "age_days": 3,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": true,
-      "citation": "Federal Reserve Bank of New York, Secured Overnight Financing Rate [SOFR], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/SOFR, November 27, 2026."
+      "citation": "Federal Reserve Bank of New York, Secured Overnight Financing Rate [SOFR], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/SOFR, November 28, 2026."
     },
     {
       "series": "DEXKOUS",
@@ -972,12 +972,12 @@
       "owner": "FRB",
       "url": "https://fred.stlouisfed.org/series/DEXKOUS",
       "last": "2026-11-20",
-      "age_days": 7,
+      "age_days": 8,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "Board of Governors of the Federal Reserve System (US), South Korean Won to U.S. Dollar Spot Exchange Rate [DEXKOUS], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DEXKOUS, November 27, 2026."
+      "citation": "Board of Governors of the Federal Reserve System (US), South Korean Won to U.S. Dollar Spot Exchange Rate [DEXKOUS], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DEXKOUS, November 28, 2026."
     },
     {
       "series": "CES5552300001",
@@ -985,12 +985,12 @@
       "owner": "BLS",
       "url": "https://fred.stlouisfed.org/series/CES5552300001",
       "last": "2026-10-01",
-      "age_days": 57,
+      "age_days": 58,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "U.S. Bureau of Labor Statistics, All Employees, Securities, Commodity Contracts, Funds, Trusts, and Other Financial Vehicles, Investments, and Related Activities [CES5552300001], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/CES5552300001, November 27, 2026."
+      "citation": "U.S. Bureau of Labor Statistics, All Employees, Securities, Commodity Contracts, Funds, Trusts, and Other Financial Vehicles, Investments, and Related Activities [CES5552300001], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/CES5552300001, November 28, 2026."
     },
     {
       "series": "UNRATE",
@@ -998,12 +998,12 @@
       "owner": "BLS",
       "url": "https://fred.stlouisfed.org/series/UNRATE",
       "last": "2026-10-01",
-      "age_days": 57,
+      "age_days": 58,
       "fetched": "net",
       "stale": false,
       "display": "value",
       "citation_required": false,
-      "citation": "U.S. Bureau of Labor Statistics, Unemployment Rate [UNRATE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/UNRATE, November 27, 2026."
+      "citation": "U.S. Bureau of Labor Statistics, Unemployment Rate [UNRATE], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/UNRATE, November 28, 2026."
     }
   ],
   "warnings": [
